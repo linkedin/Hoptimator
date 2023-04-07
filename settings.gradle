@@ -1,0 +1,10 @@
+
+rootProject.name='hoptimator'
+
+include 'hoptimator-catalog'
+
+dependencyResolutionManagement {
+  repositories {
+    mavenCentral()
+  }
+}

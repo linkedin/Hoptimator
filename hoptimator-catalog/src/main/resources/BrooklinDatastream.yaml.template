@@ -1,0 +1,9 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Datastream
+metadata:
+  name: hoptimator-{{pipeline.name}}-{{name}}-datastream
+  namespace: {{pipeline.namespace}}
+spec:
+  name: hoptimator-{{pipeline.name}}-{{name}}
+  avroSchema: |
+    {{pipeline.avroSchema}}
