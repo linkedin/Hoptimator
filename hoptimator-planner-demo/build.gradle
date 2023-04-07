@@ -1,0 +1,12 @@
+apply plugin: 'java'
+apply plugin: 'application'
+
+application {
+  mainClass ='com.linkedin.hoptimator.planner.HoptimatorPlannerDemo'
+}
+ 
+dependencies {
+  implementation project(':hoptimator-catalog')
+  implementation project(':hoptimator-planner')
+  implementation libs.calciteCore
+}
