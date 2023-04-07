@@ -1,5 +1,10 @@
 apply plugin: 'java'
+apply plugin: 'application' // to enable running demo
 
+application {
+  mainClass ='com.linkedin.hoptimator.planner.HoptimatorPlannerDemo'
+}
+ 
 dependencies {
   implementation project(':hoptimator-catalog')
 

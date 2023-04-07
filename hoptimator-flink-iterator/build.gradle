@@ -1,0 +1,25 @@
+apply plugin: 'java'
+apply plugin: 'application' // to enable running demo
+
+application {
+  mainClass ='com.linkedin.hoptimator.flink.iterator.FlinkIterableDemo'
+  applicationDefaultJvmArgs = ['--add-opens', 'java.base/java.lang=ALL-UNNAMED', '--add-opens', 'java.base/java.util=ALL-UNNAMED']
+}
+
+dependencies {
+  implementation libs.flinkTablePlanner
+  implementation libs.flinkClients
+  implementation libs.flinkTableApiJavaBridge
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+jar {
+  zip64 true
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}

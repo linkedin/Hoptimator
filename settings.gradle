@@ -3,6 +3,9 @@ rootProject.name='hoptimator'
 
 include 'hoptimator-catalog'
 include 'hoptimator-planner'
+include 'hoptimator-flink-iterator'
+include 'hoptimator-flink-runner'
+include 'hoptimator-planner-demo'
 
 dependencyResolutionManagement {
   repositories {
