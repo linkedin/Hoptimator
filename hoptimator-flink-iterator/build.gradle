@@ -1,9 +1,5 @@
-apply plugin: 'java'
-apply plugin: 'application' // to enable running demo
-
-application {
-  mainClass ='com.linkedin.hoptimator.flink.iterator.FlinkIterableDemo'
-  applicationDefaultJvmArgs = ['--add-opens', 'java.base/java.lang=ALL-UNNAMED', '--add-opens', 'java.base/java.util=ALL-UNNAMED']
+plugins {
+  id 'java'
 }
 
 dependencies {

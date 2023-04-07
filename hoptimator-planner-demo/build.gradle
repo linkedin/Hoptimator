@@ -1,5 +1,7 @@
-apply plugin: 'java'
-apply plugin: 'application'
+plugins {
+  id 'java'
+  id 'application'
+}
 
 application {
   mainClass ='com.linkedin.hoptimator.planner.HoptimatorPlannerDemo'
