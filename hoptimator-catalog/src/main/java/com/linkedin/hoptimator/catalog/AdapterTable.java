@@ -6,7 +6,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptCluster;
@@ -68,7 +67,7 @@ public class AdapterTable extends AbstractTable implements ResourceProvider, Scr
 
   /** Not necessarily the Avro schema used to construct this object, since it is converted and reconverted. */
   public Schema avroSchema() {
-    return AvroConverter.avro(rowType());
+    return AvroConverter.avro(name, database, rowType());
   }
 
   @Override
@@ -95,7 +94,7 @@ public class AdapterTable extends AbstractTable implements ResourceProvider, Scr
   /** Expresses the table as SQL/DDL in the defaul dialect. */
   @Override
   public String toString() {
-    SqlWriter w = new SqlPrettyWriter(AnsiSqlDialect.DEFAULT);
+    SqlWriter w = new SqlPrettyWriter();
     implement(w);
     return w.toSqlString().getSql();
   }

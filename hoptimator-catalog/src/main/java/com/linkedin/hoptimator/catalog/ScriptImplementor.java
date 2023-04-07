@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.catalog;
 
 import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.SqlWriterConfig;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlRowTypeNameSpec;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
@@ -61,7 +62,7 @@ public interface ScriptImplementor {
   }
 
   default String sql(SqlDialect dialect) {
-    SqlWriter w = new SqlPrettyWriter(dialect);
+    SqlWriter w = new SqlPrettyWriter(SqlWriterConfig.of().withDialect(dialect));
     implement(w);
     return w.toSqlString().getSql()
       .replaceAll("\\n", " ").replaceAll(";", ";\n").trim();

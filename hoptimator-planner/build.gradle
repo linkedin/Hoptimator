@@ -1,11 +1,10 @@
 apply plugin: 'java'
 
 dependencies {
-  implementation libs.avro
-  implementation libs.calciteCore
+  implementation project(':hoptimator-catalog')
 
-  testImplementation libs.junit
-  testImplementation libs.assertj
+  implementation libs.calciteAvatica
+  implementation libs.calciteCore
 }
 
 tasks.withType(JavaCompile) {
