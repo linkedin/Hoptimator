@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.catalog;
 
+import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptPlanner;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -12,10 +15,13 @@ import java.util.stream.Collectors;
 public final class AdapterService {
   private static final AdapterService INSTANCE = new AdapterService(providers());
   private final Map<String, Adapter> adapters;
+  private final List<RelOptRule> rules;
 
   private AdapterService(Collection<AdapterProvider> providers) {
     this.adapters = providers.stream().flatMap(x -> x.adapters().stream())
       .collect(Collectors.toMap(x -> x.database(), x -> x));
+    this.rules = providers.stream().flatMap(x -> x.rules().stream())
+      .collect(Collectors.toList());
   }
 
   private static Collection<AdapterProvider> providers() {
@@ -45,6 +51,14 @@ public final class AdapterService {
   }
 
   public static Collection<Adapter> adapters() {
-    return INSTANCE.adapters.values();
+    return Collections.unmodifiableCollection(INSTANCE.adapters.values());
+  }
+
+  public static Collection<RelOptRule> rules() {
+    return Collections.unmodifiableCollection(INSTANCE.rules);
+  }
+
+  public static void registerRules(RelOptPlanner planner) {
+    INSTANCE.rules.forEach(x -> planner.addRule(x));
   }
 }

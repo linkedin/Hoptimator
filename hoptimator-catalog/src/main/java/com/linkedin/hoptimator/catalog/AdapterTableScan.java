@@ -17,7 +17,7 @@ public class AdapterTableScan extends TableScan implements AdapterRel {
 
   @Override
   public void register(RelOptPlanner planner) {
-    AdapterRules.registerRules(planner);
+    AdapterService.registerRules(planner);
   }
 }
 

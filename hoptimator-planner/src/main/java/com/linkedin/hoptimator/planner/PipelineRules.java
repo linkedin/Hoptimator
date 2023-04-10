@@ -29,11 +29,13 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
 
+import com.linkedin.hoptimator.catalog.Adapter;
 import com.linkedin.hoptimator.catalog.AdapterTable;
 import com.linkedin.hoptimator.catalog.AdapterTableScan;
-import com.linkedin.hoptimator.catalog.ProtoTable;
-import com.linkedin.hoptimator.catalog.AdapterRules;
+import com.linkedin.hoptimator.catalog.AdapterProvider;
 import com.linkedin.hoptimator.catalog.AdapterRel;
+import com.linkedin.hoptimator.catalog.AdapterService;
+import com.linkedin.hoptimator.catalog.ProtoTable;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -42,10 +44,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.Objects;
 
-public class PipelineRules implements AdapterRules {
+public class PipelineRules implements AdapterProvider {
 
   @Override
-  public Collection<RelRule> rules() {
+  public Collection<Adapter> adapters() {
+    return Collections.emptyList();
+  }
+
+  @Override
+  public Collection<RelOptRule> rules() {
     return Arrays.asList(
       PipelineTableScanRule.INSTANCE,
       PipelineFilterRule.INSTANCE,
@@ -111,11 +118,6 @@ public class PipelineRules implements AdapterRules {
     }
 
     @Override
-    public void register(RelOptPlanner planner) {
-      AdapterRules.registerRules(planner);
-    }
-
-    @Override
     public void implement(Implementor implementor) {
       Table table = findTable(schema(this), name(this));
       if (table instanceof ProtoTable) {
@@ -160,12 +162,6 @@ public class PipelineRules implements AdapterRules {
     }
 
     @Override
-    public void register(RelOptPlanner planner) {
-      AdapterRules.registerRules(planner);
-      super.register(planner);
-    }
-
-    @Override
     public PipelineFilter copy(RelTraitSet traitSet, RelNode input, RexNode conditions) {
       return new PipelineFilter(getCluster(), traitSet, input, conditions);
     }
@@ -203,12 +199,6 @@ public class PipelineRules implements AdapterRules {
       super(cluster, traitSet, Collections.emptyList(), input, projects, rowType);
       assert getConvention() == PipelineRel.CONVENTION;
       assert input.getConvention() == PipelineRel.CONVENTION;
-    }
-
-    @Override
-    public void register(RelOptPlanner planner) {
-      AdapterRules.registerRules(planner);
-      super.register(planner);
     }
 
     @Override
@@ -251,12 +241,6 @@ public class PipelineRules implements AdapterRules {
     }
 
     @Override
-    public void register(RelOptPlanner planner) {
-      AdapterRules.registerRules(planner);
-      super.register(planner);
-    }
-
-    @Override
     public PipelineJoin copy(RelTraitSet traitSet, RexNode condition, RelNode left, RelNode right, JoinRelType joinType,
         boolean semiJoinDone) {
       return new PipelineJoin(getCluster(), traitSet, left, right, condition, getVariablesSet(), joinType);
@@ -291,12 +275,6 @@ public class PipelineRules implements AdapterRules {
 
     PipelineCalc(RelOptCluster cluster, RelTraitSet traitSet, RelNode child, RexProgram program) {
       super(cluster, traitSet, Collections.emptyList(), child, program);
-    }
-
-    @Override
-    public void register(RelOptPlanner planner) {
-      AdapterRules.registerRules(planner);
-      super.register(planner);
     }
 
     @Override
