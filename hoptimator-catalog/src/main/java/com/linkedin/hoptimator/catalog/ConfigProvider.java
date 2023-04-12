@@ -17,12 +17,8 @@ public interface ConfigProvider {
   }
 
   static ConfigProvider from(Map<String, ?> configs) {
-    return fromPrefixed("", configs);
-  }
-
-  static ConfigProvider fromPrefixed(String prefix, Map<String, ?> configs) {
     Map<String, String> strings = configs.entrySet().stream()
-      .collect(Collectors.toMap(x -> prefix + x.getKey(), x -> x.getValue().toString()));
+      .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().toString()));
     return x -> strings;
   }
 

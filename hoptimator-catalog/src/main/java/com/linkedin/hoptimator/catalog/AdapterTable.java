@@ -17,19 +17,18 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * AdapterTables can have baggage, including Resources and arbitrary DDL/SQL.
+ * AdapterTables can have "baggage", including Resources and arbitrary DDL/SQL.
  *
- * This mechanism is extremely powerful. In addition to enabling views, we can bring
- * along arbitrary infra required to materialize a view. For example, an Espresso
- * table can bring along a Brooklin CDC datatstream, or a Rest.li table can bring
- * along a Couchbase cache. Generally, such Resources won't physically exist until
- * they are needed by a pipeline, at which point Hoptimator will orchestrate their
- * deployment.
+ * This mechanism is extremely powerful. In addition to enabling views, we can
+ * bring along arbitrary infra required to materialize a view. For example, a
+ * table can bring along a CDC stream or a cache. Generally, such Resources
+ * won't physically exist until they are needed by a pipeline, at which point
+ * Hoptimator will orchestrate their deployment.
  */ 
 public class AdapterTable extends AbstractTable implements ResourceProvider, ScriptImplementor, TranslatableTable {
-  private String database;
-  private String name;
-  private RelDataType rowType;
+  private final String database;
+  private final String name;
+  private final RelDataType rowType;
   private final ResourceProvider resourceProvider;
   private final ScriptImplementor implementor;
 
@@ -80,6 +79,7 @@ public class AdapterTable extends AbstractTable implements ResourceProvider, Scr
     return resourceProvider.resources();
   }
 
+  /** Writes DDL/SQL that implements the table, e.g. a view or connector.  */
   @Override
   public void implement(SqlWriter writer) {
     implementor.implement(writer);
@@ -91,7 +91,7 @@ public class AdapterTable extends AbstractTable implements ResourceProvider, Scr
     return new AdapterTableScan(cluster, cluster.traitSetOf(AdapterRel.CONVENTION), relOptTable);
   }
 
-  /** Expresses the table as SQL/DDL in the defaul dialect. */
+  /** Expresses the table as SQL/DDL in the default dialect. */
   @Override
   public String toString() {
     SqlWriter w = new SqlPrettyWriter();

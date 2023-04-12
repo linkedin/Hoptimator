@@ -10,38 +10,44 @@ import java.util.Scanner;
 import java.util.function.Supplier;
 import java.io.InputStream;
 
-/** Represents something required by a Table.
+/**
+ * Represents something required by a Table.
  *
- *  In Hoptimator, Tables can come along with baggage in the form of Resources,
- *  which are essentially YAML files. Each Resource is rendered into YAML
- *  with a specific Template. Thus, it's possible to represent Kafka topics,
- *  Brooklin datastreams, Flink jobs, and so on, as part of a Table, just
- *  by including a corresponding Resource.
+ * In Hoptimator, Tables can come with "baggage" in the form of Resources,
+ * which are essentially YAML files. Each Resource is rendered into YAML
+ * with a specific Template. Thus, it's possible to represent Kafka topics,
+ * Brooklin datastreams, Flink jobs, and so on, as part of a Table, just
+ * by including a corresponding Resource.
  *
- *  Resources are injected into a Pipeline by the planner as needed. Generally,
- *  each Resource Template corresponds to a K8s operator/controller.
+ * Resources are injected into a Pipeline by the planner as needed. Generally,
+ * each Resource Template corresponds to a Kubernetes controller.
  */
 public abstract class Resource {
   private final String template;
   private final Map<String, Supplier<String>> properties = new HashMap<>();
 
+  /** A Resource that will be rendered with the specified template */
   public Resource(String name, String template) {
     this(template);
     export("name", name);
   }
 
+  /** A Resource that will be rendered with the specified template */
   public Resource(String template) {
     this.template = template;
   }
 
+  /** Export a computed value to the template */
   protected void export(String key, Supplier<String> supplier) {
     properties.put(key, supplier);
   }
 
+  /** Export a static value to the template */
   protected void export(String key, String value) {
     properties.put(key, () -> value);
   }
 
+  /** The name of the template used to render this Resource */
   public String template() {
     return template;
   }
@@ -58,6 +64,7 @@ public abstract class Resource {
     return getOrDefault("name", () -> "(no name)");
   }
 
+  /** Render this Resource using the given TemplateFactory */
   public String render(TemplateFactory templateFactory) {
     return templateFactory.get(this).render(this);
   }
@@ -96,14 +103,7 @@ public abstract class Resource {
     String get(String key);
   }
 
-  public static class TestEnvironment implements Environment {
-
-    @Override
-    public String get(String key) {
-      return "test";
-    }
-  }
-
+  /** Basic Environment implementation */
   public static class SimpleEnvironment implements Environment {
     private final Map<String, String> vars;
 
@@ -171,28 +171,29 @@ public abstract class Resource {
     String render(Resource resource);
   }
 
-  /** Replaces `{{var}}` in a template file with the corresponding variable.
+  /**
+   * Replaces `{{var}}` in a template file with the corresponding variable.
    *
-   *  Resource-scoped variables take precedence over Environment-scoped variables.
+   * Resource-scoped variables take precedence over Environment-scoped variables.
    *
-   *  If `var` contains multiple lines, the behavior depends on context; specifically,
-   *  whether the pattern appears within a list or comment (prefixed with `-` or `#`).
-   *  For example, if the template includes:
+   * If `var` contains multiple lines, the behavior depends on context; specifically,
+   * whether the pattern appears within a list or comment (prefixed with `-` or `#`).
+   * For example, if the template includes:
    *
-   *    - {{var}}
+   *   - {{var}}
    *
-   *  ...and `var` contains multiple lines, then the output will be:
+   * ...and `var` contains multiple lines, then the output will be:
    *
-   *    - value line 1
-   *    - value line 2
+   *   - value line 1
+   *   - value line 2
    *
-   *  To avoid this behavior (and just get a multiline string), use one of YAML's multiline
-   *  markers, e.g.
+   * To avoid this behavior (and just get a multiline string), use one of YAML's multiline
+   * markers, e.g.
    *
-   *    - |
-   *        {{var}}
+   *   - |
+   *       {{var}}
    *
-   *  In either case, the multiline string will be properly indented.
+   * In either case, the multiline string will be properly indented.
    */
   public static class SimpleTemplate implements Template {
     private final Environment env;
@@ -233,7 +234,7 @@ public abstract class Resource {
     Template get(Resource resource);
   }
  
-  /** Finds a Template for a given Resource by looking for resource files in the jar. */ 
+  /** Finds a Template for a given Resource by looking for resource files in the classpath. */ 
   public static class SimpleTemplateFactory implements TemplateFactory {
     private final Environment env;
 

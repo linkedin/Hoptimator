@@ -7,8 +7,8 @@ import org.apache.calcite.schema.SchemaPlus;
 import java.util.Map;
 
 /**
- * Enables loading an Adapter via a jdbc connection string and/or Calcite model
- * file.
+ * Enables loading an Adapter via a JDBC connection string and/or Calcite
+ * model file.
  */
 public final class AdapterSchemaFactory implements SchemaFactory {
   /** Public singleton, per factory contract. */

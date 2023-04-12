@@ -24,15 +24,40 @@ import java.util.List;
 import java.util.Arrays;
 import java.util.stream.Collectors;
 
-/** An abstract way to write SQL scripts. */
+/**
+ * An abstract way to write SQL scripts.
+ *
+ * This enables Adapters to implement themselves without being tied to a
+ * specific compute engine or SQL dialect.
+ *
+ * To generate a specific statement, implement this interface, or use one
+ * of the provided implementations, e.g. `QueryImplementor`.
+ *
+ * To generate a script (more than one statement), start with `empty()`
+ * and append subsequent ScriptImplementors with `with(...)` etc.
+ *
+ * e.g.
+ *
+ *   ScriptImplementor.empty()
+ *     .database(db)
+ *     .connector(db, name, rowType, configs)
+ *
+ * ... would produce something like
+ *
+ *   CREATE DATABASE IF NOT EXIST `FOO`;
+ *   CREATE TABLE `BAR` (NAME VARCHAR) WITH ('key1' = 'value1');
+ */
 public interface ScriptImplementor {
 
+  /** Writes arbitrary DDL/SQL */
   void implement(SqlWriter writer);
 
+  /** Construct an empty ScriptImplementor */
   static ScriptImplementor empty() {
     return w -> { };
   }
 
+  /** Append a subsequent ScriptImplementor */
   default ScriptImplementor with(ScriptImplementor next) {
     return w -> {
       implement(w);
@@ -40,27 +65,33 @@ public interface ScriptImplementor {
     };
   }
 
+  /** Append a query */
   default ScriptImplementor query(RelNode relNode) {
     return with(new QueryImplementor(relNode));
   }
 
+  /** Append a connector definition, e.g. `CREATE TABLE ... WITH (...)` */
   default ScriptImplementor connector(String database, String name, RelDataType rowType,
       Map<String, String> connectorConfig) {
     return with(new ConnectorImplementor(database, name, rowType, connectorConfig));
   }
 
+  /** Append a database definition, e.g. `CREATE DATABASE ...` */
   default ScriptImplementor database(String database) {
     return with(new DatabaseImplementor(database));
   }
 
+  /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
   default ScriptImplementor insert(String database, String name, RelNode relNode) {
     return with(new InsertImplementor(database, name, relNode));
   }
- 
+
+  /** Render the script as DDL/SQL in the default dialect */ 
   default String sql() {
     return sql(AnsiSqlDialect.DEFAULT);
   }
 
+  /** Render the script as DDL/SQL in the given dialect */
   default String sql(SqlDialect dialect) {
     SqlWriter w = new SqlPrettyWriter(SqlWriterConfig.of().withDialect(dialect));
     implement(w);
@@ -69,10 +100,10 @@ public interface ScriptImplementor {
   }
 
   /** Implements an arbitrary RelNode as a statement */
-  class RelStatementImplementor implements ScriptImplementor {
+  class StatementImplementor implements ScriptImplementor {
     private final RelNode relNode;
 
-    public RelStatementImplementor(RelNode relNode) {
+    public StatementImplementor(RelNode relNode) {
       this.relNode = relNode;
     }
 
@@ -100,7 +131,7 @@ public interface ScriptImplementor {
     }
   } 
 
-  /** Implements a CREATE TABLE...PARTITIONED BY...WITH... Flink DDL statement */
+  /** Implements a CREATE TABLE...WITH... DDL statement */
   class ConnectorImplementor implements ScriptImplementor {
     private final String database;
     private final String name;
@@ -132,7 +163,7 @@ public interface ScriptImplementor {
     }
   }
 
-  /** Implements a CREATE TEMPORARY VIEW Flink DDL statement */
+  /** Implements a CREATE TEMPORARY VIEW DDL statement */
   class ViewImplementor implements ScriptImplementor {
     private final String database;
     private final String name;
@@ -214,7 +245,7 @@ public interface ScriptImplementor {
     }
   }
 
-  /** Implements type specs, e.g. NAME VARCHAR(20) */
+  /** Implements type specs, e.g. `NAME VARCHAR(20)` */
   class DataTypeSpecImplementor implements ScriptImplementor {
     private final RelDataType dataType;
 
@@ -265,7 +296,7 @@ public interface ScriptImplementor {
     }
   }
 
-  /** Implements column lists, e.g. NAME, AGE */
+  /** Implements column lists, e.g. `NAME, AGE` */
   class ColumnListImplementor implements ScriptImplementor {
     private final List<RelDataTypeField> fields;
 
@@ -290,7 +321,7 @@ public interface ScriptImplementor {
     }
   }
 
-  /** Implements Flink's ('key'='value', ...) clause */
+  /** Implements Flink's `('key'='value', ...)` clause */
   class ConfigSpecImplementor implements ScriptImplementor {
     private final Map<String, String> config;
 

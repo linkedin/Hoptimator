@@ -15,6 +15,7 @@ import java.util.AbstractMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/** Converts between Avro and Calcite's RelDataType */
 public final class AvroConverter {
 
   private AvroConverter() {

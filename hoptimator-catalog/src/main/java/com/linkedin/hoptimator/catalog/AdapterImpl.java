@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 
+/** Basic Adapter implementation */
 public class AdapterImpl implements Adapter {
   private final String database;
   private final TableLister tableLister;

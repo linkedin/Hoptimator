@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.catalog;
 
+/** Common Resources */
 public final class Resources {
 
   private Resources() {
@@ -17,6 +18,7 @@ public final class Resources {
     }
   }
 
+  /** Anything that can run SQL, e.g. a Flink job */
   public static class SqlJob extends Resource {
     public SqlJob(String sql) {
       super("SqlJob");

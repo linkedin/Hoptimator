@@ -7,10 +7,14 @@ import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 
+/** Common data types. Not authoratitive or exhaustive. */
 public enum DataType {
 
   VARCHAR(x -> x.createSqlType(SqlTypeName.VARCHAR)),
   VARCHAR_NOT_NULL(x -> x.createTypeWithNullability(x.createSqlType(SqlTypeName.VARCHAR), false));
+
+  public static final RelDataTypeFactory DEFAULT_TYPE_FACTORY = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+  private final RelProtoDataType protoType;
 
   DataType(RelProtoDataType protoType) {
     this.protoType = protoType; 
@@ -27,9 +31,5 @@ public enum DataType {
   public RelDataType rel() {
     return protoType.apply(DEFAULT_TYPE_FACTORY);
   } 
-
-  private final RelProtoDataType protoType;
-
-  public static final RelDataTypeFactory DEFAULT_TYPE_FACTORY = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
 }
   

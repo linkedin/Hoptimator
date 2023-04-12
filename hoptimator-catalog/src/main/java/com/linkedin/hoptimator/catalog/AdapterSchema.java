@@ -6,7 +6,7 @@ import org.apache.calcite.schema.impl.AbstractSchema;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Exposes an Adapter's namespace to Apache Calcite */
+/** Exposes an Adapter's namespace to Apache Calcite. */
 public class AdapterSchema extends AbstractSchema {
   private final Map<String, Table> tableMap;
 

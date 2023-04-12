@@ -31,6 +31,7 @@ public final class AdapterService {
     return providers;
   }
 
+  /** Find a specific Adapter, or return an empty placeholder Adapter */
   public static Adapter adapter(String database) {
     return INSTANCE.adapters.computeIfAbsent(database, x -> new Adapter() {
       @Override
@@ -50,14 +51,17 @@ public final class AdapterService {
     });
   }
 
+  /** All loaded Adapters */
   public static Collection<Adapter> adapters() {
     return Collections.unmodifiableCollection(INSTANCE.adapters.values());
   }
 
+  /** All loaded additional planner rules */
   public static Collection<RelOptRule> rules() {
     return Collections.unmodifiableCollection(INSTANCE.rules);
   }
 
+  /** Register all rules with the given planner */
   public static void registerRules(RelOptPlanner planner) {
     INSTANCE.rules.forEach(x -> planner.addRule(x));
   }

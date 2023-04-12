@@ -14,7 +14,6 @@ import java.util.concurrent.ExecutionException;
 public class ProtoTable extends AbstractTable implements TranslatableTable {
   private final String name;
   private final Adapter adapter;
-  private RelDataType rowType;
   private AdapterTable table;
 
   ProtoTable(String name, Adapter adapter) {

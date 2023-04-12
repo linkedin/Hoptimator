@@ -9,6 +9,7 @@ import java.util.concurrent.ExecutionException;
 public interface TableResolver {
   RelDataType resolve(String table) throws InterruptedException, ExecutionException;
 
+  /** Appends an extra column to the resolved type */
   default TableResolver with(String name, RelDataType dataType) {
     return x -> {
       RelDataType rowType = resolve(x);

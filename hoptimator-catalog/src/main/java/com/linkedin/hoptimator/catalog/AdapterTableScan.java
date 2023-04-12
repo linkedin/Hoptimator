@@ -8,9 +8,10 @@ import org.apache.calcite.plan.RelOptPlanner;
 
 import java.util.Collections;
 
-public class AdapterTableScan extends TableScan implements AdapterRel {
+/** Internal. */
+public final class AdapterTableScan extends TableScan implements AdapterRel {
 
-  public AdapterTableScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table) {
+  AdapterTableScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table) {
     super(cluster, traitSet, Collections.emptyList(), table);
     assert getConvention() == AdapterRel.CONVENTION;
   }
