@@ -14,7 +14,7 @@ dependencies {
 //  implementation libs.jlineTerminal
 //  implementation libs.jlineReader
 //  implementation libs.jlineBuiltins
-  implementation libs.log4jSlf4jImpl
+  implementation libs.slf4jLog4j
   implementation libs.flinkClients
   implementation libs.flinkTableRuntime
   implementation libs.flinkTablePlanner

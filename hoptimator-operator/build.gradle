@@ -1,0 +1,27 @@
+plugins {
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
+  id 'java'
+  id 'application'
+}
+
+dependencies {
+  implementation project(':hoptimator-planner')
+  implementation project(':hoptimator-catalog')
+  implementation project(':models')
+
+  implementation libs.kafkaClients
+  implementation libs.kubernetesClient
+  implementation libs.kubernetesExtendedClient
+  implementation libs.slf4jLog4j
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+shadowJar {
+  exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
+  zip64 true
+  manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.HoptimatorOperatorApp'
+  mainClassName  = 'com.linkedin.hoptimator.HoptimatorOperatorApp'
+  mergeServiceFiles()
+}
