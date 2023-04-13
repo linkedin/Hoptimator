@@ -2,6 +2,7 @@ plugins {
   id 'com.github.johnrengelman.shadow' version '8.1.1'
   id 'java'
   id 'application'
+  id 'idea'
 }
 
 dependencies {
@@ -18,10 +19,22 @@ dependencies {
   testImplementation libs.assertj
 }
 
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+
 shadowJar {
   exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
   zip64 true
   manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.HoptimatorOperatorApp'
   mainClassName  = 'com.linkedin.hoptimator.HoptimatorOperatorApp'
   mergeServiceFiles()
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
 }

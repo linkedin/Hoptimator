@@ -1,6 +1,7 @@
 plugins {
   id 'java'
   id 'application'
+  id 'idea'
 }
 
 application {
@@ -11,4 +12,16 @@ dependencies {
   implementation project(':hoptimator-catalog')
   implementation project(':hoptimator-planner')
   implementation libs.calciteCore
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
 }
