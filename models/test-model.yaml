@@ -1,0 +1,10 @@
+version: 1.0
+defaultSchema: DATAGEN
+schemas:
+
+- name: DATAGEN
+  type: custom
+  factory: com.linkedin.hoptimator.catalog.AdapterSchemaFactory
+  operand:
+    database: DATAGEN
+

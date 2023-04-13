@@ -1,0 +1,15 @@
+
+rootProject.name='hoptimator'
+
+include 'hoptimator-catalog'
+include 'hoptimator-planner'
+include 'hoptimator-planner-demo'
+include 'hoptimator-flink-iterator'
+include 'hoptimator-flink-runner'
+include 'hoptimator-cli'
+
+dependencyResolutionManagement {
+  repositories {
+    mavenCentral()
+  }
+}

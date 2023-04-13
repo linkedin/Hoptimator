@@ -1,0 +1,15 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(':hoptimator-catalog')
+
+  implementation libs.calciteAvatica
+  implementation libs.calciteCore
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}

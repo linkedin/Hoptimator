@@ -1,0 +1,21 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation libs.flinkTablePlanner
+  implementation libs.flinkClients
+  implementation libs.flinkTableApiJavaBridge
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+jar {
+  zip64 true
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}

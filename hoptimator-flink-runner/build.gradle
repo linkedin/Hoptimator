@@ -1,0 +1,15 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+
+  //Flink depends should be provided by runtime
+  compileOnly libs.flinkTablePlanner
+  compileOnly libs.flinkClients
+  compileOnly libs.flinkTableApiJavaBridge
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+

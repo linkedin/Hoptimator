@@ -1,0 +1,39 @@
+plugins {
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
+  id 'java'
+  id 'application'
+}
+
+dependencies {
+  implementation project(':hoptimator-planner')
+  implementation project(':hoptimator-catalog')
+  implementation project(':hoptimator-flink-iterator')
+
+  implementation libs.avro 
+  implementation libs.sqlline
+//  implementation libs.jlineTerminal
+//  implementation libs.jlineReader
+//  implementation libs.jlineBuiltins
+  implementation libs.log4jSlf4jImpl
+  implementation libs.flinkClients
+  implementation libs.flinkTableRuntime
+  implementation libs.flinkTablePlanner
+  implementation libs.flinkTableApiJavaBridge
+//  implementation libs.protobuf
+  implementation libs.calciteCore
+  implementation libs.calciteAvatica
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+shadowJar {
+  // This is required for Flink and Avatica to play nicely
+  relocate 'com.google', 'org.apache.flink.calcite.shaded.com.google'
+
+  exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
+  zip64 true
+  manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.HoptimatorCliApp'
+  mainClassName  = 'com.linkedin.hoptimator.HoptimatorCliApp'
+  mergeServiceFiles()
+}
