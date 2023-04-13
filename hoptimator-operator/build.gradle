@@ -8,17 +8,12 @@ plugins {
 dependencies {
   implementation project(':hoptimator-planner')
   implementation project(':hoptimator-catalog')
-  implementation project(':hoptimator-flink-iterator')
+  implementation project(':models')
 
-  implementation libs.avro 
-  implementation libs.sqlline
+  implementation libs.kafkaClients
+  implementation libs.kubernetesClient
+  implementation libs.kubernetesExtendedClient
   implementation libs.slf4jLog4j
-  implementation libs.flinkClients
-  implementation libs.flinkTableRuntime
-  implementation libs.flinkTablePlanner
-  implementation libs.flinkTableApiJavaBridge
-  implementation libs.calciteCore
-  implementation libs.calciteAvatica
 
   testImplementation libs.junit
   testImplementation libs.assertj
@@ -30,13 +25,10 @@ tasks.withType(JavaCompile) {
 }
 
 shadowJar {
-  // This is required for Flink and Avatica to play nicely
-  relocate 'com.google', 'org.apache.flink.calcite.shaded.com.google'
-
   exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
   zip64 true
-  manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.HoptimatorCliApp'
-  mainClassName  = 'com.linkedin.hoptimator.HoptimatorCliApp'
+  manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.HoptimatorOperatorApp'
+  mainClassName  = 'com.linkedin.hoptimator.HoptimatorOperatorApp'
   mergeServiceFiles()
 }
 
