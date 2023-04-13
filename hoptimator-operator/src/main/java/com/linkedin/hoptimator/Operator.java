@@ -43,6 +43,7 @@ public class Operator {
     informerFactory.startAllRegisteredInformers();
   }
 
+  @SuppressWarnings("unchecked")
   public <T extends KubernetesObject, L extends KubernetesListObject> ApiInfo<T, L> apiInfo(String singular) {
     if (!this.apiInfo.containsKey(singular)) {
       throw new IllegalArgumentException("No API for '" + singular + "' registered!");
@@ -59,10 +60,12 @@ public class Operator {
     return informerFactory;
   }
 
-  public <T extends KubernetesObject> T fetch(String singular, String namespace, String name) {
+  @SuppressWarnings("unchecked")
+  public <T extends KubernetesObject> T fetch(String singular, String namespace, String name) { 
     return (T) lister(singular).namespace(namespace).get(name);
   }
 
+  @SuppressWarnings("unchecked")
   public <T extends KubernetesObject> Lister<T> lister(String singular) {
     return new Lister<T>((Indexer<T>) informer(singular).getIndexer());
   }
