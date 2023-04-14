@@ -9,16 +9,17 @@ import org.apache.calcite.plan.RelOptPlanner;
 import java.util.Collections;
 
 /** Internal. */
-public final class AdapterTableScan extends TableScan implements AdapterRel {
+public final class HopTableScan extends TableScan implements HopRel {
 
-  AdapterTableScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table) {
+  HopTableScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table) {
     super(cluster, traitSet, Collections.emptyList(), table);
-    assert getConvention() == AdapterRel.CONVENTION;
+    assert getConvention() == HopRel.CONVENTION;
   }
 
   @Override
   public void register(RelOptPlanner planner) {
-    AdapterService.registerRules(planner);
+    planner.addRule(HopTableScanRule.INSTANCE);
+    RuleService.rules().forEach(x -> planner.addRule(x));
   }
 }
 

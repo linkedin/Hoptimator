@@ -12,7 +12,6 @@ public final class HoptimatorHook {
   }
 
   public void run(String s) {
-    System.out.println("RUNNING: " + s);
     lastRun = s;
   }
 

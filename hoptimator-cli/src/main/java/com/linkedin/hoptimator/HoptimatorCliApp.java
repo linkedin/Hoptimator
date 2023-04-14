@@ -7,7 +7,6 @@ import org.jline.reader.Completer;
 
 import org.apache.calcite.rel.RelNode;
 
-import com.linkedin.hoptimator.catalog.AdapterService;
 import com.linkedin.hoptimator.catalog.AvroConverter;
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
@@ -21,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
+import java.util.Properties;
 import java.io.IOException;
 
 public class HoptimatorCliApp {
@@ -47,7 +47,6 @@ public class HoptimatorCliApp {
     commandHandlers.add(new PipelineCommandHandler());
     commandHandlers.add(new IntroCommandHandler());
     sqlline.updateCommandHandlers(commandHandlers);
-    AdapterService.adapters().forEach(x -> sqlline.output("Loaded " + x.database() + " adapter."));
     return sqlline.begin(args, null, true).ordinal();
   }
  
@@ -96,7 +95,7 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
-        HoptimatorPlanner planner = HoptimatorPlanner.create();
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
         RelNode plan = planner.logical(sql);
         String avroSchema = AvroConverter.avro("OutputRecord", "OutputNamespace", plan.getRowType()).toString(true);
         sqlline.output(avroSchema); 
@@ -163,7 +162,7 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
-        HoptimatorPlanner planner = HoptimatorPlanner.create();
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
         PipelineRel plan = planner.pipeline(sql);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         Pipeline pipeline = impl.pipeline(Collections.singletonMap("connector", "dummy"));
@@ -234,7 +233,7 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
-        HoptimatorPlanner planner = HoptimatorPlanner.create();
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
         PipelineRel plan = planner.pipeline(sql);
         sqlline.output("PLAN:");
         sqlline.output(plan.explain());

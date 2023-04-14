@@ -1,3 +1,2 @@
-com.linkedin.hoptimator.catalog.builtin.BuiltinAdapterProvider
 com.linkedin.hoptimator.planner.PipelineRules
 com.linkedin.hoptimator.LocalFlinkRules

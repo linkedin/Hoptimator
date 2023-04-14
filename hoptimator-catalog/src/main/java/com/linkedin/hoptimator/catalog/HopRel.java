@@ -13,6 +13,6 @@ import org.apache.calcite.rel.RelNode;
  * module -- makes no assumptions about the compute layer.
  *  
  */
-public interface AdapterRel extends RelNode {
-  Convention CONVENTION = new Convention.Impl("ADAPTER", AdapterRel.class);
+public interface HopRel extends RelNode {
+  Convention CONVENTION = new Convention.Impl("HOP", HopRel.class);
 }

@@ -21,14 +21,14 @@ public class ScriptImplementorTest {
       .with("connector", "kafka")
       .with("properties.bootstrap.servers", "localhost:9092")
       .with("topic", x -> x);
-    AdapterTable table = new AdapterTable("DATABASE", "TABLE1", rowType, configProvider.config("topic1"));
+    HopTable table = new HopTable("DATABASE", "TABLE1", rowType, configProvider.config("topic1"));
     SqlWriter w = new SqlPrettyWriter();
     table.implement(w);
     String out = w.toString();
     // Output isn't necessarily deterministic, but should be something like:
-    //   CREATE TABLE "DATABASE"."TABLE1" ("idValue1" VARCHAR) WITH
+    //   CREATE TABLE IF NOT EXISTS "DATABASE"."TABLE1" ("idValue1" VARCHAR) WITH
     //   ('connector'='kafka', 'properties.bootstrap.servers'='localhost:9092', 'topic'='topic1')
-    assertTrue(out.contains("CREATE TABLE \"DATABASE\".\"TABLE1\" (\"idValue1\" VARCHAR) WITH "));
+    assertTrue(out.contains("CREATE TABLE IF NOT EXISTS \"DATABASE\".\"TABLE1\" (\"idValue1\" VARCHAR) WITH "));
     assertTrue(out.contains("'connector'='kafka'"));
     assertTrue(out.contains("'properties.bootstrap.servers'='localhost:9092'"));
     assertTrue(out.contains("'topic'='topic1'"));

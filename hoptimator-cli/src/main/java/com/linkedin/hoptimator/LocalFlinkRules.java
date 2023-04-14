@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator;
 
-import com.linkedin.hoptimator.catalog.Adapter;
-import com.linkedin.hoptimator.catalog.AdapterProvider;
+import com.linkedin.hoptimator.catalog.RuleProvider;
 import com.linkedin.hoptimator.planner.PipelineRel;
 import com.linkedin.hoptimator.planner.HoptimatorHook;
 import com.linkedin.hoptimator.flink.iterator.FlinkIterable;
@@ -29,7 +28,7 @@ import java.util.Collections;
 import java.util.Collection;
 import java.util.List;
 
-public class LocalFlinkRules implements AdapterProvider {
+public class LocalFlinkRules implements RuleProvider {
 
   /** Rule for running (parts of) pipelines locally */
   public static class PipelineToLocalFlinkConverterRule extends ConverterRule {
@@ -64,7 +63,7 @@ public class LocalFlinkRules implements AdapterProvider {
     @Override
     public Result implement(EnumerableRelImplementor implementor, Prefer pref) {
       BlockBuilder builder = new BlockBuilder();
-      PhysType physType = PhysTypeImpl.of(implementor.getTypeFactory(), rowType, pref.prefer(JavaRowFormat.ARRAY));
+      PhysType physType = PhysTypeImpl.of(implementor.getTypeFactory(), rowType, pref.preferCustom());
       PipelineRel.Implementor impl = new PipelineRel.Implementor(getInput());
       String sql = impl.query();
       Hook.QUERY_PLAN.run(sql);         // for script validation in tests
@@ -80,10 +79,5 @@ public class LocalFlinkRules implements AdapterProvider {
   @Override
   public Collection<RelOptRule> rules() {
     return Collections.singletonList(PipelineToLocalFlinkConverterRule.INSTANCE);
-  }
-
-  @Override
-  public Collection<Adapter> adapters() {
-    return Collections.emptyList();
   }
 }

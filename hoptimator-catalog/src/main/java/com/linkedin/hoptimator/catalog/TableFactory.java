@@ -4,9 +4,9 @@ import org.apache.calcite.rel.type.RelDataType;
 
 import java.util.Collections;
 
-/** Constructs an AdapterTable */
+/** Constructs a HopTable */
 public interface TableFactory {
-  AdapterTable table(String database, String name, RelDataType rowType);
+  HopTable table(String database, String name, RelDataType rowType);
 
   /** Construct a ConnectorFactory */
   static ConnectorFactory connector(ConfigProvider configProvider) {
@@ -22,8 +22,8 @@ public interface TableFactory {
     }
 
     @Override
-    public AdapterTable table(String database, String name, RelDataType rowType) {
-      return new AdapterTable(database, name, rowType, () -> Collections.emptyList(),
+    public HopTable table(String database, String name, RelDataType rowType) {
+      return new HopTable(database, name, rowType, () -> Collections.emptyList(),
         ScriptImplementor.empty().connector(database, name, rowType, configProvider.config(name)));
     }
   }

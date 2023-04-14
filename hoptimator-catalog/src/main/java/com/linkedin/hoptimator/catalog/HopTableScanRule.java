@@ -8,22 +8,22 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.logical.LogicalTableScan;
 
-class AdapterTableScanRule extends ConverterRule {
-  public static final AdapterTableScanRule INSTANCE = Config.INSTANCE
+class HopTableScanRule extends ConverterRule {
+  public static final HopTableScanRule INSTANCE = Config.INSTANCE
     .withConversion(LogicalTableScan.class, Convention.NONE,
-        AdapterRel.CONVENTION, "AdapterTableScanRule")
-    .withRuleFactory(AdapterTableScanRule::new)
+        HopRel.CONVENTION, "HopTableScanRule")
+    .withRuleFactory(HopTableScanRule::new)
     .as(Config.class)
-    .toRule(AdapterTableScanRule.class);
+    .toRule(HopTableScanRule.class);
 
-  protected AdapterTableScanRule(Config config) {
+  protected HopTableScanRule(Config config) {
     super(config);
   }
 
   @Override
   public RelNode convert(RelNode rel) {
     LogicalTableScan scan = (LogicalTableScan) rel;
-    RelTraitSet traitSet = scan.getTraitSet().replace(AdapterRel.CONVENTION);
-    return new AdapterTableScan(rel.getCluster(), traitSet, scan.getTable());
+    RelTraitSet traitSet = scan.getTraitSet().replace(HopRel.CONVENTION);
+    return new HopTableScan(rel.getCluster(), traitSet, scan.getTable());
   }
 }

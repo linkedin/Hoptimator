@@ -17,9 +17,8 @@ public interface ConfigProvider {
   }
 
   static ConfigProvider from(Map<String, ?> configs) {
-    Map<String, String> strings = configs.entrySet().stream()
-      .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().toString()));
-    return x -> strings;
+    return x -> configs.entrySet().stream()
+      .collect(Collectors.toMap(y -> y.getKey(), y -> y.getValue().toString()));
   }
 
   default ConfigProvider with(String key, Function<String, String> valueFunction) {
@@ -37,5 +36,10 @@ public interface ConfigProvider {
 
   default ConfigProvider with(String key, String value) {
     return with(key, x -> value);
+  }
+
+  default ConfigProvider withPrefix(String prefix) {
+    return x -> config(x).entrySet().stream()
+      .collect(Collectors.toMap(y -> prefix + y.getKey(), y -> y.getValue()));
   }
 }

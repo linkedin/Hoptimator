@@ -22,20 +22,15 @@ import org.apache.calcite.rel.core.Join;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.rules.CoreRules;
-import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
-import org.apache.calcite.rel.rules.PruneEmptyRules;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
 
-import com.linkedin.hoptimator.catalog.Adapter;
-import com.linkedin.hoptimator.catalog.AdapterTable;
-import com.linkedin.hoptimator.catalog.AdapterTableScan;
-import com.linkedin.hoptimator.catalog.AdapterProvider;
-import com.linkedin.hoptimator.catalog.AdapterRel;
-import com.linkedin.hoptimator.catalog.AdapterService;
+import com.linkedin.hoptimator.catalog.HopTable;
+import com.linkedin.hoptimator.catalog.HopTableScan;
+import com.linkedin.hoptimator.catalog.HopRel;
 import com.linkedin.hoptimator.catalog.ProtoTable;
+import com.linkedin.hoptimator.catalog.RuleProvider;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -44,12 +39,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.Objects;
 
-public class PipelineRules implements AdapterProvider {
-
-  @Override
-  public Collection<Adapter> adapters() {
-    return Collections.emptyList();
-  }
+public class PipelineRules implements RuleProvider {
 
   @Override
   public Collection<RelOptRule> rules() {
@@ -60,39 +50,10 @@ public class PipelineRules implements AdapterProvider {
       PipelineJoinRule.INSTANCE,
       PipelineCalcRule.INSTANCE);
   }
-
-  public static final List<RelOptRule> RULE_SET = Arrays.asList(new RelOptRule[]{
-      PruneEmptyRules.PROJECT_INSTANCE,
-      PruneEmptyRules.FILTER_INSTANCE,
-      CoreRules.PROJECT_TO_SEMI_JOIN,
-      //CoreRules.JOIN_ON_UNIQUE_TO_SEMI_JOIN, // not in this version of calcite
-      CoreRules.JOIN_TO_SEMI_JOIN,
-      CoreRules.MATCH,
-      CoreRules.PROJECT_MERGE,
-      CoreRules.FILTER_MERGE,
-      CoreRules.AGGREGATE_STAR_TABLE,
-      CoreRules.AGGREGATE_PROJECT_STAR_TABLE,
-      CoreRules.FILTER_SCAN,
-      CoreRules.FILTER_TO_CALC,
-      CoreRules.PROJECT_TO_CALC,
-      CoreRules.FILTER_PROJECT_TRANSPOSE,
-      CoreRules.PROJECT_CALC_MERGE,
-      CoreRules.FILTER_CALC_MERGE,
-      CoreRules.CALC_MERGE,
-      CoreRules.FILTER_INTO_JOIN,
-      CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES,
-      CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
-      CoreRules.FILTER_AGGREGATE_TRANSPOSE,
-      CoreRules.JOIN_COMMUTE,
-      JoinPushThroughJoinRule.RIGHT,
-      JoinPushThroughJoinRule.LEFT,
-      CoreRules.SORT_PROJECT_TRANSPOSE,
-      PipelineTableScanRule.INSTANCE
-    });
-
+ 
   static class PipelineTableScanRule extends ConverterRule {
     static final PipelineTableScanRule INSTANCE = Config.INSTANCE
-      .withConversion(AdapterTableScan.class, AdapterRel.CONVENTION,
+      .withConversion(HopTableScan.class, HopRel.CONVENTION,
           PipelineRel.CONVENTION, "PipelineTableScanRule")
       .withRuleFactory(PipelineTableScanRule::new)
       .as(Config.class)
@@ -104,7 +65,7 @@ public class PipelineRules implements AdapterProvider {
 
     @Override
     public RelNode convert(RelNode rel) {
-      AdapterTableScan scan = (AdapterTableScan) rel;
+      HopTableScan scan = (HopTableScan) rel;
       RelTraitSet traitSet = scan.getTraitSet().replace(PipelineRel.CONVENTION);
       return new PipelineTableScan(rel.getCluster(), traitSet, scan.getTable());
     }
@@ -129,7 +90,7 @@ public class PipelineRules implements AdapterProvider {
           throw new RuntimeException(e);
         }
       }
-      implementor.implement((AdapterTable) table);
+      implementor.implement((HopTable) table);
     }
   }
 

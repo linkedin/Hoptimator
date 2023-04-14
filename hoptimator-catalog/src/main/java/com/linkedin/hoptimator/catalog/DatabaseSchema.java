@@ -6,14 +6,14 @@ import org.apache.calcite.schema.impl.AbstractSchema;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Exposes an Adapter's namespace to Apache Calcite. */
-public class AdapterSchema extends AbstractSchema {
+/** Exposes a Database to Apache Calcite. */
+public class DatabaseSchema extends AbstractSchema {
   private final Map<String, Table> tableMap;
 
-  public AdapterSchema(String database, Adapter adapter) {
+  public DatabaseSchema(Database database) {
     try {
-      this.tableMap = adapter.list().stream()
-        .collect(Collectors.toMap(x -> x, x -> new ProtoTable(x, adapter)));
+      this.tableMap = database.tables().stream()
+        .collect(Collectors.toMap(x -> x, x -> new ProtoTable(x, database)));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

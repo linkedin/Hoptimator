@@ -17,7 +17,7 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * AdapterTables can have "baggage", including Resources and arbitrary DDL/SQL.
+ * HopTables can have "baggage", including Resources and arbitrary DDL/SQL.
  *
  * This mechanism is extremely powerful. In addition to enabling views, we can
  * bring along arbitrary infra required to materialize a view. For example, a
@@ -25,14 +25,14 @@ import java.util.Map;
  * won't physically exist until they are needed by a pipeline, at which point
  * Hoptimator will orchestrate their deployment.
  */ 
-public class AdapterTable extends AbstractTable implements ResourceProvider, ScriptImplementor, TranslatableTable {
+public class HopTable extends AbstractTable implements ResourceProvider, ScriptImplementor, TranslatableTable {
   private final String database;
   private final String name;
   private final RelDataType rowType;
   private final ResourceProvider resourceProvider;
   private final ScriptImplementor implementor;
 
-  public AdapterTable(String database, String name, RelDataType rowType, ResourceProvider resourceProvider,
+  public HopTable(String database, String name, RelDataType rowType, ResourceProvider resourceProvider,
       ScriptImplementor implementor) {
     this.database = database;
     this.name = name;
@@ -41,23 +41,23 @@ public class AdapterTable extends AbstractTable implements ResourceProvider, Scr
     this.implementor = implementor;
   }
 
-  /** Convenience constructor for AdapterTables that only need a connector config. */
-  public AdapterTable(String database, String name, RelDataType rowType, Map<String, String> connectorConfig) {
+  /** Convenience constructor for HopTables that only need a connector config. */
+  public HopTable(String database, String name, RelDataType rowType, Map<String, String> connectorConfig) {
     this(database, name, rowType, () -> Collections.emptyList(),
       new ScriptImplementor.ConnectorImplementor(database, name, rowType, connectorConfig));
   }
 
   /** Convenience constructor for using Avro schemas. */
-  public AdapterTable(String database, String name, Schema avroSchema, Map<String, String> connectorConfig) {
+  public HopTable(String database, String name, Schema avroSchema, Map<String, String> connectorConfig) {
     this(database, name, AvroConverter.rel(avroSchema), connectorConfig);
   } 
 
-  public String database() {
-    return database;
-  }
-
   public String name() {
     return name;
+  }
+
+  public String database() {
+    return database;
   }
 
   public RelDataType rowType() {
@@ -66,7 +66,7 @@ public class AdapterTable extends AbstractTable implements ResourceProvider, Scr
 
   /** Not necessarily the Avro schema used to construct this object, since it is converted and reconverted. */
   public Schema avroSchema() {
-    return AvroConverter.avro(name, database, rowType());
+    return AvroConverter.avro(name, database(), rowType());
   }
 
   @Override
@@ -88,7 +88,7 @@ public class AdapterTable extends AbstractTable implements ResourceProvider, Scr
   @Override
   public RelNode toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
     RelOptCluster cluster = context.getCluster();
-    return new AdapterTableScan(cluster, cluster.traitSetOf(AdapterRel.CONVENTION), relOptTable);
+    return new HopTableScan(cluster, cluster.traitSetOf(HopRel.CONVENTION), relOptTable);
   }
 
   /** Expresses the table as SQL/DDL in the default dialect. */

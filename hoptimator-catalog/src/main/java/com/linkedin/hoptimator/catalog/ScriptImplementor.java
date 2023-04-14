@@ -149,7 +149,7 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-      w.keyword("CREATE TABLE");
+      w.keyword("CREATE TABLE IF NOT EXISTS");
       (new CompoundIdentifierImplementor(database, name)).implement(w);
       SqlWriter.Frame frame1 = w.startList("(", ")");
       (new DataTypeSpecImplementor(rowType)).implement(w);

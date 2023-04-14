@@ -10,7 +10,7 @@ import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.catalog.Resources;
-import com.linkedin.hoptimator.catalog.AdapterTable;
+import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.ScriptImplementor;
 
 import java.util.HashSet;
@@ -82,7 +82,7 @@ public interface PipelineRel extends RelNode {
     }
 
     /** Add any resources, SQL, DDL etc required to access the table. */
-    void implement(AdapterTable table) {
+    void implement(HopTable table) {
       script = script.database(table.database()).with(table);
       resources.addAll(resources);
     }

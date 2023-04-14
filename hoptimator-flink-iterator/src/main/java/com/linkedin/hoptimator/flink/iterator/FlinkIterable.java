@@ -15,7 +15,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 /** Runs Flink SQL in-process and iterates over the result. */
-public class FlinkIterable implements Iterable<Object[]> {
+public class FlinkIterable implements Iterable<Object> {
   private final Logger logger = LoggerFactory.getLogger(FlinkIterable.class);
   private final String sql;
   private final long timeoutMillis;
@@ -38,7 +38,7 @@ public class FlinkIterable implements Iterable<Object[]> {
    * The Flink job runs on a local in-process worker.
    */
   @Override 
-  public Iterator<Object[]> iterator() {
+  public Iterator<Object> iterator() {
     try {
       return closeExpired(datastream().map(r -> toArray(r)).executeAndCollect());
     } catch (Exception e) {
@@ -73,7 +73,7 @@ public class FlinkIterable implements Iterable<Object[]> {
     };
   }
 
-  /** Iterates over the selecte field/column only. */
+  /** Iterates over the selected field/column only. */
   public <T> Iterable<T> field(String name) {
     return new Iterable<T>() {
       @Override
@@ -124,7 +124,10 @@ public class FlinkIterable implements Iterable<Object[]> {
     return tEnv.toChangelogStream(resultTable);
   }
 
-  static private Object[] toArray(Row r) {
+  static private Object toArray(Row r) {
+    if (r.getArity() == 1) {
+      return r.getField(0);
+    }
     Object[] fields = new Object[r.getArity()];
     for (int i = 0; i < fields.length; i++) {
       fields[i] = r.getField(i);

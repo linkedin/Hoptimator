@@ -7,7 +7,6 @@ include 'hoptimator-flink-iterator'
 include 'hoptimator-flink-runner'
 include 'hoptimator-operator'
 include 'hoptimator-planner'
-include 'hoptimator-planner-demo'
 include 'models'
 
 dependencyResolutionManagement {

@@ -10,21 +10,21 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 
 import java.util.concurrent.ExecutionException;
 
-/** Enables lazy-loading of AdapterTables from an Adapter */
+/** Enables lazy-loading of HopTables */
 public class ProtoTable extends AbstractTable implements TranslatableTable {
   private final String name;
-  private final Adapter adapter;
-  private AdapterTable table;
+  private final Database database;
+  private HopTable table;
 
-  ProtoTable(String name, Adapter adapter) {
+  ProtoTable(String name, Database database) {
     this.name = name;
-    this.adapter = adapter;
+    this.database = database;
   }
 
   /** Lazy-loads an actual Table, which may involve talking to external systems. */
-  public AdapterTable table() throws InterruptedException, ExecutionException {
+  public HopTable table() throws InterruptedException, ExecutionException {
     if (table == null) {
-      table = adapter.table(name);
+      table = database.table(name);
     }
     return table;
   }
@@ -41,6 +41,6 @@ public class ProtoTable extends AbstractTable implements TranslatableTable {
   @Override
   public RelNode toRel(RelOptTable.ToRelContext context, RelOptTable relOptTable) {
     RelOptCluster cluster = context.getCluster();
-    return new AdapterTableScan(cluster, cluster.traitSetOf(AdapterRel.CONVENTION), relOptTable);
+    return new HopTableScan(cluster, cluster.traitSetOf(HopRel.CONVENTION), relOptTable);
   }
 }
