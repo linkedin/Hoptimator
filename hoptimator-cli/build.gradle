@@ -9,6 +9,7 @@ dependencies {
   implementation project(':hoptimator-planner')
   implementation project(':hoptimator-catalog')
   implementation project(':hoptimator-flink-iterator')
+  implementation project(':hoptimator-kafka-adapter')
 
   implementation libs.avro 
   implementation libs.sqlline

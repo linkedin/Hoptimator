@@ -1,0 +1,26 @@
+plugins {
+  id 'java'
+  id 'idea'
+}
+
+dependencies {
+  implementation project(':hoptimator-catalog')
+  implementation libs.kafkaClients
+  implementation libs.calciteCore
+  implementation libs.flinkConnectorKafka
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}
