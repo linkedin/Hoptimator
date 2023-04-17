@@ -23,37 +23,44 @@ import com.google.gson.stream.JsonWriter;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Reference to a ConfigMap to use for AdminClient configuration.
+ * Flink SQL job spec.
  */
-@ApiModel(description = "Reference to a ConfigMap to use for AdminClient configuration.")
+@ApiModel(description = "Flink SQL job spec.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-17T18:24:49.721Z[Etc/UTC]")
-public class V1alpha1KafkaTopicSpecConfigMapRef {
-  public static final String SERIALIZED_NAME_NAME = "name";
-  @SerializedName(SERIALIZED_NAME_NAME)
-  private String name;
+public class V1alpha1FlinkSqlJobSpec {
+  public static final String SERIALIZED_NAME_SQL = "sql";
+  @SerializedName(SERIALIZED_NAME_SQL)
+  private List<String> sql = new ArrayList<>();
 
 
-  public V1alpha1KafkaTopicSpecConfigMapRef name(String name) {
+  public V1alpha1FlinkSqlJobSpec sql(List<String> sql) {
     
-    this.name = name;
+    this.sql = sql;
+    return this;
+  }
+
+  public V1alpha1FlinkSqlJobSpec addSqlItem(String sqlItem) {
+    this.sql.add(sqlItem);
     return this;
   }
 
    /**
-   * Name of ConfigMap to use for AdminClient configuration.
-   * @return name
+   * Flink SQL statements.
+   * @return sql
   **/
-  @ApiModelProperty(required = true, value = "Name of ConfigMap to use for AdminClient configuration.")
+  @ApiModelProperty(required = true, value = "Flink SQL statements.")
 
-  public String getName() {
-    return name;
+  public List<String> getSql() {
+    return sql;
   }
 
 
-  public void setName(String name) {
-    this.name = name;
+  public void setSql(List<String> sql) {
+    this.sql = sql;
   }
 
 
@@ -65,21 +72,21 @@ public class V1alpha1KafkaTopicSpecConfigMapRef {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicSpecConfigMapRef v1alpha1KafkaTopicSpecConfigMapRef = (V1alpha1KafkaTopicSpecConfigMapRef) o;
-    return Objects.equals(this.name, v1alpha1KafkaTopicSpecConfigMapRef.name);
+    V1alpha1FlinkSqlJobSpec v1alpha1FlinkSqlJobSpec = (V1alpha1FlinkSqlJobSpec) o;
+    return Objects.equals(this.sql, v1alpha1FlinkSqlJobSpec.sql);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name);
+    return Objects.hash(sql);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicSpecConfigMapRef {\n");
-    sb.append("    name: ").append(toIndentedString(name)).append("\n");
+    sb.append("class V1alpha1FlinkSqlJobSpec {\n");
+    sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
     sb.append("}");
     return sb.toString();
   }

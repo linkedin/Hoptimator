@@ -1,4 +1,4 @@
-apiVersion: flink.k8s.org/v1alpha1
+apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: FlinkJob
 metadata:
   name: hoptimator-{{pipeline.name}}-flink-job

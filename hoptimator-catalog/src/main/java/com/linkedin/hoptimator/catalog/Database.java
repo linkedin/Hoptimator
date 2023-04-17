@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.catalog;
 
+import org.apache.calcite.rel.type.RelDataType;
+
 import java.util.Map;
 import java.util.Collection;
 import java.util.Collections;
@@ -24,6 +26,11 @@ public class Database {
     this(name, tableLister, tableResolver, TableFactory.connector(configProvider));
   }
 
+  /** Convenience constructor for simple connector-based tables */
+  public Database(String name, TableLister tableLister, TableResolver tableResolver, ConfigProvider configProvider, ResourceProvider resourceProvider) {
+    this(name, tableLister, tableResolver, TableFactory.connector(configProvider, resourceProvider));
+  }
+
   /** Convenience constructor for a list of connector-based tables */
   public Database(String name, Collection<String> tables, TableResolver tableResolver, ConfigProvider configProvider) {
     this(name, tables, tableResolver, TableFactory.connector(configProvider));
@@ -40,11 +47,18 @@ public class Database {
       x -> tableMap.get(x).rowType(), (x, y, z) -> tableMap.get(y));
   }
 
+  /** Find a specific table in the database. */
   public HopTable table(String tableName) throws InterruptedException, ExecutionException {
     return tableFactory.table(this.name, tableName, tableResolver.resolve(tableName));
   }
 
+  /** List tables in the database. */
   public Collection<String> tables() throws InterruptedException, ExecutionException {
     return tableLister.list();
+  }
+
+  /** Construct a new table within this database. */
+  public HopTable makeTable(String tableName, RelDataType rowType) {
+    return tableFactory.table(this.name, tableName, rowType);
   }
 }

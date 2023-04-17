@@ -1,12 +1,12 @@
 plugins {
-  id 'java'
+  id 'java-library'
   id 'idea'
 }
 
 dependencies {
   implementation project(':hoptimator-catalog')
-  implementation libs.kafkaClients
   implementation libs.calciteCore
+  implementation libs.kafkaClients
   implementation libs.flinkConnectorKafka
 
   testImplementation libs.junit

@@ -1,13 +1,13 @@
 plugins {
-  id 'java'
+  id 'java-library'
   id 'idea'
 }
 
 dependencies {
   implementation project(':hoptimator-catalog')
 
-  implementation libs.calciteAvatica
-  implementation libs.calciteCore
+  api libs.calciteAvatica
+  api libs.calciteCore
 }
 
 tasks.withType(JavaCompile) {

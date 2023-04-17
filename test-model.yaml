@@ -10,6 +10,7 @@ schemas:
 #  type: custom
 #  factory: com.linkedin.hoptimator.catalog.kafka.RawKafkaSchemaFactory
 #  operand:
-#    bootstrap.servers: localhost:9092
-#    group.id: hoptimator-test
-#    auto.offset.reset: earliest
+#    clientConfig:
+#      bootstrap.servers: localhost:9092
+#      group.id: hoptimator-test
+#      auto.offset.reset: earliest

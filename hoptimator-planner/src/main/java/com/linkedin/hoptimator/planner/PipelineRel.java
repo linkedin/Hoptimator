@@ -9,13 +9,12 @@ import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
 import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.catalog.Resources;
 import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.ScriptImplementor;
 
-import java.util.HashSet;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Calling convention which implements an SQL-based streaming data pipeline.
@@ -44,7 +43,7 @@ public interface PipelineRel extends RelNode {
    */
   class Implementor {
     private final RelNode relNode;
-    private final Set<Resource> resources = new HashSet<>();
+    private final List<Resource> resources = new ArrayList<>();
     private ScriptImplementor script = ScriptImplementor.empty().database("PIPELINE");
 
     public Implementor(RelNode relNode) {
@@ -76,22 +75,21 @@ public interface PipelineRel extends RelNode {
     }
 
     /** Script ending in INSERT INTO ... */
-    public String sink(Map<String, String> connectorConfig) {
-      return script.connector("PIPELINE", "SINK", rowType(), connectorConfig)
-        .insert("PIPELINE", "SINK", relNode).sql(OUTPUT_DIALECT);
+    public String insertInto(HopTable sink) {
+      return script.insert(sink.database(), sink.name(), relNode).sql(OUTPUT_DIALECT);
     }
 
     /** Add any resources, SQL, DDL etc required to access the table. */
-    void implement(HopTable table) {
+    public void implement(HopTable table) {
       script = script.database(table.database()).with(table);
-      resources.addAll(resources);
+      table.resources().forEach(x -> resource(x));
     }
 
     /** Combine SQL and any Resources into a Pipeline */
-    public Pipeline pipeline(Map<String, String> connectorConfig) {
-      Set<Resource> resourcesAndJob = new HashSet<>();
+    public Pipeline pipeline(HopTable sink) {
+      List<Resource> resourcesAndJob = new ArrayList<>();
       resourcesAndJob.addAll(resources);
-      resourcesAndJob.add(new Resources.SqlJob(sink(connectorConfig)));
+      resourcesAndJob.add(new SqlJob(insertInto(sink)));
       return new Pipeline(resourcesAndJob, rowType());
     }
   }

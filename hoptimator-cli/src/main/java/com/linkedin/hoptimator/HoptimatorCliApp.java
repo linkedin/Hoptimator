@@ -9,6 +9,7 @@ import org.apache.calcite.rel.RelNode;
 
 import com.linkedin.hoptimator.catalog.AvroConverter;
 import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 import com.linkedin.hoptimator.planner.Pipeline;
 import com.linkedin.hoptimator.planner.PipelineRel;
@@ -165,7 +166,9 @@ public class HoptimatorCliApp {
         HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
         PipelineRel plan = planner.pipeline(sql);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
-        Pipeline pipeline = impl.pipeline(Collections.singletonMap("connector", "dummy"));
+        HopTable outputTable = new HopTable("PIPELINE", "SINK", plan.getRowType(),
+          Collections.singletonMap("connector", "dummy"));
+        Pipeline pipeline = impl.pipeline(outputTable);
         // TODO provide generated avro schema to environment
         Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(new Resource.DummyEnvironment());
         sqlline.output(pipeline.render(templateFactory));
@@ -239,7 +242,9 @@ public class HoptimatorCliApp {
         sqlline.output(plan.explain());
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         sqlline.output("SQL:");
-        sqlline.output(impl.sink(Collections.singletonMap("connector", "dummy")));
+        HopTable outputTable = new HopTable("PIPELINE", "SINK", plan.getRowType(),
+          Collections.singletonMap("connector", "dummy"));
+        sqlline.output(impl.insertInto(outputTable));
         dispatchCallback.setToSuccess();
       } catch (Exception e) {
         sqlline.error(e.toString());

@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator;
+package com.linkedin.hoptimator.operator;
 
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.informer.SharedInformerFactory;
@@ -8,6 +8,8 @@ import io.kubernetes.client.informer.cache.Lister;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -28,31 +30,29 @@ public class Operator {
     this(apiClient, new SharedInformerFactory(apiClient));
   }
   
-  public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(String singular,
-      String plural, String group, String version, Class<T> type, Class<L> list) {
-    registerApi(new ApiInfo<T, L>(singular, plural, group, version, type, list));
+  public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(String kind,
+      String singular, String plural, String group, String version, Class<T> type, Class<L> list) {
+    registerApi(new ApiInfo<T, L>(kind, singular, plural, group, version, type, list));
   }
 
-  public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(ApiInfo<T, L> api) {
-    this.apiInfo.put(api.singular(), api);
+  public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(
+      ApiInfo<T, L> api) {
+    this.apiInfo.put(api.groupVersionKind(), api);
     // side-effect: register shared informer
     informerFactory.sharedIndexInformerFor(api.generic(apiClient), api.type(), resyncPeriod().toMillis());
   }
 
-  public void start() {
-    informerFactory.startAllRegisteredInformers();
-  }
-
   @SuppressWarnings("unchecked")
-  public <T extends KubernetesObject, L extends KubernetesListObject> ApiInfo<T, L> apiInfo(String singular) {
-    if (!this.apiInfo.containsKey(singular)) {
-      throw new IllegalArgumentException("No API for '" + singular + "' registered!");
+  public <T extends KubernetesObject, L extends KubernetesListObject> ApiInfo<T, L> apiInfo(
+      String groupVersionKind) {
+    if (!this.apiInfo.containsKey(groupVersionKind)) {
+      throw new IllegalArgumentException("No API for '" + groupVersionKind + "' registered!");
     }
-    return (ApiInfo<T, L>) this.apiInfo.get(singular);
+    return (ApiInfo<T, L>) this.apiInfo.get(groupVersionKind);
   }
 
-  public <T extends KubernetesObject> SharedIndexInformer<T> informer(String singular) {
-    ApiInfo<T, ?> api = apiInfo(singular);
+  public <T extends KubernetesObject> SharedIndexInformer<T> informer(String groupVersionKind) {
+    ApiInfo<T, ?> api = apiInfo(groupVersionKind);
     return informerFactory.getExistingSharedIndexInformer(api.type());
   }
 
@@ -61,13 +61,26 @@ public class Operator {
   }
 
   @SuppressWarnings("unchecked")
-  public <T extends KubernetesObject> T fetch(String singular, String namespace, String name) { 
-    return (T) lister(singular).namespace(namespace).get(name);
+  public <T extends KubernetesObject> T fetch(String groupVersionKind, String namespace,
+      String name) { 
+    return (T) lister(groupVersionKind).namespace(namespace).get(name);
   }
 
   @SuppressWarnings("unchecked")
-  public <T extends KubernetesObject> Lister<T> lister(String singular) {
-    return new Lister<T>((Indexer<T>) informer(singular).getIndexer());
+  public <T extends KubernetesObject> Lister<T> lister(String groupVersionKind) {
+    return new Lister<T>((Indexer<T>) informer(groupVersionKind).getIndexer());
+  }
+
+  public DynamicKubernetesApi apiFor(DynamicKubernetesObject obj) {
+    String groupVersion = obj.getApiVersion(); 
+    String kind = obj.getKind();
+    return apiInfo(groupVersion + "/" + kind).dynamic(apiClient);
+  }
+
+  @SuppressWarnings("unchecked")
+  public <T extends KubernetesObject, L extends KubernetesListObject> GenericKubernetesApi<T, L>
+      apiFor(String groupVersionKind) {
+    return (GenericKubernetesApi<T, L>) apiInfo(groupVersionKind).generic(apiClient);
   }
 
   public Duration failureRetryDuration() {
@@ -79,6 +92,7 @@ public class Operator {
   }
 
   public static class ApiInfo<T extends KubernetesObject, L extends KubernetesListObject> {
+    private final String kind;
     private final String singular;
     private final String plural;
     private final String group;
@@ -86,7 +100,8 @@ public class Operator {
     private final Class<T> type;
     private final Class<L> list;
 
-    public ApiInfo(String singular, String plural, String group, String version, Class<T> type, Class<L> list) {
+    public ApiInfo(String kind, String singular, String plural, String group, String version, Class<T> type, Class<L> list) {
+      this.kind = kind;
       this.singular = singular;
       this.plural = plural;
       this.group = group;
@@ -97,6 +112,14 @@ public class Operator {
 
     public GenericKubernetesApi<T, L> generic(ApiClient apiClient) {
       return new GenericKubernetesApi<T, L>(type(), list(), group(), version(), plural(), apiClient);
+    }
+
+    public DynamicKubernetesApi dynamic(ApiClient apiClient) {
+      return new DynamicKubernetesApi(group(), version(), plural(), apiClient);
+    }
+
+    public String kind() {
+      return kind;
     }
 
     public String singular() {
@@ -113,6 +136,14 @@ public class Operator {
 
     public String version() {
       return version;
+    }
+
+    public String groupVersionKind() {
+      return group() + "/" + version() + "/" + kind;
+    }
+
+    public String apiVersion() {
+      return group() + "/" + version();
     }
 
     public Class<T> type() {

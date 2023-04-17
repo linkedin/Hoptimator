@@ -23,10 +23,14 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Planner;
 
+import com.linkedin.hoptimator.catalog.Database;
+import com.linkedin.hoptimator.catalog.DatabaseSchema;
+
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
+import java.util.NoSuchElementException;
 
 /** A one-shot stateful object, which creates Pipelines from SQL. */
 public class HoptimatorPlanner {
@@ -69,8 +73,10 @@ public class HoptimatorPlanner {
   }
 
   private final FrameworkConfig calciteFrameworkConfig;
+  private final SchemaPlus schema;
 
   public HoptimatorPlanner(SchemaPlus schema) {
+    this.schema = schema;
     List<RelTraitDef> traitDefs = new ArrayList<RelTraitDef>();
     traitDefs.add(ConventionTraitDef.INSTANCE);
     traitDefs.add(RelCollationTraitDef.INSTANCE);
@@ -102,6 +108,27 @@ public class HoptimatorPlanner {
     RelTraitSet traitSet = logicalPlan.getTraitSet();
     planner.close();
     return logicalPlan;
+  }
+
+  public Database database(String name) {
+    String rootName = schema.getName();
+    if (rootName == null || rootName.length() == 0) {
+      rootName = "ROOT";
+    }
+    Schema subSchema = schema.getSubSchema(name);
+    if (subSchema == null) {
+      throw new NoSuchElementException("No database '" + name + "' found in schema '"
+        + rootName + "'");
+    }
+    if (subSchema instanceof SchemaPlus) {
+      subSchema = ((SchemaPlus) subSchema).unwrap(DatabaseSchema.class);
+    }
+    if (!(subSchema instanceof DatabaseSchema)) {
+      throw new IllegalArgumentException("No database '" + name + "' found in schema '"
+        + rootName + "'. A sub-schema was found, but it is not a DatabaseSchema. Found instead: "
+        + subSchema.toString());
+    }
+    return ((DatabaseSchema) subSchema).database();
   }
 
   public static HoptimatorPlanner fromModelFile(String filePath, Properties properties) throws Exception {

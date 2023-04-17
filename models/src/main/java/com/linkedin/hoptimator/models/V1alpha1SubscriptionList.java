@@ -20,7 +20,7 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
+import com.linkedin.hoptimator.models.V1alpha1Subscription;
 import io.kubernetes.client.openapi.models.V1ListMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
@@ -29,18 +29,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * KafkaTopicList is a list of KafkaTopic
+ * SubscriptionList is a list of Subscription
  */
-@ApiModel(description = "KafkaTopicList is a list of KafkaTopic")
+@ApiModel(description = "SubscriptionList is a list of Subscription")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-17T18:24:49.721Z[Etc/UTC]")
-public class V1alpha1KafkaTopicList implements io.kubernetes.client.common.KubernetesListObject {
+public class V1alpha1SubscriptionList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
 
   public static final String SERIALIZED_NAME_ITEMS = "items";
   @SerializedName(SERIALIZED_NAME_ITEMS)
-  private List<V1alpha1KafkaTopic> items = new ArrayList<>();
+  private List<V1alpha1Subscription> items = new ArrayList<>();
 
   public static final String SERIALIZED_NAME_KIND = "kind";
   @SerializedName(SERIALIZED_NAME_KIND)
@@ -51,7 +51,7 @@ public class V1alpha1KafkaTopicList implements io.kubernetes.client.common.Kuber
   private V1ListMeta metadata = null;
 
 
-  public V1alpha1KafkaTopicList apiVersion(String apiVersion) {
+  public V1alpha1SubscriptionList apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -74,34 +74,34 @@ public class V1alpha1KafkaTopicList implements io.kubernetes.client.common.Kuber
   }
 
 
-  public V1alpha1KafkaTopicList items(List<V1alpha1KafkaTopic> items) {
+  public V1alpha1SubscriptionList items(List<V1alpha1Subscription> items) {
     
     this.items = items;
     return this;
   }
 
-  public V1alpha1KafkaTopicList addItemsItem(V1alpha1KafkaTopic itemsItem) {
+  public V1alpha1SubscriptionList addItemsItem(V1alpha1Subscription itemsItem) {
     this.items.add(itemsItem);
     return this;
   }
 
    /**
-   * List of kafkatopics. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
+   * List of subscriptions. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
    * @return items
   **/
-  @ApiModelProperty(required = true, value = "List of kafkatopics. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md")
+  @ApiModelProperty(required = true, value = "List of subscriptions. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md")
 
-  public List<V1alpha1KafkaTopic> getItems() {
+  public List<V1alpha1Subscription> getItems() {
     return items;
   }
 
 
-  public void setItems(List<V1alpha1KafkaTopic> items) {
+  public void setItems(List<V1alpha1Subscription> items) {
     this.items = items;
   }
 
 
-  public V1alpha1KafkaTopicList kind(String kind) {
+  public V1alpha1SubscriptionList kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -124,7 +124,7 @@ public class V1alpha1KafkaTopicList implements io.kubernetes.client.common.Kuber
   }
 
 
-  public V1alpha1KafkaTopicList metadata(V1ListMeta metadata) {
+  public V1alpha1SubscriptionList metadata(V1ListMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -155,11 +155,11 @@ public class V1alpha1KafkaTopicList implements io.kubernetes.client.common.Kuber
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicList v1alpha1KafkaTopicList = (V1alpha1KafkaTopicList) o;
-    return Objects.equals(this.apiVersion, v1alpha1KafkaTopicList.apiVersion) &&
-        Objects.equals(this.items, v1alpha1KafkaTopicList.items) &&
-        Objects.equals(this.kind, v1alpha1KafkaTopicList.kind) &&
-        Objects.equals(this.metadata, v1alpha1KafkaTopicList.metadata);
+    V1alpha1SubscriptionList v1alpha1SubscriptionList = (V1alpha1SubscriptionList) o;
+    return Objects.equals(this.apiVersion, v1alpha1SubscriptionList.apiVersion) &&
+        Objects.equals(this.items, v1alpha1SubscriptionList.items) &&
+        Objects.equals(this.kind, v1alpha1SubscriptionList.kind) &&
+        Objects.equals(this.metadata, v1alpha1SubscriptionList.metadata);
   }
 
   @Override
@@ -171,7 +171,7 @@ public class V1alpha1KafkaTopicList implements io.kubernetes.client.common.Kuber
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicList {\n");
+    sb.append("class V1alpha1SubscriptionList {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
     sb.append("    items: ").append(toIndentedString(items)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");

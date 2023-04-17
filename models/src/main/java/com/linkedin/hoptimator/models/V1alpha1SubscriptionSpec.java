@@ -25,35 +25,61 @@ import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Reference to a ConfigMap to use for AdminClient configuration.
+ * Subscription spec
  */
-@ApiModel(description = "Reference to a ConfigMap to use for AdminClient configuration.")
+@ApiModel(description = "Subscription spec")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-17T18:24:49.721Z[Etc/UTC]")
-public class V1alpha1KafkaTopicSpecConfigMapRef {
-  public static final String SERIALIZED_NAME_NAME = "name";
-  @SerializedName(SERIALIZED_NAME_NAME)
-  private String name;
+public class V1alpha1SubscriptionSpec {
+  public static final String SERIALIZED_NAME_DATABASE = "database";
+  @SerializedName(SERIALIZED_NAME_DATABASE)
+  private String database;
+
+  public static final String SERIALIZED_NAME_SQL = "sql";
+  @SerializedName(SERIALIZED_NAME_SQL)
+  private String sql;
 
 
-  public V1alpha1KafkaTopicSpecConfigMapRef name(String name) {
+  public V1alpha1SubscriptionSpec database(String database) {
     
-    this.name = name;
+    this.database = database;
     return this;
   }
 
    /**
-   * Name of ConfigMap to use for AdminClient configuration.
-   * @return name
+   * The database in which to create the output/sink table.
+   * @return database
   **/
-  @ApiModelProperty(required = true, value = "Name of ConfigMap to use for AdminClient configuration.")
+  @ApiModelProperty(required = true, value = "The database in which to create the output/sink table.")
 
-  public String getName() {
-    return name;
+  public String getDatabase() {
+    return database;
   }
 
 
-  public void setName(String name) {
-    this.name = name;
+  public void setDatabase(String database) {
+    this.database = database;
+  }
+
+
+  public V1alpha1SubscriptionSpec sql(String sql) {
+    
+    this.sql = sql;
+    return this;
+  }
+
+   /**
+   * A single SQL query.
+   * @return sql
+  **/
+  @ApiModelProperty(required = true, value = "A single SQL query.")
+
+  public String getSql() {
+    return sql;
+  }
+
+
+  public void setSql(String sql) {
+    this.sql = sql;
   }
 
 
@@ -65,21 +91,23 @@ public class V1alpha1KafkaTopicSpecConfigMapRef {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicSpecConfigMapRef v1alpha1KafkaTopicSpecConfigMapRef = (V1alpha1KafkaTopicSpecConfigMapRef) o;
-    return Objects.equals(this.name, v1alpha1KafkaTopicSpecConfigMapRef.name);
+    V1alpha1SubscriptionSpec v1alpha1SubscriptionSpec = (V1alpha1SubscriptionSpec) o;
+    return Objects.equals(this.database, v1alpha1SubscriptionSpec.database) &&
+        Objects.equals(this.sql, v1alpha1SubscriptionSpec.sql);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name);
+    return Objects.hash(database, sql);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicSpecConfigMapRef {\n");
-    sb.append("    name: ").append(toIndentedString(name)).append("\n");
+    sb.append("class V1alpha1SubscriptionSpec {\n");
+    sb.append("    database: ").append(toIndentedString(database)).append("\n");
+    sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
     sb.append("}");
     return sb.toString();
   }

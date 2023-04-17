@@ -1,6 +1,7 @@
 .gradle
 */build/
 */*.iml
+./models/external/
 
 # Compiled class file
 *.class

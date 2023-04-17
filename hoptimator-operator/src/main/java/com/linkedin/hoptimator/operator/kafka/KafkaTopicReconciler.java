@@ -1,9 +1,11 @@
-package com.linkedin.hoptimator.kafka;
+package com.linkedin.hoptimator.operator.kafka;
 
-import com.linkedin.hoptimator.Operator;
-import com.linkedin.hoptimator.ConfigAssembler;
+import com.linkedin.hoptimator.operator.Operator;
+import com.linkedin.hoptimator.operator.ConfigAssembler;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
 
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
 import io.kubernetes.client.extended.controller.reconciler.Request;
 import io.kubernetes.client.extended.controller.reconciler.Result;
@@ -29,6 +31,7 @@ import java.util.concurrent.ExecutionException;
 
 public class KafkaTopicReconciler implements Reconciler {
   private final static Logger log = LoggerFactory.getLogger(KafkaTopicReconciler.class);
+  private final static String KAFKATOPIC = "hoptimator.linkedin.com/v1alpha1/KafkaTopic";
 
   private final Operator operator;
 
@@ -43,7 +46,13 @@ public class KafkaTopicReconciler implements Reconciler {
     String namespace = request.getNamespace();
 
     try {
-      V1alpha1KafkaTopic object = operator.<V1alpha1KafkaTopic>fetch("kafkatopic", namespace, name);
+      V1alpha1KafkaTopic object = operator.<V1alpha1KafkaTopic>fetch(KAFKATOPIC, namespace, name);
+
+      if (object == null) {
+        log.info("Object {}/{} deleted. Skipping.", namespace, name);
+        return new Result(false);
+      }
+
       String topicName = object.getSpec().getName();
       Integer desiredPartitions = object.getSpec().getNumPartitions();
       Integer desiredReplicationFactor = object.getSpec().getReplicationFactor();
@@ -59,6 +68,7 @@ public class KafkaTopicReconciler implements Reconciler {
 
       // Describe existing Kafka topic, if any
       try {
+        log.info("Querying Kafka for topic {}...", topicName);
         TopicDescription topicDescription = admin.describeTopics(Collections.singleton(topicName)).topicNameValues().get(topicName).get();
 
         log.info("Found existing topic {}", topicName);
@@ -76,14 +86,29 @@ public class KafkaTopicReconciler implements Reconciler {
         } else {
           throw e;
         }
+      } finally {
+        admin.close();
       }
-
     } catch (Exception e) {
       log.error("Encountered exception while reconciling KafkaTopic {}/{}", namespace, name, e);
       return new Result(true, operator.failureRetryDuration());
     }
     log.info("Done reconciling {}/{}", namespace, name);
     return new Result(false);
+  }
+
+  public static Controller controller(Operator operator) {
+    Reconciler reconciler = new KafkaTopicReconciler(operator);
+    return ControllerBuilder.defaultBuilder(operator.informerFactory())
+      .withReconciler(reconciler)
+      .withName("kafka-topic-controller")
+      .withWorkerCount(1)
+      //.withReadyFunc(resourceInformer::hasSynced) // optional, only starts controller when the
+      // cache has synced up
+      //.withWorkQueue(resourceWorkQueue)
+      //.watch()
+      .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1KafkaTopic.class, x).build())
+      .build();
   }
 
   private static <T> List<T> list(List<T> maybeNull) {

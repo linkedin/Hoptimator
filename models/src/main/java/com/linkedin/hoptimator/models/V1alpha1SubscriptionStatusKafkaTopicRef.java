@@ -25,27 +25,28 @@ import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Reference to a ConfigMap to use for AdminClient configuration.
+ * For KafkaTopic subscriptions, the KafkaTopic where the data can be consumed.
  */
-@ApiModel(description = "Reference to a ConfigMap to use for AdminClient configuration.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-17T18:24:49.721Z[Etc/UTC]")
-public class V1alpha1KafkaTopicSpecConfigMapRef {
+@ApiModel(description = "For KafkaTopic subscriptions, the KafkaTopic where the data can be consumed.")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-15T21:24:30.587Z[Etc/UTC]")
+public class V1alpha1SubscriptionStatusKafkaTopicRef {
   public static final String SERIALIZED_NAME_NAME = "name";
   @SerializedName(SERIALIZED_NAME_NAME)
   private String name;
 
 
-  public V1alpha1KafkaTopicSpecConfigMapRef name(String name) {
+  public V1alpha1SubscriptionStatusKafkaTopicRef name(String name) {
     
     this.name = name;
     return this;
   }
 
    /**
-   * Name of ConfigMap to use for AdminClient configuration.
+   * The name of the KafkaTopic rescource.
    * @return name
   **/
-  @ApiModelProperty(required = true, value = "Name of ConfigMap to use for AdminClient configuration.")
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The name of the KafkaTopic rescource.")
 
   public String getName() {
     return name;
@@ -65,8 +66,8 @@ public class V1alpha1KafkaTopicSpecConfigMapRef {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicSpecConfigMapRef v1alpha1KafkaTopicSpecConfigMapRef = (V1alpha1KafkaTopicSpecConfigMapRef) o;
-    return Objects.equals(this.name, v1alpha1KafkaTopicSpecConfigMapRef.name);
+    V1alpha1SubscriptionStatusKafkaTopicRef v1alpha1SubscriptionStatusKafkaTopicRef = (V1alpha1SubscriptionStatusKafkaTopicRef) o;
+    return Objects.equals(this.name, v1alpha1SubscriptionStatusKafkaTopicRef.name);
   }
 
   @Override
@@ -78,7 +79,7 @@ public class V1alpha1KafkaTopicSpecConfigMapRef {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicSpecConfigMapRef {\n");
+    sb.append("class V1alpha1SubscriptionStatusKafkaTopicRef {\n");
     sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("}");
     return sb.toString();

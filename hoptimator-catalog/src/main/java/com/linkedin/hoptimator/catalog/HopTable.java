@@ -10,8 +10,6 @@ import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptCluster;
 
-import org.apache.avro.Schema;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
@@ -25,32 +23,34 @@ import java.util.Map;
  * won't physically exist until they are needed by a pipeline, at which point
  * Hoptimator will orchestrate their deployment.
  */ 
-public class HopTable extends AbstractTable implements ResourceProvider, ScriptImplementor, TranslatableTable {
+public class HopTable extends AbstractTable implements ScriptImplementor, TranslatableTable {
   private final String database;
   private final String name;
   private final RelDataType rowType;
-  private final ResourceProvider resourceProvider;
+  private final Collection<Resource> resources;
   private final ScriptImplementor implementor;
 
-  public HopTable(String database, String name, RelDataType rowType, ResourceProvider resourceProvider,
+  public HopTable(String database, String name, RelDataType rowType, Collection<Resource> resources,
       ScriptImplementor implementor) {
     this.database = database;
     this.name = name;
     this.rowType = rowType;
-    this.resourceProvider = resourceProvider;
+    this.resources = resources;
     this.implementor = implementor;
   }
 
   /** Convenience constructor for HopTables that only need a connector config. */
-  public HopTable(String database, String name, RelDataType rowType, Map<String, String> connectorConfig) {
-    this(database, name, rowType, () -> Collections.emptyList(),
+  public HopTable(String database, String name, RelDataType rowType, Collection<Resource> resources,
+      Map<String, String> connectorConfig) {
+    this(database, name, rowType, resources,
       new ScriptImplementor.ConnectorImplementor(database, name, rowType, connectorConfig));
   }
 
-  /** Convenience constructor for using Avro schemas. */
-  public HopTable(String database, String name, Schema avroSchema, Map<String, String> connectorConfig) {
-    this(database, name, AvroConverter.rel(avroSchema), connectorConfig);
-  } 
+  /** Convenience constructor for HopTables that only need a connector config. */
+  public HopTable(String database, String name, RelDataType rowType,
+      Map<String, String> connectorConfig) {
+    this(database, name, rowType, Collections.emptyList(), connectorConfig);
+  }
 
   public String name() {
     return name;
@@ -64,19 +64,13 @@ public class HopTable extends AbstractTable implements ResourceProvider, ScriptI
     return rowType;
   }
 
-  /** Not necessarily the Avro schema used to construct this object, since it is converted and reconverted. */
-  public Schema avroSchema() {
-    return AvroConverter.avro(name, database(), rowType());
+  public Collection<Resource> resources() {
+    return resources;
   }
 
   @Override
   public RelDataType getRowType(RelDataTypeFactory typeFactory) {
     return typeFactory.copyType(rowType());
-  }
-
-  @Override
-  public Collection<Resource> resources() {
-    return resourceProvider.resources();
   }
 
   /** Writes DDL/SQL that implements the table, e.g. a view or connector.  */

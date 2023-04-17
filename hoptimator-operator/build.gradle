@@ -1,5 +1,5 @@
 plugins {
-  id 'com.github.johnrengelman.shadow' version '8.1.1'
+//  id 'com.github.johnrengelman.shadow' version '8.1.1'
   id 'java'
   id 'application'
   id 'idea'
@@ -8,8 +8,10 @@ plugins {
 dependencies {
   implementation project(':hoptimator-planner')
   implementation project(':hoptimator-catalog')
+  implementation project(':hoptimator-kafka-adapter')
   implementation project(':models')
 
+  implementation libs.calciteCore
   implementation libs.kafkaClients
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient
@@ -24,13 +26,18 @@ tasks.withType(JavaCompile) {
   options.compilerArgs << '-Xlint:unchecked'
 }
 
+application {
+  mainClassName  = 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
+}
+/*
 shadowJar {
   exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
   zip64 true
-  manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.HoptimatorOperatorApp'
-  mainClassName  = 'com.linkedin.hoptimator.HoptimatorOperatorApp'
+  manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
+  mainClassName  = 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
   mergeServiceFiles()
 }
+*/
 
 idea {
   module {

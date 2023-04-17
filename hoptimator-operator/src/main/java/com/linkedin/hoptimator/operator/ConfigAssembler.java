@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator;
+package com.linkedin.hoptimator.operator;
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 

@@ -9,6 +9,7 @@ import java.util.regex.Matcher;
 import java.util.Scanner;
 import java.util.function.Supplier;
 import java.io.InputStream;
+import java.util.stream.Collectors;
 
 /**
  * Represents something required by a Table.
@@ -45,6 +46,12 @@ public abstract class Resource {
   /** Export a static value to the template */
   protected void export(String key, String value) {
     properties.put(key, () -> value);
+  }
+
+  /** Export a map of values */
+  protected void export(String key, Map<String, String> values) {
+    properties.put(key, () -> values.entrySet().stream().map(x -> x.getKey() + ": " + x.getValue())
+      .collect(Collectors.joining("\n")));
   }
 
   /** The name of the template used to render this Resource */

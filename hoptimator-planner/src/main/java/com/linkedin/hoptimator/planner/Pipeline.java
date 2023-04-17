@@ -4,16 +4,16 @@ import org.apache.calcite.rel.type.RelDataType;
 
 import com.linkedin.hoptimator.catalog.Resource;
 
-import java.util.Set;
+import java.util.Collection;
 
 /** A set of Resources that deliver data.
  *
  */
 public class Pipeline {
-  private final Set<Resource> resources;
+  private final Collection<Resource> resources;
   private final RelDataType outputType;
 
-  public Pipeline(Set<Resource> resources, RelDataType outputType) {
+  public Pipeline(Collection<Resource> resources, RelDataType outputType) {
     this.resources = resources;
     this.outputType = outputType;
   }
@@ -22,7 +22,7 @@ public class Pipeline {
     return outputType;
   }
 
-  public Set<Resource> resources() {
+  public Collection<Resource> resources() {
     return resources;
   }
 
