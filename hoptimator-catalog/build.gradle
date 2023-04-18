@@ -1,0 +1,24 @@
+plugins {
+  id 'java-library'
+  id 'idea'
+}
+
+dependencies {
+  implementation libs.avro
+  implementation libs.calciteCore
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}

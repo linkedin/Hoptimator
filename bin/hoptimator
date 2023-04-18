@@ -1,0 +1,5 @@
+#!/bin/sh
+
+docker build . -t hoptimator
+kubectl exec -it hoptimator -c hoptimator -- ./hoptimator
+

@@ -1,0 +1,15 @@
+plugins {
+  id 'java-library'
+  id 'idea'
+}
+
+dependencies {
+  implementation libs.kubernetesClient
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}

@@ -1,0 +1,23 @@
+plugins {
+  id 'java-library'
+  id 'idea'
+}
+
+dependencies {
+  implementation project(':hoptimator-catalog')
+
+  api libs.calciteAvatica
+  api libs.calciteCore
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}

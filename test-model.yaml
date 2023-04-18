@@ -1,0 +1,16 @@
+version: 1.0
+defaultSchema: DATAGEN
+schemas:
+
+- name: DATAGEN
+  type: custom
+  factory: com.linkedin.hoptimator.catalog.builtin.DatagenSchemaFactory
+
+- name: RAWKAFKA
+  type: custom
+  factory: com.linkedin.hoptimator.catalog.kafka.RawKafkaSchemaFactory
+  operand:
+    clientConfig:
+      bootstrap.servers: my-cluster-kafka-bootstrap.kafka.svc:9092
+      group.id: hoptimator-test
+      auto.offset.reset: earliest

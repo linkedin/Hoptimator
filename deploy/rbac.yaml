@@ -1,0 +1,13 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: default
+  name: hoptimator-controller
+rules:
+- apiGroups: ["hoptimator.linkedin.com"]
+  resources: ["sqljobs", "kafkatopics", "subscriptions"]
+  verbs: ["get", "watch", "list", "update", "create"]
+- apiGroups: ["flink.apache.org"]
+  resources: ["flinkdeployments"]
+  verbs: ["update", "create"]
+

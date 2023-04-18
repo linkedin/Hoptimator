@@ -1,0 +1,40 @@
+plugins {
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
+  id 'java'
+  id 'application'
+  id 'idea'
+}
+
+tasks.withType(JavaCompile) {
+    options.release = 8
+}
+
+dependencies {
+
+  implementation libs.flinkConnectorKafka
+
+  //Flink depends should be provided by runtime
+  compileOnly libs.flinkTablePlanner
+  compileOnly libs.flinkClients
+  compileOnly libs.flinkTableApiJavaBridge
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+
+shadowJar {
+  mainClassName  = 'com.linkedin.hoptimator.flink.runner.FlinkRunner'
+  zip64 true
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}

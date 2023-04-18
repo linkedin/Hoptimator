@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hoptimator
+spec:
+  containers:
+  - name: hoptimator
+    image: docker.io/library/hoptimator
+    imagePullPolicy: Never
+    command: ["sleep", "infinity"]
