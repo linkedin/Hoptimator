@@ -10,8 +10,9 @@ import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
 import com.linkedin.hoptimator.models.V1alpha1Subscription;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionList;
-import com.linkedin.hoptimator.models.V1alpha1FlinkSqlJob;
-import com.linkedin.hoptimator.models.V1alpha1FlinkSqlJobList;
+import com.linkedin.hoptimator.models.V1alpha1SqlJob;
+import com.linkedin.hoptimator.models.V1alpha1SqlJobList;
+import com.linkedin.hoptimator.operator.flink.FlinkSqlJobReconciler;
 import com.linkedin.hoptimator.operator.kafka.KafkaTopicReconciler;
 import com.linkedin.hoptimator.operator.subscription.SubscriptionReconciler;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
@@ -39,10 +40,13 @@ public class HoptimatorOperatorApp {
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder()
       .readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
-    Operator operator = new Operator(apiClient, informerFactory);
+    Operator operator = new Operator("default", apiClient, informerFactory);
 
-    operator.registerApi("FlinkSqlJob", "flinksqljob", "flinksqljobs",
-      "hoptimator.linkedin.com", "v1alpha1", V1alpha1FlinkSqlJob.class, V1alpha1FlinkSqlJobList.class);
+    operator.registerApi("SqlJob", "sqljob", "sqljobs",
+      "hoptimator.linkedin.com", "v1alpha1", V1alpha1SqlJob.class, V1alpha1SqlJobList.class);
+ 
+    operator.registerApi("FlinkDeployment", "flinkdeployment", "flinkdeployments",
+      "flink.apache.org", "v1beta1");
     
     operator.registerApi("KafkaTopic", "kafkatopic", "kafkatopics", "hoptimator.linkedin.com",
       "v1alpha1", V1alpha1KafkaTopic.class, V1alpha1KafkaTopicList.class);
@@ -52,7 +56,8 @@ public class HoptimatorOperatorApp {
 
     ControllerManager controllerManager = new ControllerManager(operator.informerFactory(),
       SubscriptionReconciler.controller(operator, plannerFactory),
-      KafkaTopicReconciler.controller(operator));
+      KafkaTopicReconciler.controller(operator),
+      FlinkSqlJobReconciler.controller(operator));
   
     controllerManager.run();  
   }

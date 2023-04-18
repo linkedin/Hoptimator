@@ -23,62 +23,43 @@ import com.google.gson.stream.JsonWriter;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Subscription spec
+ * SQL job spec.
  */
-@ApiModel(description = "Subscription spec")
+@ApiModel(description = "SQL job spec.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-18T02:27:48.458Z[Etc/UTC]")
-public class V1alpha1SubscriptionSpec {
-  public static final String SERIALIZED_NAME_DATABASE = "database";
-  @SerializedName(SERIALIZED_NAME_DATABASE)
-  private String database;
-
+public class V1alpha1SqlJobSpec {
   public static final String SERIALIZED_NAME_SQL = "sql";
   @SerializedName(SERIALIZED_NAME_SQL)
-  private String sql;
+  private List<String> sql = new ArrayList<>();
 
 
-  public V1alpha1SubscriptionSpec database(String database) {
-    
-    this.database = database;
-    return this;
-  }
-
-   /**
-   * The database in which to create the output/sink table.
-   * @return database
-  **/
-  @ApiModelProperty(required = true, value = "The database in which to create the output/sink table.")
-
-  public String getDatabase() {
-    return database;
-  }
-
-
-  public void setDatabase(String database) {
-    this.database = database;
-  }
-
-
-  public V1alpha1SubscriptionSpec sql(String sql) {
+  public V1alpha1SqlJobSpec sql(List<String> sql) {
     
     this.sql = sql;
     return this;
   }
 
+  public V1alpha1SqlJobSpec addSqlItem(String sqlItem) {
+    this.sql.add(sqlItem);
+    return this;
+  }
+
    /**
-   * A single SQL query.
+   * SQL statements.
    * @return sql
   **/
-  @ApiModelProperty(required = true, value = "A single SQL query.")
+  @ApiModelProperty(required = true, value = "SQL statements.")
 
-  public String getSql() {
+  public List<String> getSql() {
     return sql;
   }
 
 
-  public void setSql(String sql) {
+  public void setSql(List<String> sql) {
     this.sql = sql;
   }
 
@@ -91,22 +72,20 @@ public class V1alpha1SubscriptionSpec {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SubscriptionSpec v1alpha1SubscriptionSpec = (V1alpha1SubscriptionSpec) o;
-    return Objects.equals(this.database, v1alpha1SubscriptionSpec.database) &&
-        Objects.equals(this.sql, v1alpha1SubscriptionSpec.sql);
+    V1alpha1SqlJobSpec v1alpha1SqlJobSpec = (V1alpha1SqlJobSpec) o;
+    return Objects.equals(this.sql, v1alpha1SqlJobSpec.sql);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(database, sql);
+    return Objects.hash(sql);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SubscriptionSpec {\n");
-    sb.append("    database: ").append(toIndentedString(database)).append("\n");
+    sb.append("class V1alpha1SqlJobSpec {\n");
     sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
     sb.append("}");
     return sb.toString();

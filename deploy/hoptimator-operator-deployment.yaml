@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hoptimator-operator-deployment
+  labels:
+    app: hoptimator-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hoptimator-operator
+  template:
+    metadata:
+      labels:
+        app: hoptimator-operator
+    spec:
+      containers:
+      - name: hoptimator-operator
+        image: docker.io/library/hoptimator
+        imagePullPolicy: Never
+        command: ["./hoptimator-operator"]
+

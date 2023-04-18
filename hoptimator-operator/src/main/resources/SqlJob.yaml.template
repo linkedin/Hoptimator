@@ -1,8 +1,8 @@
 apiVersion: hoptimator.linkedin.com/v1alpha1
-kind: FlinkSqlJob
+kind: SqlJob
 metadata:
-  name: hoptimator-{{pipeline.name}}-flink-job
-  namespace: {{pipeline.namespace}}
+  name: {{name}}-sql
+  namespace: {{namespace}}
 spec:
   sql:
   - {{sql}}

@@ -1,12 +1,12 @@
-#!/bin/sh
+#!/bin/bash
 
-JAR="./hoptimator-operator/build/libs/hoptimator-operator-all.jar"
+JAR="./hoptimator-cli-all.jar"
 
 if [[ -f "$JAR" ]]; then
   java \
     --add-opens java.base/java.lang=ALL-UNNAMED \
     --add-opens java.base/java.util=ALL-UNNAMED \
-    -jar $JAR "./test-model.yaml"
+    -jar $JAR --verbose=true -n "" -p "" -u "jdbc:calcite:model=./test-model.yaml"
 else
   echo "jar file not found; maybe forgot to build?"
 fi

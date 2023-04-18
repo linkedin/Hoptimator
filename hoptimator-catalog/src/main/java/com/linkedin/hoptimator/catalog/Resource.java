@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.catalog;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -50,8 +51,13 @@ public abstract class Resource {
 
   /** Export a map of values */
   protected void export(String key, Map<String, String> values) {
-    properties.put(key, () -> values.entrySet().stream().map(x -> x.getKey() + ": " + x.getValue())
+    export(key, values.entrySet().stream().map(x -> x.getKey() + ": " + x.getValue())
       .collect(Collectors.joining("\n")));
+  }
+
+  /** Export a list of values */
+  protected void export(String key, List<String> values) {
+    export(key, values.stream().collect(Collectors.joining("\n")));
   }
 
   /** The name of the template used to render this Resource */

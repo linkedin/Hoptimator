@@ -1,16 +1,16 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: flinksqljobs.hoptimator.linkedin.com
+  name: sqljobs.hoptimator.linkedin.com
 spec:
   group: hoptimator.linkedin.com
   names:
-    kind: FlinkSqlJob
-    listKind: FlinkSqlJobList
-    plural: flinksqljobs
-    singular: flinksqljob
+    kind: SqlJob
+    listKind: SqlJobList
+    plural: sqljobs
+    singular: sqljob
     shortNames:
-    - fsj
+    - sj
   preserveUnknownFields: false
   scope: Namespaced
   versions:
@@ -19,7 +19,7 @@ spec:
       storage: true
       schema:
         openAPIV3Schema:
-          description: Flink SQL job
+          description: SQL job
           type: object
           properties:
             apiVersion:
@@ -29,18 +29,18 @@ spec:
             metadata:
               type: object
             spec:
-              description: Flink SQL job spec.
+              description: SQL job spec.
               type: object
               properties:
                 sql:
-                  description: Flink SQL statements.
+                  description: SQL statements.
                   type: array
                   items:
                     type: string
               required:
               - sql
             status:
-              description: Current state of the Flink SQL job.
+              description: Current state of the SQL job.
               type: object
               properties:
                 ready:

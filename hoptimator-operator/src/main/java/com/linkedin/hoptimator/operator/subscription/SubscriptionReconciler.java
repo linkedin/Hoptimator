@@ -7,6 +7,7 @@ import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
 import com.linkedin.hoptimator.operator.Operator;
 import com.linkedin.hoptimator.operator.ConfigAssembler;
+import com.linkedin.hoptimator.operator.RequestEnvironment;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 import com.linkedin.hoptimator.planner.Pipeline;
 import com.linkedin.hoptimator.planner.PipelineRel;
@@ -52,21 +53,27 @@ public class SubscriptionReconciler implements Reconciler {
     log.info("Reconciling request {}", request);
     String name = request.getName();
     String namespace = request.getNamespace();
-    PipelineEnvironment env = new PipelineEnvironment(namespace, name);
+    RequestEnvironment env = new RequestEnvironment(request);
     Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(env);
 
     try {
       V1alpha1Subscription object = operator.<V1alpha1Subscription>fetch(SUBSCRIPTION, namespace,
         name);
-
+  
       if (object ==  null) {
         log.info("Object {}/{} deleted, skipping.", namespace, name);
         return new Result(false);
       }
 
+      V1OwnerReference ownerReference = new V1OwnerReference();
+      ownerReference.kind(object.getKind());
+      ownerReference.name(object.getMetadata().getName());
+      ownerReference.apiVersion(object.getApiVersion());
+      ownerReference.uid(object.getMetadata().getUid());
+   
       Pipeline pipeline = pipeline(object);
-      boolean ready = pipeline.resources().stream().map(x -> create(x, object, templateFactory))
-        .allMatch(x -> x);
+      boolean ready = pipeline.resources().stream()
+        .map(x -> operator.applyResource(x, ownerReference, templateFactory)).allMatch(x -> x);
 
       V1alpha1SubscriptionStatus status = object.getStatus();
       if (status == null) {
@@ -97,39 +104,6 @@ public class SubscriptionReconciler implements Reconciler {
     impl.implement(sink);
 
     return impl.pipeline(sink);
-  }
-
-  boolean create(Resource resource, V1alpha1Subscription subscription,
-      Resource.TemplateFactory templateFactory) {
-    String yaml = resource.render(templateFactory);
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
-    String namespace = obj.getMetadata().getNamespace();
-    String name = obj.getMetadata().getName();
-    V1OwnerReference ownerReference = new V1OwnerReference();
-    ownerReference.kind(subscription.getKind());
-    ownerReference.name(subscription.getMetadata().getName());
-    ownerReference.apiVersion(subscription.getApiVersion());
-    ownerReference.uid(subscription.getMetadata().getUid());
-    KubernetesApiResponse<DynamicKubernetesObject> existing = operator.apiFor(obj).get(namespace, name);
-    if (existing.isSuccess()) {
-      log.info("Updating existing downstream resource {}/{} as \n{}", namespace, name, yaml);
-      obj.setMetadata(obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion())
-        .addOwnerReferencesItem(ownerReference));
-      KubernetesApiResponse<DynamicKubernetesObject> response = operator.apiFor(obj).update(obj);
-      if (!response.isSuccess()) {
-        log.error("Error updating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());
-        return false;
-      }
-    } else {
-      log.info("Creating downstream resource {}/{} as \n{}", namespace, name, yaml);
-      obj.setMetadata(obj.getMetadata().addOwnerReferencesItem(ownerReference));
-      KubernetesApiResponse<DynamicKubernetesObject> response = operator.apiFor(obj).create(obj);
-      if (!response.isSuccess()) {
-        log.error("Error creating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());
-        return false;
-      }
-    }
-    return true;
   }
 
   public static Controller controller(Operator operator, HoptimatorPlanner.Factory plannerFactory) {

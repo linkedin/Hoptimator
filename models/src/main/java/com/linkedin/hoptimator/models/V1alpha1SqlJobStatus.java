@@ -25,61 +25,63 @@ import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Subscription spec
+ * Current state of the SQL job.
  */
-@ApiModel(description = "Subscription spec")
+@ApiModel(description = "Current state of the SQL job.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-18T02:27:48.458Z[Etc/UTC]")
-public class V1alpha1SubscriptionSpec {
-  public static final String SERIALIZED_NAME_DATABASE = "database";
-  @SerializedName(SERIALIZED_NAME_DATABASE)
-  private String database;
+public class V1alpha1SqlJobStatus {
+  public static final String SERIALIZED_NAME_MESSAGE = "message";
+  @SerializedName(SERIALIZED_NAME_MESSAGE)
+  private String message;
 
-  public static final String SERIALIZED_NAME_SQL = "sql";
-  @SerializedName(SERIALIZED_NAME_SQL)
-  private String sql;
+  public static final String SERIALIZED_NAME_READY = "ready";
+  @SerializedName(SERIALIZED_NAME_READY)
+  private Boolean ready;
 
 
-  public V1alpha1SubscriptionSpec database(String database) {
+  public V1alpha1SqlJobStatus message(String message) {
     
-    this.database = database;
+    this.message = message;
     return this;
   }
 
    /**
-   * The database in which to create the output/sink table.
-   * @return database
+   * Error or success message, for information only.
+   * @return message
   **/
-  @ApiModelProperty(required = true, value = "The database in which to create the output/sink table.")
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Error or success message, for information only.")
 
-  public String getDatabase() {
-    return database;
+  public String getMessage() {
+    return message;
   }
 
 
-  public void setDatabase(String database) {
-    this.database = database;
+  public void setMessage(String message) {
+    this.message = message;
   }
 
 
-  public V1alpha1SubscriptionSpec sql(String sql) {
+  public V1alpha1SqlJobStatus ready(Boolean ready) {
     
-    this.sql = sql;
+    this.ready = ready;
     return this;
   }
 
    /**
-   * A single SQL query.
-   * @return sql
+   * Whether the requested job has been created.
+   * @return ready
   **/
-  @ApiModelProperty(required = true, value = "A single SQL query.")
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Whether the requested job has been created.")
 
-  public String getSql() {
-    return sql;
+  public Boolean getReady() {
+    return ready;
   }
 
 
-  public void setSql(String sql) {
-    this.sql = sql;
+  public void setReady(Boolean ready) {
+    this.ready = ready;
   }
 
 
@@ -91,23 +93,23 @@ public class V1alpha1SubscriptionSpec {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SubscriptionSpec v1alpha1SubscriptionSpec = (V1alpha1SubscriptionSpec) o;
-    return Objects.equals(this.database, v1alpha1SubscriptionSpec.database) &&
-        Objects.equals(this.sql, v1alpha1SubscriptionSpec.sql);
+    V1alpha1SqlJobStatus v1alpha1SqlJobStatus = (V1alpha1SqlJobStatus) o;
+    return Objects.equals(this.message, v1alpha1SqlJobStatus.message) &&
+        Objects.equals(this.ready, v1alpha1SqlJobStatus.ready);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(database, sql);
+    return Objects.hash(message, ready);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SubscriptionSpec {\n");
-    sb.append("    database: ").append(toIndentedString(database)).append("\n");
-    sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
+    sb.append("class V1alpha1SqlJobStatus {\n");
+    sb.append("    message: ").append(toIndentedString(message)).append("\n");
+    sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("}");
     return sb.toString();
   }

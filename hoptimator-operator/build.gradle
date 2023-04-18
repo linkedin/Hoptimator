@@ -1,5 +1,5 @@
 plugins {
-//  id 'com.github.johnrengelman.shadow' version '8.1.1'
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
   id 'java'
   id 'application'
   id 'idea'
@@ -29,7 +29,7 @@ tasks.withType(JavaCompile) {
 application {
   mainClassName  = 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
 }
-/*
+
 shadowJar {
   exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
   zip64 true
@@ -37,7 +37,6 @@ shadowJar {
   mainClassName  = 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
   mergeServiceFiles()
 }
-*/
 
 idea {
   module {

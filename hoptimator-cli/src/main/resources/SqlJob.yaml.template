@@ -1,17 +1,8 @@
 apiVersion: hoptimator.linkedin.com/v1alpha1
-kind: FlinkJob
+kind: SqlJob
 metadata:
-  name: hoptimator-{{pipeline.name}}-flink-job
-  namespace: {{pipeline.namespace}}
+  name: hoptimator-{{name}}-sql-job
+  namespace: {{namespace}}
 spec:
-  flinkJob:
-    jobArtifact:
-      jarUri: ...hoptimator-flink-runner-0.0.0.jar
-      entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
-      programArgs:
-      - {{sql}}
-    jobState: RUNNING
-    parallelism: 1
-    redeployAttempt: 0
-    savepointDisabled: true
-    useCheckpointsForRestore: true
+  sql:
+  - {{sql}}

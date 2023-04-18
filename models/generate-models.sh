@@ -12,5 +12,5 @@ docker run \
   /generate.sh -o "$(pwd)/models" -n "" -p "com.linkedin.hoptimator" \
   -u "$(pwd)/deploy/kafkatopics.crd.yaml" \
   -u "$(pwd)/deploy/subscriptions.crd.yaml" \
-  -u "$(pwd)/deploy/flinksqljobs.crd.yaml" \
+  -u "$(pwd)/deploy/sqljobs.crd.yaml" \
   && echo "done."

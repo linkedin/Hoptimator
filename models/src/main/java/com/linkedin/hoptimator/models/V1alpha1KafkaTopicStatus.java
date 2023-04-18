@@ -28,7 +28,7 @@ import java.io.IOException;
  * Current state of the topic.
  */
 @ApiModel(description = "Current state of the topic.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-17T18:24:49.721Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-18T02:27:48.458Z[Etc/UTC]")
 public class V1alpha1KafkaTopicStatus {
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)

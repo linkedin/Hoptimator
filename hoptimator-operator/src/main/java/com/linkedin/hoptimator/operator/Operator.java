@@ -7,39 +7,59 @@ import io.kubernetes.client.informer.cache.Indexer;
 import io.kubernetes.client.informer.cache.Lister;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.common.KubernetesListObject;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.dynamic.Dynamics;
+
+import com.linkedin.hoptimator.catalog.Resource;
 
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** Single handle to all the clients required by all the controllers. */
 public class Operator {
+  private final static Logger log = LoggerFactory.getLogger(Operator.class);
+ 
+  private final String namespace; 
   private final ApiClient apiClient;
   private final SharedInformerFactory informerFactory;
   private final Map<String, ApiInfo<?, ?>> apiInfo = new HashMap<>();
 
-  public Operator(ApiClient apiClient, SharedInformerFactory informerFactory) {
+  public Operator(String namespace, ApiClient apiClient, SharedInformerFactory informerFactory) {
+    this.namespace = namespace;
     this.apiClient = apiClient;
     this.informerFactory = informerFactory;
   }
 
-  public Operator(ApiClient apiClient) {
-    this(apiClient, new SharedInformerFactory(apiClient));
+  public Operator(String namespace, ApiClient apiClient) {
+    this(namespace, apiClient, new SharedInformerFactory(apiClient));
   }
   
   public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(String kind,
       String singular, String plural, String group, String version, Class<T> type, Class<L> list) {
-    registerApi(new ApiInfo<T, L>(kind, singular, plural, group, version, type, list));
+    registerApi(new ApiInfo<T, L>(kind, singular, plural, group, version, type, list), true);
+  }
+
+  public void registerApi(String kind, String singular, String plural, String group,
+      String version) {
+    registerApi(new ApiInfo<KubernetesObject, KubernetesListObject>(kind, singular, plural, group,
+      version, KubernetesObject.class, KubernetesListObject.class), false);
   }
 
   public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(
-      ApiInfo<T, L> api) {
+      ApiInfo<T, L> api, boolean watch) {
     this.apiInfo.put(api.groupVersionKind(), api);
-    // side-effect: register shared informer
-    informerFactory.sharedIndexInformerFor(api.generic(apiClient), api.type(), resyncPeriod().toMillis());
+    if (watch) {
+      // side-effect: register shared informer
+      informerFactory.sharedIndexInformerFor(api.generic(apiClient), api.type(), resyncPeriod().toMillis(), namespace);
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -81,6 +101,34 @@ public class Operator {
   public <T extends KubernetesObject, L extends KubernetesListObject> GenericKubernetesApi<T, L>
       apiFor(String groupVersionKind) {
     return (GenericKubernetesApi<T, L>) apiInfo(groupVersionKind).generic(apiClient);
+  }
+
+  public boolean applyResource(Resource resource, V1OwnerReference ownerReference,
+      Resource.TemplateFactory templateFactory) {
+    String yaml = resource.render(templateFactory);
+    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    String namespace = obj.getMetadata().getNamespace();
+    String name = obj.getMetadata().getName();
+    KubernetesApiResponse<DynamicKubernetesObject> existing = apiFor(obj).get(namespace, name);
+    if (existing.isSuccess()) {
+      log.info("Updating existing downstream resource {}/{} as \n{}", namespace, name, yaml);
+      obj.setMetadata(obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion())
+        .addOwnerReferencesItem(ownerReference));
+      KubernetesApiResponse<DynamicKubernetesObject> response = apiFor(obj).update(obj);
+      if (!response.isSuccess()) {
+        log.error("Error updating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());
+        return false;
+      }
+    } else {
+      log.info("Creating downstream resource {}/{} as \n{}", namespace, name, yaml);
+      obj.setMetadata(obj.getMetadata().addOwnerReferencesItem(ownerReference));
+      KubernetesApiResponse<DynamicKubernetesObject> response = apiFor(obj).create(obj);
+      if (!response.isSuccess()) {
+        log.error("Error creating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());
+        return false;
+      }
+    }
+    return true;
   }
 
   public Duration failureRetryDuration() {
