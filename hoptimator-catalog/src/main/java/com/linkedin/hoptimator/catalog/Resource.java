@@ -29,12 +29,6 @@ public abstract class Resource {
   private final Map<String, Supplier<String>> properties = new HashMap<>();
 
   /** A Resource that will be rendered with the specified template */
-  public Resource(String name, String template) {
-    this(template);
-    export("name", name);
-  }
-
-  /** A Resource that will be rendered with the specified template */
   public Resource(String template) {
     this.template = template;
   }
@@ -73,10 +67,6 @@ public abstract class Resource {
     return properties.keySet();
   }
 
-  public String name() {
-    return getOrDefault("name", () -> "(no name)");
-  }
-
   /** Render this Resource using the given TemplateFactory */
   public String render(TemplateFactory templateFactory) {
     return templateFactory.get(this).render(this);
@@ -103,7 +93,7 @@ public abstract class Resource {
   public String getOrDefault(String key, Supplier<String> f) {
     String computed = properties.getOrDefault(key, f).get();
     if (computed == null) {
-      throw new IllegalArgumentException("Resource '" + name() + "' missing variable '" + key + "'");
+      throw new IllegalArgumentException("Resource missing variable '" + key + "'");
     }
     return computed;
   }

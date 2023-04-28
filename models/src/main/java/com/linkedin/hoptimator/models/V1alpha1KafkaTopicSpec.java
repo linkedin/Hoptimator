@@ -33,7 +33,7 @@ import java.util.Map;
  * Desired Kafka topic configuration.
  */
 @ApiModel(description = "Desired Kafka topic configuration.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-18T02:27:48.458Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-28T19:46:31.976Z[Etc/UTC]")
 public class V1alpha1KafkaTopicSpec {
   public static final String SERIALIZED_NAME_CLIENT_CONFIGS = "clientConfigs";
   @SerializedName(SERIALIZED_NAME_CLIENT_CONFIGS)
@@ -47,10 +47,6 @@ public class V1alpha1KafkaTopicSpec {
   @SerializedName(SERIALIZED_NAME_CONFIGS)
   private Map<String, String> configs = null;
 
-  public static final String SERIALIZED_NAME_NAME = "name";
-  @SerializedName(SERIALIZED_NAME_NAME)
-  private String name;
-
   public static final String SERIALIZED_NAME_NUM_PARTITIONS = "numPartitions";
   @SerializedName(SERIALIZED_NAME_NUM_PARTITIONS)
   private Integer numPartitions;
@@ -58,6 +54,10 @@ public class V1alpha1KafkaTopicSpec {
   public static final String SERIALIZED_NAME_REPLICATION_FACTOR = "replicationFactor";
   @SerializedName(SERIALIZED_NAME_REPLICATION_FACTOR)
   private Integer replicationFactor;
+
+  public static final String SERIALIZED_NAME_TOPIC_NAME = "topicName";
+  @SerializedName(SERIALIZED_NAME_TOPIC_NAME)
+  private String topicName;
 
 
   public V1alpha1KafkaTopicSpec clientConfigs(List<V1alpha1KafkaTopicSpecClientConfigs> clientConfigs) {
@@ -153,28 +153,6 @@ public class V1alpha1KafkaTopicSpec {
   }
 
 
-  public V1alpha1KafkaTopicSpec name(String name) {
-    
-    this.name = name;
-    return this;
-  }
-
-   /**
-   * The topic name.
-   * @return name
-  **/
-  @ApiModelProperty(required = true, value = "The topic name.")
-
-  public String getName() {
-    return name;
-  }
-
-
-  public void setName(String name) {
-    this.name = name;
-  }
-
-
   public V1alpha1KafkaTopicSpec numPartitions(Integer numPartitions) {
     
     this.numPartitions = numPartitions;
@@ -221,6 +199,28 @@ public class V1alpha1KafkaTopicSpec {
   }
 
 
+  public V1alpha1KafkaTopicSpec topicName(String topicName) {
+    
+    this.topicName = topicName;
+    return this;
+  }
+
+   /**
+   * The topic name.
+   * @return topicName
+  **/
+  @ApiModelProperty(required = true, value = "The topic name.")
+
+  public String getTopicName() {
+    return topicName;
+  }
+
+
+  public void setTopicName(String topicName) {
+    this.topicName = topicName;
+  }
+
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -233,14 +233,14 @@ public class V1alpha1KafkaTopicSpec {
     return Objects.equals(this.clientConfigs, v1alpha1KafkaTopicSpec.clientConfigs) &&
         Objects.equals(this.clientOverrides, v1alpha1KafkaTopicSpec.clientOverrides) &&
         Objects.equals(this.configs, v1alpha1KafkaTopicSpec.configs) &&
-        Objects.equals(this.name, v1alpha1KafkaTopicSpec.name) &&
         Objects.equals(this.numPartitions, v1alpha1KafkaTopicSpec.numPartitions) &&
-        Objects.equals(this.replicationFactor, v1alpha1KafkaTopicSpec.replicationFactor);
+        Objects.equals(this.replicationFactor, v1alpha1KafkaTopicSpec.replicationFactor) &&
+        Objects.equals(this.topicName, v1alpha1KafkaTopicSpec.topicName);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(clientConfigs, clientOverrides, configs, name, numPartitions, replicationFactor);
+    return Objects.hash(clientConfigs, clientOverrides, configs, numPartitions, replicationFactor, topicName);
   }
 
 
@@ -251,9 +251,9 @@ public class V1alpha1KafkaTopicSpec {
     sb.append("    clientConfigs: ").append(toIndentedString(clientConfigs)).append("\n");
     sb.append("    clientOverrides: ").append(toIndentedString(clientOverrides)).append("\n");
     sb.append("    configs: ").append(toIndentedString(configs)).append("\n");
-    sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("    numPartitions: ").append(toIndentedString(numPartitions)).append("\n");
     sb.append("    replicationFactor: ").append(toIndentedString(replicationFactor)).append("\n");
+    sb.append("    topicName: ").append(toIndentedString(topicName)).append("\n");
     sb.append("}");
     return sb.toString();
   }

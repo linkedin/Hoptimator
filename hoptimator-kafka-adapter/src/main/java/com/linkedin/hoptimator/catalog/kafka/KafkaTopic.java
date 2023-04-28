@@ -8,14 +8,11 @@ import java.util.Map;
 
 public class KafkaTopic extends Resource {
   public KafkaTopic(String name, Integer numPartitions, Map<String, String> clientOverrides) {
-    super(name, "KafkaTopic");
+    super("KafkaTopic");
+    export("name", name);
     export("numPartitions", Optional.ofNullable(numPartitions)
       .map(x -> Integer.toString(x)).orElse("null"));
     export("clientOverrides", clientOverrides);
-  }
-
-  public KafkaTopic(String name) {
-    this(name, null, Collections.emptyMap());
   }
 }
 

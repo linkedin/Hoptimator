@@ -1,5 +1,5 @@
 
-
+bounce: build undeploy deploy
 
 build:
 	./gradlew build
@@ -15,6 +15,9 @@ integration-tests:
 clean:
 	./gradlew clean
 
+undeploy:
+	kubectl delete -f ./deploy || echo "skipping"
+
 quickstart: build deploy-dev-environment deploy
 
 deploy-dev-environment: 
@@ -29,13 +32,13 @@ deploy-dev-environment:
 deploy:
 	kubectl apply -f ./deploy/
 
-undeploy:
-	kubectl delete -f ./deploy || echo "skipping"
-
 deploy-samples:
 	kubectl apply -f ./deploy/samples
 
 release:
 	./gradlew publish
 
-.PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples integration-tests
+generate-models:
+	./models/generate-models.sh
+
+.PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples integration-tests bounce generate-models

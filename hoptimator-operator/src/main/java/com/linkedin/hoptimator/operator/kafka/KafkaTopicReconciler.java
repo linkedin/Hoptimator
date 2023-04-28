@@ -54,7 +54,7 @@ public class KafkaTopicReconciler implements Reconciler {
         return new Result(false);
       }
 
-      String topicName = object.getSpec().getName();
+      String topicName = object.getSpec().getTopicName();
       Integer desiredPartitions = object.getSpec().getNumPartitions();
       Integer desiredReplicationFactor = object.getSpec().getReplicationFactor();
       

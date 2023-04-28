@@ -22,6 +22,7 @@ import java.util.Map;
 public class RawKafkaSchemaFactory implements SchemaFactory {
 
   @Override
+  @SuppressWarnings("unchecked")
   public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
     Map<String, Object> clientConfig = (Map<String, Object>) operand.get("clientConfig");
     DataType.Struct rowType = DataType.struct()

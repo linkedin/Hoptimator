@@ -98,7 +98,7 @@ public class HoptimatorCliApp {
       try {
         HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
         RelNode plan = planner.logical(sql);
-        String avroSchema = AvroConverter.avro("OutputRecord", "OutputNamespace", plan.getRowType()).toString(true);
+        String avroSchema = AvroConverter.avro("OutputNamespace", "OutputName", plan.getRowType()).toString(true);
         sqlline.output(avroSchema); 
         dispatchCallback.setToSuccess();
       } catch (Exception e) {
