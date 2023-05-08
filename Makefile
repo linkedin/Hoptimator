@@ -6,6 +6,12 @@ build:
 	docker build . -t hoptimator
 	docker build hoptimator-flink-runner -t hoptimator-flink-runner
 
+bounce: build undeploy deploy deploy-samples
+
+integration-tests:
+	./bin/hoptimator --run=./integration-tests.sql
+	echo "\nPASS"
+
 clean:
 	./gradlew clean
 
@@ -23,4 +29,10 @@ deploy-dev-environment:
 deploy:
 	kubectl apply -f ./deploy/
 
-.PHONY: build clean quickstart deploy-dev-environment deploy
+undeploy:
+	kubectl delete -f ./deploy || echo "skipping"
+
+deploy-samples:
+	kubectl apply -f ./deploy/samples
+
+.PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples integration-tests
