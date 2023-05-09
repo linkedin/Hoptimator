@@ -26,6 +26,7 @@ publishing {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
       artifactId = 'hoptimator-catalog'
+      version = System.getenv('GITHUB_REF_NAME')
       from components.java
     }
   }
