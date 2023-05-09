@@ -120,8 +120,7 @@ public class Operator {
       if (owners == null) {
         owners = new ArrayList<>();
       }
-      if (owners.stream().filter(x -> x.getUid().equals(ownerReference.getUid()))
-          .findAny().isPresent()) {
+      if (owners.stream().anyMatch(x -> x.getUid().equals(ownerReference.getUid()))) {
         log.info("Existing downstream resource {}/{} is already owned by {}/{}.",
           namespace, name, ownerReference.getKind(), ownerReference.getName());
       } else {

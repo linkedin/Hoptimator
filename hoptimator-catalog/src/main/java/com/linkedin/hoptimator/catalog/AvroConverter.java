@@ -25,7 +25,7 @@ public final class AvroConverter {
     if (dataType.isStruct()) {
       List<Schema.Field> fields = dataType.getFieldList().stream()
         .filter(x -> !x.getName().startsWith("__")) // don't write out hidden fields
-        .map(x -> new Schema.Field(sanitize(x.getName()), avro(x.getName(), namespace, x.getType()), describe(x), null))
+        .map(x -> new Schema.Field(sanitize(x.getName()), avro(namespace, x.getName(), x.getType()), describe(x), null))
         .collect(Collectors.toList());
       return Schema.createRecord(sanitize(name), dataType.toString(), namespace, false, fields);
     } else {
