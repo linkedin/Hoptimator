@@ -1,5 +1,5 @@
 #!/bin/sh
 
 docker build . -t hoptimator
-kubectl exec -it hoptimator -c hoptimator -- ./hoptimator
+kubectl exec -it hoptimator -c hoptimator -- ./hoptimator -n "" -p "" -u "jdbc:calcite:model=./test-model.yaml" "$@"
 
