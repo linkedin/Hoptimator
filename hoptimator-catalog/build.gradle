@@ -1,6 +1,7 @@
 plugins {
   id 'java-library'
   id 'idea'
+  id 'maven-publish'
 }
 
 dependencies {
@@ -9,6 +10,25 @@ dependencies {
 
   testImplementation libs.junit
   testImplementation libs.assertj
+}
+
+publishing {
+  repositories {
+    maven {
+      url = "https://maven.pkg.github.com/linkedin/Hoptimator"
+      credentials {
+        username = System.getenv('GITHUB_ACTOR')
+        password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+  }
+  publications {
+    maven(MavenPublication) {
+      groupId = 'com.linkedin.hoptimator'
+      artifactId = 'hoptimator-catalog'
+      from components.java
+    }
+  }
 }
 
 tasks.withType(JavaCompile) {

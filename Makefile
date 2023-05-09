@@ -35,4 +35,7 @@ undeploy:
 deploy-samples:
 	kubectl apply -f ./deploy/samples
 
+release:
+	./gradlew publish
+
 .PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples integration-tests
