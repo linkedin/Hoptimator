@@ -53,3 +53,13 @@ spec:
                   type: string
       subresources:
         status: {}
+      additionalPrinterColumns:
+      - name: DB
+        type: string
+        description: The database where the subscription is materialized.
+        jsonPath: .spec.database
+      - name: SQL
+        type: string
+        description: The SQL query that the subscription materializes.
+        jsonPath: .spec.sql
+

@@ -4,7 +4,7 @@ metadata:
   name: {{name}}-kafka-topic
   namespace: {{namespace}}
 spec:
-  name: {{name}}
+  topicName: {{name}}
   numPartitions: {{numPartitions}}
   clientOverrides:
     {{clientOverrides}}

@@ -16,8 +16,10 @@ import io.kubernetes.client.util.generic.dynamic.Dynamics;
 
 import com.linkedin.hoptimator.catalog.Resource;
 
+import java.util.ArrayList;
 import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -111,9 +113,22 @@ public class Operator {
     String name = obj.getMetadata().getName();
     KubernetesApiResponse<DynamicKubernetesObject> existing = apiFor(obj).get(namespace, name);
     if (existing.isSuccess()) {
-      log.info("Updating existing downstream resource {}/{} as \n{}", namespace, name, yaml);
-      obj.setMetadata(obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion())
-        .addOwnerReferencesItem(ownerReference));
+      String resourceVersion = existing.getObject().getMetadata().getResourceVersion();
+      log.info("Updating existing downstream resource {}/{} {} as \n{}",
+        namespace, name, resourceVersion, yaml);
+      List<V1OwnerReference> owners = existing.getObject().getMetadata().getOwnerReferences();
+      if (owners == null) {
+        owners = new ArrayList<>();
+      }
+      if (owners.stream().anyMatch(x -> x.getUid().equals(ownerReference.getUid()))) {
+        log.info("Existing downstream resource {}/{} is already owned by {}/{}.",
+          namespace, name, ownerReference.getKind(), ownerReference.getName());
+      } else {
+        log.info("Existing downstream resource {}/{} will be owned by {}/{} and {} others.",
+          namespace, name, ownerReference.getKind(), ownerReference.getName(), owners.size());
+        owners.add(ownerReference);
+      }
+      obj.setMetadata(obj.getMetadata().ownerReferences(owners).resourceVersion(resourceVersion));
       KubernetesApiResponse<DynamicKubernetesObject> response = apiFor(obj).update(obj);
       if (!response.isSuccess()) {
         log.error("Error updating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());

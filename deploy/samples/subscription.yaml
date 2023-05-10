@@ -1,7 +1,0 @@
-apiVersion: hoptimator.linkedin.com/v1alpha1
-kind: Subscription
-metadata:
-  name: sample-subscription-1
-spec:
-  sql: SELECT NAME FROM DATAGEN.PERSON
-  database: RAWKAFKA

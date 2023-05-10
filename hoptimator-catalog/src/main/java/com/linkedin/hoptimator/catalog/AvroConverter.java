@@ -21,11 +21,11 @@ public final class AvroConverter {
   private AvroConverter() {
   }
 
-  public static Schema avro(String name, String namespace, RelDataType dataType) {
+  public static Schema avro(String namespace, String name, RelDataType dataType) {
     if (dataType.isStruct()) {
       List<Schema.Field> fields = dataType.getFieldList().stream()
         .filter(x -> !x.getName().startsWith("__")) // don't write out hidden fields
-        .map(x -> new Schema.Field(sanitize(x.getName()), avro(x.getName(), namespace, x.getType()), describe(x), null))
+        .map(x -> new Schema.Field(sanitize(x.getName()), avro(namespace, x.getName(), x.getType()), describe(x), null))
         .collect(Collectors.toList());
       return Schema.createRecord(sanitize(name), dataType.toString(), namespace, false, fields);
     } else {
@@ -49,9 +49,9 @@ public final class AvroConverter {
     }
   }
 
-  public static Schema avro(String name, String namespace, RelProtoDataType relProtoDataType) {
+  public static Schema avro(String namespace, String name, RelProtoDataType relProtoDataType) {
     RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    return avro(name, namespace, relProtoDataType.apply(factory));
+    return avro(namespace, name, relProtoDataType.apply(factory));
   }
 
   private static Schema createAvroTypeWithNullability(Schema.Type rawType, boolean nullable) {

@@ -32,7 +32,7 @@ spec:
               description: Desired Kafka topic configuration.
               type: object
               properties:
-                name:
+                topicName:
                   description: The topic name.
                   type: string
                 numPartitions:
@@ -67,7 +67,7 @@ spec:
                   additionalProperties:
                     type: string
               required:
-              - name
+              - topicName
             status:
               description: Current state of the topic.
               type: object
