@@ -18,5 +18,12 @@ spec:
       - name: hoptimator-operator
         image: docker.io/library/hoptimator
         imagePullPolicy: Never
-        command: ["./hoptimator-operator"]
+        command: ["./hoptimator-operator", "/etc/config/model.yaml"]
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+      volumes:
+      - name: config-volume
+        configMap:
+          name: hoptimator-configmap
 

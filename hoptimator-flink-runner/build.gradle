@@ -12,6 +12,8 @@ tasks.withType(JavaCompile) {
 dependencies {
 
   implementation libs.flinkConnectorKafka
+  implementation libs.flinkConnectorMySqlCdc
+  implementation libs.flinkCsv
 
   //Flink depends should be provided by runtime
   compileOnly libs.flinkTablePlanner
@@ -30,6 +32,7 @@ tasks.withType(JavaCompile) {
 shadowJar {
   mainClassName  = 'com.linkedin.hoptimator.flink.runner.FlinkRunner'
   zip64 true
+  mergeServiceFiles()
 }
 
 idea {

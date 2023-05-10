@@ -1,5 +1,5 @@
 
-!connect "jdbc:calcite:model=./test-model.yaml" "" ""
+!connect "jdbc:calcite:model=./model.yaml" "" ""
 
 !set maxWidth 80
 !table

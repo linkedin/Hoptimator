@@ -131,7 +131,12 @@ public interface ScriptImplementor {
     }
   } 
 
-  /** Implements a CREATE TABLE...WITH... DDL statement */
+  /**
+   * Implements a CREATE TABLE...WITH... DDL statement.
+   *
+   * N.B. the following magic:
+   *  - field 'KEY' is treated as a PRIMARY KEY
+   */
   class ConnectorImplementor implements ScriptImplementor {
     private final String database;
     private final String name;
@@ -148,11 +153,14 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
       w.keyword("CREATE TABLE IF NOT EXISTS");
       (new CompoundIdentifierImplementor(database, name)).implement(w);
       SqlWriter.Frame frame1 = w.startList("(", ")");
-      (new DataTypeSpecImplementor(rowType)).implement(w);
+      (new RowTypeSpecImplementor(rowType)).implement(w);
+      if (rowType.getField("KEY", true, false) != null) {
+        w.sep(",");
+        w.literal("PRIMARY KEY (KEY) NOT ENFORCED");
+      }
       w.endList(frame1);
       // TODO support PARTITIONED BY for Tables that support it
       w.keyword("WITH");
@@ -245,11 +253,11 @@ public interface ScriptImplementor {
     }
   }
 
-  /** Implements type specs, e.g. `NAME VARCHAR(20)` */
-  class DataTypeSpecImplementor implements ScriptImplementor {
+  /** Implements row type specs, e.g. `NAME VARCHAR(20), AGE INTEGER` */
+  class RowTypeSpecImplementor implements ScriptImplementor {
     private final RelDataType dataType;
 
-    public DataTypeSpecImplementor(RelDataType dataType) {
+    public RowTypeSpecImplementor(RelDataType dataType) {
       this.dataType = dataType;
     }
 

@@ -8,8 +8,14 @@ spec:
     image: docker.io/library/hoptimator
     imagePullPolicy: Never
     command: ["sleep", "infinity"]
+    volumeMounts:
+    - name: config-volume
+      mountPath: /etc/config
     readinessProbe:
       exec:
         command: ["./hoptimator", "--run=./readiness-probe.sql"]
       timeoutSeconds: 30
-
+  volumes:
+  - name: config-volume
+    configMap:
+      name: hoptimator-configmap

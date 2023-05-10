@@ -1,0 +1,25 @@
+plugins {
+  id 'java-library'
+  id 'idea'
+}
+
+dependencies {
+  implementation project(':hoptimator-catalog')
+  implementation libs.calciteCore
+  implementation libs.flinkConnectorMySqlCdc
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}

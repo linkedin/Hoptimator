@@ -10,6 +10,7 @@ dependencies {
   implementation project(':hoptimator-catalog')
   implementation project(':hoptimator-flink-iterator')
   implementation project(':hoptimator-kafka-adapter')
+  implementation project(':hoptimator-mysql-adapter')
 
   implementation libs.avro 
   implementation libs.sqlline
@@ -18,6 +19,7 @@ dependencies {
   implementation libs.flinkTableRuntime
   implementation libs.flinkTablePlanner
   implementation libs.flinkTableApiJavaBridge
+  implementation libs.flinkCsv
   implementation libs.calciteCore
   implementation libs.calciteAvatica
 

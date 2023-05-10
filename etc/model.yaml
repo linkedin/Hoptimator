@@ -1,0 +1,10 @@
+# A default model with only built-in adapters
+
+version: 1.0
+defaultSchema: DATAGEN
+schemas:
+
+- name: DATAGEN
+  type: custom
+  factory: com.linkedin.hoptimator.catalog.builtin.DatagenSchemaFactory
+
