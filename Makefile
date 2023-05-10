@@ -4,7 +4,7 @@ build:
 	docker build . -t hoptimator
 	docker build hoptimator-flink-runner -t hoptimator-flink-runner
 
-bounce: build undeploy deploy deploy-samples
+bounce: build undeploy deploy deploy-samples deploy-config
 
 integration-tests:
 	./bin/hoptimator --run=./integration-tests.sql
@@ -44,4 +44,4 @@ generate-models:
 release:
 	./gradlew publish
 
-.PHONY: build clean quickstart deploy-dev-environment deploy deploy-config deploy-samples bounce generate-models integration-tests release
+.PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples deploy-config integration-tests bounce generate-models release
