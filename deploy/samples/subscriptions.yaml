@@ -1,22 +1,3 @@
-apiVersion: hoptimator.linkedin.com/v1alpha1
-kind: Subscription
-metadata:
-  name: ceos
-spec:
-  sql: SELECT CEO, NAME AS KEY FROM DATAGEN.COMPANY
-  database: RAWKAFKA
-
----
-
-apiVersion: hoptimator.linkedin.com/v1alpha1
-kind: Subscription
-metadata:
-  name: companies 
-spec:
-  sql: SELECT KEY AS PAYLOAD, PAYLOAD AS KEY FROM RAWKAFKA."ceos"
-  database: RAWKAFKA
-
----
 
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: Subscription
@@ -25,5 +6,4 @@ metadata:
 spec:
   sql: SELECT "quantity", "product_id" AS KEY FROM INVENTORY."products_on_hand"
   database: RAWKAFKA
-
 

@@ -36,7 +36,15 @@ jobs:
     - name: Deploy Hoptimator
       run: make deploy deploy-samples
     - name: Wait for Readiness
-      run: kubectl wait pod hoptimator --for condition=Ready --timeout=10m || kubectl describe pod hoptimator
+      run: kubectl wait pod hoptimator --for condition=Ready --timeout=20m || kubectl describe pod hoptimator
+    - name: Log Cluster State
+      run: |
+        kubectl describe pods
+        kubectl describe deployments
+        kubectl get kafkas -n kafka
+        kubectl get flinkdeployments
+        kubectl logs hoptimator
+        kubectl logs -l app=hoptimator-operator
     - name: Integration Tests
       run: make integration-tests
 
