@@ -29,10 +29,15 @@ deploy-dev-environment:
 	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.4.0/
 	helm upgrade --install --atomic --set webhook.create=false flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
 	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
+	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
 	kubectl apply -f "https://strimzi.io/examples/latest/kafka/kafka-ephemeral-single.yaml" -n kafka
 	kubectl apply -f ./deploy/dev
 
-deploy-samples:
+deploy-samples: deploy
+	kubectl wait --for=condition=Established=True	\
+	  crds/subscriptions.hoptimator.linkedin.com \
+	  crds/kafkatopics.hoptimator.linkedin.com \
+	  crds/sqljobs.hoptimator.linkedin.com
 	kubectl apply -f ./deploy/samples
 
 deploy-config:
