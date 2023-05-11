@@ -36,7 +36,7 @@ jobs:
     - name: Deploy Hoptimator
       run: make deploy deploy-samples
     - name: Wait for Readiness
-      run: kubectl wait pod hoptimator --for condition=Ready --timeout=5m || kubectl describe pod hoptimator
+      run: kubectl wait pod hoptimator --for condition=Ready --timeout=10m || kubectl describe pod hoptimator
     - name: Integration Tests
       run: make integration-tests
 
