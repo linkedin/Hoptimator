@@ -14,3 +14,17 @@ schemas:
       bootstrap.servers: my-cluster-kafka-bootstrap.kafka.svc:9092
       group.id: hoptimator-test
       auto.offset.reset: earliest
+
+- name: INVENTORY
+  type: custom
+  factory: com.linkedin.hoptimator.catalog.mysql.MySqlCdcSchemaFactory
+  operand:
+    username: root
+    password: debezium
+    hostname: mysql.mysql.svc.cluster.local
+    port: 3306
+    database: inventory
+    urlSuffix: "?useUnicode=true&characterEncoding=UTF-8&useSSL=false"
+    connectorConfig:
+      scan.incremental.snapshot.enabled: false
+

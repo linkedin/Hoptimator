@@ -26,10 +26,14 @@ public class RawKafkaSchemaFactory implements SchemaFactory {
   public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
     Map<String, Object> clientConfig = (Map<String, Object>) operand.get("clientConfig");
     DataType.Struct rowType = DataType.struct()
-      .with("PAYLOAD", DataType.VARCHAR_NULL);
-    ConfigProvider connectorConfigProvider = ConfigProvider.from(clientConfig).withPrefix("properties.")
-      .with("connector", "kafka")
-      .with("format", "raw")
+      .with("PAYLOAD", DataType.VARCHAR_NULL)
+      .with("KEY", DataType.VARCHAR_NULL);
+    ConfigProvider connectorConfigProvider = ConfigProvider.from(clientConfig)
+      .withPrefix("properties.")
+      .with("connector", "upsert-kafka")
+      .with("key.format", "csv")
+      .with("value.format", "csv")
+      .with("value.fields-include", "EXCEPT_KEY")
       .with("topic", x -> x);
     TableLister tableLister = () -> {
       AdminClient client = AdminClient.create(clientConfig);
@@ -40,9 +44,10 @@ public class RawKafkaSchemaFactory implements SchemaFactory {
     ConfigProvider topicConfigProvider = ConfigProvider.from(clientConfig);
     TableResolver resolver = x -> rowType.rel();
     Integer numPartitions = (Integer) operand.get("numPartitions");
-    ResourceProvider resourceProvider = x -> Collections.singleton(new KafkaTopic(x, numPartitions,
-      topicConfigProvider.config(x)));
-    Database database = new Database(name, tableLister, resolver, connectorConfigProvider, resourceProvider);
+    ResourceProvider resourceProvider = x -> Collections.singleton(new KafkaTopic(x,
+      numPartitions, topicConfigProvider.config(x)));
+    Database database = new Database(name, tableLister, resolver, connectorConfigProvider,
+      resourceProvider);
     return new DatabaseSchema(database);
   }
 }

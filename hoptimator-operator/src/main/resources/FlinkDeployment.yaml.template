@@ -4,7 +4,8 @@ metadata:
   namespace: {{namespace}}
   name: {{name}}-flink-job
 spec:
-  image: docker.io/library/hoptimator-flink-runner:latest
+  image: docker.io/library/hoptimator-flink-runner
+  imagePullPolicy: Never
   flinkVersion: v1_16
   flinkConfiguration:
     taskmanager.numberOfTaskSlots: "2"

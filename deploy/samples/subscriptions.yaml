@@ -1,9 +1,9 @@
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: Subscription
 metadata:
-  name: people
+  name: ceos
 spec:
-  sql: SELECT NAME FROM DATAGEN.PERSON
+  sql: SELECT CEO, NAME AS KEY FROM DATAGEN.COMPANY
   database: RAWKAFKA
 
 ---
@@ -11,9 +11,9 @@ spec:
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: Subscription
 metadata:
-  name: companies
+  name: companies 
 spec:
-  sql: SELECT NAME FROM DATAGEN.COMPANY
+  sql: SELECT KEY AS PAYLOAD, PAYLOAD AS KEY FROM RAWKAFKA."ceos"
   database: RAWKAFKA
 
 ---
@@ -21,9 +21,9 @@ spec:
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: Subscription
 metadata:
-  name: names
+  name: products
 spec:
-  sql: SELECT p.PAYLOAD || c.PAYLOAD FROM RAWKAFKA."people" p, RAWKAFKA."companies" c
+  sql: SELECT "quantity", "product_id" AS KEY FROM INVENTORY."products_on_hand"
   database: RAWKAFKA
 
 

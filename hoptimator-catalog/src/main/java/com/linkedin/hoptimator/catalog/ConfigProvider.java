@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.catalog;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.function.Function;
 
@@ -17,8 +18,12 @@ public interface ConfigProvider {
   }
 
   static ConfigProvider from(Map<String, ?> configs) {
-    return x -> configs.entrySet().stream()
-      .collect(Collectors.toMap(y -> y.getKey(), y -> y.getValue().toString()));
+    if (configs == null) {
+      return empty();
+    } else {
+      return x -> configs.entrySet().stream()
+        .collect(Collectors.toMap(y -> y.getKey(), y -> y.getValue().toString()));
+    }
   }
 
   default ConfigProvider with(String key, Function<String, String> valueFunction) {
@@ -36,6 +41,10 @@ public interface ConfigProvider {
 
   default ConfigProvider with(String key, String value) {
     return with(key, x -> value);
+  }
+
+  default ConfigProvider with(String key, Integer value) {
+    return with(key, x -> Optional.ofNullable(value).map(y -> Integer.toString(y)).orElse(null));
   }
 
   default ConfigProvider withPrefix(String prefix) {

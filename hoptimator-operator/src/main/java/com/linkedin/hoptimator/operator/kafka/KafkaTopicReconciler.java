@@ -70,7 +70,7 @@ public class KafkaTopicReconciler implements Reconciler {
       // Describe existing Kafka topic, if any
       try {
         log.info("Querying Kafka for topic {}...", topicName);
-        TopicDescription topicDescription = admin.describeTopics(Collections.singleton(topicName)).topicNameValues().get(topicName).get();
+        TopicDescription topicDescription = admin.describeTopics(Collections.singleton(topicName)).all().get().get(topicName);
 
         log.info("Found existing topic {}", topicName);
         int actualPartitions = topicDescription.partitions().size();

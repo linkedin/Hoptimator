@@ -24,13 +24,10 @@ import java.util.Properties;
 public class HoptimatorOperatorApp {
 
   public static void main(String[] args) throws Exception {
-    String modelFile;
-    if (args.length == 1) {
-      modelFile = args[0];
-    } else {
-      modelFile = "../test-model.yaml";
+    if (args.length != 1) {
+      throw new IllegalArgumentException("Missing model file argument.");
     }
-    HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromModelFile(modelFile,
+    HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromModelFile(args[0],
         new Properties());
 
     // ensure model file works, and that static classes are initialized in the main thread
