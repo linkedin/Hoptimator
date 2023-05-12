@@ -8,16 +8,16 @@ spec:
   imagePullPolicy: Never
   flinkVersion: v1_16
   flinkConfiguration:
-    taskmanager.numberOfTaskSlots: "2"
+    taskmanager.numberOfTaskSlots: "1"
   serviceAccount: flink
   jobManager:
     resource:
       memory: "2048m"
-      cpu: 1
+      cpu: .1
   taskManager:
     resource:
       memory: "2048m"
-      cpu: 1
+      cpu: .1
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:

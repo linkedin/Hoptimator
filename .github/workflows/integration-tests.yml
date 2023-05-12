@@ -34,17 +34,35 @@ jobs:
     - name: Deploy Dev Environment
       run: make deploy-dev-environment
     - name: Deploy Hoptimator
-      run: make deploy deploy-samples
+      run: make deploy
     - name: Wait for Readiness
-      run: kubectl wait pod hoptimator --for condition=Ready --timeout=20m || kubectl describe pod hoptimator
-    - name: Log Cluster State
+      run: kubectl wait pod hoptimator --for condition=Ready --timeout=10m
+    - name: Deploy Samples
+      run: make deploy-samples
+    - name: Wait for Flink Jobs
+      run: |
+        i=0
+        while [ $i -ne 10 ]
+        do
+          kubectl wait flinkdeployments --all --for=jsonpath={.status.lifecycleState}=STABLE --timeout=1m && break || sleep 60
+          i=$(($i+1))
+          echo "No stable Flink jobs after $i tries..."
+        done
+    - name: Integration Tests
+      run: make integration-tests
+    - name: Capture Cluster State
+      if: always()
       run: |
         kubectl describe pods
         kubectl describe deployments
-        kubectl get kafkas -n kafka
-        kubectl get flinkdeployments
-        kubectl logs hoptimator
-        kubectl logs -l app=hoptimator-operator
-    - name: Integration Tests
-      run: make integration-tests
+        kubectl describe kafkas -n kafka
+        kubectl describe flinkdeployments
+        kubectl describe subscriptions
+    - name: Capture Hoptimator Operator Logs
+      if: always()
+      run: kubectl logs $(kubectl get pods -l app=hoptimator-operator -o name)
+    - name: Capture Flink Operator Logs
+      if: always()
+      run: kubectl logs $(kubectl get pods -l app.kubernetes.io/name=flink-kubernetes-operator -o name)
+ 
 
