@@ -8,6 +8,7 @@ plugins {
 dependencies {
   implementation project(':hoptimator-planner')
   implementation project(':hoptimator-catalog')
+  implementation project(':hoptimator-operator-core')
   implementation project(':hoptimator-kafka-adapter')
   implementation project(':hoptimator-mysql-adapter')
   implementation project(':models')

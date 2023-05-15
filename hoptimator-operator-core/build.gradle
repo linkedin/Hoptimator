@@ -1,0 +1,51 @@
+plugins {
+  id 'java-library'
+  id 'idea'
+  id 'maven-publish'
+}
+
+dependencies {
+  implementation project(':hoptimator-planner')
+  implementation project(':hoptimator-catalog')
+  implementation project(':models')
+
+  implementation libs.calciteCore
+  implementation libs.kubernetesClient
+  implementation libs.kubernetesExtendedClient
+  implementation libs.slf4jLog4j
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+}
+
+publishing {
+  repositories {
+    maven {
+      url = "https://maven.pkg.github.com/linkedin/Hoptimator"
+      credentials {
+        username = System.getenv('GITHUB_ACTOR')
+        password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+  }
+  publications {
+    maven(MavenPublication) {
+      groupId = 'com.linkedin.hoptimator'
+      artifactId = 'hoptimator-operator-core'
+      version = System.getenv('GITHUB_REF_NAME')
+      from components.java
+    }
+  }
+}
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}
