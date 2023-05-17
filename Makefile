@@ -47,6 +47,7 @@ generate-models:
 	./models/generate-models.sh
 
 release:
+	test -n "$(VERSION)"  # MISSING ARG: $$VERSION
 	./gradlew publish
 
 .PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples deploy-config integration-tests bounce generate-models release

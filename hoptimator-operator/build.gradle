@@ -11,7 +11,7 @@ dependencies {
   implementation project(':hoptimator-operator-core')
   implementation project(':hoptimator-kafka-adapter')
   implementation project(':hoptimator-mysql-adapter')
-  implementation project(':models')
+  implementation project(':hoptimator-models')
 
   implementation libs.calciteCore
   implementation libs.kafkaClients
@@ -21,11 +21,6 @@ dependencies {
 
   testImplementation libs.junit
   testImplementation libs.assertj
-}
-
-tasks.withType(JavaCompile) {
-  options.compilerArgs << '-Xlint:deprecation'
-  options.compilerArgs << '-Xlint:unchecked'
 }
 
 application {

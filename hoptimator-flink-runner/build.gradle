@@ -5,10 +5,6 @@ plugins {
   id 'idea'
 }
 
-tasks.withType(JavaCompile) {
-    options.release = 8
-}
-
 dependencies {
 
   implementation libs.flinkConnectorKafka

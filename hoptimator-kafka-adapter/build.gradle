@@ -13,11 +13,6 @@ dependencies {
   testImplementation libs.assertj
 }
 
-tasks.withType(JavaCompile) {
-  options.compilerArgs << '-Xlint:deprecation'
-  options.compilerArgs << '-Xlint:unchecked'
-}
-
 idea {
   module {
     downloadJavadoc = true

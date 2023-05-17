@@ -5,11 +5,7 @@ plugins {
 }
 
 dependencies {
-  implementation libs.avro
-  implementation libs.calciteCore
-
-  testImplementation libs.junit
-  testImplementation libs.assertj
+  implementation libs.kubernetesClient
 }
 
 publishing {
@@ -34,7 +30,7 @@ publishing {
   publications {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
-      artifactId = 'hoptimator-catalog'
+      artifactId = 'hoptimator-models'
       version = System.getenv('VERSION')
       from components.java
     }

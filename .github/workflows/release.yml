@@ -20,3 +20,6 @@ jobs:
           arguments: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          JFROG_USERNAME:
+          JROG_API_KEY: 
+          VERSION: ${{ github.event.release.tag_name }}
