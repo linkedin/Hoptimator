@@ -3,7 +3,6 @@ package com.linkedin.hoptimator;
 import com.linkedin.hoptimator.catalog.RuleProvider;
 import com.linkedin.hoptimator.planner.PipelineRel;
 import com.linkedin.hoptimator.planner.HoptimatorHook;
-import com.linkedin.hoptimator.flink.iterator.FlinkIterable;
 
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;

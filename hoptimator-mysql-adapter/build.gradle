@@ -1,12 +1,16 @@
 plugins {
-  id 'java-library'
+  id 'java-library-distribution'
   id 'idea'
 }
 
 dependencies {
   implementation project(':hoptimator-catalog')
   implementation libs.calciteCore
-  implementation libs.flinkConnectorMySqlCdc
+  implementation (libs.flinkConnectorMySqlCdc) {
+    exclude group: 'org.apache.flink', module: 'flink-shaded-guave'
+    exclude group: 'org.apache.flink', module: 'flink-shaded-force-shading'
+    exclude group: 'org.apache.kafka', module: 'kafka-clients'
+  }
 
   testImplementation libs.junit
   testImplementation libs.assertj

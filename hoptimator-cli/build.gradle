@@ -3,14 +3,21 @@ plugins {
   id 'java'
   id 'application'
   id 'idea'
+  id 'maven-publish'
+}
+
+configurations {
+  integration.extendsFrom implementation
 }
 
 dependencies {
   implementation project(':hoptimator-planner')
   implementation project(':hoptimator-catalog')
-  implementation project(':hoptimator-flink-iterator')
-  implementation project(':hoptimator-kafka-adapter')
-  implementation project(':hoptimator-mysql-adapter')
+
+  // include adapters for integration tests
+  integration project(':hoptimator-kafka-adapter')
+  integration project(':hoptimator-mysql-adapter')
+  integration libs.flinkCsv
 
   implementation libs.avro 
   implementation libs.sqlline
@@ -18,8 +25,6 @@ dependencies {
   implementation libs.flinkClients
   implementation libs.flinkTableRuntime
   implementation libs.flinkTablePlanner
-  implementation libs.flinkTableApiJavaBridge
-  implementation libs.flinkCsv
   implementation libs.calciteCore
   implementation libs.calciteAvatica
 
@@ -27,7 +32,43 @@ dependencies {
   testImplementation libs.assertj
 }
 
+publishing {
+  repositories {
+    maven {
+      name 'GitHubPackages'
+      url = 'https://maven.pkg.github.com/linkedin/Hoptimator'
+      credentials {
+        username = System.getenv('GITHUB_ACTOR')
+        password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+    maven {
+      name 'LinkedInJFrog'
+      url 'https://linkedin.jfrog.io/artifactory/hoptimator'
+      credentials {
+        username = System.getenv('JFROG_USERNAME')
+        password = System.getenv('JFROG_API_KEY')
+      }
+    }
+  }
+  publications {
+    maven(MavenPublication) {
+      groupId = 'com.linkedin.hoptimator'
+      artifactId = 'hoptimator-cli'
+      version = System.getenv('VERSION')
+      from components.java
+    }
+  }
+}
+
+java {
+  withJavadocJar()
+  withSourcesJar()
+}
+
 shadowJar {
+  configurations = [project.configurations.integration]
+
   // This is required for Flink and Avatica to play nicely
   relocate 'com.google', 'org.apache.flink.calcite.shaded.com.google'
 
