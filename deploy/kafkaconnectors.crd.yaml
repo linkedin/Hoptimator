@@ -1,0 +1,58 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: kafkaconnectors.hoptimator.linkedin.com
+spec:
+  group: hoptimator.linkedin.com
+  names:
+    kind: KafkaConnector
+    listKind: KafkaConnectorList
+    plural: kafkaconnectors
+    singular: kafkaconnector
+    shortNames:
+    - kc
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          description: Kafka Connect connector
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: Desired Kafka connector.
+              type: object
+              properties:
+                connectorName:
+                  description: The connector name.
+                  type: string
+                clusterBaseUrl:
+                  description: URL of the Connect cluster.
+                  type: string
+                connectorConfig:
+                  description: Connector configuration.
+                  type: object
+              required:
+              - connectorName
+              - clusterBaseUrl
+            status:
+              description: Current state of the connector.
+              type: object
+              properties:
+                ready:
+                  description: Whether the requested connector has been created.
+                  type: boolean
+                message:
+                  description: Error or success message, for information only.
+                  type: string
+      subresources:
+        status: {}

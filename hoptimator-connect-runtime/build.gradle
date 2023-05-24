@@ -1,0 +1,25 @@
+plugins {
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
+  id 'java'
+  id 'application'
+  id 'idea'
+}
+
+tasks.withType(JavaCompile) {
+    options.release = 8
+}
+
+dependencies {
+  implementation libs.debeziumConnectorMysql
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}
+
+shadowJar {
+  mainClassName = 'no-main-class'
+}

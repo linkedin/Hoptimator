@@ -1,0 +1,14 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: KafkaConnector
+metadata:
+  name: heartbeat-connector
+spec:
+  connectorName: heartbeat
+  clusterBaseUrl: http://my-connect-cluster-connect-api.kafka.svc:8083
+  connectorConfig:
+    connector.class: "org.apache.kafka.connect.mirror.MirrorHeartbeatConnector"
+    heartbeats.topic.replication.factor: "1"
+    source.cluster.alias: "source"
+    target.cluster.alias: "target"
+    source.cluster.bootstrap.servers: my-cluster-kafka-bootstrap.kafka.svc:9092
+    target.cluster.bootstrap.servers: my-cluster-kafka-bootstrap.kafka.svc:9092
