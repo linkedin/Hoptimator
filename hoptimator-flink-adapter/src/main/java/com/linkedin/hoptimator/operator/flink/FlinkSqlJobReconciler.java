@@ -6,8 +6,6 @@ import com.linkedin.hoptimator.operator.Operator;
 import com.linkedin.hoptimator.operator.RequestEnvironment;
 import com.linkedin.hoptimator.models.V1alpha1SqlJob;
 
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
 import io.kubernetes.client.extended.controller.reconciler.Request;
 import io.kubernetes.client.extended.controller.reconciler.Result;
@@ -70,20 +68,6 @@ public class FlinkSqlJobReconciler implements Reconciler {
     }
     log.info("Done reconciling {}/{}", namespace, name);
     return new Result(false);
-  }
-
-  public static Controller controller(Operator operator) {
-    Reconciler reconciler = new FlinkSqlJobReconciler(operator);
-    return ControllerBuilder.defaultBuilder(operator.informerFactory())
-      .withReconciler(reconciler)
-      .withName("flink-deployment-controller")
-      .withWorkerCount(1)
-      //.withReadyFunc(resourceInformer::hasSynced) // optional, only starts controller when the
-      // cache has synced up
-      //.withWorkQueue(resourceWorkQueue)
-      //.watch()
-      .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1SqlJob.class, x).build())
-      .build();
   }
 
   private static <T> List<T> list(List<T> maybeNull) {

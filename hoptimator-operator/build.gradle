@@ -18,9 +18,9 @@ dependencies {
   // include adapters in integration tests 
   integration project(':hoptimator-kafka-adapter')
   integration project(':hoptimator-mysql-adapter')
+  integration project(':hoptimator-flink-adapter')
 
   implementation libs.calciteCore
-  implementation libs.kafkaClients
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient
   implementation libs.slf4jLog4j
