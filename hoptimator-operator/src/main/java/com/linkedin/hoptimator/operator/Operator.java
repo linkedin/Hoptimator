@@ -21,11 +21,12 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Single handle to all the clients required by all the controllers. */
+/** Single handle to all the clients and configs required by all the controllers. */
 public class Operator {
   private final static Logger log = LoggerFactory.getLogger(Operator.class);
  
@@ -33,15 +34,23 @@ public class Operator {
   private final ApiClient apiClient;
   private final SharedInformerFactory informerFactory;
   private final Map<String, ApiInfo<?, ?>> apiInfo = new HashMap<>();
+  private final Properties properties;
 
-  public Operator(String namespace, ApiClient apiClient, SharedInformerFactory informerFactory) {
+  public Operator(String namespace, ApiClient apiClient, SharedInformerFactory informerFactory,
+      Properties properties) {
     this.namespace = namespace;
     this.apiClient = apiClient;
     this.informerFactory = informerFactory;
+    this.properties = properties;
   }
 
-  public Operator(String namespace, ApiClient apiClient) {
-    this(namespace, apiClient, new SharedInformerFactory(apiClient));
+  public Operator(String namespace, ApiClient apiClient, Properties properties) {
+    this(namespace, apiClient, new SharedInformerFactory(apiClient), properties);
+  }
+
+  /** Arbitrary global properties, which a controller plugin may use. */
+  public Properties properties() {
+    return properties;
   }
   
   public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(String kind,

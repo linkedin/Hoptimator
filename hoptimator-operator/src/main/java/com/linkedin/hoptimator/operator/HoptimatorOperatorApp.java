@@ -21,12 +21,27 @@ import java.util.concurrent.TimeUnit;
 
 public class HoptimatorOperatorApp {
 
+  final String modelPath;
+  final String namespace;
+  final Properties properties;
+
+  /** This constructor is likely to evolve and break. */
+  public HoptimatorOperatorApp(String modelPath, String namespace, Properties properties) {
+    this.modelPath = modelPath;
+    this.namespace = namespace;
+    this.properties = properties;
+  }
+
   public static void main(String[] args) throws Exception {
     if (args.length != 1) {
       throw new IllegalArgumentException("Missing model file argument.");
     }
-    HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromModelFile(args[0],
-        new Properties());
+    new HoptimatorOperatorApp(args[0], "default", new Properties()).run();
+  }
+
+  public void run() throws Exception {
+    HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromModelFile(modelPath,
+        properties);
 
     // ensure model file works, and that static classes are initialized in the main thread
     HoptimatorPlanner planner = plannerFactory.makePlanner();
@@ -35,7 +50,7 @@ public class HoptimatorOperatorApp {
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder()
       .readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
-    Operator operator = new Operator("default", apiClient, informerFactory);
+    Operator operator = new Operator(namespace, apiClient, informerFactory, properties);
     // TODO replace hard-coded "default" namespace with command-line argument
 
     operator.registerApi("SqlJob", "sqljob", "sqljobs",
