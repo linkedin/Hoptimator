@@ -9,7 +9,6 @@ dependencies {
   implementation project(':hoptimator-operator')
   implementation libs.calciteCore
   implementation libs.kafkaClients
-  implementation libs.flinkConnectorKafka
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient
 

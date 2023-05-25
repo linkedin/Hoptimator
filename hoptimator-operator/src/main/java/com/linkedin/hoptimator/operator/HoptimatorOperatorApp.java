@@ -13,6 +13,9 @@ import com.linkedin.hoptimator.models.V1alpha1SqlJobList;
 import com.linkedin.hoptimator.operator.subscription.SubscriptionReconciler;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +23,7 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
 public class HoptimatorOperatorApp {
+  private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
 
   final String modelPath;
   final String namespace;
@@ -66,6 +70,7 @@ public class HoptimatorOperatorApp {
     ControllerManager controllerManager = new ControllerManager(operator.informerFactory(),
       controllers.toArray(new Controller[0]));
   
+    log.info("Starting operator with {} controllers.", controllers.size());
     controllerManager.run();  
   }
 }

@@ -19,11 +19,12 @@ dependencies {
   integration project(':hoptimator-kafka-adapter')
   integration project(':hoptimator-mysql-adapter')
   integration project(':hoptimator-flink-adapter')
+  integration libs.slf4jSimple
 
   implementation libs.calciteCore
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient
-  implementation libs.slf4jLog4j
+  implementation libs.slf4jApi
 
   testImplementation libs.junit
   testImplementation libs.assertj
