@@ -1,17 +1,23 @@
 plugins {
-  id 'com.github.johnrengelman.shadow' version '8.1.1'
   id 'java'
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
   id 'application'
+  id 'maven-publish'
   id 'idea'
+}
+
+configurations {
+  integration.extendsFrom implementation
 }
 
 dependencies {
   implementation project(':hoptimator-planner')
   implementation project(':hoptimator-catalog')
-  implementation project(':hoptimator-operator-core')
-  implementation project(':hoptimator-kafka-adapter')
-  implementation project(':hoptimator-mysql-adapter')
-  implementation project(':models')
+  implementation project(':hoptimator-models')
+ 
+  // include adapters in integration tests 
+  integration project(':hoptimator-kafka-adapter')
+  integration project(':hoptimator-mysql-adapter')
 
   implementation libs.calciteCore
   implementation libs.kafkaClients
@@ -23,16 +29,46 @@ dependencies {
   testImplementation libs.assertj
 }
 
-tasks.withType(JavaCompile) {
-  options.compilerArgs << '-Xlint:deprecation'
-  options.compilerArgs << '-Xlint:unchecked'
-}
-
 application {
   mainClassName  = 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
 }
 
+publishing {
+  repositories {
+    maven {
+      name 'GitHubPackages'
+      url = 'https://maven.pkg.github.com/linkedin/Hoptimator'
+      credentials {
+        username = System.getenv('GITHUB_ACTOR')
+        password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+    maven {
+      name 'LinkedInJFrog'
+      url 'https://linkedin.jfrog.io/artifactory/hoptimator'
+      credentials {
+        username = System.getenv('JFROG_USERNAME')
+        password = System.getenv('JFROG_API_KEY')
+      }
+    }
+  }
+  publications {
+    maven(MavenPublication) {
+      groupId = 'com.linkedin.hoptimator'
+      artifactId = 'hoptimator-operator'
+      version = System.getenv('VERSION')
+      from components.java
+    }
+  }
+}
+
+
 shadowJar {
+  configurations = [project.configurations.integration]
+
+  // This is required for Flink and Avatica to play nicely
+  relocate 'com.google', 'org.apache.flink.calcite.shaded.com.google'
+
   exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
   zip64 true
   manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'

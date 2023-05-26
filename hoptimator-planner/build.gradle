@@ -7,17 +7,26 @@ plugins {
 dependencies {
   implementation project(':hoptimator-catalog')
 
-  api libs.calciteAvatica
-  api libs.calciteCore
+  implementation libs.calciteAvatica
+  implementation libs.calciteCore
 }
 
 publishing {
   repositories {
     maven {
-      url = "https://maven.pkg.github.com/linkedin/Hoptimator"
+      name 'GitHubPackages'
+      url = 'https://maven.pkg.github.com/linkedin/Hoptimator'
       credentials {
         username = System.getenv('GITHUB_ACTOR')
         password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+    maven {
+      name 'LinkedInJFrog'
+      url 'https://linkedin.jfrog.io/artifactory/hoptimator'
+      credentials {
+        username = System.getenv('JFROG_USERNAME')
+        password = System.getenv('JFROG_API_KEY')
       }
     }
   }
@@ -25,15 +34,15 @@ publishing {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
       artifactId = 'hoptimator-planner'
-      version = System.getenv('GITHUB_REF_NAME')
+      version = System.getenv('VERSION')
       from components.java
     }
   }
 }
 
-tasks.withType(JavaCompile) {
-  options.compilerArgs << '-Xlint:deprecation'
-  options.compilerArgs << '-Xlint:unchecked'
+java {
+  withJavadocJar()
+  withSourcesJar()
 }
 
 idea {

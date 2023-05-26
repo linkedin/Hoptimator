@@ -39,6 +39,24 @@ public interface ConfigProvider {
     };
   }
 
+  default ConfigProvider with(Map<String, ?> configs) {
+    if (configs == null) {
+      return this;
+    }
+    return x -> {
+      Map<String, String> base = config(x);
+      Map<String, String> combined = new HashMap<>();
+      combined.putAll(base);
+      configs.forEach((k, v) -> {
+        if (base.containsKey(k)) {
+          throw new IllegalStateException("Key '" + k + "' previously defined.");
+        }
+        combined.put(k, v.toString());
+      });
+      return combined;
+    };
+  }
+
   default ConfigProvider with(String key, String value) {
     return with(key, x -> value);
   }
