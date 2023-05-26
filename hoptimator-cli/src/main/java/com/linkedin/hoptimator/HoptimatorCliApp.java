@@ -311,7 +311,7 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
-        String[] parts = sql.split("[sS][eE][lL][eE][cC][tT]");
+        String[] parts = sql.split("(?i)SELECT"); // case insensitive
         if (parts.length != 2) {
           throw new IllegalArgumentException("Expected ... SELECT ...");
         }
@@ -319,6 +319,7 @@ public class HoptimatorCliApp {
         if (parts2.length != 2) {
           throw new IllegalArgumentException("Expected ... DATABASE.TABLE ...");
         }
+        // TODO unquote correctly
         String database = parts2[0].replaceAll("[\\\"']", "").trim();
         String table = parts2[1].replaceAll("[\\\"']", "").trim();
         String query = parts[1];
