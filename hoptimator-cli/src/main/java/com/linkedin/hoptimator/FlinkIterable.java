@@ -59,6 +59,24 @@ public class FlinkIterable implements Iterable<Object> {
     }
   }
 
+  /* Iterates over the selected field/column only, with a limit set on the number of collected elements */
+  public <T> Iterable<T> field(int pos, Integer limit) {
+    if(limit==null) {
+      return this.field(pos);
+    }
+    return new Iterable<T>() {
+      @Override
+      public Iterator<T> iterator() {
+        try {
+          return datastream().map(r -> r.<T>getFieldAs(pos)).executeAndCollect(limit).iterator();
+        } catch (Exception e) {
+          return new ExceptionalIterator<>(e);
+        }
+      }
+    };
+  }
+
+
   /** Iterates over the selected field/column only. */
   public <T> Iterable<T> field(int pos) {
     return new Iterable<T>() {

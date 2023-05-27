@@ -10,6 +10,13 @@ SELECT * FROM DATAGEN.COMPANY;
 -- MySQL CDC tables
 SELECT * FROM INVENTORY."products_on_hand" LIMIT 1;
 
+-- test testing command
+!test SELECT * FROM INVENTORY."products_on_hand" LIMIT 4;
+
+-- test checkexpect command
+-- !checkexpect 943fe SELECT * FROM DATAGEN.COMPANY;
+-- !checkexpect 52 SELECT * FROM DATAGEN.PERSON;
+
 -- MySQL CDC -> Kafka
 SELECT * FROM RAWKAFKA."products" LIMIT 1;
 
