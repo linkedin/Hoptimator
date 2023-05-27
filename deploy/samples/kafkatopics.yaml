@@ -4,3 +4,6 @@ metadata:
   name: test-sink
 spec:
   topicName: test-sink
+  clientOverrides:
+    bootstrap.servers: my-cluster-kafka-bootstrap.kafka.svc:9092
+    
