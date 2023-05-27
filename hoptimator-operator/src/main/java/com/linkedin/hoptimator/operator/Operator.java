@@ -44,8 +44,16 @@ public class Operator {
     this.properties = properties;
   }
 
+  public Operator(String namespace, ApiClient apiClient, SharedInformerFactory informerFactory) {
+    this(namespace, apiClient, informerFactory, new Properties());
+  }
+
   public Operator(String namespace, ApiClient apiClient, Properties properties) {
     this(namespace, apiClient, new SharedInformerFactory(apiClient), properties);
+  }
+
+  public Operator(String namespace, ApiClient apiClient) {
+    this(namespace, apiClient, new SharedInformerFactory(apiClient), new Properties());
   }
 
   /** Arbitrary global properties, which a controller plugin may use. */
