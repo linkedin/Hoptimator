@@ -20,11 +20,13 @@ import java.util.Map;
  * Calling convention which implements an SQL-based streaming data pipeline.
  *
  * Pipelines tend to have the following general shape:
+ * <pre>
  *                                   _________
  *   topic1 ----------------------> |         |
  *   table2 --> CDC ---> topic2 --> | SQL job | --> topic4
  *   table3 --> rETL --> topic3 --> |_________|
  *
+ * </pre>
  * The SQL job may consume multiple sources but writes to a single sink. The
  * CDC and rETL "hops" are made possible by Resources, which describe any
  * additional infra required by the Pipeline. As Resources are essentially
@@ -76,7 +78,8 @@ public interface PipelineRel extends RelNode {
 
     /** Script ending in INSERT INTO ... */
     public String insertInto(HopTable sink) {
-      return script.insert(sink.database(), sink.name(), relNode).sql(OUTPUT_DIALECT);
+      return script.database(sink.database()).with(sink)
+        .insert(sink.database(), sink.name(), relNode).sql(OUTPUT_DIALECT);
     }
 
     /** Add any resources, SQL, DDL etc required to access the table. */
