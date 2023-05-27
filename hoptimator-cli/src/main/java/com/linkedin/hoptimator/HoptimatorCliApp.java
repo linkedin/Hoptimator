@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Iterator;
 import java.util.Scanner;
 import java.util.Properties;
 import java.io.IOException;
@@ -47,6 +48,7 @@ public class HoptimatorCliApp {
     commandHandlers.add(new YamlCommandHandler());
     commandHandlers.add(new PipelineCommandHandler());
     commandHandlers.add(new IntroCommandHandler());
+    commandHandlers.add(new InsertCommandHandler());
     sqlline.updateCommandHandlers(commandHandlers);
     return sqlline.begin(args, null, true).ordinal();
   }
@@ -263,6 +265,98 @@ public class HoptimatorCliApp {
       return false;
     }
   }
+
+  private class InsertCommandHandler implements CommandHandler {
+
+    @Override
+    public String getName() {
+      return "insert";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Run an ephemeral pipeline with an existing sink.";
+    }
+
+    @Override
+    public String matches(String line) {
+      String sql = line;
+      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+        sql = sql.substring(1);
+      }
+
+      if (sql.startsWith("insert into")) {
+        sql = sql.substring("insert into".length() + 1);
+        return sql;
+      }
+
+      return null;
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      String sql = line;
+      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+        sql = sql.substring(1);
+      }
+
+      if (sql.startsWith("insert into")) {
+        sql = sql.substring("insert into".length() + 1);
+      }
+
+      String connectionUrl = sqlline.getConnectionMetadata().getUrl();
+      try {
+        String[] parts = sql.split("(?i)SELECT"); // case insensitive
+        if (parts.length != 2) {
+          throw new IllegalArgumentException("Expected ... SELECT ...");
+        }
+        String[] parts2 = parts[0].split("\\.");
+        if (parts2.length != 2) {
+          throw new IllegalArgumentException("Expected ... DATABASE.TABLE ...");
+        }
+        // TODO unquote correctly
+        String database = parts2[0].replaceAll("[\\\"']", "").trim();
+        String table = parts2[1].replaceAll("[\\\"']", "").trim();
+        String query = parts[1];
+
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
+        PipelineRel plan = planner.pipeline("SELECT " + query);
+        PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
+        HopTable sink = planner.database(database).makeTable(table, impl.rowType());
+        String pipelineSql = impl.insertInto(sink) + "\nSELECT 'SUCCESS';";
+        FlinkIterable iterable = new FlinkIterable(pipelineSql);
+        Iterator<String> iter = iterable.<String>field(0).iterator();
+        if (iter.hasNext()) {
+          dispatchCallback.setToSuccess();
+        } else {
+          throw new IllegalArgumentException("No result from:\n" + pipelineSql);
+        }
+        while (iter.hasNext()) {
+          sqlline.output(iter.next());
+        }
+      } catch (Exception e) {
+        sqlline.error(e.toString());
+        e.printStackTrace();
+        dispatchCallback.setToFailure();
+      }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
 
   private class IntroCommandHandler implements CommandHandler {
 

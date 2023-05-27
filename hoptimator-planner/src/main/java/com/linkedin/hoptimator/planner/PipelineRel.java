@@ -78,7 +78,8 @@ public interface PipelineRel extends RelNode {
 
     /** Script ending in INSERT INTO ... */
     public String insertInto(HopTable sink) {
-      return script.insert(sink.database(), sink.name(), relNode).sql(OUTPUT_DIALECT);
+      return script.database(sink.database()).with(sink)
+        .insert(sink.database(), sink.name(), relNode).sql(OUTPUT_DIALECT);
     }
 
     /** Add any resources, SQL, DDL etc required to access the table. */
