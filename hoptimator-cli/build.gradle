@@ -18,10 +18,12 @@ dependencies {
   integration project(':hoptimator-kafka-adapter')
   integration project(':hoptimator-mysql-adapter')
   integration libs.flinkCsv
+  integration libs.flinkConnectorKafka
+  integration libs.slf4jSimple
 
   implementation libs.avro 
   implementation libs.sqlline
-  implementation libs.slf4jLog4j
+  implementation libs.slf4jApi
   implementation libs.flinkClients
   implementation libs.flinkTableRuntime
   implementation libs.flinkTablePlanner

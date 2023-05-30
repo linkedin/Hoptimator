@@ -6,29 +6,46 @@ import io.kubernetes.client.util.Config;
 import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.ControllerManager;
 
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
 import com.linkedin.hoptimator.models.V1alpha1Subscription;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionList;
 import com.linkedin.hoptimator.models.V1alpha1SqlJob;
 import com.linkedin.hoptimator.models.V1alpha1SqlJobList;
-import com.linkedin.hoptimator.operator.flink.FlinkSqlJobReconciler;
-import com.linkedin.hoptimator.operator.kafka.KafkaTopicReconciler;
 import com.linkedin.hoptimator.operator.subscription.SubscriptionReconciler;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 public class HoptimatorOperatorApp {
+  private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
+
+  final String modelPath;
+  final String namespace;
+  final Properties properties;
+
+  /** This constructor is likely to evolve and break. */
+  public HoptimatorOperatorApp(String modelPath, String namespace, Properties properties) {
+    this.modelPath = modelPath;
+    this.namespace = namespace;
+    this.properties = properties;
+  }
 
   public static void main(String[] args) throws Exception {
     if (args.length != 1) {
       throw new IllegalArgumentException("Missing model file argument.");
     }
-    HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromModelFile(args[0],
-        new Properties());
+    new HoptimatorOperatorApp(args[0], "default", new Properties()).run();
+  }
+
+  public void run() throws Exception {
+    HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromModelFile(modelPath,
+        properties);
 
     // ensure model file works, and that static classes are initialized in the main thread
     HoptimatorPlanner planner = plannerFactory.makePlanner();
@@ -37,25 +54,23 @@ public class HoptimatorOperatorApp {
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder()
       .readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
-    Operator operator = new Operator("default", apiClient, informerFactory);
+    Operator operator = new Operator(namespace, apiClient, informerFactory, properties);
+    // TODO replace hard-coded "default" namespace with command-line argument
 
     operator.registerApi("SqlJob", "sqljob", "sqljobs",
       "hoptimator.linkedin.com", "v1alpha1", V1alpha1SqlJob.class, V1alpha1SqlJobList.class);
  
-    operator.registerApi("FlinkDeployment", "flinkdeployment", "flinkdeployments",
-      "flink.apache.org", "v1beta1");
-    
-    operator.registerApi("KafkaTopic", "kafkatopic", "kafkatopics", "hoptimator.linkedin.com",
-      "v1alpha1", V1alpha1KafkaTopic.class, V1alpha1KafkaTopicList.class);
-
     operator.registerApi("Subscription", "subscription", "subscriptions", "hoptimator.linkedin.com",
       "v1alpha1", V1alpha1Subscription.class, V1alpha1SubscriptionList.class);
 
+    List<Controller> controllers = new ArrayList<>();
+    controllers.addAll(ControllerService.controllers(operator));
+    controllers.add(SubscriptionReconciler.controller(operator, plannerFactory));
+
     ControllerManager controllerManager = new ControllerManager(operator.informerFactory(),
-      SubscriptionReconciler.controller(operator, plannerFactory),
-      KafkaTopicReconciler.controller(operator),
-      FlinkSqlJobReconciler.controller(operator));
+      controllers.toArray(new Controller[0]));
   
+    log.info("Starting operator with {} controllers.", controllers.size());
     controllerManager.run();  
   }
 }
