@@ -20,6 +20,6 @@ jobs:
           arguments: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          JFROG_USERNAME:
-          JROG_API_KEY: 
+          JFROG_USERNAME: ${{ secrets.LINKEDIN_JFROG_USERNAME }}
+          JROG_API_KEY: ${{ secrets.LINKEDIN_JFROG_TOKEN }}
           VERSION: ${{ github.event.release.tag_name }}
