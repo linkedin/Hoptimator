@@ -25,9 +25,8 @@ dependencies {
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient
   implementation libs.slf4jApi
-
-  implementation 'commons-cli:commons-cli:1.4'
-
+  implementation libs.commonsCli
+  
   testImplementation libs.junit
   testImplementation libs.assertj
 }
