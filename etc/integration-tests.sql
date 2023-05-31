@@ -10,6 +10,9 @@ SELECT * FROM DATAGEN.COMPANY;
 -- MySQL CDC tables
 SELECT * FROM INVENTORY."products_on_hand" LIMIT 1;
 
+-- Test check command
+!check not empty SELECT * FROM INVENTORY."products_on_hand";
+
 -- MySQL CDC -> Kafka
 SELECT * FROM RAWKAFKA."products" LIMIT 1;
 

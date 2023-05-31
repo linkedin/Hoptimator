@@ -49,6 +49,7 @@ public class HoptimatorCliApp {
     commandHandlers.add(new PipelineCommandHandler());
     commandHandlers.add(new IntroCommandHandler());
     commandHandlers.add(new InsertCommandHandler());
+    commandHandlers.add(new TestCommandHandler());
     sqlline.updateCommandHandlers(commandHandlers);
     return sqlline.begin(args, null, true).ordinal();
   }
@@ -247,6 +248,126 @@ public class HoptimatorCliApp {
         HopTable outputTable = new HopTable("PIPELINE", "SINK", plan.getRowType(),
           Collections.singletonMap("connector", "dummy"));
         sqlline.output(impl.insertInto(outputTable));
+        dispatchCallback.setToSuccess();
+      } catch (Exception e) {
+        sqlline.error(e.toString());
+        e.printStackTrace();
+        dispatchCallback.setToFailure();
+      }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
+  private class TestCommandHandler implements CommandHandler {
+
+    @Override
+    public String getName() {
+      return "check";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Usage: !check <value> <query>, !check empty <query>, !check not empty <query>";
+    }
+
+    @Override
+    public String matches(String line) {
+      String sql = line;
+      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+        sql = sql.substring(1);
+      }
+
+      if (sql.startsWith("check")) {
+        sql = sql.substring("check".length() + 1);
+        return sql;
+      }
+
+      return null;
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      String sql = line;
+      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+        sql = sql.substring(1);
+      }
+
+      if (sql.startsWith("check")) {
+        sql = sql.substring("check".length() + 1);
+      }
+
+      //remove semicolon from query if present
+      if (sql.length() > 0 && sql.charAt(sql.length() - 1) == ';') {
+        sql = sql.substring(0, sql.length() - 1);
+      }
+
+      String connectionUrl = sqlline.getConnectionMetadata().getUrl();
+      try {
+        String[] type = sql.split(" ", 2);
+        if(type.length < 2) {
+          throw new IllegalArgumentException("Invalid usage"); //TODO: expand
+        }
+
+        String value = null;
+        String query = null;
+
+        String checkType=type[0];
+        switch (checkType) {
+          case "not":
+            query = type[1].split(" ", 2)[1].trim();
+            break;
+          case "empty":
+            query = type[1].trim();
+            break;
+          case "value":
+            String[] valueQuery = type[1].split(" ", 2);
+            value = valueQuery[0].trim();
+            query = valueQuery[1].trim();
+            break;
+          default:
+            throw new IllegalArgumentException("Expected one of 'not', 'empty', or 'value'");
+        }
+
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
+        PipelineRel plan = planner.pipeline(query);
+        PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
+        String pipelineSql = impl.query();
+        FlinkIterable iterable = new FlinkIterable(pipelineSql);
+        Iterator<String> iter = iterable.<String>field(0, 1).iterator();
+        switch(checkType) {
+          case "not": 
+            if (!iter.hasNext()) {
+              throw new IllegalArgumentException("Expected >0 rows from query result");
+            }
+            break;
+          case "empty":
+            if (iter.hasNext()) {
+              throw new IllegalArgumentException("Expected 0 rows from query result");
+            }
+            break;
+          case "value":
+            while (iter.hasNext()) {
+              if(String.valueOf(iter.next()).contains(value)) {
+                break;
+              }
+            }
+            throw new IllegalArgumentException("Query result did not contain expected value");
+        }
+        sqlline.output("PASS");
         dispatchCallback.setToSuccess();
       } catch (Exception e) {
         sqlline.error(e.toString());
