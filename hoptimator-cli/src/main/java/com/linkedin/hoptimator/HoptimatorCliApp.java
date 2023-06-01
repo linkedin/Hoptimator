@@ -360,10 +360,15 @@ public class HoptimatorCliApp {
             }
             break;
           case "value":
+            boolean varFound = false;
             while (iter.hasNext()) {
               if(String.valueOf(iter.next()).contains(value)) {
+                varFound = true;
                 break;
               }
+            }
+            if (varFound) {
+              break;
             }
             throw new IllegalArgumentException("Query result did not contain expected value");
         }
