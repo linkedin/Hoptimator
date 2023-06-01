@@ -60,13 +60,13 @@ public class HoptimatorOperatorApp {
     CommandLine cmd;
 
     try {
-        cmd = parser.parse(options, args);
+      cmd = parser.parse(options, args);
     } catch (ParseException e) {
-        System.out.println(e.getMessage());
-        formatter.printHelp("utility-name", options);
+      System.out.println(e.getMessage());
+      formatter.printHelp("utility-name", options);
 
-        System.exit(1);
-        return;
+      System.exit(1);
+      return;
     }
 
     String modelFileInput = cmd.getArgs()[0];
