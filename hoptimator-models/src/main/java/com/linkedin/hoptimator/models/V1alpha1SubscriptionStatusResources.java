@@ -20,41 +20,41 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatusResourceRef;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * For KafkaTopic subscriptions, the KafkaTopic where the data can be consumed.
+ * V1alpha1SubscriptionStatusResources
  */
-@ApiModel(description = "For KafkaTopic subscriptions, the KafkaTopic where the data can be consumed.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-15T21:24:30.587Z[Etc/UTC]")
-public class V1alpha1SubscriptionStatusKafkaTopicRef {
-  public static final String SERIALIZED_NAME_NAME = "name";
-  @SerializedName(SERIALIZED_NAME_NAME)
-  private String name;
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-06T00:58:39.977Z[Etc/UTC]")
+public class V1alpha1SubscriptionStatusResources {
+  public static final String SERIALIZED_NAME_RESOURCE_REF = "resourceRef";
+  @SerializedName(SERIALIZED_NAME_RESOURCE_REF)
+  private V1alpha1SubscriptionStatusResourceRef resourceRef;
 
 
-  public V1alpha1SubscriptionStatusKafkaTopicRef name(String name) {
+  public V1alpha1SubscriptionStatusResources resourceRef(V1alpha1SubscriptionStatusResourceRef resourceRef) {
     
-    this.name = name;
+    this.resourceRef = resourceRef;
     return this;
   }
 
    /**
-   * The name of the KafkaTopic rescource.
-   * @return name
+   * Get resourceRef
+   * @return resourceRef
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "The name of the KafkaTopic rescource.")
+  @ApiModelProperty(value = "")
 
-  public String getName() {
-    return name;
+  public V1alpha1SubscriptionStatusResourceRef getResourceRef() {
+    return resourceRef;
   }
 
 
-  public void setName(String name) {
-    this.name = name;
+  public void setResourceRef(V1alpha1SubscriptionStatusResourceRef resourceRef) {
+    this.resourceRef = resourceRef;
   }
 
 
@@ -66,21 +66,21 @@ public class V1alpha1SubscriptionStatusKafkaTopicRef {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SubscriptionStatusKafkaTopicRef v1alpha1SubscriptionStatusKafkaTopicRef = (V1alpha1SubscriptionStatusKafkaTopicRef) o;
-    return Objects.equals(this.name, v1alpha1SubscriptionStatusKafkaTopicRef.name);
+    V1alpha1SubscriptionStatusResources v1alpha1SubscriptionStatusResources = (V1alpha1SubscriptionStatusResources) o;
+    return Objects.equals(this.resourceRef, v1alpha1SubscriptionStatusResources.resourceRef);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name);
+    return Objects.hash(resourceRef);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SubscriptionStatusKafkaTopicRef {\n");
-    sb.append("    name: ").append(toIndentedString(name)).append("\n");
+    sb.append("class V1alpha1SubscriptionStatusResources {\n");
+    sb.append("    resourceRef: ").append(toIndentedString(resourceRef)).append("\n");
     sb.append("}");
     return sb.toString();
   }

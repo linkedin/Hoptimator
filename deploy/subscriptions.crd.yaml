@@ -22,12 +22,6 @@ spec:
           description: Hoptimator Subscription
           type: object
           properties:
-            apiVersion:
-              type: string
-            kind:
-              type: string
-            metadata:
-              type: object
             spec:
               description: Subscription spec
               type: object
@@ -46,14 +40,44 @@ spec:
               type: object
               properties:
                 ready:
-                  description: Whether the subscription is ready to be consumed.
+                  description: Whether the subscription is ready, which implies all downstream resources are ready.
                   type: boolean
                 message:
                   description: Error or success message, for information only.
                   type: string
+                sql:
+                  description: The SQL deployed by the operator.
+                  type: string
+                resources:
+                  description: Resources owned by this Subscription.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      resourceRef:
+                        description: Reference to a resource owned by this Subscription.
+                        type: object
+                        properties:
+                          apiVersion:
+                            description: Api version of the resource, e.g. hoptimator.linkedin.com/v1alpha1.
+                            type: string
+                          kind:
+                            description: Kind of the resource, e.g. KafkaTopic.
+                            type: string
+                          name:
+                            description: Name of the resource.
+                            type: string
+                        required:
+                        - apiVersion  
+                        - kind
+                        - name
       subresources:
         status: {}
       additionalPrinterColumns:
+      - name: STATUS
+        type: string
+        description: Operator status message.
+        jsonPath: .status.message
       - name: DB
         type: string
         description: The database where the subscription is materialized.

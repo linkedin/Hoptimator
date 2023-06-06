@@ -111,9 +111,11 @@ public class Operator {
   }
 
   public DynamicKubernetesApi apiFor(DynamicKubernetesObject obj) {
-    String groupVersion = obj.getApiVersion(); 
-    String kind = obj.getKind();
-    return apiInfo(groupVersion + "/" + kind).dynamic(apiClient);
+    return apiFor(obj.getApiVersion(), obj.getKind());
+  }
+
+  public DynamicKubernetesApi apiFor(String apiVersion, String kind) {
+    return apiInfo(apiVersion + "/" + kind).dynamic(apiClient);
   }
 
   @SuppressWarnings("unchecked")
@@ -122,53 +124,64 @@ public class Operator {
     return (GenericKubernetesApi<T, L>) apiInfo(groupVersionKind).generic(apiClient);
   }
 
-  public boolean applyResource(Resource resource, V1OwnerReference ownerReference,
+  public DynamicKubernetesObject applyResource(Resource resource, V1OwnerReference ownerReference,
       Resource.TemplateFactory templateFactory) {
     String yaml = resource.render(templateFactory);
     DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
+    String kind = obj.getKind();
     KubernetesApiResponse<DynamicKubernetesObject> existing = apiFor(obj).get(namespace, name);
     if (existing.isSuccess()) {
       String resourceVersion = existing.getObject().getMetadata().getResourceVersion();
-      log.info("Updating existing downstream resource {}/{} {} as \n{}",
-        namespace, name, resourceVersion, yaml);
+      log.info("Updating existing downstream resource {}/{}/{} {} as \n{}",
+        namespace, kind, name, resourceVersion, yaml);
       List<V1OwnerReference> owners = existing.getObject().getMetadata().getOwnerReferences();
       if (owners == null) {
         owners = new ArrayList<>();
       }
       if (owners.stream().anyMatch(x -> x.getUid().equals(ownerReference.getUid()))) {
-        log.info("Existing downstream resource {}/{} is already owned by {}/{}.",
-          namespace, name, ownerReference.getKind(), ownerReference.getName());
+        log.info("Existing downstream resource {}/{}/{} is already owned by {}/{}/{}.",
+          namespace, kind, name, namespace, ownerReference.getKind(), ownerReference.getName());
       } else {
-        log.info("Existing downstream resource {}/{} will be owned by {}/{} and {} others.",
-          namespace, name, ownerReference.getKind(), ownerReference.getName(), owners.size());
+        log.info("Existing downstream resource {}/{}/{} will be owned by {}/{}/{} and {} others.",
+          namespace, kind, name, namespace, ownerReference.getKind(), ownerReference.getName(),
+          owners.size());
         owners.add(ownerReference);
       }
       obj.setMetadata(obj.getMetadata().ownerReferences(owners).resourceVersion(resourceVersion));
-      KubernetesApiResponse<DynamicKubernetesObject> response = apiFor(obj).update(obj);
-      if (!response.isSuccess()) {
-        log.error("Error updating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());
-        return false;
+      KubernetesApiResponse<DynamicKubernetesObject> updated = apiFor(obj).update(obj);
+      if (!updated.isSuccess()) {
+        log.error("Error updating downstream resource {}/{}/{}: {}.", namespace, kind, name,
+          updated.getStatus().getMessage());
+        return existing.getObject();
+      } else {
+        return updated.getObject();
       }
     } else {
-      log.info("Creating downstream resource {}/{} as \n{}", namespace, name, yaml);
+      log.info("Creating downstream resource {}/{}/{} as \n{}", namespace, kind, name, yaml);
       obj.setMetadata(obj.getMetadata().addOwnerReferencesItem(ownerReference));
-      KubernetesApiResponse<DynamicKubernetesObject> response = apiFor(obj).create(obj);
-      if (!response.isSuccess()) {
-        log.error("Error creating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());
-        return false;
+      KubernetesApiResponse<DynamicKubernetesObject> created = apiFor(obj).create(obj);
+      if (!created.isSuccess()) {
+        log.error("Error creating downstream resource {}/{}/{}: {}.", namespace, kind, name,
+          created.getStatus().getMessage());
+        return null;
+      } else {
+        return created.getObject();
       }
     }
-    return true;
   }
-
+   
   public Duration failureRetryDuration() {
     return Duration.ofMinutes(5);
   }
 
+  public Duration pendingRetryDuration() {
+    return Duration.ofSeconds(5);
+  }
+
   public Duration resyncPeriod() {
-    return Duration.ofMinutes(1);
+    return Duration.ofMinutes(10);
   }
 
   public static class ApiInfo<T extends KubernetesObject, L extends KubernetesListObject> {

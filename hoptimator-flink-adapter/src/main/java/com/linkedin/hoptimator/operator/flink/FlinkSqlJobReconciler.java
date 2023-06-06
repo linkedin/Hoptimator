@@ -59,7 +59,7 @@ public class FlinkSqlJobReconciler implements Reconciler {
       RequestEnvironment env = new RequestEnvironment(request);
       Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(env);
       FlinkDeployment deployment = new FlinkDeployment(sql);
-      if (!operator.applyResource(deployment, ownerReference, templateFactory)) {
+      if (operator.applyResource(deployment, ownerReference, templateFactory) == null) {
         return new Result(true, operator.failureRetryDuration());
       }
     } catch (Exception e) {
