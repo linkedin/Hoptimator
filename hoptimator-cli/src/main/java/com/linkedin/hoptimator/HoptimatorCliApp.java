@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator;
 
+import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import sqlline.SqlLine;
 import sqlline.CommandHandler;
 import sqlline.DispatchCallback;
@@ -246,7 +247,7 @@ public class HoptimatorCliApp {
         sqlline.output("SQL:");
         HopTable outputTable = new HopTable("PIPELINE", "SINK", plan.getRowType(),
           Collections.singletonMap("connector", "dummy"));
-        sqlline.output(impl.insertInto(outputTable));
+        sqlline.output(impl.insertInto(outputTable).sql(MysqlSqlDialect.DEFAULT));
         dispatchCallback.setToSuccess();
       } catch (Exception e) {
         sqlline.error(e.toString());
@@ -328,7 +329,7 @@ public class HoptimatorCliApp {
         PipelineRel plan = planner.pipeline("SELECT " + query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         HopTable sink = planner.database(database).makeTable(table, impl.rowType());
-        String pipelineSql = impl.insertInto(sink) + "\nSELECT 'SUCCESS';";
+        String pipelineSql = impl.insertInto(sink).sql(MysqlSqlDialect.DEFAULT) + "\nSELECT 'SUCCESS';";
         FlinkIterable iterable = new FlinkIterable(pipelineSql);
         Iterator<String> iter = iterable.<String>field(0).iterator();
         if (iter.hasNext()) {
