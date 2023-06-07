@@ -28,3 +28,5 @@ kubernetesExtendedClient = "io.kubernetes:client-java-extended:16.0.2"
 slf4jSimple = "org.slf4j:slf4j-simple:1.7.30"
 slf4jApi = "org.slf4j:slf4j-api:1.7.30"
 sqlline = "sqlline:sqlline:1.12.0"
+commonsCli = 'commons-cli:commons-cli:1.4'
+
