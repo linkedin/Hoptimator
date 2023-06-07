@@ -25,11 +25,11 @@ import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Filled in by the operator.
+ * Current state of the connector.
  */
-@ApiModel(description = "Filled in by the operator.")
+@ApiModel(description = "Current state of the connector.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-07T04:20:03.484Z[Etc/UTC]")
-public class V1alpha1SubscriptionStatus {
+public class V1alpha1KafkaConnectorStatus {
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
   private String message;
@@ -39,7 +39,7 @@ public class V1alpha1SubscriptionStatus {
   private Boolean ready;
 
 
-  public V1alpha1SubscriptionStatus message(String message) {
+  public V1alpha1KafkaConnectorStatus message(String message) {
     
     this.message = message;
     return this;
@@ -62,18 +62,18 @@ public class V1alpha1SubscriptionStatus {
   }
 
 
-  public V1alpha1SubscriptionStatus ready(Boolean ready) {
+  public V1alpha1KafkaConnectorStatus ready(Boolean ready) {
     
     this.ready = ready;
     return this;
   }
 
    /**
-   * Whether the subscription is ready to be consumed.
+   * Whether the requested connector has been created.
    * @return ready
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Whether the subscription is ready to be consumed.")
+  @ApiModelProperty(value = "Whether the requested connector has been created.")
 
   public Boolean getReady() {
     return ready;
@@ -93,9 +93,9 @@ public class V1alpha1SubscriptionStatus {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SubscriptionStatus v1alpha1SubscriptionStatus = (V1alpha1SubscriptionStatus) o;
-    return Objects.equals(this.message, v1alpha1SubscriptionStatus.message) &&
-        Objects.equals(this.ready, v1alpha1SubscriptionStatus.ready);
+    V1alpha1KafkaConnectorStatus v1alpha1KafkaConnectorStatus = (V1alpha1KafkaConnectorStatus) o;
+    return Objects.equals(this.message, v1alpha1KafkaConnectorStatus.message) &&
+        Objects.equals(this.ready, v1alpha1KafkaConnectorStatus.ready);
   }
 
   @Override
@@ -107,7 +107,7 @@ public class V1alpha1SubscriptionStatus {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SubscriptionStatus {\n");
+    sb.append("class V1alpha1KafkaConnectorStatus {\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("}");

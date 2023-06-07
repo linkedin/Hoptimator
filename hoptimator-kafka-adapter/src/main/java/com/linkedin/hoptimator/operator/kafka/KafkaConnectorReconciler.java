@@ -14,6 +14,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,6 +32,8 @@ public class KafkaConnectorReconciler implements Reconciler {
   private final static Logger log = LoggerFactory.getLogger(KafkaConnectorReconciler.class);
   private final static String KAFKACONNECTOR = "hoptimator.linkedin.com/v1alpha1/KafkaConnector";
   private final static MediaType JSON = MediaType.get("application/json; charset=utf-8");
+  private final ObjectMapper objectMapper = new ObjectMapper();
+  private final OkHttpClient httpClient = new OkHttpClient.Builder().build();
 
   private final Operator operator;
 
@@ -38,10 +42,10 @@ public class KafkaConnectorReconciler implements Reconciler {
   }
 
   private int putConfig(String url, Map<String, String> config) throws IOException {
-    String json = operator.objectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(config);
+    String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
     RequestBody body = RequestBody.create(json, JSON);
     okhttp3.Request request = new okhttp3.Request.Builder().url(url).put(body).build();
-    try (Response response = operator.httpClient().newCall(request).execute()) {
+    try (Response response = httpClient.newCall(request).execute()) {
       log.info("Response: {}.", response.body().string());
       return response.code();
     }

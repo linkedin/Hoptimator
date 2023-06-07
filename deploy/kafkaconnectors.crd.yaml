@@ -41,6 +41,8 @@ spec:
                 connectorConfig:
                   description: Connector configuration.
                   type: object
+                  additionalProperties:
+                    type: string
               required:
               - connectorName
               - clusterBaseUrl

@@ -11,6 +11,7 @@ dependencies {
   implementation libs.kafkaClients
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient
+  implementation libs.jacksonDatabind
 
   testImplementation libs.junit
   testImplementation libs.assertj

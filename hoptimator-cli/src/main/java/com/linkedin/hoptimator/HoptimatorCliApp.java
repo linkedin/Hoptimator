@@ -267,7 +267,6 @@ public class HoptimatorCliApp {
     }
   }
 
-<<<<<<< HEAD
   private class TestCommandHandler implements CommandHandler {
 
     @Override
