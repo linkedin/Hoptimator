@@ -59,6 +59,23 @@ publishing {
       artifactId = 'hoptimator-cli'
       version = System.getenv('VERSION')
       from components.java
+      pom {
+        name = 'LinkedIn Hoptimator'
+        description = 'Multi-hop declarative data pipelines'
+        url = 'https://github.com/linkedin/Hoptimator'
+        licenses {
+          license {
+            name = 'BSD 2-Clause'
+            url = 'https://raw.githubusercontent.com/linkedin/Hoptimator/main/LICENSE'
+            }
+          }
+        scm {
+          connection = 'scm:git:git://github.com:linkedin/Hoptimator.git'
+          developerConnection = 'scm:git:ssh://github.com:linkedin/Hoptimator.git'
+          url = 'https://github.com/linkedin/Hoptimator'
+        }
+      }
+
     }
   }
 }
