@@ -346,7 +346,7 @@ public class HoptimatorCliApp {
         HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
         PipelineRel plan = planner.pipeline(query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
-        String pipelineSql = impl.query();
+        String pipelineSql = impl.query().sql(MysqlSqlDialect.DEFAULT);
         FlinkIterable iterable = new FlinkIterable(pipelineSql);
         Iterator<String> iter = iterable.<String>field(0, 1).iterator();
         switch(checkType) {
