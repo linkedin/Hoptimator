@@ -30,6 +30,15 @@ In order to deploy such a pipeline, you only need to write one SQL query, called
 
 ## Quick Start
 
+### Prerequistes
+
+1. `docker` is installed and docker daemon is running
+2. `kubectl` is installed and cluster is running
+   1. `minikube` can be used for a local cluster
+3. `helm` for Kubernetes is installed
+
+### Run
+
 ```
   $ make quickstart
   ... wait a while ...
@@ -43,7 +52,7 @@ In order to deploy such a pipeline, you only need to write one SQL query, called
 Subscriptions are SQL views that are automatically materialized by a pipeline.
 
 ```
-  $ kubectl apply -f deploy/samples/subscription.yaml
+  $ kubectl apply -f deploy/samples/subscriptions.yaml
 ```
 
 In response, the operator will deploy a Flink job and other resources:
@@ -60,7 +69,7 @@ You can verify the job is running by inspecting the output:
 ```
   $ ./bin/hoptimator
   > !tables
-  > SELECT * FROM RAWKAFKA."sample-subscription-1" LIMIT 5;
+  > SELECT * FROM RAWKAFKA."products" LIMIT 5;
   > !q
 ```
 
