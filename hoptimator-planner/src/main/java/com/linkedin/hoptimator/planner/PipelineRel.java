@@ -6,7 +6,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.dialect.MysqlSqlDialect;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.catalog.HopTable;
@@ -14,7 +14,6 @@ import com.linkedin.hoptimator.catalog.ScriptImplementor;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Calling convention which implements an SQL-based streaming data pipeline.
@@ -36,8 +35,6 @@ import java.util.Map;
 public interface PipelineRel extends RelNode {
 
   Convention CONVENTION = new Convention.Impl("PIPELINE", PipelineRel.class);
-  SqlDialect OUTPUT_DIALECT = MysqlSqlDialect.DEFAULT; // closely resembles Flink SQL
-  // TODO support alternative output dialects
 
   void implement(Implementor implementor);
 
@@ -72,14 +69,14 @@ public interface PipelineRel extends RelNode {
     }
 
     /** Script ending in SELECT... */
-    public String query() {
-      return script.query(relNode).sql(OUTPUT_DIALECT);
+    public ScriptImplementor query() {
+      return script.query(relNode);
     }
 
     /** Script ending in INSERT INTO ... */
-    public String insertInto(HopTable sink) {
+    public ScriptImplementor insertInto(HopTable sink) {
       return script.database(sink.database()).with(sink)
-        .insert(sink.database(), sink.name(), relNode).sql(OUTPUT_DIALECT);
+        .insert(sink.database(), sink.name(), relNode);
     }
 
     /** Add any resources, SQL, DDL etc required to access the table. */
@@ -88,11 +85,15 @@ public interface PipelineRel extends RelNode {
       table.resources().forEach(x -> resource(x));
     }
 
-    /** Combine SQL and any Resources into a Pipeline */
     public Pipeline pipeline(HopTable sink) {
+      return pipeline(sink, AnsiSqlDialect.DEFAULT);
+    }
+
+    /** Combine SQL and any Resources into a Pipeline */
+    public Pipeline pipeline(HopTable sink, SqlDialect sqlDialect) {
       List<Resource> resourcesAndJob = new ArrayList<>();
       resourcesAndJob.addAll(resources);
-      resourcesAndJob.add(new SqlJob(insertInto(sink)));
+      resourcesAndJob.add(new SqlJob(insertInto(sink).sql(sqlDialect)));
       return new Pipeline(resourcesAndJob, rowType());
     }
   }
