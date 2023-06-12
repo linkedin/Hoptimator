@@ -9,10 +9,12 @@ import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
 import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.catalog.ResourceProvider;
 import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.ScriptImplementor;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -90,9 +92,14 @@ public interface PipelineRel extends RelNode {
 
     /** Combine SQL and any Resources into a Pipeline */
     public Pipeline pipeline(HopTable sink) {
-      List<Resource> resourcesAndJob = new ArrayList<>();
-      resourcesAndJob.addAll(resources);
-      resourcesAndJob.add(new SqlJob(insertInto(sink)));
+
+      // We re-use ResourceProvider here for its source->sink relationships
+      ResourceProvider resourceProvider = ResourceProvider.from(resources)
+        .to(new SqlJob(insertInto(sink)));
+
+      // All resources are now "provided", so we can pass null here:
+      Collection<Resource> resourcesAndJob = resourceProvider.resources(null);
+
       return new Pipeline(resourcesAndJob, rowType());
     }
   }
