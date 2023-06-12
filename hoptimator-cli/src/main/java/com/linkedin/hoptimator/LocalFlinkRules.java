@@ -21,6 +21,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterImpl;
 import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.runtime.Hook;
+import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import org.apache.calcite.util.BuiltInMethod;
 
 import java.util.Collections;
@@ -64,7 +65,7 @@ public class LocalFlinkRules implements RuleProvider {
       BlockBuilder builder = new BlockBuilder();
       PhysType physType = PhysTypeImpl.of(implementor.getTypeFactory(), rowType, pref.preferCustom());
       PipelineRel.Implementor impl = new PipelineRel.Implementor(getInput());
-      String sql = impl.query();
+      String sql = impl.query().sql(MysqlSqlDialect.DEFAULT);
       Hook.QUERY_PLAN.run(sql);         // for script validation in tests
       HoptimatorHook.QUERY_PLAN.run(sql);  // ditto
       Expression iter = builder.append("iter", Expressions.new_(FlinkIterable.class, Expressions.constant(sql),
