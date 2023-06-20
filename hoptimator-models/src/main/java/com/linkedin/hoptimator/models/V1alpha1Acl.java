@@ -20,19 +20,19 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.models.V1alpha1SqlJobSpec;
-import com.linkedin.hoptimator.models.V1alpha1SqlJobStatus;
+import com.linkedin.hoptimator.models.V1alpha1AclSpec;
+import com.linkedin.hoptimator.models.V1alpha1AclStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * SQL job
+ * Access control rule (colloquially, an Acl)
  */
-@ApiModel(description = "SQL job")
+@ApiModel(description = "Access control rule (colloquially, an Acl)")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-20T18:21:37.545Z[Etc/UTC]")
-public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObject {
+public class V1alpha1Acl implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
@@ -47,14 +47,14 @@ public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObj
 
   public static final String SERIALIZED_NAME_SPEC = "spec";
   @SerializedName(SERIALIZED_NAME_SPEC)
-  private V1alpha1SqlJobSpec spec;
+  private V1alpha1AclSpec spec;
 
   public static final String SERIALIZED_NAME_STATUS = "status";
   @SerializedName(SERIALIZED_NAME_STATUS)
-  private V1alpha1SqlJobStatus status;
+  private V1alpha1AclStatus status;
 
 
-  public V1alpha1SqlJob apiVersion(String apiVersion) {
+  public V1alpha1Acl apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -77,7 +77,7 @@ public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObj
   }
 
 
-  public V1alpha1SqlJob kind(String kind) {
+  public V1alpha1Acl kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -100,7 +100,7 @@ public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObj
   }
 
 
-  public V1alpha1SqlJob metadata(V1ObjectMeta metadata) {
+  public V1alpha1Acl metadata(V1ObjectMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -123,7 +123,7 @@ public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObj
   }
 
 
-  public V1alpha1SqlJob spec(V1alpha1SqlJobSpec spec) {
+  public V1alpha1Acl spec(V1alpha1AclSpec spec) {
     
     this.spec = spec;
     return this;
@@ -136,17 +136,17 @@ public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObj
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1alpha1SqlJobSpec getSpec() {
+  public V1alpha1AclSpec getSpec() {
     return spec;
   }
 
 
-  public void setSpec(V1alpha1SqlJobSpec spec) {
+  public void setSpec(V1alpha1AclSpec spec) {
     this.spec = spec;
   }
 
 
-  public V1alpha1SqlJob status(V1alpha1SqlJobStatus status) {
+  public V1alpha1Acl status(V1alpha1AclStatus status) {
     
     this.status = status;
     return this;
@@ -159,12 +159,12 @@ public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObj
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1alpha1SqlJobStatus getStatus() {
+  public V1alpha1AclStatus getStatus() {
     return status;
   }
 
 
-  public void setStatus(V1alpha1SqlJobStatus status) {
+  public void setStatus(V1alpha1AclStatus status) {
     this.status = status;
   }
 
@@ -177,12 +177,12 @@ public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObj
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SqlJob v1alpha1SqlJob = (V1alpha1SqlJob) o;
-    return Objects.equals(this.apiVersion, v1alpha1SqlJob.apiVersion) &&
-        Objects.equals(this.kind, v1alpha1SqlJob.kind) &&
-        Objects.equals(this.metadata, v1alpha1SqlJob.metadata) &&
-        Objects.equals(this.spec, v1alpha1SqlJob.spec) &&
-        Objects.equals(this.status, v1alpha1SqlJob.status);
+    V1alpha1Acl v1alpha1Acl = (V1alpha1Acl) o;
+    return Objects.equals(this.apiVersion, v1alpha1Acl.apiVersion) &&
+        Objects.equals(this.kind, v1alpha1Acl.kind) &&
+        Objects.equals(this.metadata, v1alpha1Acl.metadata) &&
+        Objects.equals(this.spec, v1alpha1Acl.spec) &&
+        Objects.equals(this.status, v1alpha1Acl.status);
   }
 
   @Override
@@ -194,7 +194,7 @@ public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObj
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SqlJob {\n");
+    sb.append("class V1alpha1Acl {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    metadata: ").append(toIndentedString(metadata)).append("\n");

@@ -5,7 +5,7 @@ metadata:
   name: hoptimator-controller
 rules:
 - apiGroups: ["hoptimator.linkedin.com"]
-  resources: ["sqljobs", "kafkatopics", "subscriptions"]
+  resources: ["acls", "kafkatopics", "subscriptions", "sqljobs"]
   verbs: ["get", "watch", "list", "update", "create"]
 - apiGroups: ["flink.apache.org"]
   resources: ["flinkdeployments"]

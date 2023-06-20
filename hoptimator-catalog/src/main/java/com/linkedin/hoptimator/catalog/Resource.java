@@ -40,6 +40,7 @@ public abstract class Resource {
   /** A Resource of some kind. */
   public Resource(String kind) {
     this.kind = kind;
+    export("id", () -> id());
   }
 
   /** Copy constructor */
@@ -49,8 +50,14 @@ public abstract class Resource {
     this.inputs.addAll(other.inputs);
   }
 
+  /** The kind of resource. Generally corresponds to a K8s resource kind. */
   public String kind() {
     return kind;
+  }
+
+  /** A reasonably unique ID, based on a hash of the exported properties. */
+  public String id() {
+    return Integer.toHexString(hashCode());
   }
 
   /** Export a computed value to the template */
@@ -111,13 +118,18 @@ public abstract class Resource {
     StringBuilder sb = new StringBuilder();
     sb.append("[ kind: " + kind() + " ");
     for (Map.Entry<String, Supplier<String>> entry : properties.entrySet()) {
-      String value = entry.getValue().get();
-      if (value != null && !value.isEmpty()) {
-        sb.append(entry.getKey());
-        sb.append(":");
-        sb.append(entry.getValue().get());
-        sb.append(" ");
+      if (entry.getKey().equals("id")) {
+        // special case for "id" to avoid recursion
+        continue;
       }
+      String value = entry.getValue().get();
+      if (value == null || value.isEmpty()) {
+        continue;
+      }
+      sb.append(entry.getKey());
+      sb.append(":");
+      sb.append(entry.getValue().get());
+      sb.append(" ");
     }
     sb.append("]");
     return sb.toString();

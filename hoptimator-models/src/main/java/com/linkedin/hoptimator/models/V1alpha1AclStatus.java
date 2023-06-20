@@ -20,41 +20,68 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopicSpecConfigMapRef;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * V1alpha1KafkaTopicSpecClientConfigs
+ * Status, as set by the operator.
  */
+@ApiModel(description = "Status, as set by the operator.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-20T18:21:37.545Z[Etc/UTC]")
-public class V1alpha1KafkaTopicSpecClientConfigs {
-  public static final String SERIALIZED_NAME_CONFIG_MAP_REF = "configMapRef";
-  @SerializedName(SERIALIZED_NAME_CONFIG_MAP_REF)
-  private V1alpha1KafkaTopicSpecConfigMapRef configMapRef;
+public class V1alpha1AclStatus {
+  public static final String SERIALIZED_NAME_MESSAGE = "message";
+  @SerializedName(SERIALIZED_NAME_MESSAGE)
+  private String message;
+
+  public static final String SERIALIZED_NAME_READY = "ready";
+  @SerializedName(SERIALIZED_NAME_READY)
+  private Boolean ready;
 
 
-  public V1alpha1KafkaTopicSpecClientConfigs configMapRef(V1alpha1KafkaTopicSpecConfigMapRef configMapRef) {
+  public V1alpha1AclStatus message(String message) {
     
-    this.configMapRef = configMapRef;
+    this.message = message;
     return this;
   }
 
    /**
-   * Get configMapRef
-   * @return configMapRef
+   * Human-readable status message.
+   * @return message
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "")
+  @ApiModelProperty(value = "Human-readable status message.")
 
-  public V1alpha1KafkaTopicSpecConfigMapRef getConfigMapRef() {
-    return configMapRef;
+  public String getMessage() {
+    return message;
   }
 
 
-  public void setConfigMapRef(V1alpha1KafkaTopicSpecConfigMapRef configMapRef) {
-    this.configMapRef = configMapRef;
+  public void setMessage(String message) {
+    this.message = message;
+  }
+
+
+  public V1alpha1AclStatus ready(Boolean ready) {
+    
+    this.ready = ready;
+    return this;
+  }
+
+   /**
+   * Whether the ACL rule has been applied.
+   * @return ready
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Whether the ACL rule has been applied.")
+
+  public Boolean getReady() {
+    return ready;
+  }
+
+
+  public void setReady(Boolean ready) {
+    this.ready = ready;
   }
 
 
@@ -66,21 +93,23 @@ public class V1alpha1KafkaTopicSpecClientConfigs {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicSpecClientConfigs v1alpha1KafkaTopicSpecClientConfigs = (V1alpha1KafkaTopicSpecClientConfigs) o;
-    return Objects.equals(this.configMapRef, v1alpha1KafkaTopicSpecClientConfigs.configMapRef);
+    V1alpha1AclStatus v1alpha1AclStatus = (V1alpha1AclStatus) o;
+    return Objects.equals(this.message, v1alpha1AclStatus.message) &&
+        Objects.equals(this.ready, v1alpha1AclStatus.ready);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(configMapRef);
+    return Objects.hash(message, ready);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicSpecClientConfigs {\n");
-    sb.append("    configMapRef: ").append(toIndentedString(configMapRef)).append("\n");
+    sb.append("class V1alpha1AclStatus {\n");
+    sb.append("    message: ").append(toIndentedString(message)).append("\n");
+    sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("}");
     return sb.toString();
   }

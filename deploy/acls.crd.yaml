@@ -1,0 +1,102 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: acls.hoptimator.linkedin.com
+spec:
+  group: hoptimator.linkedin.com
+  names:
+    kind: Acl
+    listKind: AclList
+    plural: acls
+    singular: acl
+    shortNames:
+    - acl
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          description: Access control rule (colloquially, an Acl)
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: A set of related ACL rules.
+              type: object
+              properties:
+                kind:
+                  description: The kind of resource being controlled.
+                  type: string
+                name:
+                  description: The name of the resource being controlled.
+                  type: string
+                method:
+                  description: The resource access method.
+                  type: string
+                  enum:
+                  - Alter 
+                  - Create
+                  - Delete
+                  - Describe
+                  - Read
+                  - Write
+                  - Post
+                  - Put
+                  - Get
+                  - Head
+                  - Patch
+                  - Trace
+                  - Options
+                  - GetAll
+                  - BatchGet
+                  - BatchCreate
+                  - BatchUpdate
+                  - PartialUpdate
+                  - BatchDelete
+                  - BatchPartialDelete
+                principal:
+                  description: The principal being allowed access. Format depends on principal type.
+                  type: string
+              required:
+              - kind
+              - name
+              - method
+              - principal
+            status:
+              description: Status, as set by the operator.
+              type: object
+              properties:
+                ready:
+                  description: Whether the ACL rule has been applied.
+                  type: boolean
+                message:
+                  description: Human-readable status message.
+                  type: string
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+      - name: PRINCIPAL
+        type: string
+        description: A user, service, group, etc.
+        jsonPath: .spec.principal
+      - name: METHOD
+        type: string
+        description: A resource access method, e.g. Get.
+        jsonPath: .spec.method
+      - name: KIND
+        type: string
+        description: The resource being accessed.
+        jsonPath: .spec.kind
+      - name: RESOURCE
+        type: string
+        description: The resource being accessed.
+        jsonPath: .spec.name
+

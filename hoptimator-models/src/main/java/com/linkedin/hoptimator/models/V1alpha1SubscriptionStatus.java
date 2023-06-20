@@ -28,7 +28,7 @@ import java.io.IOException;
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-28T19:46:31.976Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-20T18:21:37.545Z[Etc/UTC]")
 public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)

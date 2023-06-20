@@ -24,6 +24,7 @@ public class RawKafkaSchemaFactory implements SchemaFactory {
   @Override
   @SuppressWarnings("unchecked")
   public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
+    String principal = (String) operand.getOrDefault("principal", "User:ANONYMOUS");
     Map<String, Object> clientConfig = (Map<String, Object>) operand.get("clientConfig");
     DataType.Struct rowType = DataType.struct()
       .with("PAYLOAD", DataType.VARCHAR_NULL)
@@ -44,10 +45,12 @@ public class RawKafkaSchemaFactory implements SchemaFactory {
     ConfigProvider topicConfigProvider = ConfigProvider.from(clientConfig);
     TableResolver resolver = x -> rowType.rel();
     Integer numPartitions = (Integer) operand.get("numPartitions");
-    ResourceProvider resourceProvider = x -> Collections.singleton(new KafkaTopic(x,
-      numPartitions, topicConfigProvider.config(x)));
+    ResourceProvider resources = ResourceProvider.empty()
+      .with(x -> new KafkaTopic(x, numPartitions, topicConfigProvider.config(x)))
+      .readWith(x -> new KafkaTopicAcl(x, principal, "Read"))
+      .writeWith(x -> new KafkaTopicAcl(x, principal, "Write"));
     Database database = new Database(name, tableLister, resolver, connectorConfigProvider,
-      resourceProvider);
+      resources);
     return new DatabaseSchema(database);
   }
 }
