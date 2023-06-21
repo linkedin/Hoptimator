@@ -62,10 +62,17 @@ public interface ResourceProvider {
       sources.removeAll(sources.stream().flatMap(y -> y.inputs().stream())
         .collect(Collectors.toList()));
 
+      // remove all read/write-only upstream Resources
+      sources.removeAll(sources.stream()
+        .filter(y -> y instanceof ReadResource || y instanceof WriteResource)
+        .collect(Collectors.toList()));
+
       // link all sources to all sinks       
       sink.resources(x).forEach(y -> {
         combined.add(new Resource(y) {{
-          sources.forEach(z -> input(z));
+          if (!(y instanceof ReadResource || y instanceof WriteResource)) {
+            sources.forEach(z -> input(z));
+          }
         }});
       });
 

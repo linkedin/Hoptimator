@@ -37,19 +37,17 @@ Try the following queries:
   > SELECT * FROM DATAGEN.PERSON;
   > SELECT AGE FROM DATAGEN.PERSON p, DATAGEN.COMPANY c WHERE c.CEO = p.NAME;
 
-  -- Hoptimator understands and infers Avro schemas:
-  > !avro SELECT * FROM DATAGEN.PERSON
-  > !avro SELECT AGE FROM DATAGEN.PERSON p, DATAGEN.COMPANY c WHERE c.CEO = p.NAME
+  -- For testing purposes, you can run pipelines locally:
+  > !insert into RAWKAFKA."test-sink" SELECT * FROM DATAGEN.PERSON
 
-  -- For debugging purposes, you may wish to see the pipeline implementation:
+  -- There are several commands for debugging purposes:
   > !pipeline SELECT * FROM DATAGEN.PERSON
   > !pipeline SELECT AGE FROM DATAGEN.PERSON p, DATAGEN.COMPANY c WHERE c.CEO = p.NAME
+  > !avro SELECT AGE FROM DATAGEN.PERSON p, DATAGEN.COMPANY c WHERE c.CEO = p.NAME
+  > !yaml insert into RAWKAFKA."test-sink" SELECT * FROM DATAGEN.PERSON
+  > !mermaid insert into RAWKAFKA."test-sink" SELECT * FROM DATAGEN.PERSON
 
-  -- Pipelines can be deployed to Kubernetes by generating YAML:
-  > !yaml SELECT * FROM DATAGEN.PERSON
-  > !yaml SELECT AGE FROM DATAGEN.PERSON p, DATAGEN.COMPANY c WHERE c.CEO = p.NAME
-
-  -- Good luck!
+  -- Happy hopping!
   > !help
 
 
