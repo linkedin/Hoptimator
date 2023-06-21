@@ -50,7 +50,8 @@ public class HoptimatorCliApp {
     commandHandlers.add(new PipelineCommandHandler());
     commandHandlers.add(new IntroCommandHandler());
     commandHandlers.add(new InsertCommandHandler());
-    commandHandlers.add(new TestCommandHandler());
+    commandHandlers.add(new CheckCommandHandler());
+    commandHandlers.add(new MermaidCommandHandler());
     sqlline.updateCommandHandlers(commandHandlers);
     return sqlline.begin(args, null, true).ordinal();
   }
@@ -268,7 +269,7 @@ public class HoptimatorCliApp {
     }
   }
 
-  private class TestCommandHandler implements CommandHandler {
+  private class CheckCommandHandler implements CommandHandler {
 
     @Override
     public String getName() {
@@ -516,6 +517,81 @@ public class HoptimatorCliApp {
       Scanner scanner = new Scanner(Thread.currentThread().getContextClassLoader().getResourceAsStream("intro.txt"));
       while (scanner.hasNext()) {
         sqlline.output(scanner.nextLine());
+      }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
+  private class MermaidCommandHandler implements CommandHandler {
+
+    @Override
+    public String getName() {
+      return "mermaid";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Render a pipeline in mermaid format (similar to graphviz)";
+    }
+
+    @Override
+    public String matches(String line) {
+      String sql = line;
+      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+        sql = sql.substring(1);
+      }
+
+      if (sql.startsWith("mermaid")) {
+        sql = sql.substring("mermaid".length() + 1);
+        return sql;
+      }
+
+      return null;
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      String sql = line;
+      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+        sql = sql.substring(1);
+      }
+
+      if (sql.startsWith("mermaid")) {
+        sql = sql.substring("mermaid".length() + 1);
+      }
+
+      //remove semicolon from query if present
+      if (sql.length() > 0 && sql.charAt(sql.length() - 1) == ';') {
+        sql = sql.substring(0, sql.length() - 1);
+      }
+
+      String connectionUrl = sqlline.getConnectionMetadata().getUrl();
+      try {
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
+        PipelineRel plan = planner.pipeline(sql);
+        PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
+        HopTable outputTable = new HopTable("PIPELINE", "SINK", plan.getRowType(),
+          Collections.singletonMap("connector", "dummy"));
+        Pipeline pipeline = impl.pipeline(outputTable);
+        sqlline.output(pipeline.mermaid());
+        dispatchCallback.setToSuccess();
+      } catch (Exception e) {
+        sqlline.error(e.toString());
+        dispatchCallback.setToFailure();
       }
     }
 

@@ -1,10 +1,15 @@
 package com.linkedin.hoptimator.catalog;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import java.util.Scanner;
@@ -23,14 +28,29 @@ import java.util.stream.Collectors;
  *
  * Resources are injected into a Pipeline by the planner as needed. Generally,
  * each Resource Template corresponds to a Kubernetes controller.
+ *
+ * Resources may optionally link to input Resources, which is used strictly
+ * for informational/debugging purposes.
  */
 public abstract class Resource {
-  private final String template;
-  private final Map<String, Supplier<String>> properties = new HashMap<>();
+  private final String kind;
+  private final SortedMap<String, Supplier<String>> properties = new TreeMap<>();
+  private final List<Resource> inputs = new ArrayList<>();
 
-  /** A Resource that will be rendered with the specified template */
-  public Resource(String template) {
-    this.template = template;
+  /** A Resource of some kind. */
+  public Resource(String kind) {
+    this.kind = kind;
+  }
+
+  /** Copy constructor */
+  public Resource(Resource other) {
+    this.kind = other.kind;
+    this.properties.putAll(other.properties);
+    this.inputs.addAll(other.inputs);
+  }
+
+  public String kind() {
+    return kind;
   }
 
   /** Export a computed value to the template */
@@ -54,15 +74,16 @@ public abstract class Resource {
     export(key, values.stream().collect(Collectors.joining("\n")));
   }
 
-  /** The name of the template used to render this Resource */
-  public String template() {
-    return template;
+  /** Reference an input resource */
+  protected void input(Resource resource) {
+    inputs.add(resource);
   }
 
   public String property(String key) {
     return getOrDefault(key, null);
   }
 
+  /** Keys for all defined properties, in natural order. */
   public Set<String> keys() {
     return properties.keySet();
   }
@@ -76,15 +97,27 @@ public abstract class Resource {
     return template.render(this);
   }
 
+  public Collection<Resource> inputs() {
+    return inputs;
+  }
+
+  @Override
+  public int hashCode() {
+    return toString().hashCode();
+  } 
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("[ ");
+    sb.append("[ kind: " + kind() + " ");
     for (Map.Entry<String, Supplier<String>> entry : properties.entrySet()) {
-      sb.append(entry.getKey());
-      sb.append(":");
-      sb.append(entry.getValue().get());
-      sb.append(" ");
+      String value = entry.getValue().get();
+      if (value != null && !value.isEmpty()) {
+        sb.append(entry.getKey());
+        sb.append(":");
+        sb.append(entry.getValue().get());
+        sb.append(" ");
+      }
     }
     sb.append("]");
     return sb.toString();
@@ -247,10 +280,10 @@ public abstract class Resource {
 
     @Override
     public Template get(Resource resource) {
-      String template = resource.template();
-      InputStream in = getClass().getClassLoader().getResourceAsStream(template + ".yaml.template");
+      String kind = resource.kind();
+      InputStream in = getClass().getClassLoader().getResourceAsStream(kind + ".yaml.template");
       if (in == null) {
-        throw new IllegalArgumentException("No template '" + template + "' found in jar resources");
+        throw new IllegalArgumentException("No template '" + kind + "' found in jar resources");
       }
       StringBuilder sb = new StringBuilder();
       Scanner scanner = new Scanner(in);
