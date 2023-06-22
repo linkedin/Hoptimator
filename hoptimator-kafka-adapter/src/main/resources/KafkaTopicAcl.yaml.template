@@ -4,7 +4,8 @@ metadata:
   name: {{name}}-acl-{{id}}
   namespace: {{namespace}}
 spec:
-  kind: KafkaTopic
-  name: {{name}}
+  resource:
+    kind: KafkaTopic
+    name: {{name}}
   method: {{method}}
   principal: {{principal}} 
