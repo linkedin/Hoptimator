@@ -8,8 +8,6 @@ import io.kubernetes.client.extended.controller.ControllerManager;
 
 import com.linkedin.hoptimator.models.V1alpha1Subscription;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionList;
-import com.linkedin.hoptimator.models.V1alpha1SqlJob;
-import com.linkedin.hoptimator.models.V1alpha1SqlJobList;
 import com.linkedin.hoptimator.operator.subscription.SubscriptionReconciler;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 
@@ -87,11 +85,7 @@ public class HoptimatorOperatorApp {
       .readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
     Operator operator = new Operator(namespace, apiClient, informerFactory, properties);
-    // TODO replace hard-coded "default" namespace with command-line argument
 
-    operator.registerApi("SqlJob", "sqljob", "sqljobs",
-      "hoptimator.linkedin.com", "v1alpha1", V1alpha1SqlJob.class, V1alpha1SqlJobList.class);
- 
     operator.registerApi("Subscription", "subscription", "subscriptions", "hoptimator.linkedin.com",
       "v1alpha1", V1alpha1Subscription.class, V1alpha1SubscriptionList.class);
 

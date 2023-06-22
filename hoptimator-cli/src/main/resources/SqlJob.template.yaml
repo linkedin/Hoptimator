@@ -1,0 +1,12 @@
+# This template produces a non-functional placeholder "FlinkJob", which only 
+# appears in the CLI. The operator would expect to find an adapter which
+# turns a SqlJob into something deployable, e.g. a FlinkDeployment.
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: FlinkJob
+metadata:
+  name: hoptimator-{{name}}-sql-job
+  namespace: {{namespace}}
+spec:
+  sql:
+  - {{sql}}
