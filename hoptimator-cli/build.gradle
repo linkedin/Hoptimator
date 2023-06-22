@@ -17,6 +17,7 @@ dependencies {
   // include adapters for integration tests
   integration project(':hoptimator-kafka-adapter')
   integration project(':hoptimator-mysql-adapter')
+  integration project(':hoptimator-flink-adapter')
   integration libs.flinkCsv
   integration libs.flinkConnectorKafka
   integration libs.slf4jSimple
