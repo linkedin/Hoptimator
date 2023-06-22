@@ -58,7 +58,7 @@ public class KafkaTopicAclReconciler implements Reconciler {
         return new Result(false);
       }
 
-      String targetKind = object.getSpec().getKind();
+      String targetKind = object.getSpec().getResource().getKind();
 
       if (!targetKind.equals("KafkaTopic")) {
         log.info("Not a KafkaTopic Acl. Skipping.");
@@ -78,7 +78,7 @@ public class KafkaTopicAclReconciler implements Reconciler {
         return new Result(false);
       }
       
-      String targetName = object.getSpec().getName();
+      String targetName = object.getSpec().getResource().getName();
       String principal = object.getSpec().getPrincipal();
 
       V1alpha1KafkaTopic target = operator.<V1alpha1KafkaTopic>fetch(KAFKATOPIC, namespace, targetName);

@@ -20,6 +20,7 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
+import com.linkedin.hoptimator.models.V1alpha1AclSpecResource;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
@@ -28,12 +29,8 @@ import java.io.IOException;
  * A set of related ACL rules.
  */
 @ApiModel(description = "A set of related ACL rules.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-20T18:21:37.545Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-22T16:59:13.437Z[Etc/UTC]")
 public class V1alpha1AclSpec {
-  public static final String SERIALIZED_NAME_KIND = "kind";
-  @SerializedName(SERIALIZED_NAME_KIND)
-  private String kind;
-
   /**
    * The resource access method.
    */
@@ -121,35 +118,13 @@ public class V1alpha1AclSpec {
   @SerializedName(SERIALIZED_NAME_METHOD)
   private MethodEnum method;
 
-  public static final String SERIALIZED_NAME_NAME = "name";
-  @SerializedName(SERIALIZED_NAME_NAME)
-  private String name;
-
   public static final String SERIALIZED_NAME_PRINCIPAL = "principal";
   @SerializedName(SERIALIZED_NAME_PRINCIPAL)
   private String principal;
 
-
-  public V1alpha1AclSpec kind(String kind) {
-    
-    this.kind = kind;
-    return this;
-  }
-
-   /**
-   * The kind of resource being controlled.
-   * @return kind
-  **/
-  @ApiModelProperty(required = true, value = "The kind of resource being controlled.")
-
-  public String getKind() {
-    return kind;
-  }
-
-
-  public void setKind(String kind) {
-    this.kind = kind;
-  }
+  public static final String SERIALIZED_NAME_RESOURCE = "resource";
+  @SerializedName(SERIALIZED_NAME_RESOURCE)
+  private V1alpha1AclSpecResource resource;
 
 
   public V1alpha1AclSpec method(MethodEnum method) {
@@ -171,28 +146,6 @@ public class V1alpha1AclSpec {
 
   public void setMethod(MethodEnum method) {
     this.method = method;
-  }
-
-
-  public V1alpha1AclSpec name(String name) {
-    
-    this.name = name;
-    return this;
-  }
-
-   /**
-   * The name of the resource being controlled.
-   * @return name
-  **/
-  @ApiModelProperty(required = true, value = "The name of the resource being controlled.")
-
-  public String getName() {
-    return name;
-  }
-
-
-  public void setName(String name) {
-    this.name = name;
   }
 
 
@@ -218,6 +171,29 @@ public class V1alpha1AclSpec {
   }
 
 
+  public V1alpha1AclSpec resource(V1alpha1AclSpecResource resource) {
+    
+    this.resource = resource;
+    return this;
+  }
+
+   /**
+   * Get resource
+   * @return resource
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "")
+
+  public V1alpha1AclSpecResource getResource() {
+    return resource;
+  }
+
+
+  public void setResource(V1alpha1AclSpecResource resource) {
+    this.resource = resource;
+  }
+
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -227,15 +203,14 @@ public class V1alpha1AclSpec {
       return false;
     }
     V1alpha1AclSpec v1alpha1AclSpec = (V1alpha1AclSpec) o;
-    return Objects.equals(this.kind, v1alpha1AclSpec.kind) &&
-        Objects.equals(this.method, v1alpha1AclSpec.method) &&
-        Objects.equals(this.name, v1alpha1AclSpec.name) &&
-        Objects.equals(this.principal, v1alpha1AclSpec.principal);
+    return Objects.equals(this.method, v1alpha1AclSpec.method) &&
+        Objects.equals(this.principal, v1alpha1AclSpec.principal) &&
+        Objects.equals(this.resource, v1alpha1AclSpec.resource);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(kind, method, name, principal);
+    return Objects.hash(method, principal, resource);
   }
 
 
@@ -243,10 +218,9 @@ public class V1alpha1AclSpec {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1AclSpec {\n");
-    sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    method: ").append(toIndentedString(method)).append("\n");
-    sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("    principal: ").append(toIndentedString(principal)).append("\n");
+    sb.append("    resource: ").append(toIndentedString(resource)).append("\n");
     sb.append("}");
     return sb.toString();
   }

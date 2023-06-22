@@ -3,8 +3,9 @@ kind: Acl
 metadata:
   name: sample-kafka-acl-1
 spec:
-  kind: KafkaTopic
-  name: test-sink
+  resource:
+    kind: KafkaTopic
+    name: test-sink
   method: Read
   principal: User:ANONYMOUS
 
@@ -15,8 +16,9 @@ kind: Acl
 metadata:
   name: sample-kafka-acl-2
 spec:
-  kind: KafkaTopic
-  name: test-sink
+  resource:
+    kind: KafkaTopic
+    name: test-sink
   method: Write
   principal: User:ANONYMOUS
 

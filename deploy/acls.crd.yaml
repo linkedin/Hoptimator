@@ -32,12 +32,16 @@ spec:
               description: A set of related ACL rules.
               type: object
               properties:
-                kind:
-                  description: The kind of resource being controlled.
-                  type: string
-                name:
-                  description: The name of the resource being controlled.
-                  type: string
+                resource:
+                  description: The resource being controlled.
+                  type: object
+                  properties:
+                    kind:
+                      description: The kind of resource being controlled.
+                      type: string
+                    name:
+                      description: The name of the resource being controlled.
+                      type: string
                 method:
                   description: The resource access method.
                   type: string
@@ -66,8 +70,7 @@ spec:
                   description: The principal being allowed access. Format depends on principal type.
                   type: string
               required:
-              - kind
-              - name
+              - resource
               - method
               - principal
             status:
@@ -94,9 +97,9 @@ spec:
       - name: KIND
         type: string
         description: The resource being accessed.
-        jsonPath: .spec.kind
+        jsonPath: .spec.resource.kind
       - name: RESOURCE
         type: string
         description: The resource being accessed.
-        jsonPath: .spec.name
+        jsonPath: .spec.resource.name
 
