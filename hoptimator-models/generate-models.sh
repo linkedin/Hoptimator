@@ -11,6 +11,7 @@ docker run \
   ghcr.io/kubernetes-client/java/crd-model-gen:v1.0.6 \
   /generate.sh -o "$(pwd)/hoptimator-models" -n "" -p "com.linkedin.hoptimator" \
   -u "$(pwd)/deploy/kafkatopics.crd.yaml" \
+  -u "$(pwd)/deploy/kafkaconnectors.crd.yaml" \
   -u "$(pwd)/deploy/subscriptions.crd.yaml" \
   -u "$(pwd)/deploy/sqljobs.crd.yaml" \
   && echo "done."
