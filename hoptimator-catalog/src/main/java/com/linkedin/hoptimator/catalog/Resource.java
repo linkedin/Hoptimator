@@ -33,24 +33,23 @@ import java.util.stream.Collectors;
  * for informational/debugging purposes.
  */
 public abstract class Resource {
-  private final String kind;
+  private final String template;
   private final SortedMap<String, Supplier<String>> properties = new TreeMap<>();
   private final List<Resource> inputs = new ArrayList<>();
 
-  /** A Resource of some kind. */
-  public Resource(String kind) {
-    this.kind = kind;
+  public Resource(String template) {
+    this.template = template;
   }
 
   /** Copy constructor */
   public Resource(Resource other) {
-    this.kind = other.kind;
+    this.template = other.template;
     this.properties.putAll(other.properties);
     this.inputs.addAll(other.inputs);
   }
 
-  public String kind() {
-    return kind;
+  public String template() {
+    return template;
   }
 
   /** Export a computed value to the template */
@@ -109,7 +108,7 @@ public abstract class Resource {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("[ kind: " + kind() + " ");
+    sb.append("[ template: " + template() + " ");
     for (Map.Entry<String, Supplier<String>> entry : properties.entrySet()) {
       String value = entry.getValue().get();
       if (value != null && !value.isEmpty()) {
@@ -280,10 +279,10 @@ public abstract class Resource {
 
     @Override
     public Template get(Resource resource) {
-      String kind = resource.kind();
-      InputStream in = getClass().getClassLoader().getResourceAsStream(kind + ".yaml.template");
+      String template = resource.template();
+      InputStream in = getClass().getClassLoader().getResourceAsStream(template + ".yaml.template");
       if (in == null) {
-        throw new IllegalArgumentException("No template '" + kind + "' found in jar resources");
+        throw new IllegalArgumentException("No template '" + template + "' found in jar resources");
       }
       StringBuilder sb = new StringBuilder();
       Scanner scanner = new Scanner(in);
