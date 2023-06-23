@@ -59,7 +59,6 @@ In response, the operator will deploy a Flink job and other resources:
 
 ```
   $ kubectl get subscriptions
-  $ kubectl get sqljobs
   $ kubectl get flinkdeployments
   $ kubectl get kafkatopics
 ```
