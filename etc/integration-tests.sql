@@ -1,7 +1,7 @@
 
 !set maxWidth 80
-!table
 !schemas
+!table
 
 -- built-in bounded tables
 SELECT * FROM DATAGEN.PERSON;
@@ -20,3 +20,6 @@ SELECT * FROM RAWKAFKA."products" LIMIT 1;
 !insert into RAWKAFKA."test-sink" SELECT AGE AS PAYLOAD, NAME AS KEY FROM DATAGEN.PERSON
 SELECT * FROM RAWKAFKA."test-sink" LIMIT 5;
 
+-- test mermaid and yaml commands
+!mermaid insert into RAWKAFKA."test-sink" SELECT AGE AS PAYLOAD, NAME AS KEY FROM DATAGEN.PERSON
+!yaml insert into RAWKAFKA."test-sink" SELECT AGE AS PAYLOAD, NAME AS KEY FROM DATAGEN.PERSON

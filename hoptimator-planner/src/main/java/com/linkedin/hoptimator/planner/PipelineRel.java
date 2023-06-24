@@ -84,7 +84,7 @@ public interface PipelineRel extends RelNode {
     /** Add any resources, SQL, DDL etc required to access the table. */
     public void implement(HopTable table) {
       script = script.database(table.database()).with(table);
-      table.resources().forEach(x -> resource(x));
+      table.readResources().forEach(x -> resource(x));
     }
 
     /** Combine SQL and any Resources into a Pipeline, using ANSI dialect */
@@ -96,7 +96,8 @@ public interface PipelineRel extends RelNode {
     public Pipeline pipeline(HopTable sink, SqlDialect sqlDialect) {
       // We re-use ResourceProvider here for its source->sink relationships
       ResourceProvider resourceProvider = ResourceProvider.from(resources)
-        .to(new SqlJob(insertInto(sink).sql(sqlDialect)));
+        .to(new SqlJob(insertInto(sink).sql(sqlDialect)))
+        .toAll(x -> sink.writeResources());
 
       // All resources are now "provided", so we can pass null here:
       Collection<Resource> resourcesAndJob = resourceProvider.resources(null);

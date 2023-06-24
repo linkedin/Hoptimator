@@ -9,14 +9,13 @@ public interface TableFactory {
   HopTable table(String database, String name, RelDataType rowType);
 
   /** Construct a ConnectorFactory */
-  static ConnectorFactory connector(ConfigProvider configProvider) {
-    return new ConnectorFactory(configProvider);
+  static ConnectorFactory connector(ConfigProvider configs) {
+    return new ConnectorFactory(configs);
   }
 
   /** Construct a ConnectorFactory */
-  static ConnectorFactory connector(ConfigProvider configProvider,
-      ResourceProvider resourceProvider) {
-    return new ConnectorFactory(configProvider, resourceProvider);
+  static ConnectorFactory connector(ConfigProvider configs, ResourceProvider resources) {
+    return new ConnectorFactory(configs, resources);
   }
 
   /** A TableFactory which is implemented as a simple connector. */
@@ -35,7 +34,8 @@ public interface TableFactory {
 
     @Override
     public HopTable table(String database, String name, RelDataType rowType) {
-      return new HopTable(database, name, rowType, resourceProvider.resources(name),
+      return new HopTable(database, name, rowType, resourceProvider.readResources(name),
+        resourceProvider.writeResources(name),
         ScriptImplementor.empty().connector(database, name, rowType, configProvider.config(name)));
     }
   }

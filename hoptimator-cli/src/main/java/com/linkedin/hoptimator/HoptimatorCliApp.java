@@ -55,6 +55,38 @@ public class HoptimatorCliApp {
     sqlline.updateCommandHandlers(commandHandlers);
     return sqlline.begin(args, null, true).ordinal();
   }
+
+  private static InsertInto parseInsertInto(String s) {
+      String sql = s.trim();
+      if (!sql.startsWith("insert into ")) {
+        throw new IllegalArgumentException("Expected insert into ... ");
+      }
+      String[] parts = sql.substring(12).split("(?i)SELECT"); // case insensitive
+      if (parts.length != 2) {
+        throw new IllegalArgumentException("Expected ... SELECT ...");
+      }
+      String[] parts2 = parts[0].split("\\.");
+      if (parts2.length != 2) {
+        throw new IllegalArgumentException("Expected ... DATABASE.TABLE ...");
+      }
+      // TODO unquote correctly
+      String database = parts2[0].replaceAll("[\\\"']", "").trim();
+      String table = parts2[1].replaceAll("[\\\"']", "").trim();
+      String query = "SELECT " + parts[1];
+      return new InsertInto(database, table, query);
+  }
+
+  private static class InsertInto {
+    private final String database;
+    private final String table;
+    private final String query;
+
+    InsertInto(String database, String table, String query) {
+      this.database = database;
+      this.table = table;
+      this.query = query;
+    }
+  }
  
   private class AvroCommandHandler implements CommandHandler {
 
@@ -147,8 +179,8 @@ public class HoptimatorCliApp {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("yaml")) {
-        sql = sql.substring("yaml".length() + 1);
+      if (sql.startsWith("yaml insert into ")) {
+        sql = sql.substring("yaml insert into ".length());
         return sql;
       }
 
@@ -168,12 +200,13 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
+        InsertInto insertInto = parseInsertInto(sql);
         HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
-        PipelineRel plan = planner.pipeline(sql);
+        PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
-        HopTable outputTable = new HopTable("PIPELINE", "SINK", plan.getRowType(),
-          Collections.singletonMap("connector", "dummy"));
-        Pipeline pipeline = impl.pipeline(outputTable);
+        HopTable sink = planner.database(insertInto.database)
+          .makeTable(insertInto.table, impl.rowType());
+        Pipeline pipeline = impl.pipeline(sink);
         // TODO provide generated avro schema to environment
         Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(new Resource.DummyEnvironment());
         sqlline.output(pipeline.render(templateFactory));
@@ -241,15 +274,16 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
+        InsertInto insertInto = parseInsertInto(sql);
         HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
-        PipelineRel plan = planner.pipeline(sql);
+        PipelineRel plan = planner.pipeline(insertInto.query);
         sqlline.output("PLAN:");
         sqlline.output(plan.explain());
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         sqlline.output("SQL:");
-        HopTable outputTable = new HopTable("PIPELINE", "SINK", plan.getRowType(),
-          Collections.singletonMap("connector", "dummy"));
-        sqlline.output(impl.insertInto(outputTable).sql(MysqlSqlDialect.DEFAULT));
+        HopTable sink = planner.database(insertInto.database)
+          .makeTable(insertInto.table, impl.rowType());
+        sqlline.output(impl.insertInto(sink).sql(MysqlSqlDialect.DEFAULT));
         dispatchCallback.setToSuccess();
       } catch (Exception e) {
         sqlline.error(e.toString());
@@ -433,30 +467,17 @@ public class HoptimatorCliApp {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("insert into")) {
-        sql = sql.substring("insert into".length() + 1);
-      }
-
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
-        String[] parts = sql.split("(?i)SELECT"); // case insensitive
-        if (parts.length != 2) {
-          throw new IllegalArgumentException("Expected ... SELECT ...");
-        }
-        String[] parts2 = parts[0].split("\\.");
-        if (parts2.length != 2) {
-          throw new IllegalArgumentException("Expected ... DATABASE.TABLE ...");
-        }
-        // TODO unquote correctly
-        String database = parts2[0].replaceAll("[\\\"']", "").trim();
-        String table = parts2[1].replaceAll("[\\\"']", "").trim();
-        String query = parts[1];
-
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
-        PipelineRel plan = planner.pipeline("SELECT " + query);
+        InsertInto insertInto = parseInsertInto(sql);
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl,
+          new Properties());
+        PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
-        HopTable sink = planner.database(database).makeTable(table, impl.rowType());
-        String pipelineSql = impl.insertInto(sink).sql(MysqlSqlDialect.DEFAULT) + "\nSELECT 'SUCCESS';";
+        HopTable sink = planner.database(insertInto.database)
+          .makeTable(insertInto.table, impl.rowType());
+        String pipelineSql = impl.insertInto(sink).sql(MysqlSqlDialect.DEFAULT)
+          + "\nSELECT 'SUCCESS';";
         FlinkIterable iterable = new FlinkIterable(pipelineSql);
         Iterator<String> iter = iterable.<String>field(0).iterator();
         if (iter.hasNext()) {
@@ -555,8 +576,8 @@ public class HoptimatorCliApp {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("mermaid")) {
-        sql = sql.substring("mermaid".length() + 1);
+      if (sql.startsWith("mermaid insert into ")) {
+        sql = sql.substring("mermaid insert into ".length());
         return sql;
       }
 
@@ -570,8 +591,8 @@ public class HoptimatorCliApp {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("mermaid")) {
-        sql = sql.substring("mermaid".length() + 1);
+      if (sql.startsWith("mermaid ")) {
+        sql = sql.substring("mermaid ".length());
       }
 
       //remove semicolon from query if present
@@ -581,12 +602,13 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
+        InsertInto insertInto = parseInsertInto(sql);
         HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
-        PipelineRel plan = planner.pipeline(sql);
+        PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
-        HopTable outputTable = new HopTable("PIPELINE", "SINK", plan.getRowType(),
-          Collections.singletonMap("connector", "dummy"));
-        Pipeline pipeline = impl.pipeline(outputTable);
+        HopTable sink = planner.database(insertInto.database)
+          .makeTable(insertInto.table, impl.rowType());
+        Pipeline pipeline = impl.pipeline(sink);
         sqlline.output(pipeline.mermaid());
         dispatchCallback.setToSuccess();
       } catch (Exception e) {

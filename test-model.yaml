@@ -11,7 +11,7 @@ schemas:
   factory: com.linkedin.hoptimator.catalog.kafka.RawKafkaSchemaFactory
   operand:
     clientConfig:
-      bootstrap.servers: my-cluster-kafka-bootstrap.kafka.svc:9092
+      bootstrap.servers: one-kafka-bootstrap.kafka.svc:9092
       group.id: hoptimator-test
       auto.offset.reset: earliest
 

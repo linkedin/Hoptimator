@@ -25,11 +25,11 @@ import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Filled in by the operator.
+ * Status, as set by the operator.
  */
-@ApiModel(description = "Filled in by the operator.")
+@ApiModel(description = "Status, as set by the operator.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-22T16:59:13.437Z[Etc/UTC]")
-public class V1alpha1SubscriptionStatus {
+public class V1alpha1AclStatus {
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
   private String message;
@@ -39,18 +39,18 @@ public class V1alpha1SubscriptionStatus {
   private Boolean ready;
 
 
-  public V1alpha1SubscriptionStatus message(String message) {
+  public V1alpha1AclStatus message(String message) {
     
     this.message = message;
     return this;
   }
 
    /**
-   * Error or success message, for information only.
+   * Human-readable status message.
    * @return message
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Error or success message, for information only.")
+  @ApiModelProperty(value = "Human-readable status message.")
 
   public String getMessage() {
     return message;
@@ -62,18 +62,18 @@ public class V1alpha1SubscriptionStatus {
   }
 
 
-  public V1alpha1SubscriptionStatus ready(Boolean ready) {
+  public V1alpha1AclStatus ready(Boolean ready) {
     
     this.ready = ready;
     return this;
   }
 
    /**
-   * Whether the subscription is ready to be consumed.
+   * Whether the ACL rule has been applied.
    * @return ready
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Whether the subscription is ready to be consumed.")
+  @ApiModelProperty(value = "Whether the ACL rule has been applied.")
 
   public Boolean getReady() {
     return ready;
@@ -93,9 +93,9 @@ public class V1alpha1SubscriptionStatus {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SubscriptionStatus v1alpha1SubscriptionStatus = (V1alpha1SubscriptionStatus) o;
-    return Objects.equals(this.message, v1alpha1SubscriptionStatus.message) &&
-        Objects.equals(this.ready, v1alpha1SubscriptionStatus.ready);
+    V1alpha1AclStatus v1alpha1AclStatus = (V1alpha1AclStatus) o;
+    return Objects.equals(this.message, v1alpha1AclStatus.message) &&
+        Objects.equals(this.ready, v1alpha1AclStatus.ready);
   }
 
   @Override
@@ -107,7 +107,7 @@ public class V1alpha1SubscriptionStatus {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SubscriptionStatus {\n");
+    sb.append("class V1alpha1AclStatus {\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("}");

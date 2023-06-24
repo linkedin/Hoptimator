@@ -22,23 +22,26 @@ public class Database {
   }
 
   /** Convenience constructor for simple connector-based tables */
-  public Database(String name, TableLister tableLister, TableResolver tableResolver, ConfigProvider configProvider) {
-    this(name, tableLister, tableResolver, TableFactory.connector(configProvider));
+  public Database(String name, TableLister lister, TableResolver resolver,
+      ConfigProvider configs) {
+    this(name, lister, resolver, TableFactory.connector(configs));
   }
 
-  /** Convenience constructor for simple connector-based tables */
-  public Database(String name, TableLister tableLister, TableResolver tableResolver, ConfigProvider configProvider, ResourceProvider resourceProvider) {
-    this(name, tableLister, tableResolver, TableFactory.connector(configProvider, resourceProvider));
+  /** Convenience constructor for simple connector-based tables with resources */
+  public Database(String name, TableLister lister, TableResolver resolver,
+      ConfigProvider configs, ResourceProvider resources) {
+    this(name, lister, resolver, TableFactory.connector(configs, resources));
   }
 
   /** Convenience constructor for a list of connector-based tables */
-  public Database(String name, Collection<String> tables, TableResolver tableResolver, ConfigProvider configProvider) {
-    this(name, tables, tableResolver, TableFactory.connector(configProvider));
+  public Database(String name, Collection<String> tables, TableResolver resolver,
+      ConfigProvider configs) {
+    this(name, tables, resolver, TableFactory.connector(configs));
   }
 
   /** Convenience constructor for a static list of tables */
-  public Database(String name, Collection<String> tables, TableResolver tableResolver, TableFactory tableFactory) {
-    this(name, () -> tables, tableResolver, tableFactory);
+  public Database(String name, Collection<String> tables, TableResolver resolver, TableFactory tableFactory) {
+    this(name, () -> tables, resolver, tableFactory);
   }
 
   /** Convenience constructor for a static table map */

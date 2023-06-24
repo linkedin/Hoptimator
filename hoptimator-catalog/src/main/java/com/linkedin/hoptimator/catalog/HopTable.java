@@ -27,24 +27,35 @@ public class HopTable extends AbstractTable implements ScriptImplementor, Transl
   private final String database;
   private final String name;
   private final RelDataType rowType;
-  private final Collection<Resource> resources;
+  private final Collection<Resource> readResources;
+  private final Collection<Resource> writeResources;
   private final ScriptImplementor implementor;
 
-  public HopTable(String database, String name, RelDataType rowType, Collection<Resource> resources,
+  public HopTable(String database, String name, RelDataType rowType,
+      Collection<Resource> readResources, Collection<Resource> writeResources, 
       ScriptImplementor implementor) {
     this.database = database;
     this.name = name;
     this.rowType = rowType;
-    this.resources = resources;
+    this.readResources = readResources;
+    this.writeResources = writeResources;
     this.implementor = implementor;
+  }
+
+  /** Convenience constructor for HopTables that only need a connector config. */
+  public HopTable(String database, String name, RelDataType rowType,
+      Collection<Resource> readResources, Collection<Resource> writeResources,
+      Map<String, String> connectorConfig) {
+    this(database, name, rowType, readResources, writeResources,
+      new ScriptImplementor.ConnectorImplementor(database, name, rowType, connectorConfig));
   }
 
   /** Convenience constructor for HopTables that only need a connector config. */
   public HopTable(String database, String name, RelDataType rowType, Collection<Resource> resources,
       Map<String, String> connectorConfig) {
-    this(database, name, rowType, resources,
-      new ScriptImplementor.ConnectorImplementor(database, name, rowType, connectorConfig));
+    this(database, name, rowType, resources, resources, connectorConfig);
   }
+
 
   /** Convenience constructor for HopTables that only need a connector config. */
   public HopTable(String database, String name, RelDataType rowType,
@@ -64,8 +75,14 @@ public class HopTable extends AbstractTable implements ScriptImplementor, Transl
     return rowType;
   }
 
-  public Collection<Resource> resources() {
-    return resources;
+  /** Resources needed when reading from the table */
+  public Collection<Resource> readResources() {
+    return readResources;
+  }
+
+  /** Resources needed when writing to the table */
+  public Collection<Resource> writeResources() {
+    return writeResources;
   }
 
   @Override

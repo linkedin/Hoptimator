@@ -1,0 +1,24 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Acl
+metadata:
+  name: sample-kafka-acl-1
+spec:
+  resource:
+    kind: KafkaTopic
+    name: test-sink
+  method: Read
+  principal: User:ANONYMOUS
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Acl
+metadata:
+  name: sample-kafka-acl-2
+spec:
+  resource:
+    kind: KafkaTopic
+    name: test-sink
+  method: Write
+  principal: User:ANONYMOUS
+

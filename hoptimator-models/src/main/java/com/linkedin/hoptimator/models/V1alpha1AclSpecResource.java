@@ -25,63 +25,63 @@ import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Filled in by the operator.
+ * The resource being controlled.
  */
-@ApiModel(description = "Filled in by the operator.")
+@ApiModel(description = "The resource being controlled.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-22T16:59:13.437Z[Etc/UTC]")
-public class V1alpha1SubscriptionStatus {
-  public static final String SERIALIZED_NAME_MESSAGE = "message";
-  @SerializedName(SERIALIZED_NAME_MESSAGE)
-  private String message;
+public class V1alpha1AclSpecResource {
+  public static final String SERIALIZED_NAME_KIND = "kind";
+  @SerializedName(SERIALIZED_NAME_KIND)
+  private String kind;
 
-  public static final String SERIALIZED_NAME_READY = "ready";
-  @SerializedName(SERIALIZED_NAME_READY)
-  private Boolean ready;
+  public static final String SERIALIZED_NAME_NAME = "name";
+  @SerializedName(SERIALIZED_NAME_NAME)
+  private String name;
 
 
-  public V1alpha1SubscriptionStatus message(String message) {
+  public V1alpha1AclSpecResource kind(String kind) {
     
-    this.message = message;
+    this.kind = kind;
     return this;
   }
 
    /**
-   * Error or success message, for information only.
-   * @return message
+   * The kind of resource being controlled.
+   * @return kind
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Error or success message, for information only.")
+  @ApiModelProperty(value = "The kind of resource being controlled.")
 
-  public String getMessage() {
-    return message;
+  public String getKind() {
+    return kind;
   }
 
 
-  public void setMessage(String message) {
-    this.message = message;
+  public void setKind(String kind) {
+    this.kind = kind;
   }
 
 
-  public V1alpha1SubscriptionStatus ready(Boolean ready) {
+  public V1alpha1AclSpecResource name(String name) {
     
-    this.ready = ready;
+    this.name = name;
     return this;
   }
 
    /**
-   * Whether the subscription is ready to be consumed.
-   * @return ready
+   * The name of the resource being controlled.
+   * @return name
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Whether the subscription is ready to be consumed.")
+  @ApiModelProperty(value = "The name of the resource being controlled.")
 
-  public Boolean getReady() {
-    return ready;
+  public String getName() {
+    return name;
   }
 
 
-  public void setReady(Boolean ready) {
-    this.ready = ready;
+  public void setName(String name) {
+    this.name = name;
   }
 
 
@@ -93,23 +93,23 @@ public class V1alpha1SubscriptionStatus {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SubscriptionStatus v1alpha1SubscriptionStatus = (V1alpha1SubscriptionStatus) o;
-    return Objects.equals(this.message, v1alpha1SubscriptionStatus.message) &&
-        Objects.equals(this.ready, v1alpha1SubscriptionStatus.ready);
+    V1alpha1AclSpecResource v1alpha1AclSpecResource = (V1alpha1AclSpecResource) o;
+    return Objects.equals(this.kind, v1alpha1AclSpecResource.kind) &&
+        Objects.equals(this.name, v1alpha1AclSpecResource.name);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(message, ready);
+    return Objects.hash(kind, name);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SubscriptionStatus {\n");
-    sb.append("    message: ").append(toIndentedString(message)).append("\n");
-    sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
+    sb.append("class V1alpha1AclSpecResource {\n");
+    sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
+    sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("}");
     return sb.toString();
   }

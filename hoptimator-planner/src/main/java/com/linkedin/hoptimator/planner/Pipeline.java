@@ -51,6 +51,7 @@ public class Pipeline {
         String description = x.keys().stream()
           .filter(k2 -> x.property(k2) != null)
           .filter(k2 -> !x.property(k2).isEmpty())
+          .filter(k2 -> !"id".equals(k2))
           .map(k2 -> k2 + ": " + sanitize(x.property(k2)))
           .collect(Collectors.joining("\n"));
         sb.append("  " + id(x) + "[\"" + description + "\"]\n");
