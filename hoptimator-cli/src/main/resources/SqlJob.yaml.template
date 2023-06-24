@@ -1,8 +1,0 @@
-apiVersion: hoptimator.linkedin.com/v1alpha1
-kind: SqlJob
-metadata:
-  name: hoptimator-{{name}}-sql-job
-  namespace: {{namespace}}
-spec:
-  sql:
-  - {{sql}}

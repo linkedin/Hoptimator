@@ -35,8 +35,7 @@ deploy-dev-environment:
 deploy-samples: deploy
 	kubectl wait --for=condition=Established=True	\
 	  crds/subscriptions.hoptimator.linkedin.com \
-	  crds/kafkatopics.hoptimator.linkedin.com \
-	  crds/sqljobs.hoptimator.linkedin.com
+	  crds/kafkatopics.hoptimator.linkedin.com
 	kubectl apply -f ./deploy/samples
 
 deploy-config:

@@ -44,7 +44,7 @@ public class Pipeline {
     StringBuilder sb = new StringBuilder();
     sb.append("flowchart\n");
     Map<String, List<Resource>> grouped = resources.stream()
-      .collect(Collectors.groupingBy(x -> x.kind()));
+      .collect(Collectors.groupingBy(x -> x.template()));
     grouped.forEach((k, v) -> {
       sb.append("  subgraph " + k + "\n");
       v.forEach(x -> {
