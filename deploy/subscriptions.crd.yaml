@@ -38,6 +38,11 @@ spec:
                 database:
                   description: The database in which to create the output/sink table.
                   type: string
+                hints:
+                  description: Hints to adapters, which may disregard them.
+                  type: string
+                  additionalProperties:
+                    type: string
               required:
               - sql
               - database
