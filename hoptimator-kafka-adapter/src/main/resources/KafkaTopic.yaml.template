@@ -1,10 +1,10 @@
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: KafkaTopic
 metadata:
-  name: {{name}}-kafka-topic
-  namespace: {{namespace}}
+  name: {{pipeline.name}}-kafka-topic-{{id}}
+  namespace: {{pipeline.namespace}}
 spec:
   topicName: {{name}}
-  numPartitions: {{numPartitions}}
+  numPartitions: {{kafka.numPartitions:1}}
   clientOverrides:
     {{clientOverrides}}

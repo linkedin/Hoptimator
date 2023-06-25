@@ -1,29 +1,29 @@
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkDeployment
 metadata:
-  namespace: {{namespace}}
-  name: {{name}}-flink-job
+  name: {{pipeline.name}}-flink-job
+  namespace: {{pipeline.namespace}}
 spec:
   image: docker.io/library/hoptimator-flink-runner
   imagePullPolicy: Never
   flinkVersion: v1_16
   flinkConfiguration:
-    taskmanager.numberOfTaskSlots: "1"
+    taskmanager.numberOfTaskSlots: "{{flink.taskmanager.numberOfTaskSlots:1}}"
   serviceAccount: flink
   jobManager:
     resource:
-      memory: "2048m"
-      cpu: .1
+      memory: "{{flink.job.memory:2048m}}"
+      cpu: {{flink.job.cpu:.1}}
   taskManager:
     resource:
-      memory: "2048m"
-      cpu: .1
+      memory: "{{flink.task.memory:2048m}}"
+      cpu: {{flink.task.cpu:.1}}
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:
     - {{sql}}
     jarURI: local:///opt/hoptimator-flink-runner.jar
-    parallelism: 1
+    parallelism: "{{flink.parallelism:1}}"
     upgradeMode: stateless
     state: running
 

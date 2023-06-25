@@ -40,7 +40,7 @@ spec:
                   type: string
                 hints:
                   description: Hints to adapters, which may disregard them.
-                  type: string
+                  type: object
                   additionalProperties:
                     type: string
               required:

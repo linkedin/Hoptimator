@@ -7,7 +7,6 @@ import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
 import com.linkedin.hoptimator.operator.Operator;
 import com.linkedin.hoptimator.operator.ConfigAssembler;
-import com.linkedin.hoptimator.operator.RequestEnvironment;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 import com.linkedin.hoptimator.planner.Pipeline;
 import com.linkedin.hoptimator.planner.PipelineRel;
@@ -53,8 +52,6 @@ public class SubscriptionReconciler implements Reconciler {
     log.info("Reconciling request {}", request);
     String name = request.getName();
     String namespace = request.getNamespace();
-    RequestEnvironment env = new RequestEnvironment(request);
-    Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(env);
 
     try {
       V1alpha1Subscription object = operator.<V1alpha1Subscription>fetch(SUBSCRIPTION, namespace,
@@ -65,6 +62,7 @@ public class SubscriptionReconciler implements Reconciler {
         return new Result(false);
       }
 
+
       V1OwnerReference ownerReference = new V1OwnerReference();
       ownerReference.kind(object.getKind());
       ownerReference.name(object.getMetadata().getName());
@@ -72,6 +70,9 @@ public class SubscriptionReconciler implements Reconciler {
       ownerReference.uid(object.getMetadata().getUid());
    
       Pipeline pipeline = pipeline(object);
+      SubscriptionEnvironment env = new SubscriptionEnvironment(object, pipeline);
+      Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(env);
+
       boolean ready = pipeline.resources().stream()
         .map(x -> operator.applyResource(x, ownerReference, templateFactory)).allMatch(x -> x);
 

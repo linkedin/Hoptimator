@@ -23,12 +23,15 @@ import com.google.gson.stream.JsonWriter;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Subscription spec
  */
 @ApiModel(description = "Subscription spec")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-22T22:01:54.095Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-24T21:12:24.703Z[Etc/UTC]")
 public class V1alpha1SubscriptionSpec {
   public static final String SERIALIZED_NAME_DATABASE = "database";
   @SerializedName(SERIALIZED_NAME_DATABASE)
@@ -36,7 +39,7 @@ public class V1alpha1SubscriptionSpec {
 
   public static final String SERIALIZED_NAME_HINTS = "hints";
   @SerializedName(SERIALIZED_NAME_HINTS)
-  private String hints;
+  private Map<String, String> hints = null;
 
   public static final String SERIALIZED_NAME_SQL = "sql";
   @SerializedName(SERIALIZED_NAME_SQL)
@@ -65,9 +68,17 @@ public class V1alpha1SubscriptionSpec {
   }
 
 
-  public V1alpha1SubscriptionSpec hints(String hints) {
+  public V1alpha1SubscriptionSpec hints(Map<String, String> hints) {
     
     this.hints = hints;
+    return this;
+  }
+
+  public V1alpha1SubscriptionSpec putHintsItem(String key, String hintsItem) {
+    if (this.hints == null) {
+      this.hints = new HashMap<>();
+    }
+    this.hints.put(key, hintsItem);
     return this;
   }
 
@@ -78,12 +89,12 @@ public class V1alpha1SubscriptionSpec {
   @javax.annotation.Nullable
   @ApiModelProperty(value = "Hints to adapters, which may disregard them.")
 
-  public String getHints() {
+  public Map<String, String> getHints() {
     return hints;
   }
 
 
-  public void setHints(String hints) {
+  public void setHints(Map<String, String> hints) {
     this.hints = hints;
   }
 

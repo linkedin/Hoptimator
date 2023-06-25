@@ -135,7 +135,7 @@ public abstract class Resource {
     Environment EMPTY = new SimpleEnvironment();
     Environment PROCESS = new ProcessEnvironment();
 
-    String get(String key);
+    String getOrDefault(String key, String defaultValue);
   }
 
   /** Basic Environment implementation */
@@ -143,7 +143,11 @@ public abstract class Resource {
     private final Map<String, String> vars;
 
     public SimpleEnvironment(Map<String, String> vars) {
-      this.vars = vars;
+      if (vars != null) {
+        this.vars = vars;
+      } else {
+        this.vars = new HashMap<>();
+      }
     }
 
     public SimpleEnvironment() {
@@ -169,19 +173,23 @@ public abstract class Resource {
     }
 
     @Override
-    public String get(String key) {
-      if (!vars.containsKey(key)) {
+    public String getOrDefault(String key, String defaultValue) {
+      if (defaultValue == null && !vars.containsKey(key)) {
         throw new IllegalArgumentException("No variable '" + key + "' found in the environment");
       }
-      return vars.get(key);
+      return vars.getOrDefault(key, defaultValue);
     }
   }
 
-  /** Returns "{{key}}" for any key */
+  /** Returns "{{key}}" for any key without a default */
   public static class DummyEnvironment implements Environment {
     @Override
-    public String get(String key) {
-      return "{{" + key + "}}";
+    public String getOrDefault(String key, String defaultValue) {
+      if (defaultValue != null) {
+        return defaultValue;
+      } else {
+        return "{{" + key + "}}";
+      }
     }
   }
 
@@ -189,10 +197,13 @@ public abstract class Resource {
   public static class ProcessEnvironment implements Environment {
 
     @Override
-    public String get(String key) {
+    public String getOrDefault(String key, String defaultValue) {
       String value = System.getenv(key);
       if (value == null) {
         value = System.getProperty(key);
+      }
+      if (value == null) {
+        value = defaultValue;
       }
       if (value == null) {
         throw new IllegalArgumentException("Missing system property `" + key + "`");
@@ -209,11 +220,12 @@ public abstract class Resource {
   /**
    * Replaces `{{var}}` in a template file with the corresponding variable.
    *
-   * Resource-scoped variables take precedence over Environment-scoped variables.
+   * Resource-scoped variables take precedence over Environment-scoped
+   * variables. Default values can supplied with `{{var:default}}`.
    *
-   * If `var` contains multiple lines, the behavior depends on context; specifically,
-   * whether the pattern appears within a list or comment (prefixed with `-` or `#`).
-   * For example, if the template includes:
+   * If `var` contains multiple lines, the behavior depends on context;
+   * specifically, whether the pattern appears within a list or comment
+   * (prefixed with `-` or `#`). For example, if the template includes:
    *
    *   - {{var}}
    *
@@ -222,8 +234,8 @@ public abstract class Resource {
    *   - value line 1
    *   - value line 2
    *
-   * To avoid this behavior (and just get a multiline string), use one of YAML's multiline
-   * markers, e.g.
+   * To avoid this behavior (and just get a multiline string), use one of
+   * YAML's multiline markers, e.g.
    *
    *   - |
    *       {{var}}
@@ -242,7 +254,7 @@ public abstract class Resource {
     @Override
     public String render(Resource resource) {
       StringBuffer sb = new StringBuffer();
-      Pattern p = Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*\\}\\}");
+      Pattern p = Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*\\}\\}");
       Matcher m = p.matcher(template);
       while (m.find()) {
         String prefix = m.group(1);
@@ -250,9 +262,10 @@ public abstract class Resource {
           prefix = "";
         }
         String key = m.group(2);
-        String value = resource.getOrDefault(key, () -> env.get(key));
+        String defaultValue = m.group(4);
+        String value = resource.getOrDefault(key, () -> env.getOrDefault(key, defaultValue));
         if (value == null) {
-          throw new IllegalArgumentException("No value for key " + key);
+          throw new IllegalArgumentException(template + " has no value for key " + key + ".");
         }
         String quotedPrefix = Matcher.quoteReplacement(prefix);
         String quotedValue = Matcher.quoteReplacement(value);
