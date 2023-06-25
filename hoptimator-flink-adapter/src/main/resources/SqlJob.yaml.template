@@ -23,7 +23,7 @@ spec:
     args:
     - {{sql}}
     jarURI: local:///opt/hoptimator-flink-runner.jar
-    parallelism: "{{flink.parallelism:1}}"
+    parallelism: {{flink.parallelism:1}}
     upgradeMode: stateless
     state: running
 
