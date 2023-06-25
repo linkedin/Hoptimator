@@ -20,41 +20,68 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopicSpecConfigMapRef;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * V1alpha1KafkaTopicSpecClientConfigs
+ * The resource being controlled.
  */
+@ApiModel(description = "The resource being controlled.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-25T21:45:36.932Z[Etc/UTC]")
-public class V1alpha1KafkaTopicSpecClientConfigs {
-  public static final String SERIALIZED_NAME_CONFIG_MAP_REF = "configMapRef";
-  @SerializedName(SERIALIZED_NAME_CONFIG_MAP_REF)
-  private V1alpha1KafkaTopicSpecConfigMapRef configMapRef;
+public class V1alpha1AclSpecResource {
+  public static final String SERIALIZED_NAME_KIND = "kind";
+  @SerializedName(SERIALIZED_NAME_KIND)
+  private String kind;
+
+  public static final String SERIALIZED_NAME_NAME = "name";
+  @SerializedName(SERIALIZED_NAME_NAME)
+  private String name;
 
 
-  public V1alpha1KafkaTopicSpecClientConfigs configMapRef(V1alpha1KafkaTopicSpecConfigMapRef configMapRef) {
+  public V1alpha1AclSpecResource kind(String kind) {
     
-    this.configMapRef = configMapRef;
+    this.kind = kind;
     return this;
   }
 
    /**
-   * Get configMapRef
-   * @return configMapRef
+   * The kind of resource being controlled.
+   * @return kind
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "")
+  @ApiModelProperty(value = "The kind of resource being controlled.")
 
-  public V1alpha1KafkaTopicSpecConfigMapRef getConfigMapRef() {
-    return configMapRef;
+  public String getKind() {
+    return kind;
   }
 
 
-  public void setConfigMapRef(V1alpha1KafkaTopicSpecConfigMapRef configMapRef) {
-    this.configMapRef = configMapRef;
+  public void setKind(String kind) {
+    this.kind = kind;
+  }
+
+
+  public V1alpha1AclSpecResource name(String name) {
+    
+    this.name = name;
+    return this;
+  }
+
+   /**
+   * The name of the resource being controlled.
+   * @return name
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The name of the resource being controlled.")
+
+  public String getName() {
+    return name;
+  }
+
+
+  public void setName(String name) {
+    this.name = name;
   }
 
 
@@ -66,21 +93,23 @@ public class V1alpha1KafkaTopicSpecClientConfigs {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicSpecClientConfigs v1alpha1KafkaTopicSpecClientConfigs = (V1alpha1KafkaTopicSpecClientConfigs) o;
-    return Objects.equals(this.configMapRef, v1alpha1KafkaTopicSpecClientConfigs.configMapRef);
+    V1alpha1AclSpecResource v1alpha1AclSpecResource = (V1alpha1AclSpecResource) o;
+    return Objects.equals(this.kind, v1alpha1AclSpecResource.kind) &&
+        Objects.equals(this.name, v1alpha1AclSpecResource.name);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(configMapRef);
+    return Objects.hash(kind, name);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicSpecClientConfigs {\n");
-    sb.append("    configMapRef: ").append(toIndentedString(configMapRef)).append("\n");
+    sb.append("class V1alpha1AclSpecResource {\n");
+    sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
+    sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("}");
     return sb.toString();
   }

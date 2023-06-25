@@ -101,7 +101,7 @@ public class SubscriptionReconciler implements Reconciler {
 
     // Create an output/sink table using the subscription name, and add it to the pipeline.
     HopTable sink = planner.database(database).makeTable(name, impl.rowType());
-    log.info("Implementing sink table {}.{} with {} resources.", database, name, sink.resources().size());
+    log.info("Implementing sink table {}.{} with {} resources.", database, name, sink.writeResources().size());
     impl.implement(sink);
 
     return impl.pipeline(sink);

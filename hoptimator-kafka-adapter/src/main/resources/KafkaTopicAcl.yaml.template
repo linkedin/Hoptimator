@@ -1,0 +1,11 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Acl
+metadata:
+  name: {{name}}-acl-{{id}}
+  namespace: {{namespace}}
+spec:
+  resource:
+    kind: KafkaTopic
+    name: {{name}}
+  method: {{method}}
+  principal: {{principal}} 

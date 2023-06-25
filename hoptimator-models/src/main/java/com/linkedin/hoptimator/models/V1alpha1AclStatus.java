@@ -25,36 +25,32 @@ import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Current state of the topic.
+ * Status, as set by the operator.
  */
-@ApiModel(description = "Current state of the topic.")
+@ApiModel(description = "Status, as set by the operator.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-25T21:45:36.932Z[Etc/UTC]")
-public class V1alpha1KafkaTopicStatus {
+public class V1alpha1AclStatus {
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
   private String message;
-
-  public static final String SERIALIZED_NAME_NUM_PARTITIONS = "numPartitions";
-  @SerializedName(SERIALIZED_NAME_NUM_PARTITIONS)
-  private Integer numPartitions;
 
   public static final String SERIALIZED_NAME_READY = "ready";
   @SerializedName(SERIALIZED_NAME_READY)
   private Boolean ready;
 
 
-  public V1alpha1KafkaTopicStatus message(String message) {
+  public V1alpha1AclStatus message(String message) {
     
     this.message = message;
     return this;
   }
 
    /**
-   * Error or success message, for information only.
+   * Human-readable status message.
    * @return message
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Error or success message, for information only.")
+  @ApiModelProperty(value = "Human-readable status message.")
 
   public String getMessage() {
     return message;
@@ -66,41 +62,18 @@ public class V1alpha1KafkaTopicStatus {
   }
 
 
-  public V1alpha1KafkaTopicStatus numPartitions(Integer numPartitions) {
-    
-    this.numPartitions = numPartitions;
-    return this;
-  }
-
-   /**
-   * Actual number of partitions the topic has when last checked.
-   * @return numPartitions
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "Actual number of partitions the topic has when last checked.")
-
-  public Integer getNumPartitions() {
-    return numPartitions;
-  }
-
-
-  public void setNumPartitions(Integer numPartitions) {
-    this.numPartitions = numPartitions;
-  }
-
-
-  public V1alpha1KafkaTopicStatus ready(Boolean ready) {
+  public V1alpha1AclStatus ready(Boolean ready) {
     
     this.ready = ready;
     return this;
   }
 
    /**
-   * Whether the requested topic has been created.
+   * Whether the ACL rule has been applied.
    * @return ready
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Whether the requested topic has been created.")
+  @ApiModelProperty(value = "Whether the ACL rule has been applied.")
 
   public Boolean getReady() {
     return ready;
@@ -120,24 +93,22 @@ public class V1alpha1KafkaTopicStatus {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicStatus v1alpha1KafkaTopicStatus = (V1alpha1KafkaTopicStatus) o;
-    return Objects.equals(this.message, v1alpha1KafkaTopicStatus.message) &&
-        Objects.equals(this.numPartitions, v1alpha1KafkaTopicStatus.numPartitions) &&
-        Objects.equals(this.ready, v1alpha1KafkaTopicStatus.ready);
+    V1alpha1AclStatus v1alpha1AclStatus = (V1alpha1AclStatus) o;
+    return Objects.equals(this.message, v1alpha1AclStatus.message) &&
+        Objects.equals(this.ready, v1alpha1AclStatus.ready);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(message, numPartitions, ready);
+    return Objects.hash(message, ready);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicStatus {\n");
+    sb.append("class V1alpha1AclStatus {\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
-    sb.append("    numPartitions: ").append(toIndentedString(numPartitions)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("}");
     return sb.toString();
