@@ -28,7 +28,7 @@ import java.io.IOException;
  * The resource being controlled.
  */
 @ApiModel(description = "The resource being controlled.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-22T16:59:13.437Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-25T21:45:36.932Z[Etc/UTC]")
 public class V1alpha1AclSpecResource {
   public static final String SERIALIZED_NAME_KIND = "kind";
   @SerializedName(SERIALIZED_NAME_KIND)
