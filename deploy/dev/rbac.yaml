@@ -1,13 +1,13 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: hoptimator-controller
+  name: hoptimator-operator
   namespace: default
 subjects:
 - kind: ServiceAccount
-  name: default
+  name: hoptimator-operator
   namespace: default
 roleRef:
   kind: Role
-  name: hoptimator-controller
+  name: hoptimator-operator
   apiGroup: rbac.authorization.k8s.io

@@ -51,9 +51,21 @@ spec:
                 message:
                   description: Error or success message, for information only.
                   type: string
+                sql:
+                  description: The SQL being implemented by this pipeline.
+                  type: string
+                resources:
+                  description: The resources in the pipeline.
+                  type: array
+                  items:
+                    type: string
       subresources:
         status: {}
       additionalPrinterColumns:
+      - name: STATUS
+        type: string
+        description: Status message from the operator.
+        jsonPath: .status.message
       - name: DB
         type: string
         description: The database where the subscription is materialized.
