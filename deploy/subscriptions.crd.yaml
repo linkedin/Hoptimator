@@ -55,7 +55,7 @@ spec:
                   description: The SQL being implemented by this pipeline.
                   type: string
                 resources:
-                  description: The resources in the pipeline.
+                  description: The YAML generated to implement this pipeline.
                   type: array
                   items:
                     type: string

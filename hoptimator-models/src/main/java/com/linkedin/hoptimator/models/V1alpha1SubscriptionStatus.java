@@ -30,7 +30,7 @@ import java.util.List;
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-28T05:08:08.646Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-29T22:51:02.615Z[Etc/UTC]")
 public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
@@ -110,11 +110,11 @@ public class V1alpha1SubscriptionStatus {
   }
 
    /**
-   * The resources in the pipeline.
+   * The YAML generated to implement this pipeline.
    * @return resources
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "The resources in the pipeline.")
+  @ApiModelProperty(value = "The YAML generated to implement this pipeline.")
 
   public List<String> getResources() {
     return resources;
