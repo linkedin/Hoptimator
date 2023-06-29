@@ -99,7 +99,7 @@ public class SubscriptionReconciler implements Reconciler {
         log.info("Deploying pipeline for {}/{}...", kind, name);
 
         boolean deployed = status.getResources().stream()
-          .map(x -> apply(x, object)).allMatch(x -> x);
+          .allMatch(x -> apply(x, object));
 
         if (deployed) {
           status.setReady(false);
@@ -111,7 +111,7 @@ public class SubscriptionReconciler implements Reconciler {
         log.info("Checking status of pipeline for {}/{}...", kind, name);
 
         boolean ready = status.getResources().stream()
-          .map(x -> checkStatus(x)).allMatch(x -> x);
+          .allMatch(x -> checkStatus(x));
 
         if (ready) {
           status.setReady(true);
