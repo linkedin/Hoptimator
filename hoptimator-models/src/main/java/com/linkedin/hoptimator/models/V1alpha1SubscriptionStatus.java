@@ -23,12 +23,14 @@ import com.google.gson.stream.JsonWriter;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-04-28T19:46:31.976Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-06-29T22:51:02.615Z[Etc/UTC]")
 public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
@@ -37,6 +39,14 @@ public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_READY = "ready";
   @SerializedName(SERIALIZED_NAME_READY)
   private Boolean ready;
+
+  public static final String SERIALIZED_NAME_RESOURCES = "resources";
+  @SerializedName(SERIALIZED_NAME_RESOURCES)
+  private List<String> resources = null;
+
+  public static final String SERIALIZED_NAME_SQL = "sql";
+  @SerializedName(SERIALIZED_NAME_SQL)
+  private String sql;
 
 
   public V1alpha1SubscriptionStatus message(String message) {
@@ -85,6 +95,60 @@ public class V1alpha1SubscriptionStatus {
   }
 
 
+  public V1alpha1SubscriptionStatus resources(List<String> resources) {
+    
+    this.resources = resources;
+    return this;
+  }
+
+  public V1alpha1SubscriptionStatus addResourcesItem(String resourcesItem) {
+    if (this.resources == null) {
+      this.resources = new ArrayList<>();
+    }
+    this.resources.add(resourcesItem);
+    return this;
+  }
+
+   /**
+   * The YAML generated to implement this pipeline.
+   * @return resources
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The YAML generated to implement this pipeline.")
+
+  public List<String> getResources() {
+    return resources;
+  }
+
+
+  public void setResources(List<String> resources) {
+    this.resources = resources;
+  }
+
+
+  public V1alpha1SubscriptionStatus sql(String sql) {
+    
+    this.sql = sql;
+    return this;
+  }
+
+   /**
+   * The SQL being implemented by this pipeline.
+   * @return sql
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The SQL being implemented by this pipeline.")
+
+  public String getSql() {
+    return sql;
+  }
+
+
+  public void setSql(String sql) {
+    this.sql = sql;
+  }
+
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -95,12 +159,14 @@ public class V1alpha1SubscriptionStatus {
     }
     V1alpha1SubscriptionStatus v1alpha1SubscriptionStatus = (V1alpha1SubscriptionStatus) o;
     return Objects.equals(this.message, v1alpha1SubscriptionStatus.message) &&
-        Objects.equals(this.ready, v1alpha1SubscriptionStatus.ready);
+        Objects.equals(this.ready, v1alpha1SubscriptionStatus.ready) &&
+        Objects.equals(this.resources, v1alpha1SubscriptionStatus.resources) &&
+        Objects.equals(this.sql, v1alpha1SubscriptionStatus.sql);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(message, ready);
+    return Objects.hash(message, ready, resources, sql);
   }
 
 
@@ -110,6 +176,8 @@ public class V1alpha1SubscriptionStatus {
     sb.append("class V1alpha1SubscriptionStatus {\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
+    sb.append("    resources: ").append(toIndentedString(resources)).append("\n");
+    sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
     sb.append("}");
     return sb.toString();
   }
