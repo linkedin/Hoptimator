@@ -16,6 +16,6 @@ public class SqlJob extends Resource {
 
   public SqlJob(String sql) {
     super("SqlJob");
-    export("sql", sql);
+    export("pipeline.sql", sql);
   }
 }
