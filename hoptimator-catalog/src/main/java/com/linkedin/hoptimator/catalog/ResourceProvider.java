@@ -18,10 +18,25 @@ public interface ResourceProvider {
   /** Resources for the given table */
   Collection<Resource> resources(String tableName);
 
+  /** Resources required when reading from the table */
+  default Collection<Resource> readResources(String tableName) {
+    return resources(tableName).stream()
+      .filter(x -> !(x instanceof WriteResource))
+      .collect(Collectors.toList());
+  }
+
+  /** Resources required when writing to the table */
+  default Collection<Resource> writeResources(String tableName) {
+    return resources(tableName).stream()
+      .filter(x -> !(x instanceof ReadResource))
+      .collect(Collectors.toList());
+  }
+
   /**
-   * Establishes a source->sink relationship between this ResourceProvider and a sink Resource.
+   * Establishes a source->sink relationship between ResourceProviders.
    *
-   * All leaf-node Resources provided by this ResourceProvider will become inputs to the sink.
+   * All leaf-node Resources provided by this ResourceProvider will become sources. All nodes
+   * provided by the given ResourceProvider will be sinks.
    *
    * e.g.
    * <pre>
@@ -47,10 +62,17 @@ public interface ResourceProvider {
       sources.removeAll(sources.stream().flatMap(y -> y.inputs().stream())
         .collect(Collectors.toList()));
 
+      // remove all read/write-only upstream Resources
+      sources.removeAll(sources.stream()
+        .filter(y -> y instanceof ReadResource || y instanceof WriteResource)
+        .collect(Collectors.toList()));
+
       // link all sources to all sinks       
       sink.resources(x).forEach(y -> {
         combined.add(new Resource(y) {{
-          sources.forEach(z -> input(z));
+          if (!(y instanceof ReadResource || y instanceof WriteResource)) {
+            sources.forEach(z -> input(z));
+          }
         }});
       });
 
@@ -58,10 +80,12 @@ public interface ResourceProvider {
     };
   }
 
+  /** Provide a sink resource. */
   default ResourceProvider to(Resource resource) {
     return toAll(x -> Collections.singleton(resource));
   }
 
+  /** Provide a sink resource. */
   default ResourceProvider to(Function<String, Resource> resourceFunc) {
     return toAll(x -> Collections.singleton(resourceFunc.apply(x)));
   }
@@ -76,12 +100,58 @@ public interface ResourceProvider {
     };
   }
 
+  /** Provide a resource. */
   default ResourceProvider with(Resource resource) {
     return withAll(x -> Collections.singleton(resource));
   }
 
+  /** Provide a resource. */
   default ResourceProvider with(Function<String, Resource> resourceFunc) {
     return withAll(x -> Collections.singleton(resourceFunc.apply(x)));
+  }
+
+  /** Provide the given resources, but only when the table needs to be read from. */
+  default ResourceProvider readWithAll(ResourceProvider readResourceProvider) {
+    return x -> {
+      List<Resource> combined = new ArrayList<>();
+      combined.addAll(resources(x));
+      combined.addAll(readResourceProvider.resources(x).stream()
+        .map(y -> new ReadResource(y))
+        .collect(Collectors.toList()));
+      return combined;
+    };
+  }
+
+  /** Provide the given resources, but only when the table needs to be written to. */
+  default ResourceProvider writeWithAll(ResourceProvider writeResourceProvider) {
+    return x -> {
+      List<Resource> combined = new ArrayList<>();
+      combined.addAll(resources(x));
+      combined.addAll(writeResourceProvider.resources(x).stream()
+        .map(y -> new WriteResource(y))
+        .collect(Collectors.toList()));
+      return combined;
+    };
+  }
+
+  /** Provide the given resource, but only when the table needs to be read from. */
+  default ResourceProvider readWith(Function<String, Resource> resourceFunc) {
+    return readWithAll(x -> Collections.singleton(resourceFunc.apply(x)));
+  }
+
+  /** Provide the given resource, but only when the table needs to be read from. */
+  default ResourceProvider readWith(Resource resource) {
+    return readWithAll(x -> Collections.singleton(resource));
+  }
+
+  /** Provide the given resource, but only when the table needs to be written to. */
+  default ResourceProvider writeWith(Function<String, Resource> resourceFunc) {
+    return writeWithAll(x -> Collections.singleton(resourceFunc.apply(x)));
+  }
+
+  /** Provide the given resource, but only when the table needs to be written to. */
+  default ResourceProvider writeWith(Resource resource) {
+    return writeWithAll(x -> Collections.singleton(resource));
   }
 
   static ResourceProvider empty() {
@@ -94,5 +164,21 @@ public interface ResourceProvider {
 
   static ResourceProvider from(Resource resource) {
     return x -> Collections.singleton(resource);
+  }
+
+  /** A Resource that shouldn't be provided when reading from the table. */
+  static class ReadResource extends Resource {
+
+    public ReadResource(Resource resource) {
+      super(resource);
+    }
+  }
+
+  /** A Resource that shouldn't be provided when wriring to the table. */
+  static class WriteResource extends Resource {
+
+    public WriteResource(Resource resource) {
+      super(resource);
+    }
   }
 }

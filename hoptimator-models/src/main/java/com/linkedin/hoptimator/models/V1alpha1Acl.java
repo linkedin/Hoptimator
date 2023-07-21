@@ -20,19 +20,19 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
+import com.linkedin.hoptimator.models.V1alpha1AclSpec;
+import com.linkedin.hoptimator.models.V1alpha1AclStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Hoptimator Subscription
+ * Access control rule (colloquially, an Acl)
  */
-@ApiModel(description = "Hoptimator Subscription")
+@ApiModel(description = "Access control rule (colloquially, an Acl)")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-07-19T17:12:58.614Z[Etc/UTC]")
-public class V1alpha1Subscription implements io.kubernetes.client.common.KubernetesObject {
+public class V1alpha1Acl implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
@@ -47,14 +47,14 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
 
   public static final String SERIALIZED_NAME_SPEC = "spec";
   @SerializedName(SERIALIZED_NAME_SPEC)
-  private V1alpha1SubscriptionSpec spec;
+  private V1alpha1AclSpec spec;
 
   public static final String SERIALIZED_NAME_STATUS = "status";
   @SerializedName(SERIALIZED_NAME_STATUS)
-  private V1alpha1SubscriptionStatus status;
+  private V1alpha1AclStatus status;
 
 
-  public V1alpha1Subscription apiVersion(String apiVersion) {
+  public V1alpha1Acl apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -77,7 +77,7 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   }
 
 
-  public V1alpha1Subscription kind(String kind) {
+  public V1alpha1Acl kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -100,7 +100,7 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   }
 
 
-  public V1alpha1Subscription metadata(V1ObjectMeta metadata) {
+  public V1alpha1Acl metadata(V1ObjectMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -123,7 +123,7 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   }
 
 
-  public V1alpha1Subscription spec(V1alpha1SubscriptionSpec spec) {
+  public V1alpha1Acl spec(V1alpha1AclSpec spec) {
     
     this.spec = spec;
     return this;
@@ -136,17 +136,17 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1alpha1SubscriptionSpec getSpec() {
+  public V1alpha1AclSpec getSpec() {
     return spec;
   }
 
 
-  public void setSpec(V1alpha1SubscriptionSpec spec) {
+  public void setSpec(V1alpha1AclSpec spec) {
     this.spec = spec;
   }
 
 
-  public V1alpha1Subscription status(V1alpha1SubscriptionStatus status) {
+  public V1alpha1Acl status(V1alpha1AclStatus status) {
     
     this.status = status;
     return this;
@@ -159,12 +159,12 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1alpha1SubscriptionStatus getStatus() {
+  public V1alpha1AclStatus getStatus() {
     return status;
   }
 
 
-  public void setStatus(V1alpha1SubscriptionStatus status) {
+  public void setStatus(V1alpha1AclStatus status) {
     this.status = status;
   }
 
@@ -177,12 +177,12 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1Subscription v1alpha1Subscription = (V1alpha1Subscription) o;
-    return Objects.equals(this.apiVersion, v1alpha1Subscription.apiVersion) &&
-        Objects.equals(this.kind, v1alpha1Subscription.kind) &&
-        Objects.equals(this.metadata, v1alpha1Subscription.metadata) &&
-        Objects.equals(this.spec, v1alpha1Subscription.spec) &&
-        Objects.equals(this.status, v1alpha1Subscription.status);
+    V1alpha1Acl v1alpha1Acl = (V1alpha1Acl) o;
+    return Objects.equals(this.apiVersion, v1alpha1Acl.apiVersion) &&
+        Objects.equals(this.kind, v1alpha1Acl.kind) &&
+        Objects.equals(this.metadata, v1alpha1Acl.metadata) &&
+        Objects.equals(this.spec, v1alpha1Acl.spec) &&
+        Objects.equals(this.status, v1alpha1Acl.status);
   }
 
   @Override
@@ -194,7 +194,7 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1Subscription {\n");
+    sb.append("class V1alpha1Acl {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    metadata: ").append(toIndentedString(metadata)).append("\n");

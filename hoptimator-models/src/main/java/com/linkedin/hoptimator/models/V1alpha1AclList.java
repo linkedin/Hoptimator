@@ -20,22 +20,27 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import com.linkedin.hoptimator.models.V1alpha1Acl;
+import io.kubernetes.client.openapi.models.V1ListMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Hoptimator Subscription
+ * AclList is a list of Acl
  */
-@ApiModel(description = "Hoptimator Subscription")
+@ApiModel(description = "AclList is a list of Acl")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-07-19T17:12:58.614Z[Etc/UTC]")
-public class V1alpha1Subscription implements io.kubernetes.client.common.KubernetesObject {
+public class V1alpha1AclList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
+
+  public static final String SERIALIZED_NAME_ITEMS = "items";
+  @SerializedName(SERIALIZED_NAME_ITEMS)
+  private List<V1alpha1Acl> items = new ArrayList<>();
 
   public static final String SERIALIZED_NAME_KIND = "kind";
   @SerializedName(SERIALIZED_NAME_KIND)
@@ -43,18 +48,10 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
 
   public static final String SERIALIZED_NAME_METADATA = "metadata";
   @SerializedName(SERIALIZED_NAME_METADATA)
-  private V1ObjectMeta metadata = null;
-
-  public static final String SERIALIZED_NAME_SPEC = "spec";
-  @SerializedName(SERIALIZED_NAME_SPEC)
-  private V1alpha1SubscriptionSpec spec;
-
-  public static final String SERIALIZED_NAME_STATUS = "status";
-  @SerializedName(SERIALIZED_NAME_STATUS)
-  private V1alpha1SubscriptionStatus status;
+  private V1ListMeta metadata = null;
 
 
-  public V1alpha1Subscription apiVersion(String apiVersion) {
+  public V1alpha1AclList apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -77,7 +74,34 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   }
 
 
-  public V1alpha1Subscription kind(String kind) {
+  public V1alpha1AclList items(List<V1alpha1Acl> items) {
+    
+    this.items = items;
+    return this;
+  }
+
+  public V1alpha1AclList addItemsItem(V1alpha1Acl itemsItem) {
+    this.items.add(itemsItem);
+    return this;
+  }
+
+   /**
+   * List of acls. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
+   * @return items
+  **/
+  @ApiModelProperty(required = true, value = "List of acls. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md")
+
+  public List<V1alpha1Acl> getItems() {
+    return items;
+  }
+
+
+  public void setItems(List<V1alpha1Acl> items) {
+    this.items = items;
+  }
+
+
+  public V1alpha1AclList kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -100,7 +124,7 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   }
 
 
-  public V1alpha1Subscription metadata(V1ObjectMeta metadata) {
+  public V1alpha1AclList metadata(V1ListMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -113,59 +137,13 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1ObjectMeta getMetadata() {
+  public V1ListMeta getMetadata() {
     return metadata;
   }
 
 
-  public void setMetadata(V1ObjectMeta metadata) {
+  public void setMetadata(V1ListMeta metadata) {
     this.metadata = metadata;
-  }
-
-
-  public V1alpha1Subscription spec(V1alpha1SubscriptionSpec spec) {
-    
-    this.spec = spec;
-    return this;
-  }
-
-   /**
-   * Get spec
-   * @return spec
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "")
-
-  public V1alpha1SubscriptionSpec getSpec() {
-    return spec;
-  }
-
-
-  public void setSpec(V1alpha1SubscriptionSpec spec) {
-    this.spec = spec;
-  }
-
-
-  public V1alpha1Subscription status(V1alpha1SubscriptionStatus status) {
-    
-    this.status = status;
-    return this;
-  }
-
-   /**
-   * Get status
-   * @return status
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "")
-
-  public V1alpha1SubscriptionStatus getStatus() {
-    return status;
-  }
-
-
-  public void setStatus(V1alpha1SubscriptionStatus status) {
-    this.status = status;
   }
 
 
@@ -177,29 +155,27 @@ public class V1alpha1Subscription implements io.kubernetes.client.common.Kuberne
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1Subscription v1alpha1Subscription = (V1alpha1Subscription) o;
-    return Objects.equals(this.apiVersion, v1alpha1Subscription.apiVersion) &&
-        Objects.equals(this.kind, v1alpha1Subscription.kind) &&
-        Objects.equals(this.metadata, v1alpha1Subscription.metadata) &&
-        Objects.equals(this.spec, v1alpha1Subscription.spec) &&
-        Objects.equals(this.status, v1alpha1Subscription.status);
+    V1alpha1AclList v1alpha1AclList = (V1alpha1AclList) o;
+    return Objects.equals(this.apiVersion, v1alpha1AclList.apiVersion) &&
+        Objects.equals(this.items, v1alpha1AclList.items) &&
+        Objects.equals(this.kind, v1alpha1AclList.kind) &&
+        Objects.equals(this.metadata, v1alpha1AclList.metadata);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(apiVersion, kind, metadata, spec, status);
+    return Objects.hash(apiVersion, items, kind, metadata);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1Subscription {\n");
+    sb.append("class V1alpha1AclList {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
+    sb.append("    items: ").append(toIndentedString(items)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    metadata: ").append(toIndentedString(metadata)).append("\n");
-    sb.append("    spec: ").append(toIndentedString(spec)).append("\n");
-    sb.append("    status: ").append(toIndentedString(status)).append("\n");
     sb.append("}");
     return sb.toString();
   }
