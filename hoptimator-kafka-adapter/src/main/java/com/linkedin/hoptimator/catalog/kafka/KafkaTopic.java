@@ -6,7 +6,7 @@ import java.util.Optional;
 import java.util.Collections;
 import java.util.Map;
 
-public class KafkaTopic extends Resource {
+class KafkaTopic extends Resource {
   public KafkaTopic(String name, Map<String, String> clientOverrides) {
     super("KafkaTopic");
     export("name", name);

@@ -28,7 +28,7 @@ import java.io.IOException;
  * Reference to a ConfigMap to use for AdminClient configuration.
  */
 @ApiModel(description = "Reference to a ConfigMap to use for AdminClient configuration.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-07-19T22:31:00.312Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-07-21T22:04:16.918Z[Etc/UTC]")
 public class V1alpha1KafkaTopicSpecConfigMapRef {
   public static final String SERIALIZED_NAME_NAME = "name";
   @SerializedName(SERIALIZED_NAME_NAME)

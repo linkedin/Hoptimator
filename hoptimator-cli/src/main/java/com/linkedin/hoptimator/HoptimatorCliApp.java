@@ -58,7 +58,7 @@ public class HoptimatorCliApp {
 
   private static InsertInto parseInsertInto(String s) {
       String sql = s.trim();
-      if (!sql.startsWith("insert into ")) {
+      if (!startsWith(sql, "insert into ")) {
         throw new IllegalArgumentException("Expected insert into ... ");
       }
       String[] parts = sql.substring(12).split("(?i)SELECT"); // case insensitive
@@ -108,11 +108,11 @@ public class HoptimatorCliApp {
     @Override
     public String matches(String line) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("avro")) {
+      if (startsWith(sql, "avro")) {
         sql = sql.substring("avro".length() + 1);
         return sql;
       }
@@ -123,11 +123,11 @@ public class HoptimatorCliApp {
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("avro")) {
+      if (startsWith(sql, "avro")) {
         sql = sql.substring("avro".length() + 1);
       }
 
@@ -175,11 +175,11 @@ public class HoptimatorCliApp {
     @Override
     public String matches(String line) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("yaml insert into ")) {
+      if (startsWith(sql, "yaml insert into ")) {
         sql = sql.substring("yaml insert into ".length());
         return sql;
       }
@@ -190,11 +190,11 @@ public class HoptimatorCliApp {
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("yaml")) {
+      if (startsWith(sql, "yaml")) {
         sql = sql.substring("yaml".length() + 1);
       }
 
@@ -249,11 +249,11 @@ public class HoptimatorCliApp {
     @Override
     public String matches(String line) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("pipeline")) {
+      if (startsWith(sql, "pipeline")) {
         sql = sql.substring("pipeline".length() + 1);
         return sql;
       }
@@ -264,11 +264,11 @@ public class HoptimatorCliApp {
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("pipeline")) {
+      if (startsWith(sql, "pipeline")) {
         sql = sql.substring("pipeline".length() + 1);
       }
 
@@ -323,11 +323,11 @@ public class HoptimatorCliApp {
     @Override
     public String matches(String line) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("check")) {
+      if (startsWith(sql, "check")) {
         sql = sql.substring("check".length() + 1);
         return sql;
       }
@@ -338,11 +338,11 @@ public class HoptimatorCliApp {
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("check")) {
+      if (startsWith(sql, "check")) {
         sql = sql.substring("check".length() + 1);
       }
 
@@ -448,11 +448,11 @@ public class HoptimatorCliApp {
     @Override
     public String matches(String line) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("insert into")) {
+      if (startsWith(sql, "insert into")) {
         sql = sql.substring("insert into".length() + 1);
         return sql;
       }
@@ -463,7 +463,7 @@ public class HoptimatorCliApp {
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
@@ -526,7 +526,7 @@ public class HoptimatorCliApp {
 
     @Override
     public String matches(String line) {
-      if (line.startsWith("!intro") || line.startsWith("intro")) {
+      if (startsWith(line, "!intro") || startsWith(line, "intro")) {
         return line;
       } else {
         return null;
@@ -572,11 +572,11 @@ public class HoptimatorCliApp {
     @Override
     public String matches(String line) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("mermaid insert into ")) {
+      if (startsWith(sql, "mermaid insert into ")) {
         sql = sql.substring("mermaid insert into ".length());
         return sql;
       }
@@ -587,11 +587,11 @@ public class HoptimatorCliApp {
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
       String sql = line;
-      if (sql.startsWith(SqlLine.COMMAND_PREFIX)) {
+      if (startsWith(sql, SqlLine.COMMAND_PREFIX)) {
         sql = sql.substring(1);
       }
 
-      if (sql.startsWith("mermaid ")) {
+      if (startsWith(sql, "mermaid ")) {
         sql = sql.substring("mermaid ".length());
       }
 
@@ -626,5 +626,10 @@ public class HoptimatorCliApp {
     public boolean echoToFile() {
       return false;
     }
+  }
+
+  // case-insensitive prefix match
+  static boolean startsWith(String s, String prefix) {
+    return s.matches("(?i)" + prefix + ".*");
   }
 }
