@@ -166,6 +166,7 @@ public interface ResourceProvider {
     return x -> Collections.singleton(resource);
   }
 
+  /** A Resource that shouldn't be provided when reading from the table. */
   static class ReadResource extends Resource {
 
     public ReadResource(Resource resource) {
@@ -173,6 +174,7 @@ public interface ResourceProvider {
     }
   }
 
+  /** A Resource that shouldn't be provided when wriring to the table. */
   static class WriteResource extends Resource {
 
     public WriteResource(Resource resource) {
