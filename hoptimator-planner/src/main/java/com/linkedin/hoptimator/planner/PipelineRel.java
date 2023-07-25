@@ -94,15 +94,8 @@ public interface PipelineRel extends RelNode {
 
     /** Combine SQL and any Resources into a Pipeline */
     public Pipeline pipeline(HopTable sink, SqlDialect sqlDialect) {
-      // We re-use ResourceProvider here for its source->sink relationships
-      ResourceProvider resourceProvider = ResourceProvider.from(resources)
-        .to(new SqlJob(insertInto(sink).sql(sqlDialect)))
-        .toAll(x -> sink.writeResources());
-
-      // All resources are now "provided", so we can pass null here:
-      Collection<Resource> resourcesAndJob = resourceProvider.resources(null);
-
-      return new Pipeline(resourcesAndJob, rowType());
+      SqlJob sqlJob = new SqlJob(insertInto(sink).sql(sqlDialect));
+      return new Pipeline(resources, sqlJob, sink.writeResources(), rowType());
     }
   }
 }

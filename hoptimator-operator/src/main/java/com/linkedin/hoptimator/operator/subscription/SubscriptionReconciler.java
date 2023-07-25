@@ -84,12 +84,32 @@ public class SubscriptionReconciler implements Reconciler {
         log.info("Planning a new pipeline for {}/{} with SQL `{}`...", kind, name, object.getSpec().getSql());
 
         Pipeline pipeline = pipeline(object);
-        SubscriptionEnvironment env = new SubscriptionEnvironment(object, pipeline);
+        SubscriptionEnvironment env = new SubscriptionEnvironment(namespace, name, pipeline);
+        SubscriptionEnvironment sinkEnv = new SubscriptionEnvironment(namespace, name, pipeline,
+          object.getSpec().getHints());
         Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(env);
-        
-        status.setResources(pipeline.resources().stream()
+        Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(sinkEnv);
+ 
+        // Render resources related to all source tables.
+        List<String> upstreamResources = pipeline.upstreamResources().stream()
           .map(x -> x.render(templateFactory))
-          .collect(Collectors.toList()));
+          .collect(Collectors.toList());
+
+        // Render the SQL job
+        String sqlJob = pipeline.sqlJob().render(templateFactory);
+
+        // Render resources related to the sink table. For these resources, we pass along any
+        // "hints" as part of the environment.
+        List<String> downstreamResources = pipeline.downstreamResources().stream()
+          .map(x -> x.render(sinkTemplateFactory))
+          .collect(Collectors.toList());
+
+        List<String> combined = new ArrayList<>();
+        combined.addAll(upstreamResources);
+        combined.add(sqlJob);
+        combined.addAll(downstreamResources);
+
+        status.setResources(combined);
 
         status.setSql(object.getSpec().getSql());
         status.setReady(null);  // null indicates that pipeline needs to be deployed

@@ -5,7 +5,9 @@ import io.kubernetes.client.extended.controller.reconciler.Request;
 import com.linkedin.hoptimator.catalog.AvroConverter;
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.planner.Pipeline;
-import com.linkedin.hoptimator.models.V1alpha1Subscription;
+
+import java.util.Map;
+import java.util.Collections;
 
 /**
  * Exposes Subscription variables to resource templates.
@@ -33,11 +35,16 @@ import com.linkedin.hoptimator.models.V1alpha1Subscription;
  */
 public class SubscriptionEnvironment extends Resource.SimpleEnvironment {
 
-  public SubscriptionEnvironment(V1alpha1Subscription subscription, Pipeline pipeline) {
-    super(subscription.getSpec().getHints());
-    export("pipeline.namespace", subscription.getMetadata().getNamespace());
-    export("pipeline.name", subscription.getMetadata().getName());
+  public SubscriptionEnvironment(String namespace, String name, Pipeline pipeline,
+      Map<String, String> hints) {
+    super(hints);
+    export("pipeline.namespace", namespace);
+    export("pipeline.name", name);
     export("pipeline.avroSchema", AvroConverter.avro("com.linkedin.hoptimator", "OutputRecord",
       pipeline.outputType()).toString(false));
+  }
+
+  public SubscriptionEnvironment(String namespace, String name, Pipeline pipeline) {
+    this(namespace, name, pipeline, Collections.emptyMap());
   }
 }
