@@ -97,7 +97,11 @@ public abstract class Resource {
 
   /** Render this Resource using the given TemplateFactory */
   public String render(TemplateFactory templateFactory) {
-    return templateFactory.get(this).render(this);
+    try {
+      return templateFactory.get(this).render(this);
+    } catch (Exception e) {
+      throw new RuntimeException("Error rendering " + template, e);
+    }
   }
 
   public String render(Template template) {
@@ -148,53 +152,51 @@ public abstract class Resource {
     Environment EMPTY = new SimpleEnvironment();
     Environment PROCESS = new ProcessEnvironment();
 
-    String get(String key);
+    String getOrDefault(String key, String defaultValue);
   }
 
   /** Basic Environment implementation */
   public static class SimpleEnvironment implements Environment {
-    private final Map<String, String> vars;
-
-    public SimpleEnvironment(Map<String, String> vars) {
-      this.vars = vars;
-    }
+    private final Map<String, String> vars = new HashMap<>();
 
     public SimpleEnvironment() {
-      this(new HashMap<>());
     }
 
-    public void export(String property, String value) {
+    protected void export(String property, String value) {
       vars.put(property, value);
     }
 
-    public SimpleEnvironment(Properties properties) {
-      this.vars = new HashMap<>();
-      for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-        this.vars.put(entry.getKey().toString(), entry.getValue().toString());
-      }
+    protected void exportAll(Map<String, String> properties) {
+      vars.putAll(properties);
     }
 
     public SimpleEnvironment with(String key, String value) {
       Map<String, String> newVars = new HashMap<>();
       newVars.putAll(vars);
       newVars.put(key, value);
-      return new SimpleEnvironment(newVars);
+      return new SimpleEnvironment(){{
+        exportAll(newVars);
+      }};
     }
 
     @Override
-    public String get(String key) {
-      if (!vars.containsKey(key)) {
+    public String getOrDefault(String key, String defaultValue) {
+      if (defaultValue == null && !vars.containsKey(key)) {
         throw new IllegalArgumentException("No variable '" + key + "' found in the environment");
       }
-      return vars.get(key);
+      return vars.getOrDefault(key, defaultValue);
     }
   }
 
-  /** Returns "{{key}}" for any key */
+  /** Returns "{{key}}" for any key without a default */
   public static class DummyEnvironment implements Environment {
     @Override
-    public String get(String key) {
-      return "{{" + key + "}}";
+    public String getOrDefault(String key, String defaultValue) {
+      if (defaultValue != null) {
+        return defaultValue;
+      } else {
+        return "{{" + key + "}}";
+      }
     }
   }
 
@@ -202,10 +204,13 @@ public abstract class Resource {
   public static class ProcessEnvironment implements Environment {
 
     @Override
-    public String get(String key) {
+    public String getOrDefault(String key, String defaultValue) {
       String value = System.getenv(key);
       if (value == null) {
         value = System.getProperty(key);
+      }
+      if (value == null) {
+        value = defaultValue;
       }
       if (value == null) {
         throw new IllegalArgumentException("Missing system property `" + key + "`");
@@ -222,11 +227,12 @@ public abstract class Resource {
   /**
    * Replaces `{{var}}` in a template file with the corresponding variable.
    *
-   * Resource-scoped variables take precedence over Environment-scoped variables.
+   * Resource-scoped variables take precedence over Environment-scoped
+   * variables. Default values can supplied with `{{var:default}}`.
    *
-   * If `var` contains multiple lines, the behavior depends on context; specifically,
-   * whether the pattern appears within a list or comment (prefixed with `-` or `#`).
-   * For example, if the template includes:
+   * If `var` contains multiple lines, the behavior depends on context;
+   * specifically, whether the pattern appears within a list or comment
+   * (prefixed with `-` or `#`). For example, if the template includes:
    *
    *   - {{var}}
    *
@@ -235,8 +241,8 @@ public abstract class Resource {
    *   - value line 1
    *   - value line 2
    *
-   * To avoid this behavior (and just get a multiline string), use one of YAML's multiline
-   * markers, e.g.
+   * To avoid this behavior (and just get a multiline string), use one of
+   * YAML's multiline markers, e.g.
    *
    *   - |
    *       {{var}}
@@ -255,7 +261,7 @@ public abstract class Resource {
     @Override
     public String render(Resource resource) {
       StringBuffer sb = new StringBuffer();
-      Pattern p = Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*\\}\\}");
+      Pattern p = Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*\\}\\}");
       Matcher m = p.matcher(template);
       while (m.find()) {
         String prefix = m.group(1);
@@ -263,9 +269,10 @@ public abstract class Resource {
           prefix = "";
         }
         String key = m.group(2);
-        String value = resource.getOrDefault(key, () -> env.get(key));
+        String defaultValue = m.group(4);
+        String value = resource.getOrDefault(key, () -> env.getOrDefault(key, defaultValue));
         if (value == null) {
-          throw new IllegalArgumentException("No value for key " + key);
+          throw new IllegalArgumentException(template + " has no value for key " + key + ".");
         }
         String quotedPrefix = Matcher.quoteReplacement(prefix);
         String quotedValue = Matcher.quoteReplacement(value);

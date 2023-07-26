@@ -7,7 +7,6 @@ import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
 import com.linkedin.hoptimator.operator.Operator;
 import com.linkedin.hoptimator.operator.ConfigAssembler;
-import com.linkedin.hoptimator.operator.RequestEnvironment;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 import com.linkedin.hoptimator.planner.Pipeline;
 import com.linkedin.hoptimator.planner.PipelineRel;
@@ -55,8 +54,6 @@ public class SubscriptionReconciler implements Reconciler {
     log.info("Reconciling request {}", request);
     String name = request.getName();
     String namespace = request.getNamespace();
-    RequestEnvironment env = new RequestEnvironment(request);
-    Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(env);
 
     Result result = new Result(true, operator.pendingRetryDuration());
     try {
@@ -87,9 +84,32 @@ public class SubscriptionReconciler implements Reconciler {
         log.info("Planning a new pipeline for {}/{} with SQL `{}`...", kind, name, object.getSpec().getSql());
 
         Pipeline pipeline = pipeline(object);
-        status.setResources(pipeline.resources().stream()
+        SubscriptionEnvironment env = new SubscriptionEnvironment(namespace, name, pipeline);
+        SubscriptionEnvironment sinkEnv = new SubscriptionEnvironment(namespace, name, pipeline,
+          object.getSpec().getHints());
+        Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(env);
+        Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(sinkEnv);
+ 
+        // Render resources related to all source tables.
+        List<String> upstreamResources = pipeline.upstreamResources().stream()
           .map(x -> x.render(templateFactory))
-          .collect(Collectors.toList()));
+          .collect(Collectors.toList());
+
+        // Render the SQL job
+        String sqlJob = pipeline.sqlJob().render(templateFactory);
+
+        // Render resources related to the sink table. For these resources, we pass along any
+        // "hints" as part of the environment.
+        List<String> downstreamResources = pipeline.downstreamResources().stream()
+          .map(x -> x.render(sinkTemplateFactory))
+          .collect(Collectors.toList());
+
+        List<String> combined = new ArrayList<>();
+        combined.addAll(upstreamResources);
+        combined.add(sqlJob);
+        combined.addAll(downstreamResources);
+
+        status.setResources(combined);
 
         status.setSql(object.getSpec().getSql());
         status.setReady(null);  // null indicates that pipeline needs to be deployed

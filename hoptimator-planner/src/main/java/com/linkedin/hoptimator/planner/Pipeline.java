@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.planner;
 import org.apache.calcite.rel.type.RelDataType;
 
 import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.catalog.ResourceProvider;
 
 import java.util.Collection;
 import java.util.List;
@@ -13,11 +14,16 @@ import java.util.stream.Collectors;
  *
  */
 public class Pipeline {
-  private final Collection<Resource> resources;
+  private final Collection<Resource> upstreamResources;
+  private final Collection<Resource> downstreamResources;
+  private final SqlJob sqlJob;
   private final RelDataType outputType;
 
-  public Pipeline(Collection<Resource> resources, RelDataType outputType) {
-    this.resources = resources;
+  public Pipeline(Collection<Resource> upstreamResources, SqlJob sqlJob,
+      Collection<Resource> downstreamResources, RelDataType outputType) {
+    this.upstreamResources = upstreamResources;
+    this.sqlJob = sqlJob;
+    this.downstreamResources = downstreamResources;
     this.outputType = outputType;
   }
 
@@ -25,14 +31,37 @@ public class Pipeline {
     return outputType;
   }
 
+  /** The SQL job which writes to the sink. */
+  public SqlJob sqlJob() {
+    return sqlJob;
+  }
+
+  /** Resources upstream of the SQL job, corresponding to all sources. */
+  public Collection<Resource> upstreamResources() {
+    return upstreamResources;
+  }
+
+  /** Resources downstream of the SQL job, corresponding to the sink. */
+  public Collection<Resource> downstreamResources() {
+    return downstreamResources;
+  }
+
+  /** All Resources in the pipeline, including the SQL job and sink. */
   public Collection<Resource> resources() {
-    return resources;
+    // We re-use ResourceProvider here for its source->sink relationships
+    ResourceProvider resourceProvider = ResourceProvider
+      .from(upstreamResources)
+      .to(sqlJob)
+      .toAll(x -> downstreamResources);
+
+    // All resources are now "provided", so we can pass null here:
+    return resourceProvider.resources(null);
   }
 
   /** Render all resources as one big YAML stream */
   public String render(Resource.TemplateFactory templateFactory) {
     StringBuilder sb = new StringBuilder();
-    for (Resource resource : resources) {
+    for (Resource resource : resources()) {
       sb.append(templateFactory.get(resource).render(resource));
       sb.append("\n---\n"); // yaml resource separator
     }
@@ -43,7 +72,7 @@ public class Pipeline {
   public String mermaid() {
     StringBuilder sb = new StringBuilder();
     sb.append("flowchart\n");
-    Map<String, List<Resource>> grouped = resources.stream()
+    Map<String, List<Resource>> grouped = resources().stream()
       .collect(Collectors.groupingBy(x -> x.template()));
     grouped.forEach((k, v) -> {
       sb.append("  subgraph " + k + "\n");

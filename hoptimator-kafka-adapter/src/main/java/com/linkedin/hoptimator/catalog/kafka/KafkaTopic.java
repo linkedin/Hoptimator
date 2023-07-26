@@ -7,12 +7,9 @@ import java.util.Collections;
 import java.util.Map;
 
 class KafkaTopic extends Resource {
-  public KafkaTopic(String name, Integer numPartitions,
-      Map<String, String> clientOverrides) {
+  public KafkaTopic(String topicName, Map<String, String> clientOverrides) {
     super("KafkaTopic");
-    export("name", name);
-    export("numPartitions", Optional.ofNullable(numPartitions)
-      .map(x -> Integer.toString(x)).orElse("null"));
+    export("topicName", topicName);
     export("clientOverrides", clientOverrides);
   }
 }

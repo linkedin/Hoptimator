@@ -1,8 +1,8 @@
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkDeployment
 metadata:
-  namespace: {{namespace}}
-  name: {{name}}-flink-job
+  namespace: {{pipeline.namespace}}
+  name: {{pipeline.name}}-flink-job
 spec:
   image: docker.io/library/hoptimator-flink-runner
   imagePullPolicy: Never
@@ -21,7 +21,7 @@ spec:
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:
-    - {{sql}}
+    - {{pipeline.sql}}
     jarURI: local:///opt/hoptimator-flink-runner.jar
     parallelism: 1
     upgradeMode: stateless

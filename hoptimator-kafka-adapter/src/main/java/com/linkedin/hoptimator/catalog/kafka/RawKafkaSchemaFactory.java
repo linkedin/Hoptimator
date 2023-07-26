@@ -44,11 +44,12 @@ public class RawKafkaSchemaFactory implements SchemaFactory {
     };
     ConfigProvider topicConfigProvider = ConfigProvider.from(clientConfig);
     TableResolver resolver = x -> rowType.rel();
-    Integer numPartitions = (Integer) operand.get("numPartitions");
+    
     ResourceProvider resources = ResourceProvider.empty()
-      .with(x -> new KafkaTopic(x, numPartitions, topicConfigProvider.config(x)))
+      .with(x -> new KafkaTopic(x, topicConfigProvider.config(x)))
       .readWith(x -> new KafkaTopicAcl(x, principal, "Read"))
       .writeWith(x -> new KafkaTopicAcl(x, principal, "Write"));
+    
     Database database = new Database(name, tableLister, resolver, connectorConfigProvider,
       resources);
     return new DatabaseSchema(database);
