@@ -7,4 +7,4 @@ spec:
   sql: SELECT "quantity", "product_id" AS KEY FROM INVENTORY."products_on_hand"
   database: RAWKAFKA
   hints:
-    kafka.numPartitions: "2"
+    numPartitions: "2"

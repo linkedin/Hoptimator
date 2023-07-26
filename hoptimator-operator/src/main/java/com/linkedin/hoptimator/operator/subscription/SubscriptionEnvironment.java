@@ -37,7 +37,7 @@ public class SubscriptionEnvironment extends Resource.SimpleEnvironment {
 
   public SubscriptionEnvironment(String namespace, String name, Pipeline pipeline,
       Map<String, String> hints) {
-    super(hints);
+    exportAll(hints);
     export("pipeline.namespace", namespace);
     export("pipeline.name", name);
     export("pipeline.avroSchema", AvroConverter.avro("com.linkedin.hoptimator", "OutputRecord",

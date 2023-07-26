@@ -7,9 +7,9 @@ import java.util.Collections;
 import java.util.Map;
 
 class KafkaTopic extends Resource {
-  public KafkaTopic(String name, Map<String, String> clientOverrides) {
+  public KafkaTopic(String topicName, Map<String, String> clientOverrides) {
     super("KafkaTopic");
-    export("name", name);
+    export("topicName", topicName);
     export("clientOverrides", clientOverrides);
   }
 }

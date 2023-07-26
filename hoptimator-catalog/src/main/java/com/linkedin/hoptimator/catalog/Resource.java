@@ -97,7 +97,11 @@ public abstract class Resource {
 
   /** Render this Resource using the given TemplateFactory */
   public String render(TemplateFactory templateFactory) {
-    return templateFactory.get(this).render(this);
+    try {
+      return templateFactory.get(this).render(this);
+    } catch (Exception e) {
+      throw new RuntimeException("Error rendering " + template, e);
+    }
   }
 
   public String render(Template template) {
@@ -153,36 +157,26 @@ public abstract class Resource {
 
   /** Basic Environment implementation */
   public static class SimpleEnvironment implements Environment {
-    private final Map<String, String> vars;
-
-    public SimpleEnvironment(Map<String, String> vars) {
-      if (vars != null) {
-        this.vars = vars;
-      } else {
-        this.vars = new HashMap<>();
-      }
-    }
+    private final Map<String, String> vars = new HashMap<>();
 
     public SimpleEnvironment() {
-      this(new HashMap<>());
     }
 
-    public void export(String property, String value) {
+    protected void export(String property, String value) {
       vars.put(property, value);
     }
 
-    public SimpleEnvironment(Properties properties) {
-      this.vars = new HashMap<>();
-      for (Map.Entry<Object, Object> entry : properties.entrySet()) {
-        this.vars.put(entry.getKey().toString(), entry.getValue().toString());
-      }
+    protected void exportAll(Map<String, String> properties) {
+      vars.putAll(properties);
     }
 
     public SimpleEnvironment with(String key, String value) {
       Map<String, String> newVars = new HashMap<>();
       newVars.putAll(vars);
       newVars.put(key, value);
-      return new SimpleEnvironment(newVars);
+      return new SimpleEnvironment(){{
+        exportAll(newVars);
+      }};
     }
 
     @Override
