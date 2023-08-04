@@ -6,6 +6,7 @@ import io.kubernetes.client.util.Config;
 import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.ControllerManager;
 
+import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.models.V1alpha1Subscription;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionList;
 import com.linkedin.hoptimator.operator.subscription.SubscriptionReconciler;
@@ -34,12 +35,14 @@ public class HoptimatorOperatorApp {
   final String modelPath;
   final String namespace;
   final Properties properties;
+  final Resource.Environment environment;
 
   /** This constructor is likely to evolve and break. */
   public HoptimatorOperatorApp(String modelPath, String namespace, Properties properties) {
     this.modelPath = modelPath;
     this.namespace = namespace;
     this.properties = properties;
+    this.environment = new Resource.SimpleEnvironment(properties);
   }
 
   public static void main(String[] args) throws Exception {
@@ -91,7 +94,7 @@ public class HoptimatorOperatorApp {
 
     List<Controller> controllers = new ArrayList<>();
     controllers.addAll(ControllerService.controllers(operator));
-    controllers.add(SubscriptionReconciler.controller(operator, plannerFactory));
+    controllers.add(SubscriptionReconciler.controller(operator, plannerFactory, environment));
 
     ControllerManager controllerManager = new ControllerManager(operator.informerFactory(),
       controllers.toArray(new Controller[0]));

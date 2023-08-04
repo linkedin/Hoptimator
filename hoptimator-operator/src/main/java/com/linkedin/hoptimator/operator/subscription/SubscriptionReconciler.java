@@ -43,10 +43,13 @@ public class SubscriptionReconciler implements Reconciler {
 
   private final Operator operator;
   private final HoptimatorPlanner.Factory plannerFactory;
+  private final Resource.Environment environment;
 
-  private SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory) {
+  private SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory,
+      Resource.Environment environment) {
     this.operator = operator;
     this.plannerFactory = plannerFactory;
+    this.environment = environment;
   }
 
   @Override
@@ -84,11 +87,13 @@ public class SubscriptionReconciler implements Reconciler {
         log.info("Planning a new pipeline for {}/{} with SQL `{}`...", kind, name, object.getSpec().getSql());
 
         Pipeline pipeline = pipeline(object);
-        SubscriptionEnvironment env = new SubscriptionEnvironment(namespace, name, pipeline);
-        SubscriptionEnvironment sinkEnv = new SubscriptionEnvironment(namespace, name, pipeline,
-          object.getSpec().getHints());
-        Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(env);
-        Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(sinkEnv);
+        Resource.Environment subEnv = new SubscriptionEnvironment(namespace, name, pipeline)
+          .orElse(environment);
+        Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(subEnv);
+
+        // For sink resources, also expose hints.
+        Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(subEnv
+          .orElse(new Resource.SimpleEnvironment(object.getSpec().getHints())));
  
         // Render resources related to all source tables.
         List<String> upstreamResources = pipeline.upstreamResources().stream()
@@ -266,8 +271,8 @@ public class SubscriptionReconciler implements Reconciler {
     return true;
   }
 
-  public static Controller controller(Operator operator, HoptimatorPlanner.Factory plannerFactory) {
-    Reconciler reconciler = new SubscriptionReconciler(operator, plannerFactory);
+  public static Controller controller(Operator operator, HoptimatorPlanner.Factory plannerFactory, Resource.Environment environment) {
+    Reconciler reconciler = new SubscriptionReconciler(operator, plannerFactory, environment);
     return ControllerBuilder.defaultBuilder(operator.informerFactory())
       .withReconciler(reconciler)
       .withName("subscription-controller")

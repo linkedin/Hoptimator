@@ -152,7 +152,11 @@ public abstract class Resource {
     Environment EMPTY = new SimpleEnvironment();
     Environment PROCESS = new ProcessEnvironment();
 
-    String getOrDefault(String key, String defaultValue);
+    String getOrDefault(String key, Supplier<String> f);
+
+    default Environment orElse(Environment other) {
+      return (k, f) -> getOrDefault(k, () -> other.getOrDefault(k, f));
+    }
   }
 
   /** Basic Environment implementation */
@@ -160,6 +164,14 @@ public abstract class Resource {
     private final Map<String, String> vars = new HashMap<>();
 
     public SimpleEnvironment() {
+    }
+
+    public SimpleEnvironment(Properties properties) {
+      properties.forEach((k, v) -> vars.put(k.toString(), v.toString()));
+    }
+
+    public SimpleEnvironment(Map<String, String> vars) {
+      exportAll(vars);
     }
 
     protected void export(String property, String value) {
@@ -180,20 +192,24 @@ public abstract class Resource {
     }
 
     @Override
-    public String getOrDefault(String key, String defaultValue) {
-      if (defaultValue == null && !vars.containsKey(key)) {
-        throw new IllegalArgumentException("No variable '" + key + "' found in the environment");
+    public String getOrDefault(String key, Supplier<String> f) {
+      if (!vars.containsKey(key)) {
+        if (f == null || f.get() == null) {
+          throw new IllegalArgumentException("No variable '" + key + "' found in the environment");
+        } else {
+          return f.get();
+        }
       }
-      return vars.getOrDefault(key, defaultValue);
+      return vars.get(key);
     }
   }
 
   /** Returns "{{key}}" for any key without a default */
   public static class DummyEnvironment implements Environment {
     @Override
-    public String getOrDefault(String key, String defaultValue) {
-      if (defaultValue != null) {
-        return defaultValue;
+    public String getOrDefault(String key, Supplier<String> f) {
+      if (f != null && f.get() != null) {
+        return f.get();
       } else {
         return "{{" + key + "}}";
       }
@@ -204,13 +220,13 @@ public abstract class Resource {
   public static class ProcessEnvironment implements Environment {
 
     @Override
-    public String getOrDefault(String key, String defaultValue) {
+    public String getOrDefault(String key, Supplier<String> f) {
       String value = System.getenv(key);
       if (value == null) {
         value = System.getProperty(key);
       }
-      if (value == null) {
-        value = defaultValue;
+      if (value == null && f != null) {
+        value = f.get();
       }
       if (value == null) {
         throw new IllegalArgumentException("Missing system property `" + key + "`");
@@ -270,7 +286,7 @@ public abstract class Resource {
         }
         String key = m.group(2);
         String defaultValue = m.group(4);
-        String value = resource.getOrDefault(key, () -> env.getOrDefault(key, defaultValue));
+        String value = resource.getOrDefault(key, () -> env.getOrDefault(key, () -> defaultValue));
         if (value == null) {
           throw new IllegalArgumentException(template + " has no value for key " + key + ".");
         }

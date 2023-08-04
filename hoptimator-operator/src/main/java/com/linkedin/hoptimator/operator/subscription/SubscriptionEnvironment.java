@@ -26,27 +26,13 @@ import java.util.Collections;
  *     as a basis for deriving K8s object names, Kafka topic names, etc. The
  *     name is guaranteed to be a valid K8s object name, e.g. `my-subscription`.
  *  - `pipeline.avroSchema`, an Avro schema for the pipeline's output type.
- *
- * In addition, any "hints" in the Subscription object (`.spec.hints`) are
- * exported as-is. These can be used to provide optional properties to
- * templates. When using such hints in a template, ensure that you provide a
- * default value, e.g. `{{numPartitions:null}``, since they will usually be
- * missing.
  */
 public class SubscriptionEnvironment extends Resource.SimpleEnvironment {
 
-  public SubscriptionEnvironment(String namespace, String name, Pipeline pipeline,
-      Map<String, String> hints) {
-    if (hints != null) {
-      exportAll(hints);
-    }
+  public SubscriptionEnvironment(String namespace, String name, Pipeline pipeline) {
     export("pipeline.namespace", namespace);
     export("pipeline.name", name);
     export("pipeline.avroSchema", AvroConverter.avro("com.linkedin.hoptimator", "OutputRecord",
       pipeline.outputType()).toString(false));
-  }
-
-  public SubscriptionEnvironment(String namespace, String name, Pipeline pipeline) {
-    this(namespace, name, pipeline, Collections.emptyMap());
   }
 }
