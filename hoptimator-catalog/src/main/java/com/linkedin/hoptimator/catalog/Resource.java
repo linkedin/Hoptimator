@@ -157,6 +157,10 @@ public abstract class Resource {
     default Environment orElse(Environment other) {
       return (k, f) -> getOrDefault(k, () -> other.getOrDefault(k, f));
     }
+
+    default Environment orIgnore() {
+      return orElse(new DummyEnvironment());
+    }
   }
 
   /** Basic Environment implementation */
