@@ -1,12 +1,13 @@
 package com.linkedin.hoptimator;
 
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import sqlline.SqlLine;
 import sqlline.CommandHandler;
 import sqlline.DispatchCallback;
 import org.jline.reader.Completer;
-
-import org.apache.calcite.rel.RelNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.linkedin.hoptimator.catalog.AvroConverter;
 import com.linkedin.hoptimator.catalog.Resource;
@@ -14,9 +15,6 @@ import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 import com.linkedin.hoptimator.planner.Pipeline;
 import com.linkedin.hoptimator.planner.PipelineRel;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,16 +26,21 @@ import java.io.IOException;
 
 public class HoptimatorCliApp {
   private final Logger logger = LoggerFactory.getLogger(HoptimatorCliApp.class);
+  private final Properties properties;
 
   private SqlLine sqlline;
 
+  public HoptimatorCliApp(Properties properties) {
+    this.properties = properties;
+  }
+
   public static void main(String[] args) throws Exception {
-    HoptimatorCliApp app = new HoptimatorCliApp();
+    HoptimatorCliApp app = new HoptimatorCliApp(new Properties());
     int result = app.run(args);
     System.exit(result);
   }
 
-  protected int run(String[] args) throws IOException {
+  public int run(String[] args) throws IOException {
     this.sqlline = new SqlLine();
     Scanner scanner = new Scanner(Thread.currentThread().getContextClassLoader().getResourceAsStream("welcome.txt"));
     while (scanner.hasNext()) {
@@ -52,6 +55,7 @@ public class HoptimatorCliApp {
     commandHandlers.add(new InsertCommandHandler());
     commandHandlers.add(new CheckCommandHandler());
     commandHandlers.add(new MermaidCommandHandler());
+    commandHandlers.add(new ConfigCommandHandler());
     sqlline.updateCommandHandlers(commandHandlers);
     return sqlline.begin(args, null, true).ordinal();
   }
@@ -133,7 +137,7 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
         RelNode plan = planner.logical(sql);
         String avroSchema = AvroConverter.avro("OutputNamespace", "OutputName", plan.getRowType()).toString(true);
         sqlline.output(avroSchema); 
@@ -201,14 +205,15 @@ public class HoptimatorCliApp {
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
         InsertInto insertInto = parseInsertInto(sql);
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         HopTable sink = planner.database(insertInto.database)
           .makeTable(insertInto.table, impl.rowType());
         Pipeline pipeline = impl.pipeline(sink);
         // TODO provide generated avro schema to environment
-        Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(new Resource.DummyEnvironment());
+        Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(
+          new Resource.SimpleEnvironment(properties).orIgnore());
         sqlline.output(pipeline.render(templateFactory));
         dispatchCallback.setToSuccess();
       } catch (Exception e) {
@@ -275,7 +280,7 @@ public class HoptimatorCliApp {
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
         InsertInto insertInto = parseInsertInto(sql);
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(insertInto.query);
         sqlline.output("PLAN:");
         sqlline.output(plan.explain());
@@ -378,7 +383,7 @@ public class HoptimatorCliApp {
             throw new IllegalArgumentException("Expected one of 'not', 'empty', or 'value'");
         }
 
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         String pipelineSql = impl.query().sql(MysqlSqlDialect.DEFAULT);
@@ -470,8 +475,7 @@ public class HoptimatorCliApp {
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
         InsertInto insertInto = parseInsertInto(sql);
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl,
-          new Properties());
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         HopTable sink = planner.database(insertInto.database)
@@ -603,7 +607,7 @@ public class HoptimatorCliApp {
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
         InsertInto insertInto = parseInsertInto(sql);
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, new Properties());
+        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         HopTable sink = planner.database(insertInto.database)
@@ -615,6 +619,79 @@ public class HoptimatorCliApp {
         sqlline.error(e.toString());
         dispatchCallback.setToFailure();
       }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
+  private class ConfigCommandHandler implements CommandHandler {
+
+    @Override
+    public String getName() {
+      return "config";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Export a Hoptimator variable to templates, operators, etc";
+    }
+
+    @Override
+    public String matches(String line) {
+      String cmd = line;
+      if (startsWith(cmd, SqlLine.COMMAND_PREFIX)) {
+        cmd = cmd.substring(1);
+      }
+
+      if (startsWith(cmd, "config ")) {
+        cmd = cmd.substring("config ".length());
+        return cmd;
+      } else if (startsWith(cmd, "config")) {
+        cmd = cmd.substring("config".length());
+        return cmd;
+      }
+
+      return null;
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      String cmd = line;
+      if (startsWith(cmd, SqlLine.COMMAND_PREFIX)) {
+        cmd = cmd.substring(1);
+      }
+
+      if (startsWith(cmd, "config ")) {
+        cmd = cmd.substring("config ".length());
+      } else if (startsWith(cmd, "config")) {
+        cmd = cmd.substring("config".length());
+      }
+
+      String []split = cmd.split("[\\s=]+", 2);
+
+      if (split.length != 2) {
+        sqlline.output("Currently defined configs:");
+        properties.forEach((k, v) -> sqlline.output(k.toString() + "=" + v.toString()));
+      } else {
+        String k = split[0];
+        String v = split[1];
+        sqlline.output("Setting config " + k + " = " + v);
+        properties.setProperty(k, v);
+      }
+      dispatchCallback.setToSuccess();
     }
 
     @Override
