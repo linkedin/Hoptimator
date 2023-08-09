@@ -93,7 +93,7 @@ public class SubscriptionReconciler implements Reconciler {
 
         // For sink resources, also expose hints.
         Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(subEnv
-          .orElse(new Resource.SimpleEnvironment(object.getSpec().getHints())));
+          .orElse(new Resource.SimpleEnvironment(map(object.getSpec().getHints()))));
  
         // Render resources related to all source tables.
         List<String> upstreamResources = pipeline.upstreamResources().stream()
@@ -283,6 +283,14 @@ public class SubscriptionReconciler implements Reconciler {
       //.watch()
       .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1Subscription.class, x).build())
       .build();
+  }
+
+  private static Map<String, String> map(Map<String, String> m) {
+    if (m == null) {
+      return Collections.emptyMap();
+    } else {
+      return m;
+    }
   }
 }
 
