@@ -5,6 +5,6 @@ metadata:
   namespace: {{pipeline.namespace}}
 spec:
   topicName: {{topicName}}
-  numPartitions: {{numPartitions:null}}
+  numPartitions: {{kafka.numPartitions:null}}
   clientOverrides:
     {{clientOverrides}}
