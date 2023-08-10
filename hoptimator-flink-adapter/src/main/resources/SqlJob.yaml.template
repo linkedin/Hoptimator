@@ -13,11 +13,11 @@ spec:
   jobManager:
     resource:
       memory: "2048m"
-      cpu: .1
+      cpu: 0.01
   taskManager:
     resource:
       memory: "2048m"
-      cpu: .1
+      cpu: 0.01
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:
