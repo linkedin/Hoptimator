@@ -27,6 +27,7 @@ jobs:
       uses: helm/kind-action@v1.4.0
       with:
         cluster_name: 'kind'
+        config: './etc/cluster.yaml'
     - name: Load Docker Images
       run: |
         kind load docker-image hoptimator
