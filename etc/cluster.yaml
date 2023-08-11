@@ -1,0 +1,6 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+# Additional worker nodes will not add any real resource capacity. However,
+# it should mean that there are more CPU reservations to hand out.
+nodes:
+- role: control-plane
