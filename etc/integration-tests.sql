@@ -16,9 +16,6 @@ SELECT * FROM INVENTORY."products_on_hand" LIMIT 1;
 -- MySQL CDC -> Kafka
 SELECT * FROM RAWKAFKA."products" LIMIT 1;
 
--- Same, but with hints:
-SELECT * FROM RAWKAFKA."products-with-hints" LIMIT 1;
-
 -- test insert into command
 !insert into RAWKAFKA."test-sink" SELECT AGE AS PAYLOAD, NAME AS KEY FROM DATAGEN.PERSON
 SELECT * FROM RAWKAFKA."test-sink" LIMIT 5;
