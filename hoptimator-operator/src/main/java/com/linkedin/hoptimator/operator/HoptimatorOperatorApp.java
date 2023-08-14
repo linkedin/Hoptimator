@@ -34,13 +34,15 @@ public class HoptimatorOperatorApp {
 
   final String modelPath;
   final String namespace;
+  final ApiClient apiClient;
   final Properties properties;
   final Resource.Environment environment;
 
   /** This constructor is likely to evolve and break. */
-  public HoptimatorOperatorApp(String modelPath, String namespace, Properties properties) {
+  public HoptimatorOperatorApp(String modelPath, String namespace, ApiClient apiClient, Properties properties) {
     this.modelPath = modelPath;
     this.namespace = namespace;
+    this.apiClient = apiClient;
     this.properties = properties;
     this.environment = new Resource.SimpleEnvironment(properties);
   }
@@ -73,7 +75,8 @@ public class HoptimatorOperatorApp {
     String modelFileInput = cmd.getArgs()[0];
     String namespaceInput = cmd.getOptionValue("namespace", "default");
 
-    new HoptimatorOperatorApp(modelFileInput, namespaceInput, new Properties()).run();
+    new HoptimatorOperatorApp(modelFileInput, namespaceInput, Config.defaultClient(),
+      new Properties()).run();
   }
 
   public void run() throws Exception {
@@ -83,7 +86,6 @@ public class HoptimatorOperatorApp {
     // ensure model file works, and that static classes are initialized in the main thread
     HoptimatorPlanner planner = plannerFactory.makePlanner();
 
-    ApiClient apiClient = Config.defaultClient();
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder()
       .readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
