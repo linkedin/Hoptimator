@@ -11,6 +11,7 @@ spec:
     singular: subscription
     shortNames:
     - sub
+    - subs
   preserveUnknownFields: false
   scope: Namespaced
   versions:
@@ -52,6 +53,9 @@ spec:
               properties:
                 ready:
                   description: Whether the subscription is ready to be consumed.
+                  type: boolean
+                failed:
+                  description: Indicates that the operator was unable to deploy a pipeline for this subscription.
                   type: boolean
                 message:
                   description: Error or success message, for information only.

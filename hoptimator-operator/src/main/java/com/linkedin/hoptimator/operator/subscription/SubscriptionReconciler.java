@@ -86,39 +86,49 @@ public class SubscriptionReconciler implements Reconciler {
         // Phase 1
         log.info("Planning a new pipeline for {}/{} with SQL `{}`...", kind, name, object.getSpec().getSql());
 
-        Pipeline pipeline = pipeline(object);
-        Resource.Environment subEnv = new SubscriptionEnvironment(namespace, name, pipeline)
-          .orElse(environment);
-        Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(subEnv);
+        try {
+          Pipeline pipeline = pipeline(object);
+          Resource.Environment subEnv = new SubscriptionEnvironment(namespace, name, pipeline)
+            .orElse(environment);
+          Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(subEnv);
 
-        // For sink resources, also expose hints.
-        Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(subEnv
-          .orElse(new Resource.SimpleEnvironment(map(object.getSpec().getHints()))));
- 
-        // Render resources related to all source tables.
-        List<String> upstreamResources = pipeline.upstreamResources().stream()
-          .map(x -> x.render(templateFactory))
-          .collect(Collectors.toList());
+          // For sink resources, also expose hints.
+          Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(subEnv
+            .orElse(new Resource.SimpleEnvironment(map(object.getSpec().getHints()))));
+   
+          // Render resources related to all source tables.
+          List<String> upstreamResources = pipeline.upstreamResources().stream()
+            .map(x -> x.render(templateFactory))
+            .collect(Collectors.toList());
 
-        // Render the SQL job
-        String sqlJob = pipeline.sqlJob().render(templateFactory);
+          // Render the SQL job
+          String sqlJob = pipeline.sqlJob().render(templateFactory);
 
-        // Render resources related to the sink table. For these resources, we pass along any
-        // "hints" as part of the environment.
-        List<String> downstreamResources = pipeline.downstreamResources().stream()
-          .map(x -> x.render(sinkTemplateFactory))
-          .collect(Collectors.toList());
+          // Render resources related to the sink table. For these resources, we pass along any
+          // "hints" as part of the environment.
+          List<String> downstreamResources = pipeline.downstreamResources().stream()
+            .map(x -> x.render(sinkTemplateFactory))
+            .collect(Collectors.toList());
 
-        List<String> combined = new ArrayList<>();
-        combined.addAll(upstreamResources);
-        combined.add(sqlJob);
-        combined.addAll(downstreamResources);
+          List<String> combined = new ArrayList<>();
+          combined.addAll(upstreamResources);
+          combined.add(sqlJob);
+          combined.addAll(downstreamResources);
 
-        status.setResources(combined);
+          status.setResources(combined);
 
-        status.setSql(object.getSpec().getSql());
-        status.setReady(null);  // null indicates that pipeline needs to be deployed
-        status.setMessage("Planned.");
+          status.setSql(object.getSpec().getSql());
+          status.setReady(null);  // null indicates that pipeline needs to be deployed
+          status.setFailed(null);
+          status.setMessage("Planned.");
+        } catch (Exception e) {
+          log.error("Encountered error when planning a pipeline for {}/{} with SQL `{}`.", kind, name,
+            object.getSpec().getSql(), e);
+
+          // Mark the Subscription as failed.
+          status.setFailed(true);
+          status.setMessage("Error: " + e.getMessage());
+        }
       } else if (status.getReady() == null && status.getResources() != null) {
         // Phase 2
         log.info("Deploying pipeline for {}/{}...", kind, name);
@@ -128,6 +138,7 @@ public class SubscriptionReconciler implements Reconciler {
 
         if (deployed) {
           status.setReady(false);
+          status.setFailed(false);
           status.setMessage("Deployed.");
         } else {
           return new Result(true, operator.failureRetryDuration());
@@ -140,11 +151,13 @@ public class SubscriptionReconciler implements Reconciler {
 
         if (ready) {
           status.setReady(true);
+          status.setFailed(false);
           status.setMessage("Ready.");
           log.info("{}/{} is ready.", kind, name);
           result = new Result(false);
         } else {
           status.setReady(false);
+          status.setFailed(false);
           status.setMessage("Deployed.");
           log.info("Pipeline for {}/{} is NOT ready.", kind, name);
         }
@@ -277,10 +290,6 @@ public class SubscriptionReconciler implements Reconciler {
       .withReconciler(reconciler)
       .withName("subscription-controller")
       .withWorkerCount(1)
-      //.withReadyFunc(resourceInformer::hasSynced) // optional, only starts controller when the
-      // cache has synced up
-      //.withWorkQueue(resourceWorkQueue)
-      //.watch()
       .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1Subscription.class, x).build())
       .build();
   }

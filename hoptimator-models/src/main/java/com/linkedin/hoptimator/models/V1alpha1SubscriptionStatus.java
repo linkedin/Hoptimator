@@ -30,8 +30,12 @@ import java.util.List;
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-07-21T22:04:16.918Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-08-25T02:17:32.460Z[Etc/UTC]")
 public class V1alpha1SubscriptionStatus {
+  public static final String SERIALIZED_NAME_FAILED = "failed";
+  @SerializedName(SERIALIZED_NAME_FAILED)
+  private Boolean failed;
+
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
   private String message;
@@ -47,6 +51,29 @@ public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_SQL = "sql";
   @SerializedName(SERIALIZED_NAME_SQL)
   private String sql;
+
+
+  public V1alpha1SubscriptionStatus failed(Boolean failed) {
+    
+    this.failed = failed;
+    return this;
+  }
+
+   /**
+   * Indicates that the operator was unable to deploy a pipeline for this subscription.
+   * @return failed
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Indicates that the operator was unable to deploy a pipeline for this subscription.")
+
+  public Boolean getFailed() {
+    return failed;
+  }
+
+
+  public void setFailed(Boolean failed) {
+    this.failed = failed;
+  }
 
 
   public V1alpha1SubscriptionStatus message(String message) {
@@ -158,7 +185,8 @@ public class V1alpha1SubscriptionStatus {
       return false;
     }
     V1alpha1SubscriptionStatus v1alpha1SubscriptionStatus = (V1alpha1SubscriptionStatus) o;
-    return Objects.equals(this.message, v1alpha1SubscriptionStatus.message) &&
+    return Objects.equals(this.failed, v1alpha1SubscriptionStatus.failed) &&
+        Objects.equals(this.message, v1alpha1SubscriptionStatus.message) &&
         Objects.equals(this.ready, v1alpha1SubscriptionStatus.ready) &&
         Objects.equals(this.resources, v1alpha1SubscriptionStatus.resources) &&
         Objects.equals(this.sql, v1alpha1SubscriptionStatus.sql);
@@ -166,7 +194,7 @@ public class V1alpha1SubscriptionStatus {
 
   @Override
   public int hashCode() {
-    return Objects.hash(message, ready, resources, sql);
+    return Objects.hash(failed, message, ready, resources, sql);
   }
 
 
@@ -174,6 +202,7 @@ public class V1alpha1SubscriptionStatus {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1SubscriptionStatus {\n");
+    sb.append("    failed: ").append(toIndentedString(failed)).append("\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("    resources: ").append(toIndentedString(resources)).append("\n");
