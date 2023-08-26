@@ -1,0 +1,37 @@
+plugins {
+  id 'java'
+  id 'application'
+  id 'idea'
+}
+
+dependencies {
+  implementation project(path: ':hoptimator-cli', configuration: 'shadow')
+
+  // include adapters for integration tests
+  implementation project(':hoptimator-kafka-adapter')
+  implementation project(':hoptimator-mysql-adapter')
+  implementation project(':hoptimator-flink-adapter')
+  implementation libs.flinkCsv
+  implementation libs.flinkConnectorKafka
+  implementation libs.slf4jSimple
+}
+
+application {
+  mainClassName  = 'com.linkedin.hoptimator.HoptimatorCliApp'
+  applicationDefaultJvmArgs = [
+    "--add-opens", "java.base/java.lang=ALL-UNNAMED",
+    "--add-opens", "java.base/java.util=ALL-UNNAMED",
+    "--add-opens", "java.base/java.time=ALL-UNNAMED" ]
+}
+
+java {
+  withJavadocJar()
+  withSourcesJar()
+}
+
+idea {
+  module {
+    downloadJavadoc = true
+    downloadSources = true
+  }
+}
