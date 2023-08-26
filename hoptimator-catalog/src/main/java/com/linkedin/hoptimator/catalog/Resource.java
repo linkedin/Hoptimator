@@ -1,21 +1,24 @@
 package com.linkedin.hoptimator.catalog;
 
+import java.io.InputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.Scanner;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
-import java.util.Scanner;
-import java.util.function.Supplier;
-import java.io.InputStream;
 import java.util.stream.Collectors;
+import java.net.URL;
 
 /**
  * Represents something required by a Table.
@@ -96,9 +99,13 @@ public abstract class Resource {
   }
 
   /** Render this Resource using the given TemplateFactory */
-  public String render(TemplateFactory templateFactory) {
+  public Collection<String> render(TemplateFactory templateFactory) {
     try {
-      return templateFactory.get(this).render(this);
+      List<String> res = new ArrayList<>();
+      for (Template template : templateFactory.find(this)) {
+        res.add(template.render(this));
+      }
+      return res;
     } catch (Exception e) {
       throw new RuntimeException("Error rendering " + template, e);
     }
@@ -306,10 +313,15 @@ public abstract class Resource {
 
   /** Locates a Template for a given Resource */
   public interface TemplateFactory {
-    Template get(Resource resource);
+    Collection<Template> find(Resource resource) throws IOException;
+
+    default Collection<String> render(Resource resource) throws IOException {
+      return find(resource).stream().map(x -> x.render(resource))
+        .collect(Collectors.toList());
+    }
   }
  
-  /** Finds a Template for a given Resource by looking for resource files in the classpath. */ 
+  /** Finds Templates for a given Resource by looking for resource files in the classpath. */ 
   public static class SimpleTemplateFactory implements TemplateFactory {
     private final Environment env;
 
@@ -318,20 +330,22 @@ public abstract class Resource {
     }
 
     @Override
-    public Template get(Resource resource) {
+    public Collection<Template> find(Resource resource) throws IOException {
       String template = resource.template();
-      InputStream in = getClass().getClassLoader().getResourceAsStream(template + ".yaml.template");
-      if (in == null) {
-        throw new IllegalArgumentException("No template '" + template + "' found in jar resources");
+      List<Template> res = new ArrayList<>();
+      for (Enumeration<URL> e = getClass().getClassLoader().getResources(template + ".yaml.template");
+          e.hasMoreElements();) {
+        InputStream in = e.nextElement().openStream();
+        StringBuilder sb = new StringBuilder();
+        Scanner scanner = new Scanner(in);
+        scanner.useDelimiter("\n");
+        while (scanner.hasNext()) {
+          sb.append(scanner.next());
+          sb.append("\n");
+        }
+        res.add(new SimpleTemplate(env, sb.toString()));
       }
-      StringBuilder sb = new StringBuilder();
-      Scanner scanner = new Scanner(in);
-      scanner.useDelimiter("\n");
-      while (scanner.hasNext()) {
-        sb.append(scanner.next());
-        sb.append("\n");
-      }
-      return new SimpleTemplate(env, sb.toString());
+      return res;
     }
   }
 }

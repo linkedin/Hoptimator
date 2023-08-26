@@ -9,6 +9,7 @@ include 'hoptimator-kafka-adapter'
 include 'hoptimator-models'
 include 'hoptimator-mysql-adapter'
 include 'hoptimator-operator'
+include 'hoptimator-operator-integration'
 include 'hoptimator-planner'
 
 dependencyResolutionManagement {

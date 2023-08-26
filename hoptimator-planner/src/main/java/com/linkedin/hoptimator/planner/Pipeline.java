@@ -5,6 +5,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.catalog.ResourceProvider;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -58,14 +60,13 @@ public class Pipeline {
     return resourceProvider.resources(null);
   }
 
-  /** Render all resources as one big YAML stream */
-  public String render(Resource.TemplateFactory templateFactory) {
-    StringBuilder sb = new StringBuilder();
+  /** Render all resources */
+  public Collection<String> render(Resource.TemplateFactory templateFactory) throws IOException {
+    List<String> res = new ArrayList<>();
     for (Resource resource : resources()) {
-      sb.append(templateFactory.get(resource).render(resource));
-      sb.append("\n---\n"); // yaml resource separator
+      res.addAll(templateFactory.render(resource));
     }
-    return sb.toString();
+    return res;
   }
 
   /** Render a graph of resources in mermaid format */
