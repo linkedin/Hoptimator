@@ -62,6 +62,7 @@ public class KafkaTopicAclReconciler implements Reconciler {
 
       if (!targetKind.equals("KafkaTopic")) {
         log.info("Not a KafkaTopic Acl. Skipping.");
+        return new Result(false);
       }
 
       V1alpha1AclSpec.MethodEnum method = object.getSpec().getMethod();
