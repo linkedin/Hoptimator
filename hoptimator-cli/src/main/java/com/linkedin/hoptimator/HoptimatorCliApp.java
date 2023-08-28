@@ -214,7 +214,7 @@ public class HoptimatorCliApp {
         // TODO provide generated avro schema to environment
         Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(
           new Resource.SimpleEnvironment(properties).orIgnore());
-        sqlline.output(pipeline.render(templateFactory));
+        pipeline.render(templateFactory).stream().forEach(x -> sqlline.output(x));
         dispatchCallback.setToSuccess();
       } catch (Exception e) {
         sqlline.error(e.toString());

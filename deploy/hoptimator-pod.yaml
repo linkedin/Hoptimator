@@ -13,7 +13,7 @@ spec:
       mountPath: /etc/config
     readinessProbe:
       exec:
-        command: ["./hoptimator", "--run=./readiness-probe.sql"]
+        command: ["./hoptimator-cli-integration/bin/hoptimator-cli-integration", "--run=./readiness-probe.sql"]
       timeoutSeconds: 30
   volumes:
   - name: config-volume

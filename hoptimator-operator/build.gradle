@@ -1,13 +1,7 @@
 plugins {
   id 'java'
-  id 'com.github.johnrengelman.shadow' version '8.1.1'
-  id 'application'
   id 'maven-publish'
   id 'idea'
-}
-
-configurations {
-  integration.extendsFrom implementation
 }
 
 dependencies {
@@ -15,12 +9,6 @@ dependencies {
   implementation project(':hoptimator-catalog')
   implementation project(':hoptimator-models')
  
-  // include adapters in integration tests 
-  integration project(':hoptimator-kafka-adapter')
-  integration project(':hoptimator-mysql-adapter')
-  integration project(':hoptimator-flink-adapter')
-  integration libs.slf4jSimple
-
   implementation libs.calciteCore
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient
@@ -30,10 +18,6 @@ dependencies {
   
   testImplementation libs.junit
   testImplementation libs.assertj
-}
-
-application {
-  mainClassName  = 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
 }
 
 publishing {
@@ -79,20 +63,6 @@ publishing {
       }
     }
   }
-}
-
-
-shadowJar {
-  configurations = [project.configurations.integration]
-
-  // This is required for Flink and Avatica to play nicely
-  relocate 'com.google', 'org.apache.flink.calcite.shaded.com.google'
-
-  exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
-  zip64 true
-  manifest.attributes 'Main-Class': 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
-  mainClassName  = 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp'
-  mergeServiceFiles()
 }
 
 idea {

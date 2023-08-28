@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -98,21 +99,21 @@ public class SubscriptionReconciler implements Reconciler {
    
           // Render resources related to all source tables.
           List<String> upstreamResources = pipeline.upstreamResources().stream()
-            .map(x -> x.render(templateFactory))
+            .flatMap(x -> x.render(templateFactory).stream())
             .collect(Collectors.toList());
 
           // Render the SQL job
-          String sqlJob = pipeline.sqlJob().render(templateFactory);
+          Collection<String> sqlJob = pipeline.sqlJob().render(templateFactory);
 
           // Render resources related to the sink table. For these resources, we pass along any
           // "hints" as part of the environment.
           List<String> downstreamResources = pipeline.downstreamResources().stream()
-            .map(x -> x.render(sinkTemplateFactory))
+            .flatMap(x -> x.render(sinkTemplateFactory).stream())
             .collect(Collectors.toList());
 
           List<String> combined = new ArrayList<>();
           combined.addAll(upstreamResources);
-          combined.add(sqlJob);
+          combined.addAll(sqlJob);
           combined.addAll(downstreamResources);
 
           status.setResources(combined);
