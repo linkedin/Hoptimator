@@ -32,6 +32,8 @@ public final class AvroConverter {
       switch (dataType.getSqlTypeName()) {
       case INTEGER:
         return createAvroTypeWithNullability(Schema.Type.INT, dataType.isNullable());
+      case BIGINT:
+        return createAvroTypeWithNullability(Schema.Type.LONG, dataType.isNullable());
       case VARCHAR:
         return createAvroTypeWithNullability(Schema.Type.STRING, dataType.isNullable());
       case FLOAT:
@@ -72,9 +74,10 @@ public final class AvroConverter {
         .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
         .collect(Collectors.toList()));
     case INT:
-    case LONG:
       // schema.isNullable() should be false for basic types iiuc
       return createRelTypeWithNullability(typeFactory, SqlTypeName.INTEGER, schema.isNullable());
+    case LONG:
+      return createRelTypeWithNullability(typeFactory, SqlTypeName.BIGINT, schema.isNullable());
     case ENUM:
     case STRING:
       return createRelTypeWithNullability(typeFactory, SqlTypeName.VARCHAR, schema.isNullable());

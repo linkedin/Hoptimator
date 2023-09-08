@@ -27,7 +27,8 @@ public class DatagenSchemaFactory implements SchemaFactory {
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     Map<String, HopTable> datagenTables = new HashMap<>();
     datagenTables.put("PERSON", new HopTable("DATAGEN", "PERSON", (new RelDataTypeFactory.Builder(typeFactory))
-      .add("NAME", SqlTypeName.VARCHAR).add("AGE", SqlTypeName.INTEGER).build(), ConfigProvider.empty()
+      .add("NAME", SqlTypeName.VARCHAR).add("AGE", SqlTypeName.INTEGER)
+      .add("EMPID", SqlTypeName.BIGINT).build(), ConfigProvider.empty()
       .with("connector", "datagen").with("number-of-rows", "10").with("fields.AGE.min", "0")
       .with("fields.AGE.max", "100").with("fields.NAME.length", "5").config("PERSON")));
     datagenTables.put("COMPANY", new HopTable("DATAGEN", "COMPANY", (new RelDataTypeFactory.Builder(typeFactory))
