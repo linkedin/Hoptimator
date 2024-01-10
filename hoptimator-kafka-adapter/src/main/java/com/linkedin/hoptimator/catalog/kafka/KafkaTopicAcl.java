@@ -8,7 +8,6 @@ class KafkaTopicAcl extends Resource {
   public KafkaTopicAcl(String topicName, String principal, String method) {
     super("KafkaTopicAcl");
     export("topicName", topicName);
-    export("topicNameLowerCase", topicName.toLowerCase(Locale.ROOT));
     export("principal", principal);
     export("method", method);
   }

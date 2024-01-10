@@ -71,6 +71,8 @@ public class SubscriptionReconciler implements Reconciler {
       
       String kind = object.getKind();
 
+      object.getMetadata().setNamespace(namespace);
+
       V1alpha1SubscriptionStatus status = object.getStatus();
       if (status == null) {
         status = new V1alpha1SubscriptionStatus();
@@ -198,6 +200,10 @@ public class SubscriptionReconciler implements Reconciler {
 
     DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
     String namespace = obj.getMetadata().getNamespace();
+    if (namespace == null) {
+      namespace = owner.getMetadata().getNamespace();
+      obj.getMetadata().setNamespace(namespace);
+    }
     String name = obj.getMetadata().getName();
     KubernetesApiResponse<DynamicKubernetesObject> existing = operator.apiFor(obj).get(namespace, name);
     if (existing.isSuccess()) {
