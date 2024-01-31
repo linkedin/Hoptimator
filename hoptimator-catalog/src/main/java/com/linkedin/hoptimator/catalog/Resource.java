@@ -2,11 +2,13 @@ package com.linkedin.hoptimator.catalog;
 
 import java.io.InputStream;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -255,7 +257,21 @@ public abstract class Resource {
    * Replaces `{{var}}` in a template file with the corresponding variable.
    *
    * Resource-scoped variables take precedence over Environment-scoped
-   * variables. Default values can supplied with `{{var:default}}`.
+   * variables.
+   *
+   * Default values can supplied with `{{var:default}}`.
+   *
+   * Built-in transformations can be applied to variables, including:
+   *
+   *   - `{{var toName}}`, `{{var:default toName}}`: canonicalize the
+   *     variable as a valid K8s object name.
+   *   - `{{var toUpperCase}}`, `{{var:default toUpperCase}}`: render in
+   *      all upper case.
+   *   - `{{var toLowerCase}}`, `{{var:default toLowerCase}}`: render in
+   *     all lower case.
+   *   - `{{var concat}}`, `{{var:default concat}}`: concatinate a multiline
+   *     string into one line
+   *   - `{{var concat toUpperCase}}`: apply both transformations in sequence.
    *
    * If `var` contains multiple lines, the behavior depends on context;
    * specifically, whether the pattern appears within a list or comment
@@ -288,7 +304,8 @@ public abstract class Resource {
     @Override
     public String render(Resource resource) {
       StringBuffer sb = new StringBuffer();
-      Pattern p = Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*\\}\\}");
+      Pattern p = Pattern.compile(
+        "([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
       Matcher m = p.matcher(template);
       while (m.find()) {
         String prefix = m.group(1);
@@ -297,17 +314,46 @@ public abstract class Resource {
         }
         String key = m.group(2);
         String defaultValue = m.group(4);
+        String transform = m.group(5);
         String value = resource.getOrDefault(key, () -> env.getOrDefault(key, () -> defaultValue));
         if (value == null) {
           throw new IllegalArgumentException(template + " has no value for key " + key + ".");
         }
+        String transformedValue = applyTransform(value, transform);
         String quotedPrefix = Matcher.quoteReplacement(prefix);
-        String quotedValue = Matcher.quoteReplacement(value);
+        String quotedValue = Matcher.quoteReplacement(transformedValue);
         String replacement = quotedPrefix + quotedValue.replaceAll("\\n", quotedPrefix);
         m.appendReplacement(sb, replacement);
       }
       m.appendTail(sb); 
       return sb.toString();
+    }
+
+    private static String applyTransform(String value, String transform) {
+      String res = value;
+      String[] funcs = transform.split("\\W+");
+      for (String f : funcs) {
+        switch (f) {
+        case "toLowerCase":
+          res = res.toLowerCase(Locale.ROOT);
+          break;
+        case "toUpperCase":
+          res = res.toUpperCase(Locale.ROOT);
+          break;
+        case "toName":
+          res = canonicalizeName(res);
+          break;
+        case "concat":
+          res = res.replace("\n", "");
+          break;
+        }
+      }
+      return res;
+    }
+
+    /** Attempt to format s as a K8s object name, or part of one. */
+    protected static String canonicalizeName(String s) {
+      return Names.canonicalize(s);
     }
   }
 

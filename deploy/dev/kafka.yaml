@@ -23,7 +23,7 @@ metadata:
   namespace: kafka
 spec:
   kafka:
-    version: 3.4.0
+    version: 3.6.1
     replicas: 1
     listeners:
       - name: plain
