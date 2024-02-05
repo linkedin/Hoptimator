@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -79,13 +80,17 @@ public class SubscriptionReconciler implements Reconciler {
         object.setStatus(status);
       }
 
+      if (object.getSpec().getHints() == null) {
+        object.getSpec().setHints(new HashMap<>());
+      }
+
       // We deploy in three phases:
       // 1. Plan a pipeline, and write the plan to Status.
       // 2. Deploy the pipeline per plan.
       // 3. Verify readiness of the entire pipeline.
       // Each phase should be a separate reconcilation loop to avoid races.
       // TODO: We should disown orphaned resources when the pipeline changes.
-      if (status.getSql() == null || !status.getSql().equals(object.getSpec().getSql())) {
+      if (diverged(object.getSpec(), status)) {
         // Phase 1
         log.info("Planning a new pipeline for {}/{} with SQL `{}`...", kind, name, object.getSpec().getSql());
 
@@ -121,6 +126,7 @@ public class SubscriptionReconciler implements Reconciler {
           status.setResources(combined);
 
           status.setSql(object.getSpec().getSql());
+          status.setHints(object.getSpec().getHints());
           status.setReady(null);  // null indicates that pipeline needs to be deployed
           status.setFailed(null);
           status.setMessage("Planned.");
@@ -175,7 +181,7 @@ public class SubscriptionReconciler implements Reconciler {
     return result;
   }
 
-  Pipeline pipeline(V1alpha1Subscription object) throws Exception {
+  private Pipeline pipeline(V1alpha1Subscription object) throws Exception {
     String name = object.getMetadata().getName();
     String sql = object.getSpec().getSql();
     String database = object.getSpec().getDatabase();
@@ -289,6 +295,12 @@ public class SubscriptionReconciler implements Reconciler {
     log.warn("Resource {}/{}/{} considered ready by default.", obj.getMetadata().getNamespace(),
       obj.getKind(), obj.getMetadata().getName());
     return true;
+  }
+
+  // Whether status has diverged from spec (i.e. we need to re-plan the pipeline)
+  private static boolean diverged(V1alpha1SubscriptionSpec spec, V1alpha1SubscriptionStatus status) {
+    return status.getSql() == null || !status.getSql().equals(spec.getSql())
+        || !status.getHints().equals(spec.getHints());
   }
 
   public static Controller controller(Operator operator, HoptimatorPlanner.Factory plannerFactory, Resource.Environment environment) {
