@@ -63,6 +63,11 @@ spec:
                 sql:
                   description: The SQL being implemented by this pipeline.
                   type: string
+                hints:
+                  description: The hints being used by this pipeline.
+                  type: object
+                  additionalProperties:
+                    type: string
                 resources:
                   description: The YAML generated to implement this pipeline.
                   type: array

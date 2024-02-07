@@ -24,17 +24,23 @@ import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2023-08-25T02:17:32.460Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-02-05T21:19:50.466Z[Etc/UTC]")
 public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_FAILED = "failed";
   @SerializedName(SERIALIZED_NAME_FAILED)
   private Boolean failed;
+
+  public static final String SERIALIZED_NAME_HINTS = "hints";
+  @SerializedName(SERIALIZED_NAME_HINTS)
+  private Map<String, String> hints = null;
 
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
@@ -73,6 +79,37 @@ public class V1alpha1SubscriptionStatus {
 
   public void setFailed(Boolean failed) {
     this.failed = failed;
+  }
+
+
+  public V1alpha1SubscriptionStatus hints(Map<String, String> hints) {
+    
+    this.hints = hints;
+    return this;
+  }
+
+  public V1alpha1SubscriptionStatus putHintsItem(String key, String hintsItem) {
+    if (this.hints == null) {
+      this.hints = new HashMap<>();
+    }
+    this.hints.put(key, hintsItem);
+    return this;
+  }
+
+   /**
+   * The hints being used by this pipeline.
+   * @return hints
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The hints being used by this pipeline.")
+
+  public Map<String, String> getHints() {
+    return hints;
+  }
+
+
+  public void setHints(Map<String, String> hints) {
+    this.hints = hints;
   }
 
 
@@ -186,6 +223,7 @@ public class V1alpha1SubscriptionStatus {
     }
     V1alpha1SubscriptionStatus v1alpha1SubscriptionStatus = (V1alpha1SubscriptionStatus) o;
     return Objects.equals(this.failed, v1alpha1SubscriptionStatus.failed) &&
+        Objects.equals(this.hints, v1alpha1SubscriptionStatus.hints) &&
         Objects.equals(this.message, v1alpha1SubscriptionStatus.message) &&
         Objects.equals(this.ready, v1alpha1SubscriptionStatus.ready) &&
         Objects.equals(this.resources, v1alpha1SubscriptionStatus.resources) &&
@@ -194,7 +232,7 @@ public class V1alpha1SubscriptionStatus {
 
   @Override
   public int hashCode() {
-    return Objects.hash(failed, message, ready, resources, sql);
+    return Objects.hash(failed, hints, message, ready, resources, sql);
   }
 
 
@@ -203,6 +241,7 @@ public class V1alpha1SubscriptionStatus {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1SubscriptionStatus {\n");
     sb.append("    failed: ").append(toIndentedString(failed)).append("\n");
+    sb.append("    hints: ").append(toIndentedString(hints)).append("\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("    resources: ").append(toIndentedString(resources)).append("\n");
