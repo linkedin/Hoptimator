@@ -38,6 +38,7 @@ import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class SubscriptionReconciler implements Reconciler {
   private final static Logger log = LoggerFactory.getLogger(SubscriptionReconciler.class);
@@ -84,6 +85,14 @@ public class SubscriptionReconciler implements Reconciler {
         object.getSpec().setHints(new HashMap<>());
       }
 
+      if (status.getJobResources() == null) {
+        status.setJobResources(Collections.emptyList());
+      }
+
+      if (status.getDownstreamResources() == null) {
+        status.setDownstreamResources(Collections.emptyList());
+      }
+
       // We deploy in three phases:
       // 1. Plan a pipeline, and write the plan to Status.
       // 2. Deploy the pipeline per plan.
@@ -123,7 +132,9 @@ public class SubscriptionReconciler implements Reconciler {
           combined.addAll(sqlJob);
           combined.addAll(downstreamResources);
 
-          status.setResources(combined);
+          status.setResources(combined);  
+          status.setJobResources(new ArrayList<>(sqlJob));
+          status.setDownstreamResources(downstreamResources);
 
           status.setSql(object.getSpec().getSql());
           status.setHints(object.getSpec().getHints());
@@ -171,6 +182,11 @@ public class SubscriptionReconciler implements Reconciler {
           log.info("Pipeline for {}/{} is NOT ready.", kind, name);
         }
       }
+
+      status.setAttributes(Stream.concat(status.getJobResources().stream(), status.getDownstreamResources().stream())
+          .map(x -> fetchAttributes(x))
+          .flatMap(x -> x.entrySet().stream())
+          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue(), (x, y) -> y)));
 
       operator.apiFor(SUBSCRIPTION).updateStatus(object, x -> object.getStatus())
         .onFailure((x, y) -> log.error("Failed to update status of {}/{}: {}.", kind, name, y.getMessage()));
@@ -302,6 +318,54 @@ public class SubscriptionReconciler implements Reconciler {
     return status.getSql() == null || !status.getSql().equals(spec.getSql())
         || !status.getHints().equals(spec.getHints());
   }
+
+  // Fetch attributes from downstream controllers
+  private Map<String, String> fetchAttributes(String yaml) {
+    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    String namespace = obj.getMetadata().getNamespace();
+    String name = obj.getMetadata().getName();
+    String kind = obj.getKind();
+    try {
+      KubernetesApiResponse<DynamicKubernetesObject> existing = operator.apiFor(obj).get(namespace, name);
+      existing.onFailure((code, status) -> log.info("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));
+      if (!existing.isSuccess()) {
+        return Collections.emptyMap();
+      } else {
+        return guessAttributes(existing.getObject()); 
+      }
+    } catch (Exception e) {
+      return Collections.emptyMap();
+    }
+  }
+
+  private static Map<String, String> guessAttributes(DynamicKubernetesObject obj) {
+    // We make a best effort to guess the attributes of the dynamic object.
+    if (obj == null || obj.getRaw() == null) {
+      return Collections.emptyMap();
+    }
+    try {
+      return obj.getRaw().get("status").getAsJsonObject().get("attributes").getAsJsonObject().entrySet().stream()
+          .filter(x -> x.getValue().isJsonPrimitive())
+          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+    } catch (Exception e) {
+      log.debug("Exception looking for .status.attributes. Swallowing.", e);
+    }
+    try {
+      return obj.getRaw().get("status").getAsJsonObject().get("jobStatus").getAsJsonObject().entrySet().stream()
+          .filter(x -> x.getValue().isJsonPrimitive())
+          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+    } catch (Exception e) {
+      log.debug("Exception looking for .status.jobStatus. Swallowing.", e);
+    }
+    try {
+      return obj.getRaw().get("status").getAsJsonObject().entrySet().stream()
+          .filter(x -> x.getValue().isJsonPrimitive())
+          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+    } catch (Exception e) {
+      log.debug("Exception looking for .status. Swallowing.", e);
+    }
+    return Collections.emptyMap();
+  } 
 
   public static Controller controller(Operator operator, HoptimatorPlanner.Factory plannerFactory, Resource.Environment environment) {
     Reconciler reconciler = new SubscriptionReconciler(operator, plannerFactory, environment);
