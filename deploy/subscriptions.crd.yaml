@@ -68,8 +68,23 @@ spec:
                   type: object
                   additionalProperties:
                     type: string
+                attributes:
+                  description: Physical attributes of the job and sink/output table.
+                  type: object
+                  additionalProperties:
+                    type: string
                 resources:
-                  description: The YAML generated to implement this pipeline.
+                  description: The yaml generated to implement this pipeline.
+                  type: array
+                  items:
+                    type: string
+                jobResources:
+                  description: The yaml generated to implement the job.
+                  type: array
+                  items:
+                    type: string
+                downstreamResources:
+                  description: The yaml generated to implement the sink/output table.
                   type: array
                   items:
                     type: string

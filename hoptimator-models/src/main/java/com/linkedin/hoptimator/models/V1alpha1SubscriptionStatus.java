@@ -32,8 +32,16 @@ import java.util.Map;
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-02-05T21:19:50.466Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-02-09T06:53:38.470Z[Etc/UTC]")
 public class V1alpha1SubscriptionStatus {
+  public static final String SERIALIZED_NAME_ATTRIBUTES = "attributes";
+  @SerializedName(SERIALIZED_NAME_ATTRIBUTES)
+  private Map<String, String> attributes = null;
+
+  public static final String SERIALIZED_NAME_DOWNSTREAM_RESOURCES = "downstreamResources";
+  @SerializedName(SERIALIZED_NAME_DOWNSTREAM_RESOURCES)
+  private List<String> downstreamResources = null;
+
   public static final String SERIALIZED_NAME_FAILED = "failed";
   @SerializedName(SERIALIZED_NAME_FAILED)
   private Boolean failed;
@@ -41,6 +49,10 @@ public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_HINTS = "hints";
   @SerializedName(SERIALIZED_NAME_HINTS)
   private Map<String, String> hints = null;
+
+  public static final String SERIALIZED_NAME_JOB_RESOURCES = "jobResources";
+  @SerializedName(SERIALIZED_NAME_JOB_RESOURCES)
+  private List<String> jobResources = null;
 
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
@@ -57,6 +69,68 @@ public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_SQL = "sql";
   @SerializedName(SERIALIZED_NAME_SQL)
   private String sql;
+
+
+  public V1alpha1SubscriptionStatus attributes(Map<String, String> attributes) {
+    
+    this.attributes = attributes;
+    return this;
+  }
+
+  public V1alpha1SubscriptionStatus putAttributesItem(String key, String attributesItem) {
+    if (this.attributes == null) {
+      this.attributes = new HashMap<>();
+    }
+    this.attributes.put(key, attributesItem);
+    return this;
+  }
+
+   /**
+   * Physical attributes of the job and sink/output table.
+   * @return attributes
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Physical attributes of the job and sink/output table.")
+
+  public Map<String, String> getAttributes() {
+    return attributes;
+  }
+
+
+  public void setAttributes(Map<String, String> attributes) {
+    this.attributes = attributes;
+  }
+
+
+  public V1alpha1SubscriptionStatus downstreamResources(List<String> downstreamResources) {
+    
+    this.downstreamResources = downstreamResources;
+    return this;
+  }
+
+  public V1alpha1SubscriptionStatus addDownstreamResourcesItem(String downstreamResourcesItem) {
+    if (this.downstreamResources == null) {
+      this.downstreamResources = new ArrayList<>();
+    }
+    this.downstreamResources.add(downstreamResourcesItem);
+    return this;
+  }
+
+   /**
+   * The yaml generated to implement the sink/output table.
+   * @return downstreamResources
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The yaml generated to implement the sink/output table.")
+
+  public List<String> getDownstreamResources() {
+    return downstreamResources;
+  }
+
+
+  public void setDownstreamResources(List<String> downstreamResources) {
+    this.downstreamResources = downstreamResources;
+  }
 
 
   public V1alpha1SubscriptionStatus failed(Boolean failed) {
@@ -110,6 +184,37 @@ public class V1alpha1SubscriptionStatus {
 
   public void setHints(Map<String, String> hints) {
     this.hints = hints;
+  }
+
+
+  public V1alpha1SubscriptionStatus jobResources(List<String> jobResources) {
+    
+    this.jobResources = jobResources;
+    return this;
+  }
+
+  public V1alpha1SubscriptionStatus addJobResourcesItem(String jobResourcesItem) {
+    if (this.jobResources == null) {
+      this.jobResources = new ArrayList<>();
+    }
+    this.jobResources.add(jobResourcesItem);
+    return this;
+  }
+
+   /**
+   * The yaml generated to implement the job.
+   * @return jobResources
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The yaml generated to implement the job.")
+
+  public List<String> getJobResources() {
+    return jobResources;
+  }
+
+
+  public void setJobResources(List<String> jobResources) {
+    this.jobResources = jobResources;
   }
 
 
@@ -174,11 +279,11 @@ public class V1alpha1SubscriptionStatus {
   }
 
    /**
-   * The YAML generated to implement this pipeline.
+   * The yaml generated to implement this pipeline.
    * @return resources
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "The YAML generated to implement this pipeline.")
+  @ApiModelProperty(value = "The yaml generated to implement this pipeline.")
 
   public List<String> getResources() {
     return resources;
@@ -222,8 +327,11 @@ public class V1alpha1SubscriptionStatus {
       return false;
     }
     V1alpha1SubscriptionStatus v1alpha1SubscriptionStatus = (V1alpha1SubscriptionStatus) o;
-    return Objects.equals(this.failed, v1alpha1SubscriptionStatus.failed) &&
+    return Objects.equals(this.attributes, v1alpha1SubscriptionStatus.attributes) &&
+        Objects.equals(this.downstreamResources, v1alpha1SubscriptionStatus.downstreamResources) &&
+        Objects.equals(this.failed, v1alpha1SubscriptionStatus.failed) &&
         Objects.equals(this.hints, v1alpha1SubscriptionStatus.hints) &&
+        Objects.equals(this.jobResources, v1alpha1SubscriptionStatus.jobResources) &&
         Objects.equals(this.message, v1alpha1SubscriptionStatus.message) &&
         Objects.equals(this.ready, v1alpha1SubscriptionStatus.ready) &&
         Objects.equals(this.resources, v1alpha1SubscriptionStatus.resources) &&
@@ -232,7 +340,7 @@ public class V1alpha1SubscriptionStatus {
 
   @Override
   public int hashCode() {
-    return Objects.hash(failed, hints, message, ready, resources, sql);
+    return Objects.hash(attributes, downstreamResources, failed, hints, jobResources, message, ready, resources, sql);
   }
 
 
@@ -240,8 +348,11 @@ public class V1alpha1SubscriptionStatus {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1SubscriptionStatus {\n");
+    sb.append("    attributes: ").append(toIndentedString(attributes)).append("\n");
+    sb.append("    downstreamResources: ").append(toIndentedString(downstreamResources)).append("\n");
     sb.append("    failed: ").append(toIndentedString(failed)).append("\n");
     sb.append("    hints: ").append(toIndentedString(hints)).append("\n");
+    sb.append("    jobResources: ").append(toIndentedString(jobResources)).append("\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("    resources: ").append(toIndentedString(resources)).append("\n");

@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.operator.kafka;
 import com.linkedin.hoptimator.operator.Operator;
 import com.linkedin.hoptimator.operator.ConfigAssembler;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopicStatus;
 
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
 import io.kubernetes.client.extended.controller.reconciler.Request;
@@ -52,6 +53,10 @@ public class KafkaTopicReconciler implements Reconciler {
         return new Result(false);
       }
 
+      if (object.getStatus() == null) {
+        object.setStatus(new V1alpha1KafkaTopicStatus());
+      }
+
       String topicName = object.getSpec().getTopicName();
       Integer desiredPartitions = object.getSpec().getNumPartitions();
       Integer desiredReplicationFactor = object.getSpec().getReplicationFactor();
@@ -72,22 +77,29 @@ public class KafkaTopicReconciler implements Reconciler {
 
         log.info("Found existing topic {}", topicName);
         int actualPartitions = topicDescription.partitions().size();
+        object.getStatus().setNumPartitions(actualPartitions);
         if (desiredPartitions != null && desiredPartitions > actualPartitions) {
           log.info("Desired partitions {} > actual partitions {}. Creating additional partitions.",
             desiredPartitions, actualPartitions);
           admin.createPartitions(Collections.singletonMap(topicName, NewPartitions.increaseTo(desiredPartitions))).all().get();
+          object.getStatus().setNumPartitions(desiredPartitions);
         }
       } catch(ExecutionException e) {
         if (e.getCause() instanceof UnknownTopicOrPartitionException ) {
           log.info("No existing topic {}. Will create it.", topicName);
           admin.createTopics(Collections.singleton(new NewTopic(topicName, Optional.ofNullable(desiredPartitions),
             Optional.ofNullable(desiredReplicationFactor).map(x -> x.shortValue())))).all().get();
+          object.getStatus().setNumPartitions(desiredPartitions);
         } else {
           throw e;
         }
       } finally {
         admin.close();
       }
+
+      operator.apiFor(KAFKATOPIC).updateStatus(object, x -> object.getStatus())
+        .onFailure((x, y) -> log.error("Failed to update status of KafkaTopic {}/{}: {}.", namespace, name,
+        y.getMessage()));
     } catch (Exception e) {
       log.error("Encountered exception while reconciling KafkaTopic {}/{}", namespace, name, e);
       return new Result(true, operator.failureRetryDuration());
