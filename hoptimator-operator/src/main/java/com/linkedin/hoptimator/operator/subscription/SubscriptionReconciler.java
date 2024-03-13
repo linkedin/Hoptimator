@@ -316,7 +316,7 @@ public class SubscriptionReconciler implements Reconciler {
   // Whether status has diverged from spec (i.e. we need to re-plan the pipeline)
   private static boolean diverged(V1alpha1SubscriptionSpec spec, V1alpha1SubscriptionStatus status) {
     return status.getSql() == null || !status.getSql().equals(spec.getSql())
-        || !status.getHints().equals(spec.getHints());
+        || status.getHints() == null || !status.getHints().equals(spec.getHints());
   }
 
   // Fetch attributes from downstream controllers
