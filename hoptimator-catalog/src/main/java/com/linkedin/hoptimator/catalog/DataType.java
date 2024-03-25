@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 /** Common data types. Not authoratitive or exhaustive. */
 public enum DataType {
 
-  VARCHAR_NULL(x -> x.createTypeWithNullability(x.createSqlType(SqlTypeName.VARCHAR), true)),
+  VARCHAR(x -> x.createTypeWithNullability(x.createSqlType(SqlTypeName.VARCHAR), true)),
   VARCHAR_NOT_NULL(x -> x.createTypeWithNullability(x.createSqlType(SqlTypeName.VARCHAR), false));
 
   public static final RelDataTypeFactory DEFAULT_TYPE_FACTORY = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
@@ -56,14 +56,22 @@ public enum DataType {
   /** Convenience builder for non-scalar types */
   public interface Struct extends RelProtoDataType {
 
-    default Struct with(String name, DataType dataType) {
+    default Struct with(String name, RelDataType dataType) {
       return x -> {
         RelDataType existing = apply(x);
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(x);
         builder.addAll(existing.getFieldList());
-        builder.add(name, dataType.rel(x));
+        builder.add(name, dataType);
         return builder.build();
       };
+    }
+
+    default Struct with(String name, DataType dataType) {
+      return with(name, dataType.rel());
+    }
+
+    default Struct with(String name, Struct struct) {
+      return with(name, struct.rel());
     }
 
     default RelDataType rel() {
@@ -80,6 +88,17 @@ public enum DataType {
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(x);
         builder.addAll(dataType.getFieldList().stream()
           .filter(y -> !y.getName().equals(name))
+          .collect(Collectors.toList()));
+        return builder.build();
+      };
+    }
+
+    default Struct dropNestedRows() {
+      return x -> {
+        RelDataType dataType = apply(x);
+        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(x);
+        builder.addAll(dataType.getFieldList().stream()
+          .filter(y -> y.getType().getSqlTypeName() != SqlTypeName.ROW)
           .collect(Collectors.toList()));
         return builder.build();
       };

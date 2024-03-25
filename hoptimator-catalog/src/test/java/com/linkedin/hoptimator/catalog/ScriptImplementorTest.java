@@ -28,10 +28,10 @@ public class ScriptImplementorTest {
     // Output isn't necessarily deterministic, but should be something like:
     //   CREATE TABLE IF NOT EXISTS "DATABASE"."TABLE1" ("idValue1" VARCHAR) WITH
     //   ('connector'='kafka', 'properties.bootstrap.servers'='localhost:9092', 'topic'='topic1')
-    assertTrue(out.contains("CREATE TABLE IF NOT EXISTS \"DATABASE\".\"TABLE1\" (\"idValue1\" VARCHAR) WITH "));
-    assertTrue(out.contains("'connector'='kafka'"));
-    assertTrue(out.contains("'properties.bootstrap.servers'='localhost:9092'"));
-    assertTrue(out.contains("'topic'='topic1'"));
-    assertFalse(out.contains("Row")); 
+    assertTrue(out, out.contains("CREATE TABLE IF NOT EXISTS \"DATABASE\".\"TABLE1\" (\"idValue1\" VARCHAR) WITH "));
+    assertTrue(out, out.contains("'connector'='kafka'"));
+    assertTrue(out, out.contains("'properties.bootstrap.servers'='localhost:9092'"));
+    assertTrue(out, out.contains("'topic'='topic1'"));
+    assertFalse(out, out.contains("Row"));
   }
 }
