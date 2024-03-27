@@ -20,12 +20,13 @@ public final class AvroConverter {
 
   private AvroConverter() {
   }
-
+  
   public static Schema avro(String namespace, String name, RelDataType dataType) {
     if (dataType.isStruct()) {
       List<Schema.Field> fields = dataType.getFieldList().stream()
         .filter(x -> !x.getName().startsWith("__")) // don't write out hidden fields
-        .map(x -> new Schema.Field(sanitize(x.getName()), avro(namespace, x.getName(), x.getType()), describe(x), null))
+        .map(x -> new Schema.Field(sanitize(x.getName()), avro(namespace, x.getName(), x.getType()),
+          describe(x), null))
         .collect(Collectors.toList());
       return Schema.createRecord(sanitize(name), dataType.toString(), namespace, false, fields);
     } else {
@@ -57,20 +58,29 @@ public final class AvroConverter {
   }
 
   private static Schema createAvroTypeWithNullability(Schema.Type rawType, boolean nullable) {
-    if (nullable) {
-      return Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(rawType)); 
-    } else {
-      return Schema.create(rawType);
-    }
+    return withNullability(Schema.create(rawType), nullable);
   }
 
+  private static Schema withNullability(Schema schema, boolean nullable) {
+    if (nullable) {
+      return Schema.createUnion(Schema.create(Schema.Type.NULL), schema); 
+    } else {
+      return schema;
+    }
+  }
+  
   public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory) {
+    return rel(schema, typeFactory, false);
+  }
+
+  public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory, boolean skipNestedRows) {
     RelDataType unknown = typeFactory.createUnknownType();
     switch (schema.getType()) {
     case RECORD:
       return typeFactory.createStructType(schema.getFields().stream()
-        .map(x -> new AbstractMap.SimpleEntry<>(x.name(), rel(x.schema(), typeFactory)))
+        .map(x -> new AbstractMap.SimpleEntry<>(x.name(), rel(x.schema(), typeFactory, skipNestedRows)))
         .filter(x -> x.getValue().getSqlTypeName() != SqlTypeName.NULL)
+        .filter(x -> !skipNestedRows || x.getValue().getSqlTypeName() != SqlTypeName.ROW)
         .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
         .collect(Collectors.toList()));
     case INT:
@@ -88,7 +98,7 @@ public final class AvroConverter {
     case UNION:
       if (schema.isNullable() && schema.getTypes().size() == 2) {
         Schema innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst().get();
-        return typeFactory.createTypeWithNullability(rel(innerType, typeFactory), true);
+        return typeFactory.createTypeWithNullability(rel(innerType, typeFactory, skipNestedRows), true);
       } else {
         // TODO support more elaborate union types
         return typeFactory.createTypeWithNullability(typeFactory.createUnknownType(), true);
@@ -98,8 +108,12 @@ public final class AvroConverter {
     }
   }
 
+  public static RelDataType rel(Schema schema, boolean skipNestedRows) {
+    return rel(schema, DataType.DEFAULT_TYPE_FACTORY, skipNestedRows);
+  }
+
   public static RelDataType rel(Schema schema) {
-    return rel(schema, DataType.DEFAULT_TYPE_FACTORY);
+    return rel(schema, false);
   }
 
   private static RelDataType createRelTypeWithNullability(RelDataTypeFactory typeFactory, SqlTypeName typeName, boolean nullable) {
@@ -107,8 +121,8 @@ public final class AvroConverter {
     return typeFactory.createTypeWithNullability(rawType, nullable);
   }
 
-  public static RelProtoDataType proto(Schema schema) {
-    return RelDataTypeImpl.proto(rel(schema, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT)));
+  public static RelProtoDataType proto(Schema schema, boolean skipNestedRows) {
+    return RelDataTypeImpl.proto(rel(schema, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT), skipNestedRows));
   }
 
   private static String describe(RelDataTypeField dataType) {

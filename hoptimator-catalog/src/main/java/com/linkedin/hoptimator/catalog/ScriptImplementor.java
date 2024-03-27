@@ -3,21 +3,14 @@ package com.linkedin.hoptimator.catalog;
 import org.apache.calcite.sql.SqlWriter;
 //import org.apache.calcite.sql.SqlWriterConfig;
 import org.apache.calcite.sql.SqlDataTypeSpec;
+import org.apache.calcite.sql.SqlRowTypeNameSpec;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
-import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlRowTypeNameSpec;
-import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
-import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -136,30 +129,9 @@ public interface ScriptImplementor {
     public void implement(SqlWriter w) {
       RelToSqlConverter converter = new RelToSqlConverter(w.getDialect());
       SqlImplementor.Result result = converter.visitRoot(relNode);
-      SqlSelect select = result.asSelect();
-      if (select.getSelectList() != null) {
-        select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
-      }
-      w.literal(select.toSqlString(w.getDialect()).getSql());
+      w.literal(result.asSelect().toSqlString(w.getDialect()).getSql());
     }
-
-    // A `ROW(...)` operator which will unparse as just `(...)`.
-    private final SqlRowOperator SILENT_COLUMN_LIST = new SqlRowOperator(""); // empty string name
-
-    // a shuttle that replaces `Row(...)` with just `(...)`
-    private final SqlShuttle REMOVE_ROW_CONSTRUCTOR = new SqlShuttle() {
-      @Override
-      public SqlNode visit(SqlCall call) {
-        List<SqlNode> operands = call.getOperandList().stream().map(x -> x.accept(this)).collect(Collectors.toList());
-        if (call.getKind() == SqlKind.ROW || call.getKind() == SqlKind.COLUMN_LIST
-              || call.getOperator() instanceof SqlRowOperator) {
-          return SILENT_COLUMN_LIST.createCall(call.getParserPosition(), operands);
-        } else {
-          return call.getOperator().createCall(call.getParserPosition(), operands);
-        }
-      }
-    };
-  }
+  } 
 
   /**
    * Implements a CREATE TABLE...WITH... DDL statement.
