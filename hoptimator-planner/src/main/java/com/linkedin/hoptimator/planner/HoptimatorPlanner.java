@@ -92,7 +92,7 @@ public class HoptimatorPlanner {
     Planner planner = Frameworks.getPlanner(calciteFrameworkConfig);
     SqlNode parsed = planner.parse(sql);
     SqlNode validated = planner.validate(parsed);
-    RelNode logicalPlan = planner.rel(validated).project();
+    RelNode logicalPlan = planner.rel(validated).rel;//.project();
     RelTraitSet traitSet = logicalPlan.getTraitSet();
     traitSet = traitSet.simplify();
     PipelineRel pipelineRel = (PipelineRel) planner.transform(0, traitSet.replace(PipelineRel.CONVENTION), logicalPlan);
@@ -104,7 +104,7 @@ public class HoptimatorPlanner {
     Planner planner = Frameworks.getPlanner(calciteFrameworkConfig);
     SqlNode parsed = planner.parse(sql);
     SqlNode validated = planner.validate(parsed);
-    RelNode logicalPlan = planner.rel(validated).project();
+    RelNode logicalPlan = planner.rel(validated).rel;//.project();
     RelTraitSet traitSet = logicalPlan.getTraitSet();
     planner.close();
     return logicalPlan;

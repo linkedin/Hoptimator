@@ -137,7 +137,13 @@ public interface ScriptImplementor {
       RelToSqlConverter converter = new RelToSqlConverter(w.getDialect());
       SqlImplementor.Result result = converter.visitRoot(relNode);
       SqlSelect select = result.asSelect();
-      if (select.getSelectList() != null) {
+      // FIXME: workaround for Flink SQL limitation fixed in 1.18
+      // N.B. Flink SQL previous to 1.18 does not support `ROW(...)` with
+      // arbitrary expressions inside. This means Flink SQL might choke on
+      // some expressions anytime there is a `ROW`. So we replace `ROW()`
+      // with the "implicit" row constructor `()`. However, the implicit
+      // row constructor only works for lists greater than length 1!
+      if (select.getSelectList() != null && select.getSelectList().size() > 1) {
         select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
       }
       w.literal(select.toSqlString(w.getDialect()).getSql());
@@ -146,7 +152,7 @@ public interface ScriptImplementor {
     // A `ROW(...)` operator which will unparse as just `(...)`.
     private final SqlRowOperator SILENT_COLUMN_LIST = new SqlRowOperator(""); // empty string name
 
-    // a shuttle that replaces `Row(...)` with just `(...)`
+    // a shuttle that replaces `ROW(...)` with just `(...)`
     private final SqlShuttle REMOVE_ROW_CONSTRUCTOR = new SqlShuttle() {
       @Override
       public SqlNode visit(SqlCall call) {
