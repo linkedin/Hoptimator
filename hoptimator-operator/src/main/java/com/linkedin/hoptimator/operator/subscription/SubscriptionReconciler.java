@@ -148,6 +148,7 @@ public class SubscriptionReconciler implements Reconciler {
           // Mark the Subscription as failed.
           status.setFailed(true);
           status.setMessage("Error: " + e.getMessage());
+          result = new Result(true, operator.failureRetryDuration());
         }
       } else if (status.getReady() == null && status.getResources() != null) {
         // Phase 2
