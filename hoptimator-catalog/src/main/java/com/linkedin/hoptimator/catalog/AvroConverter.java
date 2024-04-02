@@ -27,7 +27,8 @@ public final class AvroConverter {
         .filter(x -> !x.getName().startsWith("__")) // don't write out hidden fields
         .map(x -> new Schema.Field(sanitize(x.getName()), avro(namespace, x.getName(), x.getType()), describe(x), null))
         .collect(Collectors.toList());
-      return Schema.createRecord(sanitize(name), dataType.toString(), namespace, false, fields);
+      return createAvroSchemaWithNullability(Schema.createRecord(sanitize(name), dataType.toString(), namespace, false, fields),
+        dataType.isNullable());
     } else {
       switch (dataType.getSqlTypeName()) {
       case INTEGER:
@@ -42,6 +43,14 @@ public final class AvroConverter {
         return createAvroTypeWithNullability(Schema.Type.DOUBLE, dataType.isNullable());
       case CHAR:
         return createAvroTypeWithNullability(Schema.Type.STRING, dataType.isNullable());
+      case BOOLEAN:
+        return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
+      case ARRAY:
+        return createAvroSchemaWithNullability(Schema.createArray(avro(null, null, dataType.getComponentType())),
+          dataType.isNullable());
+  // TODO support map types
+  //    case MAP:
+  //      return createAvroSchemaWithNullability(Schema.createMap(avroPrimitive(dataType.getValueType())), dataType.isNullable());
       case UNKNOWN:
       case NULL:
         return Schema.createUnion(Schema.create(Schema.Type.NULL));
@@ -56,12 +65,16 @@ public final class AvroConverter {
     return avro(namespace, name, relProtoDataType.apply(factory));
   }
 
-  private static Schema createAvroTypeWithNullability(Schema.Type rawType, boolean nullable) {
+  private static Schema createAvroSchemaWithNullability(Schema schema, boolean nullable) {
     if (nullable) {
-      return Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(rawType)); 
+      return Schema.createUnion(Schema.create(Schema.Type.NULL), schema);
     } else {
-      return Schema.create(rawType);
+      return schema;
     }
+  }
+
+  private static Schema createAvroTypeWithNullability(Schema.Type rawType, boolean nullable) {
+    return createAvroSchemaWithNullability(Schema.create(rawType), nullable);
   }
 
   public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory) {
@@ -74,17 +87,24 @@ public final class AvroConverter {
         .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
         .collect(Collectors.toList()));
     case INT:
-      // schema.isNullable() should be false for basic types iiuc
-      return createRelTypeWithNullability(typeFactory, SqlTypeName.INTEGER, schema.isNullable());
+      return createRelType(typeFactory, SqlTypeName.INTEGER);
     case LONG:
-      return createRelTypeWithNullability(typeFactory, SqlTypeName.BIGINT, schema.isNullable());
+      return createRelType(typeFactory, SqlTypeName.BIGINT);
     case ENUM:
+    case FIXED:
     case STRING:
-      return createRelTypeWithNullability(typeFactory, SqlTypeName.VARCHAR, schema.isNullable());
+      return createRelType(typeFactory, SqlTypeName.VARCHAR);
     case FLOAT:
-      return createRelTypeWithNullability(typeFactory, SqlTypeName.FLOAT, schema.isNullable());
+      return createRelType(typeFactory, SqlTypeName.FLOAT);
     case DOUBLE:
-      return createRelTypeWithNullability(typeFactory, SqlTypeName.DOUBLE, schema.isNullable());
+      return createRelType(typeFactory, SqlTypeName.DOUBLE);
+    case BOOLEAN:
+      return createRelType(typeFactory, SqlTypeName.BOOLEAN);
+    case ARRAY:
+      return typeFactory.createArrayType(rel(schema.getElementType(), typeFactory), -1);
+//  TODO support map types
+//    case MAP:
+//      return typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory));
     case UNION:
       if (schema.isNullable() && schema.getTypes().size() == 2) {
         Schema innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst().get();
@@ -102,9 +122,9 @@ public final class AvroConverter {
     return rel(schema, DataType.DEFAULT_TYPE_FACTORY);
   }
 
-  private static RelDataType createRelTypeWithNullability(RelDataTypeFactory typeFactory, SqlTypeName typeName, boolean nullable) {
+  private static RelDataType createRelType(RelDataTypeFactory typeFactory, SqlTypeName typeName) {
     RelDataType rawType = typeFactory.createSqlType(typeName);
-    return typeFactory.createTypeWithNullability(rawType, nullable);
+    return typeFactory.createTypeWithNullability(rawType, false);
   }
 
   public static RelProtoDataType proto(Schema schema) {

@@ -1,16 +1,5 @@
 package com.linkedin.hoptimator.catalog;
 
-import org.apache.calcite.sql.SqlWriter;
-//import org.apache.calcite.sql.SqlWriterConfig;
-import org.apache.calcite.sql.SqlDataTypeSpec;
-import org.apache.calcite.sql.SqlRowTypeNameSpec;
-import org.apache.calcite.sql.SqlBasicTypeNameSpec;
-import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
-import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -18,6 +7,26 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
+import org.apache.calcite.sql.SqlWriter;
+//import org.apache.calcite.sql.SqlWriterConfig;
+import org.apache.calcite.sql.SqlDataTypeSpec;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
+import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
+import org.apache.calcite.sql.SqlRowTypeNameSpec;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDialect;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlRowTypeNameSpec;
+import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.fun.SqlRowOperator;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.sql.util.SqlShuttle;
 
 import java.util.Map;
 import java.util.List;
@@ -129,9 +138,31 @@ public interface ScriptImplementor {
     public void implement(SqlWriter w) {
       RelToSqlConverter converter = new RelToSqlConverter(w.getDialect());
       SqlImplementor.Result result = converter.visitRoot(relNode);
-      w.literal(result.asSelect().toSqlString(w.getDialect()).getSql());
+      SqlSelect select = result.asSelect();
+      if (select.getSelectList() != null) {
+        select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
+      }
+      w.literal(select.toSqlString(w.getDialect()).getSql());
     }
-  } 
+
+    // A `ROW(...)` operator which will unparse as just `(...)`.
+    private final SqlRowOperator IMPLIED_ROW_OPERATOR = new SqlRowOperator(""); // empty string name
+
+    // a shuttle that replaces `Row(...)` with just `(...)`
+    private final SqlShuttle REMOVE_ROW_CONSTRUCTOR = new SqlShuttle() {
+      @Override
+      public SqlNode visit(SqlCall call) {
+        List<SqlNode> operands = call.getOperandList().stream().map(x -> x.accept(this)).collect(Collectors.toList());
+        if ((call.getKind() == SqlKind.ROW || call.getKind() == SqlKind.COLUMN_LIST
+              || call.getOperator() instanceof SqlRowOperator)
+              && operands.size() > 1) {
+          return IMPLIED_ROW_OPERATOR.createCall(call.getParserPosition(), operands);
+        } else {
+          return call.getOperator().createCall(call.getParserPosition(), operands);
+        }
+      }
+    };
+  }
 
   /**
    * Implements a CREATE TABLE...WITH... DDL statement.
@@ -291,6 +322,10 @@ public interface ScriptImplementor {
           .map(x -> toSpec(x))
           .collect(Collectors.toList());
         return maybeNullable(dataType, new SqlDataTypeSpec(new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes), SqlParserPos.ZERO));
+      } if (dataType.getComponentType() != null) {
+        return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(new SqlBasicTypeNameSpec(
+          dataType.getComponentType().getSqlTypeName(), SqlParserPos.ZERO), dataType.getSqlTypeName(), SqlParserPos.ZERO),
+          SqlParserPos.ZERO));
       } else {
         return maybeNullable(dataType, new SqlDataTypeSpec(new SqlBasicTypeNameSpec(dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
       }
@@ -298,7 +333,7 @@ public interface ScriptImplementor {
 
     private static SqlDataTypeSpec maybeNullable(RelDataType dataType, SqlDataTypeSpec spec) {
       if (!dataType.isNullable()) {
-        return spec.withNullable(true);
+        return spec.withNullable(false);
       } else {
         // we don't want "VARCHAR NULL", only "VARCHAR NOT NULL"
         return spec;
