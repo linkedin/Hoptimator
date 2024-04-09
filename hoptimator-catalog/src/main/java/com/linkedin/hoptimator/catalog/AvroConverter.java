@@ -49,6 +49,7 @@ public final class AvroConverter {
         return createAvroSchemaWithNullability(Schema.createArray(avro(null, null, dataType.getComponentType())),
           dataType.isNullable());
   // TODO support map types
+  // Appears to require a Calcite version bump
   //    case MAP:
   //      return createAvroSchemaWithNullability(Schema.createMap(avroPrimitive(dataType.getValueType())), dataType.isNullable());
       case UNKNOWN:
@@ -103,6 +104,7 @@ public final class AvroConverter {
     case ARRAY:
       return typeFactory.createArrayType(rel(schema.getElementType(), typeFactory), -1);
 //  TODO support map types
+//  Appears to require a Calcite version bump
 //    case MAP:
 //      return typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory));
     case UNION:

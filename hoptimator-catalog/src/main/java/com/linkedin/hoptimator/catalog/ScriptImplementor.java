@@ -8,7 +8,8 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
 import org.apache.calcite.sql.SqlWriter;
-//import org.apache.calcite.sql.SqlWriterConfig;
+// needed in next Calcite version
+// import org.apache.calcite.sql.SqlWriterConfig;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
@@ -103,6 +104,7 @@ public interface ScriptImplementor {
   /** Render the script as DDL/SQL in the given dialect */
   default String sql(SqlDialect dialect) {
     SqlWriter w = new SqlPrettyWriter(dialect);
+// TODO: fix in next Calcite version
 //  above is deprecated; replace with:
 //    SqlWriter w = new SqlPrettyWriter(SqlWriterConfig.of().withDialect(dialect));
     implement(w);
