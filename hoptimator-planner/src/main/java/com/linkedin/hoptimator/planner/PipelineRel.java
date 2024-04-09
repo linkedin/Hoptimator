@@ -1,12 +1,14 @@
 package com.linkedin.hoptimator.planner;
 
 import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.util.Litmus;
 
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.catalog.ResourceProvider;
@@ -77,6 +79,7 @@ public interface PipelineRel extends RelNode {
 
     /** Script ending in INSERT INTO ... */
     public ScriptImplementor insertInto(HopTable sink) {
+      RelOptUtil.eq(sink.name(), sink.rowType(), "subscription", rowType(), Litmus.THROW);
       return script.database(sink.database()).with(sink)
         .insert(sink.database(), sink.name(), relNode);
     }

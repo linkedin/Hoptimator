@@ -27,8 +27,8 @@ public class RawKafkaSchemaFactory implements SchemaFactory {
     String principal = (String) operand.getOrDefault("principal", "User:ANONYMOUS");
     Map<String, Object> clientConfig = (Map<String, Object>) operand.get("clientConfig");
     DataType.Struct rowType = DataType.struct()
-      .with("PAYLOAD", DataType.VARCHAR_NULL)
-      .with("KEY", DataType.VARCHAR_NULL);
+      .with("PAYLOAD", DataType.VARCHAR)
+      .with("KEY", DataType.VARCHAR);
     ConfigProvider connectorConfigProvider = ConfigProvider.from(clientConfig)
       .withPrefix("properties.")
       .with("connector", "upsert-kafka")
