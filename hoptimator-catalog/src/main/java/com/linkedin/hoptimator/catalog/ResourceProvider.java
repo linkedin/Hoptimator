@@ -70,7 +70,8 @@ public interface ResourceProvider {
       // link all sources to all sinks       
       sink.resources(x).forEach(y -> {
         combined.add(new Resource(y) {{
-          if (!(y instanceof ReadResource || y instanceof WriteResource)) {
+          if (!(y instanceof ReadResource || y instanceof WriteResource)
+              && y.inputs().isEmpty()) {
             sources.forEach(z -> input(z));
           }
         }});
