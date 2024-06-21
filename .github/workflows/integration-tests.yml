@@ -59,11 +59,16 @@ jobs:
         kubectl describe kafkas -n kafka
         kubectl describe flinkdeployments
         kubectl describe subscriptions
+    - name: Capture Flink Job Logs
+      if: always()
+      run: kubectl logs $(kubectl get pods -l component=jobmanager -o name) $(kubectl get pods -l component=taskmanager -o name) --since=0s
     - name: Capture Hoptimator Operator Logs
       if: always()
       run: kubectl logs $(kubectl get pods -l app=hoptimator-operator -o name)
     - name: Capture Flink Operator Logs
       if: always()
       run: kubectl logs $(kubectl get pods -l app.kubernetes.io/name=flink-kubernetes-operator -o name)
+    - name: Capture Flink Job Logs
+      if: always()
+      run: kubectl logs $(kubectl get pods -l app.kubernetes.io/name=flink-kubernetes-operator -o name)
  
-

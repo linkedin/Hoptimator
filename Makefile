@@ -26,7 +26,7 @@ deploy-dev-environment:
 	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 	kubectl create namespace kafka || echo "skipping"
 	kubectl create namespace mysql || echo "skipping"
-	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.6.1/
+	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.9.0/
 	helm upgrade --install --atomic --set webhook.create=false flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
 	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
