@@ -37,6 +37,7 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,12 +48,14 @@ public class SubscriptionReconciler implements Reconciler {
   private final Operator operator;
   private final HoptimatorPlanner.Factory plannerFactory;
   private final Resource.Environment environment;
+  private final Predicate<V1alpha1Subscription> filter;
 
   private SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory,
-      Resource.Environment environment) {
+      Resource.Environment environment, Predicate<V1alpha1Subscription> filter) {
     this.operator = operator;
     this.plannerFactory = plannerFactory;
     this.environment = environment;
+    this.filter = filter;
   }
 
   @Override
@@ -67,7 +70,12 @@ public class SubscriptionReconciler implements Reconciler {
         name);
  
       if (object ==  null) {
-        log.info("Object {}/{} deleted, skipping.", namespace, name);
+        log.info("Object {}/{} deleted. Skipping.", namespace, name);
+        return new Result(false);
+      }
+
+      if (filter != null && !filter.test(object)) {
+        log.info("Object {}/{} filtered. Skipping.", namespace, name);
         return new Result(false);
       }
       
@@ -368,8 +376,9 @@ public class SubscriptionReconciler implements Reconciler {
     return Collections.emptyMap();
   } 
 
-  public static Controller controller(Operator operator, HoptimatorPlanner.Factory plannerFactory, Resource.Environment environment) {
-    Reconciler reconciler = new SubscriptionReconciler(operator, plannerFactory, environment);
+  public static Controller controller(Operator operator, HoptimatorPlanner.Factory plannerFactory,
+      Resource.Environment environment, Predicate<V1alpha1Subscription> filter) {
+    Reconciler reconciler = new SubscriptionReconciler(operator, plannerFactory, environment, filter);
     return ControllerBuilder.defaultBuilder(operator.informerFactory())
       .withReconciler(reconciler)
       .withName("subscription-controller")
