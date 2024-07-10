@@ -61,7 +61,9 @@ jobs:
         kubectl describe subscriptions
     - name: Capture Flink Job Logs
       if: always()
-      run: kubectl logs $(kubectl get pods -l component=jobmanager -o name) $(kubectl get pods -l component=taskmanager -o name) --since=0s
+      run: |
+        kubectl logs $(kubectl get pods -l component=jobmanager -o name) --since=0s || echo "skipped."
+        kubectl logs $(kubectl get pods -l component=taskmanager -o name) --since=0s || echo "skipped."
     - name: Capture Hoptimator Operator Logs
       if: always()
       run: kubectl logs $(kubectl get pods -l app=hoptimator-operator -o name)
