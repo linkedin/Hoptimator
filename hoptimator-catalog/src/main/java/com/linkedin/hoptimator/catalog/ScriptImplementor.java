@@ -168,6 +168,9 @@ public interface ScriptImplementor {
 
   /**
    * Implements a CREATE TABLE...WITH... DDL statement.
+   *
+   * N.B. the following magic:
+   *  - field 'PRIMARY_KEY' is treated as a PRIMARY KEY
    */
   class ConnectorImplementor implements ScriptImplementor {
     private final String database;
@@ -189,8 +192,11 @@ public interface ScriptImplementor {
       (new CompoundIdentifierImplementor(database, name)).implement(w);
       SqlWriter.Frame frame1 = w.startList("(", ")");
       (new RowTypeSpecImplementor(rowType)).implement(w);
+      if (rowType.getField("PRIMARY_KEY", true, false) != null) {
+        w.sep(",");
+        w.literal("PRIMARY KEY (PRIMARY_KEY) NOT ENFORCED");
+      }
       w.endList(frame1);
-      // TODO support PRIMARY KEY for Tables that support it
       // TODO support PARTITIONED BY for Tables that support it
       w.keyword("WITH");
       SqlWriter.Frame frame2 = w.startList("(", ")");
