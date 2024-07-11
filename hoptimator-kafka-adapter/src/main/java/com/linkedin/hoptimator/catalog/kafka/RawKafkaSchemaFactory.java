@@ -31,8 +31,9 @@ public class RawKafkaSchemaFactory implements SchemaFactory {
       .with("KEY", DataType.VARCHAR);
     ConfigProvider connectorConfigProvider = ConfigProvider.from(clientConfig)
       .withPrefix("properties.")
-      .with("connector", "upsert-kafka")
+      .with("connector", "kafka")
       .with("key.format", "csv")
+      .with("key.fields", "KEY")
       .with("value.format", "csv")
       .with("value.fields-include", "EXCEPT_KEY")
       .with("topic", x -> x);

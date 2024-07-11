@@ -15,12 +15,6 @@ SELECT * FROM DATAGEN.COMPANY;
 !insert into RAWKAFKA."test-sink" SELECT AGE AS PAYLOAD, NAME AS KEY FROM DATAGEN.PERSON
 SELECT * FROM RAWKAFKA."test-sink" LIMIT 5;
 
--- MySQL CDC tables
-SELECT * FROM INVENTORY."products_on_hand" LIMIT 1;
-
--- Test check command
-!check not empty SELECT * FROM INVENTORY."products_on_hand";
-
--- MySQL CDC -> Kafka (via sample subscription "products")
-SELECT * FROM RAWKAFKA."products" LIMIT 1;
+-- read from sample subscription "names"
+SELECT * FROM RAWKAFKA."names" LIMIT 1;
 
