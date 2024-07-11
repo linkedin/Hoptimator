@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 
 public class HoptimatorOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
@@ -35,14 +36,17 @@ public class HoptimatorOperatorApp {
   final String modelPath;
   final String namespace;
   final ApiClient apiClient;
+  final Predicate<V1alpha1Subscription> subscriptionFilter;
   final Properties properties;
   final Resource.Environment environment;
 
   /** This constructor is likely to evolve and break. */
-  public HoptimatorOperatorApp(String modelPath, String namespace, ApiClient apiClient, Properties properties) {
+  public HoptimatorOperatorApp(String modelPath, String namespace, ApiClient apiClient,
+      Predicate<V1alpha1Subscription> subscriptionFilter, Properties properties) {
     this.modelPath = modelPath;
     this.namespace = namespace;
     this.apiClient = apiClient;
+    this.subscriptionFilter = subscriptionFilter;
     this.properties = properties;
     this.environment = new Resource.SimpleEnvironment(properties);
   }
@@ -66,7 +70,7 @@ public class HoptimatorOperatorApp {
       cmd = parser.parse(options, args);
     } catch (ParseException e) {
       System.out.println(e.getMessage());
-      formatter.printHelp("utility-name", options);
+      formatter.printHelp("hoptimator-operator", options);
 
       System.exit(1);
       return;
@@ -75,8 +79,8 @@ public class HoptimatorOperatorApp {
     String modelFileInput = cmd.getArgs()[0];
     String namespaceInput = cmd.getOptionValue("namespace", "default");
 
-    new HoptimatorOperatorApp(modelFileInput, namespaceInput, Config.defaultClient(),
-      new Properties()).run();
+    new HoptimatorOperatorApp(modelFileInput, namespaceInput, Config.defaultClient(), null,
+        new Properties()).run();
   }
 
   public void run() throws Exception {
@@ -96,7 +100,7 @@ public class HoptimatorOperatorApp {
 
     List<Controller> controllers = new ArrayList<>();
     controllers.addAll(ControllerService.controllers(operator));
-    controllers.add(SubscriptionReconciler.controller(operator, plannerFactory, environment));
+    controllers.add(SubscriptionReconciler.controller(operator, plannerFactory, environment, subscriptionFilter));
 
     ControllerManager controllerManager = new ControllerManager(operator.informerFactory(),
       controllers.toArray(new Controller[0]));
