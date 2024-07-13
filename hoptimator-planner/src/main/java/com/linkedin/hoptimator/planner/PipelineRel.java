@@ -80,8 +80,9 @@ public interface PipelineRel extends RelNode {
     /** Script ending in INSERT INTO ... */
     public ScriptImplementor insertInto(HopTable sink) {
       RelOptUtil.eq(sink.name(), sink.rowType(), "subscription", rowType(), Litmus.THROW);
+      RelNode castRel = RelOptUtil.createCastRel(relNode, sink.rowType(), true);
       return script.database(sink.database()).with(sink)
-        .insert(sink.database(), sink.name(), relNode);
+        .insert(sink.database(), sink.name(), castRel);
     }
 
     /** Add any resources, SQL, DDL etc required to access the table. */

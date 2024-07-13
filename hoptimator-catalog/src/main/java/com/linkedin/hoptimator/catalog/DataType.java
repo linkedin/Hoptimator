@@ -15,7 +15,8 @@ import java.util.stream.Collectors;
 public enum DataType {
 
   VARCHAR(x -> x.createTypeWithNullability(x.createSqlType(SqlTypeName.VARCHAR), true)),
-  VARCHAR_NOT_NULL(x -> x.createTypeWithNullability(x.createSqlType(SqlTypeName.VARCHAR), false));
+  VARCHAR_NOT_NULL(x -> x.createTypeWithNullability(x.createSqlType(SqlTypeName.VARCHAR), false)),
+  NULL(x -> x.createSqlType(SqlTypeName.NULL));
 
   public static final RelDataTypeFactory DEFAULT_TYPE_FACTORY = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
   private final RelProtoDataType protoType;

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.catalog;
 
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -27,11 +28,13 @@ import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 
 import java.util.Map;
 import java.util.List;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 /**
@@ -171,6 +174,7 @@ public interface ScriptImplementor {
    *
    * N.B. the following magic:
    *  - field 'PRIMARY_KEY' is treated as a PRIMARY KEY
+   *  - NULL fields are promoted to BYTES
    */
   class ConnectorImplementor implements ScriptImplementor {
     private final String database;
@@ -228,7 +232,12 @@ public interface ScriptImplementor {
     }
   }
 
-  /** Implements an INSERT INTO statement */
+  /** Implements an INSERT INTO statement.
+   *
+   * N.B. the following magic:
+   *  - NULL columns (e.g. `NULL AS KEY`) are elided from the pipeline
+   *
+   * */
   class InsertImplementor implements ScriptImplementor {
     private final String database;
     private final String name;
@@ -245,10 +254,23 @@ public interface ScriptImplementor {
       w.keyword("INSERT INTO");
       (new CompoundIdentifierImplementor(database, name)).implement(w);
       SqlWriter.Frame frame1 = w.startList("(", ")");
-      (new ColumnListImplementor(relNode.getRowType())).implement(w);
+      RelNode project = dropNullFields(relNode);
+      (new ColumnListImplementor(project.getRowType())).implement(w);
       w.endList(frame1);
-      (new QueryImplementor(relNode)).implement(w);
+      (new QueryImplementor(project)).implement(w);
       w.literal(";");
+    }
+
+    private static RelNode dropNullFields(RelNode relNode) {
+      List<Integer> cols = new ArrayList<>();
+      int i = 0;
+      for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
+        if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
+          cols.add(i);
+        }
+        i++;
+      }
+      return RelOptUtil.createProject(relNode, cols);
     }
   }
 
@@ -288,7 +310,11 @@ public interface ScriptImplementor {
     }
   }
 
-  /** Implements row type specs, e.g. `NAME VARCHAR(20), AGE INTEGER` */
+  /** Implements row type specs, e.g. `NAME VARCHAR(20), AGE INTEGER`.
+   *
+   * N.B. the following magic:
+   *  - NULL fields are promoted to BYTES
+   */
   class RowTypeSpecImplementor implements ScriptImplementor {
     private final RelDataType dataType;
 
@@ -309,7 +335,11 @@ public interface ScriptImplementor {
       for (int i = 0; i < fieldNames.size(); i++) {
         w.sep(",");
         fieldNames.get(i).unparse(w, 0, 0);
-        fieldTypes.get(i).unparse(w, 0, 0);
+        if (fieldTypes.get(i).getTypeName().getSimple().equals("NULL")) {
+          w.literal("BYTES"); // promote NULL fields to BYTES
+        } else {
+          fieldTypes.get(i).unparse(w, 0, 0);
+        }
       } 
     }
 

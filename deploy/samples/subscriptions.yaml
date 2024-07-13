@@ -4,7 +4,7 @@ kind: Subscription
 metadata:
   name: names
 spec:
-  sql: SELECT NAME, NAME AS KEY FROM DATAGEN.PERSON
+  sql: SELECT NAME, NULL AS KEY FROM DATAGEN.PERSON
   database: RAWKAFKA
 
 
