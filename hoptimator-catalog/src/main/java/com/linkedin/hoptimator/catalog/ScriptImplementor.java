@@ -171,6 +171,7 @@ public interface ScriptImplementor {
    *
    * N.B. the following magic:
    *  - field 'PRIMARY_KEY' is treated as a PRIMARY KEY
+   *  - field 'NULL_KEY' is treated as a COMPUTED COLUMN with value NULL
    */
   class ConnectorImplementor implements ScriptImplementor {
     private final String database;
@@ -288,7 +289,11 @@ public interface ScriptImplementor {
     }
   }
 
-  /** Implements row type specs, e.g. `NAME VARCHAR(20), AGE INTEGER` */
+  /** Implements row type specs, e.g. `NAME VARCHAR(20), AGE INTEGER`.
+   *
+   * N.B. the following magic:
+   *  - field 'NULL_KEY' is treated as a COMPUTED COLUMN with value NULL
+   */
   class RowTypeSpecImplementor implements ScriptImplementor {
     private final RelDataType dataType;
 
@@ -308,8 +313,12 @@ public interface ScriptImplementor {
         .collect(Collectors.toList());
       for (int i = 0; i < fieldNames.size(); i++) {
         w.sep(",");
-        fieldNames.get(i).unparse(w, 0, 0);
-        fieldTypes.get(i).unparse(w, 0, 0);
+        if (fieldNames.get(i).toString().equals("NULL_KEY")) {
+          w.literal("KEY AS NULL");
+        } else {
+          fieldNames.get(i).unparse(w, 0, 0);
+          fieldTypes.get(i).unparse(w, 0, 0);
+        }
       } 
     }
 

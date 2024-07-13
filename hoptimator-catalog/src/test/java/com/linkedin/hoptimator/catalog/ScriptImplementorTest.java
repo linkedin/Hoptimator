@@ -34,4 +34,26 @@ public class ScriptImplementorTest {
     assertTrue(out, out.contains("'topic'='topic1'"));
     assertFalse(out, out.contains("Row"));
   }
+
+  @Test
+  public void magicPrimaryKey() {
+    SqlWriter w = new SqlPrettyWriter();
+    RelDataType rowType = DataType.struct().with("F1", DataType.VARCHAR)
+        .with("PRIMARY_KEY", DataType.VARCHAR).rel();
+    HopTable table = new HopTable("DATABASE", "TABLE1", rowType, ConfigProvider.empty().config("x"));
+    table.implement(w);
+    String out = w.toString();
+    assertTrue(out, out.contains("PRIMARY KEY (PRIMARY_KEY)"));
+  }
+
+  @Test
+  public void magicNullKey() {
+    SqlWriter w = new SqlPrettyWriter();
+    RelDataType rowType = DataType.struct().with("F1", DataType.VARCHAR)
+        .with("NULL_KEY", DataType.VARCHAR).rel();
+    HopTable table = new HopTable("DATABASE", "TABLE1", rowType, ConfigProvider.empty().config("x"));
+    table.implement(w);
+    String out = w.toString();
+    assertTrue(out, out.contains("KEY AS NULL"));
+  }
 }
