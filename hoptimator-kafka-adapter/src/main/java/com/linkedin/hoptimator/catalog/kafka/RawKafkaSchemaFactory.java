@@ -32,10 +32,11 @@ public class RawKafkaSchemaFactory implements SchemaFactory {
     ConfigProvider connectorConfigProvider = ConfigProvider.from(clientConfig)
       .withPrefix("properties.")
       .with("connector", "kafka")
-      .with("key.format", "csv")
+      .with("key.format", "raw")
       .with("key.fields", "KEY")
       .with("value.format", "csv")
       .with("value.fields-include", "EXCEPT_KEY")
+      .with("scan.startup.mode", "earliest-offset")
       .with("topic", x -> x);
     TableLister tableLister = () -> {
       AdminClient client = AdminClient.create(clientConfig);
