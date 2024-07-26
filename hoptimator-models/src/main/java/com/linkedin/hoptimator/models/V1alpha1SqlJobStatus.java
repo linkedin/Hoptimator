@@ -25,25 +25,52 @@ import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Current state of the topic.
+ * Filled in by the operator.
  */
-@ApiModel(description = "Current state of the topic.")
+@ApiModel(description = "Filled in by the operator.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-07-26T20:21:01.735Z[Etc/UTC]")
-public class V1alpha1KafkaTopicStatus {
+public class V1alpha1SqlJobStatus {
+  public static final String SERIALIZED_NAME_FAILED = "failed";
+  @SerializedName(SERIALIZED_NAME_FAILED)
+  private Boolean failed;
+
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
   private String message;
-
-  public static final String SERIALIZED_NAME_NUM_PARTITIONS = "numPartitions";
-  @SerializedName(SERIALIZED_NAME_NUM_PARTITIONS)
-  private Integer numPartitions;
 
   public static final String SERIALIZED_NAME_READY = "ready";
   @SerializedName(SERIALIZED_NAME_READY)
   private Boolean ready;
 
+  public static final String SERIALIZED_NAME_SQL = "sql";
+  @SerializedName(SERIALIZED_NAME_SQL)
+  private String sql;
 
-  public V1alpha1KafkaTopicStatus message(String message) {
+
+  public V1alpha1SqlJobStatus failed(Boolean failed) {
+    
+    this.failed = failed;
+    return this;
+  }
+
+   /**
+   * Whether the SqlJob has failed.
+   * @return failed
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Whether the SqlJob has failed.")
+
+  public Boolean getFailed() {
+    return failed;
+  }
+
+
+  public void setFailed(Boolean failed) {
+    this.failed = failed;
+  }
+
+
+  public V1alpha1SqlJobStatus message(String message) {
     
     this.message = message;
     return this;
@@ -66,41 +93,18 @@ public class V1alpha1KafkaTopicStatus {
   }
 
 
-  public V1alpha1KafkaTopicStatus numPartitions(Integer numPartitions) {
-    
-    this.numPartitions = numPartitions;
-    return this;
-  }
-
-   /**
-   * Actual number of partitions the topic has when last checked.
-   * @return numPartitions
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "Actual number of partitions the topic has when last checked.")
-
-  public Integer getNumPartitions() {
-    return numPartitions;
-  }
-
-
-  public void setNumPartitions(Integer numPartitions) {
-    this.numPartitions = numPartitions;
-  }
-
-
-  public V1alpha1KafkaTopicStatus ready(Boolean ready) {
+  public V1alpha1SqlJobStatus ready(Boolean ready) {
     
     this.ready = ready;
     return this;
   }
 
    /**
-   * Whether the requested topic has been created.
+   * Whether the SqlJob is running or completed.
    * @return ready
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Whether the requested topic has been created.")
+  @ApiModelProperty(value = "Whether the SqlJob is running or completed.")
 
   public Boolean getReady() {
     return ready;
@@ -112,6 +116,29 @@ public class V1alpha1KafkaTopicStatus {
   }
 
 
+  public V1alpha1SqlJobStatus sql(String sql) {
+    
+    this.sql = sql;
+    return this;
+  }
+
+   /**
+   * The SQL being implemented by this SqlJob.
+   * @return sql
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The SQL being implemented by this SqlJob.")
+
+  public String getSql() {
+    return sql;
+  }
+
+
+  public void setSql(String sql) {
+    this.sql = sql;
+  }
+
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -120,25 +147,27 @@ public class V1alpha1KafkaTopicStatus {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicStatus v1alpha1KafkaTopicStatus = (V1alpha1KafkaTopicStatus) o;
-    return Objects.equals(this.message, v1alpha1KafkaTopicStatus.message) &&
-        Objects.equals(this.numPartitions, v1alpha1KafkaTopicStatus.numPartitions) &&
-        Objects.equals(this.ready, v1alpha1KafkaTopicStatus.ready);
+    V1alpha1SqlJobStatus v1alpha1SqlJobStatus = (V1alpha1SqlJobStatus) o;
+    return Objects.equals(this.failed, v1alpha1SqlJobStatus.failed) &&
+        Objects.equals(this.message, v1alpha1SqlJobStatus.message) &&
+        Objects.equals(this.ready, v1alpha1SqlJobStatus.ready) &&
+        Objects.equals(this.sql, v1alpha1SqlJobStatus.sql);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(message, numPartitions, ready);
+    return Objects.hash(failed, message, ready, sql);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicStatus {\n");
+    sb.append("class V1alpha1SqlJobStatus {\n");
+    sb.append("    failed: ").append(toIndentedString(failed)).append("\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
-    sb.append("    numPartitions: ").append(toIndentedString(numPartitions)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
+    sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
     sb.append("}");
     return sb.toString();
   }
