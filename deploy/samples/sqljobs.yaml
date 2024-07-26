@@ -1,0 +1,10 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: SqlJob
+metadata:
+  name: hello-world
+spec:
+  dialect: Flink
+  executionMode: Streaming
+  sql:
+  - create table bh (text varchar) with ('connector' = 'blackhole');
+  - insert into bh values ('hello world');
