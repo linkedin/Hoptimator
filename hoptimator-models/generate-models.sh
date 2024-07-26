@@ -13,4 +13,5 @@ docker run \
   -u "$(pwd)/deploy/acls.crd.yaml" \
   -u "$(pwd)/deploy/kafkatopics.crd.yaml" \
   -u "$(pwd)/deploy/subscriptions.crd.yaml" \
+  -u "$(pwd)/deploy/sqljobs.crd.yaml" \
   && echo "done."
