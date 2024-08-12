@@ -11,6 +11,7 @@ import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 import com.linkedin.hoptimator.planner.Pipeline;
 import com.linkedin.hoptimator.planner.PipelineRel;
 
+import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
@@ -161,7 +162,7 @@ public class SubscriptionReconciler implements Reconciler {
       } else if (status.getReady() == null && status.getResources() != null) {
         // Phase 2
         log.info("Deploying pipeline for {}/{}...", kind, name);
-
+        
         boolean deployed = status.getResources().stream()
           .allMatch(x -> apply(x, object));
 
@@ -176,7 +177,7 @@ public class SubscriptionReconciler implements Reconciler {
         log.info("Checking status of pipeline for {}/{}...", kind, name);
 
         boolean ready = status.getResources().stream()
-          .allMatch(x -> checkStatus(x));
+          .allMatch(x -> operator.isReady(x));
 
         if (ready) {
           status.setReady(true);
@@ -206,6 +207,15 @@ public class SubscriptionReconciler implements Reconciler {
     return result;
   }
 
+  private boolean apply(String yaml, KubernetesObject owner) {
+    try {
+      operator.apply(yaml, owner);
+    } catch (Exception e) {
+      return false;
+    }
+    return true;
+  }
+
   private Pipeline pipeline(V1alpha1Subscription object) throws Exception {
     String name = object.getMetadata().getName();
     String sql = object.getSpec().getSql();
@@ -220,106 +230,6 @@ public class SubscriptionReconciler implements Reconciler {
     impl.implement(sink);
 
     return impl.pipeline(sink);
-  }
-
-  private boolean apply(String yaml, V1alpha1Subscription owner) {
-    V1OwnerReference ownerReference = new V1OwnerReference();
-    ownerReference.kind(owner.getKind());
-    ownerReference.name(owner.getMetadata().getName());
-    ownerReference.apiVersion(owner.getApiVersion());
-    ownerReference.uid(owner.getMetadata().getUid());
-
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
-    String namespace = obj.getMetadata().getNamespace();
-    if (namespace == null) {
-      namespace = owner.getMetadata().getNamespace();
-      obj.getMetadata().setNamespace(namespace);
-    }
-    String name = obj.getMetadata().getName();
-    KubernetesApiResponse<DynamicKubernetesObject> existing = operator.apiFor(obj).get(namespace, name);
-    if (existing.isSuccess()) {
-      String resourceVersion = existing.getObject().getMetadata().getResourceVersion();
-      log.info("Updating existing downstream resource {}/{} {} as \n{}",
-        namespace, name, resourceVersion, yaml);
-      List<V1OwnerReference> owners = existing.getObject().getMetadata().getOwnerReferences();
-      if (owners == null) {
-        owners = new ArrayList<>();
-      }
-      if (owners.stream().anyMatch(x -> x.getUid().equals(ownerReference.getUid()))) {
-        log.info("Existing downstream resource {}/{} is already owned by {}/{}.",
-          namespace, name, ownerReference.getKind(), ownerReference.getName());
-      } else {
-        log.info("Existing downstream resource {}/{} will be owned by {}/{} and {} others.",
-          namespace, name, ownerReference.getKind(), ownerReference.getName(), owners.size());
-        owners.add(ownerReference);
-      }
-      obj.setMetadata(obj.getMetadata().ownerReferences(owners).resourceVersion(resourceVersion));
-      KubernetesApiResponse<DynamicKubernetesObject> response = operator.apiFor(obj).update(obj);
-      if (!response.isSuccess()) {
-        log.error("Error updating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());
-        return false;
-      }
-    } else {
-      log.info("Creating downstream resource {}/{} as \n{}", namespace, name, yaml);
-      obj.setMetadata(obj.getMetadata().addOwnerReferencesItem(ownerReference));
-      KubernetesApiResponse<DynamicKubernetesObject> response = operator.apiFor(obj).create(obj);
-      if (!response.isSuccess()) {
-        log.error("Error creating downstream resource {}/{}: {}.", namespace, name, response.getStatus().getMessage());
-        return false;
-      }
-    }
-    return true;
-  }
-
-  private boolean checkStatus(String yaml) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
-    String namespace = obj.getMetadata().getNamespace();
-    String name = obj.getMetadata().getName();
-    String kind = obj.getKind();
-    try {
-      KubernetesApiResponse<DynamicKubernetesObject> existing = operator.apiFor(obj).get(namespace, name);
-      existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));
-      if (!existing.isSuccess()) {
-        return false;
-      }
-      if (isReady(existing.getObject())) {
-        log.info("{}/{} is ready.", kind, name);
-        return true;
-      } else {
-        log.info("{}/{} is NOT ready.", kind, name);
-        return false;
-      }
-    } catch (Exception e) {
-      return false;
-    }
-  }
-
-  private static boolean isReady(DynamicKubernetesObject obj) {
-    // We make a best effort to guess the status of the dynamic object. By default, it's ready.
-    if (obj == null || obj.getRaw() == null) {
-      return false;
-    }
-    try {
-      return obj.getRaw().get("status").getAsJsonObject().get("ready").getAsBoolean();
-    } catch (Exception e) {
-      log.debug("Exception looking for .status.ready. Swallowing.", e);
-    }
-    try {
-      return obj.getRaw().get("status").getAsJsonObject().get("state").getAsString()
-        .matches("(?i)READY|RUNNING|FINISHED");
-    } catch (Exception e) {
-      log.debug("Exception looking for .status.state. Swallowing.", e);
-    }
-    try {
-      return obj.getRaw().get("status").getAsJsonObject().get("jobStatus").getAsJsonObject()
-        .get("state").getAsString().matches("(?i)READY|RUNNING|FINISHED");
-    } catch (Exception e) {
-      log.debug("Exception looking for .status.jobStatus.state. Swallowing.", e);
-    }
-    // TODO: Look for common Conditions
-    log.warn("Resource {}/{}/{} considered ready by default.", obj.getMetadata().getNamespace(),
-      obj.getKind(), obj.getMetadata().getName());
-    return true;
   }
 
   // Whether status has diverged from spec (i.e. we need to re-plan the pipeline)
