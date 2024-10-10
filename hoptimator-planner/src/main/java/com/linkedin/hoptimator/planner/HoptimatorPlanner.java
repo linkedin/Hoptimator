@@ -144,8 +144,7 @@ public class HoptimatorPlanner {
     return new HoptimatorPlanner(schema);
   }
 
-  // for testing purposes
-  static HoptimatorPlanner fromSchema(String name, Schema schema) {
+  public static HoptimatorPlanner fromSchema(String name, Schema schema) {
     SchemaPlus rootSchema = Frameworks.createRootSchema(true);
     rootSchema.add(name, schema);
     return new HoptimatorPlanner(rootSchema);
