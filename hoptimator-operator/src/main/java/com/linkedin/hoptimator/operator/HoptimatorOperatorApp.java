@@ -33,7 +33,7 @@ import java.util.function.Predicate;
 public class HoptimatorOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
 
-  final String modelPath;
+  final String url;
   final String namespace;
   final ApiClient apiClient;
   final Predicate<V1alpha1Subscription> subscriptionFilter;
@@ -41,9 +41,9 @@ public class HoptimatorOperatorApp {
   final Resource.Environment environment;
 
   /** This constructor is likely to evolve and break. */
-  public HoptimatorOperatorApp(String modelPath, String namespace, ApiClient apiClient,
+  public HoptimatorOperatorApp(String url, String namespace, ApiClient apiClient,
       Predicate<V1alpha1Subscription> subscriptionFilter, Properties properties) {
-    this.modelPath = modelPath;
+    this.url = url;
     this.namespace = namespace;
     this.apiClient = apiClient;
     this.subscriptionFilter = subscriptionFilter;
@@ -53,7 +53,7 @@ public class HoptimatorOperatorApp {
 
   public static void main(String[] args) throws Exception {
     if (args.length < 1) {
-      throw new IllegalArgumentException("Missing model file argument.");
+      throw new IllegalArgumentException("Missing JDBC URL argument.");
     }
 
     Options options = new Options();
@@ -76,18 +76,17 @@ public class HoptimatorOperatorApp {
       return;
     }
 
-    String modelFileInput = cmd.getArgs()[0];
+    String urlInput = cmd.getArgs()[0];
     String namespaceInput = cmd.getOptionValue("namespace", "default");
 
-    new HoptimatorOperatorApp(modelFileInput, namespaceInput, Config.defaultClient(), null,
+    new HoptimatorOperatorApp(urlInput, namespaceInput, Config.defaultClient(), null,
         new Properties()).run();
   }
 
   public void run() throws Exception {
-    HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromModelFile(modelPath,
-        properties);
+    HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromJdbc(url, properties);
 
-    // ensure model file works, and that static classes are initialized in the main thread
+    // ensure JDBC connection works, and that static classes are initialized in the main thread
     HoptimatorPlanner planner = plannerFactory.makePlanner();
 
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder()
