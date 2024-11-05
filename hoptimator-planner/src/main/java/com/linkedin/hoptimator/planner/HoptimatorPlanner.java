@@ -1,9 +1,12 @@
 package com.linkedin.hoptimator.planner;
 
+import org.apache.calcite.adapter.jdbc.JdbcSchema;
+import org.apache.calcite.adapter.jdbc.JdbcCatalogSchema;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.model.ModelHandler;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.rules.CoreRules;
@@ -16,7 +19,6 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.model.ModelHandler;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 import org.apache.calcite.tools.Frameworks;
@@ -26,11 +28,14 @@ import org.apache.calcite.tools.Planner;
 import com.linkedin.hoptimator.catalog.Database;
 import com.linkedin.hoptimator.catalog.DatabaseSchema;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.NoSuchElementException;
+import java.sql.SQLException;
+import javax.sql.DataSource;
 
 /** A one-shot stateful object, which creates Pipelines from SQL. */
 public class HoptimatorPlanner {
@@ -67,8 +72,20 @@ public class HoptimatorPlanner {
   public interface Factory {
     HoptimatorPlanner makePlanner() throws Exception;
 
-    static Factory fromModelFile(String filePath, Properties properties) {
-      return () -> HoptimatorPlanner.fromModelFile(filePath, properties);
+    static Factory fromSchema(String catalog, Schema schema) {
+      return () -> HoptimatorPlanner.fromSchema(catalog, schema);
+    }
+
+    static Factory fromDataSource(String catalog, DataSource dataSource) {
+      return () -> HoptimatorPlanner.fromDataSource(catalog, dataSource);
+    }
+
+    static Factory fromJdbc(String url, String catalog, String username, String password) {
+      return () -> HoptimatorPlanner.fromJdbc(url, catalog, username, password);
+    }
+
+    static Factory fromJdbc(String url, Properties properties) {
+      return () -> HoptimatorPlanner.fromJdbc(url, properties);
     }
   }
 
@@ -131,23 +148,38 @@ public class HoptimatorPlanner {
     return ((DatabaseSchema) subSchema).database();
   }
 
-  public static HoptimatorPlanner fromModelFile(String filePath, Properties properties) throws Exception {
-    String uri = filePath;
-    if (uri.startsWith("jdbc:calcite:model=")) {
-      uri = uri.substring("jdbc:calcite:model=".length());
-    }
+  public static HoptimatorPlanner fromSchema(String name, Schema schema) {
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    rootSchema.add(name == null ? "ROOT" : name, schema);
+    return new HoptimatorPlanner(rootSchema);
+  }
+
+  public static HoptimatorPlanner fromDataSource(String catalog, DataSource dataSource) {
+    Schema schema = JdbcCatalogSchema.create(null, catalog, dataSource, catalog);
+    return fromSchema(catalog, schema);
+  }
+
+  public static HoptimatorPlanner fromModelFile(String filePath, Properties properties)
+      throws SQLException, IOException {
     Driver driver = new Driver();
     CalciteConnectionConfig connectionConfig = new CalciteConnectionConfigImpl(properties);
     CalciteConnection connection = (CalciteConnection) driver.connect("jdbc:calcite:", properties);
     SchemaPlus schema = connection.getRootSchema();
-    ModelHandler modelHandler = new ModelHandler(connection, uri); // side-effect: modifies connection
+    ModelHandler modelHandler = new ModelHandler(connection, filePath); // side-effect: modifies connection
     return new HoptimatorPlanner(schema);
   }
 
-  // for testing purposes
-  static HoptimatorPlanner fromSchema(String name, Schema schema) {
-    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
-    rootSchema.add(name, schema);
-    return new HoptimatorPlanner(rootSchema);
+  public static HoptimatorPlanner fromJdbc(String url, String catalog, String username, String password) {
+    DataSource dataSource = JdbcSchema.dataSource(url, null, username, password);
+    return fromDataSource(catalog, dataSource);
+  }
+
+  public static HoptimatorPlanner fromJdbc(String url, Properties properties) throws SQLException, IOException {
+    if (url.startsWith("jdbc:calcite:model=")) {
+      return fromModelFile(url.substring("jdbc:calcite:model=".length()), properties);
+    } else { 
+      return fromJdbc(url, properties.getProperty("catalog"), properties.getProperty("username"),
+          properties.getProperty("password"));
+    }
   }
 }

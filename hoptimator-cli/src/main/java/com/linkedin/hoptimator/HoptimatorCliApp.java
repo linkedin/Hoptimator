@@ -137,7 +137,7 @@ public class HoptimatorCliApp {
 
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
+        HoptimatorPlanner planner = HoptimatorPlanner.fromJdbc(connectionUrl, properties);
         RelNode plan = planner.logical(sql);
         String avroSchema = AvroConverter.avro("OutputNamespace", "OutputName", plan.getRowType()).toString(true);
         sqlline.output(avroSchema); 
@@ -205,7 +205,7 @@ public class HoptimatorCliApp {
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
         InsertInto insertInto = parseInsertInto(sql);
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
+        HoptimatorPlanner planner = HoptimatorPlanner.fromJdbc(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         HopTable sink = planner.database(insertInto.database)
@@ -280,7 +280,7 @@ public class HoptimatorCliApp {
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
         InsertInto insertInto = parseInsertInto(sql);
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
+        HoptimatorPlanner planner = HoptimatorPlanner.fromJdbc(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(insertInto.query);
         sqlline.output("PLAN:");
         sqlline.output(plan.explain());
@@ -383,7 +383,7 @@ public class HoptimatorCliApp {
             throw new IllegalArgumentException("Expected one of 'not', 'empty', or 'value'");
         }
 
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
+        HoptimatorPlanner planner = HoptimatorPlanner.fromJdbc(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         String pipelineSql = impl.query().sql(MysqlSqlDialect.DEFAULT);
@@ -475,7 +475,7 @@ public class HoptimatorCliApp {
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
         InsertInto insertInto = parseInsertInto(sql);
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
+        HoptimatorPlanner planner = HoptimatorPlanner.fromJdbc(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         HopTable sink = planner.database(insertInto.database)
@@ -607,7 +607,7 @@ public class HoptimatorCliApp {
       String connectionUrl = sqlline.getConnectionMetadata().getUrl();
       try {
         InsertInto insertInto = parseInsertInto(sql);
-        HoptimatorPlanner planner = HoptimatorPlanner.fromModelFile(connectionUrl, properties);
+        HoptimatorPlanner planner = HoptimatorPlanner.fromJdbc(connectionUrl, properties);
         PipelineRel plan = planner.pipeline(insertInto.query);
         PipelineRel.Implementor impl = new PipelineRel.Implementor(plan);
         HopTable sink = planner.database(insertInto.database)
