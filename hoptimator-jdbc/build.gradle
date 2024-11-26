@@ -1,0 +1,30 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(':hoptimator-api')
+  implementation project(':hoptimator-util')
+  implementation libs.calcite.core
+  implementation libs.calcite.server
+  implementation libs.slf4j.api
+  testImplementation libs.quidem
+
+  testRuntimeOnly project(':hoptimator-demodb')
+	testImplementation(platform('org.junit:junit-bom:5.11.3'))
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+test {
+	useJUnitPlatform()
+	testLogging {
+		events "passed", "skipped", "failed"
+	}
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}

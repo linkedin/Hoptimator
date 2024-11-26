@@ -1,0 +1,8 @@
+#!/bin/sh
+
+BASEDIR="$( cd "$( dirname "$0" )" && pwd )"
+
+$BASEDIR/hoptimator-cli/build/install/hoptimator-cli/bin/hoptimator-cli sqlline.SqlLine \
+  -ac sqlline.HoptimatorAppConfig \
+  -u jdbc:hoptimator:// -n "" -p "" -nn "Hoptimator" $@
+

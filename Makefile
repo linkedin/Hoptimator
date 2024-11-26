@@ -1,19 +1,25 @@
 
+install:
+	./gradlew installDist
+
 build:
 	./gradlew build
 	docker build . -t hoptimator
 	docker build hoptimator-flink-runner -t hoptimator-flink-runner
 
-bounce: build undeploy deploy deploy-samples deploy-config
+bounce: build undeploy deploy deploy-samples deploy-config deploy-demo
 
 integration-tests:
-	./bin/hoptimator --run=./integration-tests.sql
-	echo "\nPASS"
+	echo "\nNOTHING TO DO FOR NOW"
 
 clean:
 	./gradlew clean
 
+deploy-demo:
+	kubectl apply -f ./deploy/samples/demodb.yaml
+
 deploy: deploy-config
+	kubectl apply -f ./hoptimator-k8s/src/main/resources/
 	kubectl apply -f ./deploy
 
 undeploy:

@@ -1,17 +1,20 @@
 
 rootProject.name='hoptimator'
 
-include 'hoptimator-catalog'
+include 'hoptimator-api'
+include 'hoptimator-avro'
+include 'hoptimator-catalog'          // <-- marked for deletion
 include 'hoptimator-cli'
-include 'hoptimator-cli-integration'
-include 'hoptimator-flink-adapter'
+include 'hoptimator-demodb'
 include 'hoptimator-flink-runner'
-include 'hoptimator-kafka-adapter'
-include 'hoptimator-models'
-include 'hoptimator-mysql-adapter'
+include 'hoptimator-jdbc'
+include 'hoptimator-k8s'
+include 'hoptimator-kafka-controller'
+include 'hoptimator-models'           // <-- marked for deletion
 include 'hoptimator-operator'
 include 'hoptimator-operator-integration'
-include 'hoptimator-planner'
+include 'hoptimator-planner'          // <-- marked for deletion
+include 'hoptimator-util'
 
 dependencyResolutionManagement {
   repositories {

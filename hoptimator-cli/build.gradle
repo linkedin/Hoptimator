@@ -1,25 +1,21 @@
 plugins {
-  id 'com.github.johnrengelman.shadow' version '8.1.1'
   id 'java'
+  id 'application'
   id 'idea'
   id 'maven-publish'
 }
 
 dependencies {
-  implementation project(':hoptimator-planner')
-  implementation project(':hoptimator-catalog')
-
-  implementation libs.avro 
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-api')
+  implementation project(':hoptimator-avro')
+  implementation project(':hoptimator-demodb')
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-k8s')
+  implementation project(':hoptimator-util')
+  implementation libs.calcite.core
   implementation libs.sqlline
-  implementation libs.slf4jApi
-  implementation libs.flinkClients
-  implementation libs.flinkTableRuntime
-  implementation libs.flinkTablePlanner
-  implementation libs.calciteCore
-  implementation libs.calciteAvatica
-
-  testImplementation libs.junit
-  testImplementation libs.assertj
+  implementation libs.slf4j.simple
 }
 
 publishing {
@@ -71,15 +67,6 @@ publishing {
 java {
   withJavadocJar()
   withSourcesJar()
-}
-
-shadowJar {
-  // This is required for Flink and Avatica to play nicely
-  relocate 'com.google', 'org.apache.flink.calcite.shaded.com.google'
-
-  exclude 'META-INF/*.RSA', 'META-INF/*.SF','META-INF/*.DSA'
-  zip64 true
-  mergeServiceFiles()
 }
 
 idea {

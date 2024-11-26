@@ -5,10 +5,11 @@ plugins {
 }
 
 dependencies {
-  implementation project(':hoptimator-catalog')
+  implementation project(':hoptimator-catalog')   // <-- marked for deletion
+  implementation project(':hoptimator-util')
 
-  implementation libs.calciteAvatica
-  implementation libs.calciteCore
+  implementation libs.calcite.avatica
+  implementation libs.calcite.core
 }
 
 publishing {

@@ -7,14 +7,14 @@ plugins {
 
 dependencies {
 
-  implementation libs.flinkConnectorKafka
-  implementation libs.flinkConnectorMySqlCdc
-  implementation libs.flinkCsv
+  implementation libs.flink.connector.kafka
+  implementation libs.flink.connector.mysql.cdc
+  implementation libs.flink.csv
 
   //Flink depends should be provided by runtime
-  compileOnly libs.flinkTablePlanner
-  compileOnly libs.flinkClients
-  compileOnly libs.flinkTableApiJavaBridge
+  compileOnly libs.flink.table.planner
+  compileOnly libs.flink.clients
+  compileOnly libs.flink.table.api.java.bridge
 
   testImplementation libs.junit
   testImplementation libs.assertj

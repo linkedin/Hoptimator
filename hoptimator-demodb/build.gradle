@@ -1,0 +1,9 @@
+plugins {
+  id 'java'
+}
+
+dependencies {
+  implementation project(':hoptimator-api')
+  implementation project(':hoptimator-util')
+  implementation libs.calcite.core
+}
