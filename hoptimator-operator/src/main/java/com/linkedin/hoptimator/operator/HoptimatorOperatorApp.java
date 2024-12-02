@@ -7,8 +7,10 @@ import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.ControllerManager;
 
 import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.models.V1alpha1Subscription;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionList;
+import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
 import com.linkedin.hoptimator.operator.subscription.SubscriptionReconciler;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 
@@ -93,6 +95,7 @@ public class HoptimatorOperatorApp {
       .readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
     Operator operator = new Operator(namespace, apiClient, informerFactory, properties);
+    K8sContext context = K8sContext.currentContext();
 
     operator.registerApi("Subscription", "subscription", "subscriptions", "hoptimator.linkedin.com",
       "v1alpha1", V1alpha1Subscription.class, V1alpha1SubscriptionList.class);
@@ -100,6 +103,7 @@ public class HoptimatorOperatorApp {
     List<Controller> controllers = new ArrayList<>();
     controllers.addAll(ControllerService.controllers(operator));
     controllers.add(SubscriptionReconciler.controller(operator, plannerFactory, environment, subscriptionFilter));
+    controllers.add(PipelineReconciler.controller(context));
 
     ControllerManager controllerManager = new ControllerManager(operator.informerFactory(),
       controllers.toArray(new Controller[0]));

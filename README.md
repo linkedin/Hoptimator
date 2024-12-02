@@ -42,6 +42,7 @@ Hoptimator requires a Kubernetes cluster. To connect from outside a Kubernetes c
 ```
   $ make install            # build and install SQL CLI
   $ make deploy deploy-demo # install CRDs and K8s objects
+  $ kubectl port-forward -n kafka svc/one-kafka-external-0 9092 &
   $ ./hoptimator
   > !intro
 ```

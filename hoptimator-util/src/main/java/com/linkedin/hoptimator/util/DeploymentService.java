@@ -92,9 +92,9 @@ public final class DeploymentService {
   public static PipelineRel.Implementor plan(RelNode rel) throws SQLException {
     RelTraitSet traitSet = rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
-    // TODO add materializations here (currently empty list)
     RelOptPlanner planner = rel.getCluster().getPlanner();
     PipelineRules.rules().forEach(x -> planner.addRule(x));
+    // TODO add materializations here (currently empty list)
     PipelineRel plan = (PipelineRel) program.run(rel.getCluster().getPlanner(), rel,
         traitSet, Collections.emptyList(), Collections.emptyList());
     PipelineRel.Implementor implementor = new PipelineRel.Implementor(plan);

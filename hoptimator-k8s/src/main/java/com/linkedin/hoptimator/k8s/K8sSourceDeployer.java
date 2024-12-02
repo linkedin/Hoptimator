@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import java.sql.SQLException;
 import java.util.Locale;
 
+/** Specifies an abstract Source/Sink with concrete YAML by applying TableTemplates. */
 class K8sSourceDeployer extends K8sYamlDeployer<Source> {
 
   private final K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> tableTemplateApi;

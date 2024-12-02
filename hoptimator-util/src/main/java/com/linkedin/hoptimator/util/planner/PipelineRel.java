@@ -16,6 +16,11 @@ import java.sql.SQLException;
 
 /**
  * Calling convention which implements a data pipeline.
+ *
+ * "Convention" here just means a target set of "traits" the planner should
+ * aim for. We can ask the planner to convert a query into the PIPELINE
+ * convention, and the result will be a PipelineRel. This in turn can be
+ * implemented as a Pipeline.
  */
 public interface PipelineRel extends RelNode {
 
@@ -23,8 +28,7 @@ public interface PipelineRel extends RelNode {
 
   void implement(Implementor implementor) throws SQLException;
 
-  /** Implements a deployable Pipeline.
-   */
+  /** Implements a deployable Pipeline. */
   class Implementor {
     private final RelNode relNode;
     private ScriptImplementor script = ScriptImplementor.empty();
@@ -46,9 +50,15 @@ public interface PipelineRel extends RelNode {
       return relNode.getRowType(); 
     }
 
-    public void implement(Source source) throws SQLException {
-      DeploymentService.deployables(source, Source.class).forEach(x -> pipeline.add(x));
-      Map<String, String> configs = ConnectionService.configure(source, Source.class);
+    /**
+     * Adds a Source/Sink to the pipeline.
+     * 
+     * This involves deploying any relevant objects, and configuring a
+     * a connector. The connector is configured via `CREATE TABLE...WITH(...)`.
+     */
+    public <T extends Source> void implement(T source, Class<T> clazz) throws SQLException {
+      DeploymentService.deployables(source, clazz).forEach(x -> pipeline.add(x));
+      Map<String, String> configs = ConnectionService.configure(source, clazz);
       script = script.connector(source.table(), source.rowType(), configs);
     }
 
@@ -60,7 +70,7 @@ public interface PipelineRel extends RelNode {
           .insert(sink.table(), relNode);
     }
 
-    /** Combine SQL and any Resources into a Pipeline */
+    /** Combine SQL and any Deployables into a Pipeline */
     public Pipeline pipeline() {
       return pipeline;
     }

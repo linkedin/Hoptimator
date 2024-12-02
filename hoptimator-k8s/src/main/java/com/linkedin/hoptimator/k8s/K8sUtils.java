@@ -4,11 +4,14 @@ import com.linkedin.hoptimator.util.Source;
 import com.linkedin.hoptimator.util.Sink;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec.MethodsEnum;
 
+import io.kubernetes.client.common.KubernetesType;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+
 import java.util.Collection;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
-final class K8sUtils {
+public final class K8sUtils {
 
   private K8sUtils() {
   }
@@ -48,6 +51,15 @@ final class K8sUtils {
     // end with an alphanumeric character
     if (!s.matches(".*[a-z0-9]$")) {
       throw new IllegalArgumentException("Name ends with illegal character: " + s);
+    }
+  }
+
+  public static String guessPlural(KubernetesType obj) {
+    String lower = obj.getKind().toLowerCase(Locale.ROOT);
+    if (lower.endsWith("y")) {
+      return lower.substring(0, lower.length() - 1) + "ies";
+    } else {
+      return lower + "s";
     }
   }
 
