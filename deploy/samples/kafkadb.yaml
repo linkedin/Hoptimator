@@ -1,0 +1,71 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: kafka-database
+spec:
+  schema: KAFKA
+  url: jdbc:kafka://bootstrap.servers=localhost:9092
+  dialect: Calcite
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTemplate
+metadata:
+  name: kafka-template
+spec:
+  databases:
+  - kafka-database
+  yaml: |
+    apiVersion: kafka.strimzi.io/v1beta2
+    kind: KafkaTopic
+    metadata:
+      name: {{name}}
+      namespace: kafka
+      labels:
+        strimzi.io/cluster: one
+    spec:
+      topicName: {{table}}
+      partitions: 1
+      replicas: 1
+      config:
+        retention.ms: 7200000
+        segment.bytes: 1073741824
+  connector: |
+    connector = kafka
+    topic = {{table}}
+    properties.bootstrap.servers = localhost:9092
+
+---
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: existing-topic-1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: one
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+
+---
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: existing-topic-2
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: one
+spec:
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+
+

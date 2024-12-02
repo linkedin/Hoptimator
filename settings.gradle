@@ -10,6 +10,7 @@ include 'hoptimator-flink-runner'
 include 'hoptimator-jdbc'
 include 'hoptimator-k8s'
 include 'hoptimator-kafka-controller'
+include 'hoptimator-kafka'
 include 'hoptimator-models'           // <-- marked for deletion
 include 'hoptimator-operator'
 include 'hoptimator-operator-integration'

@@ -38,6 +38,8 @@ jobs:
       run: make deploy
     - name: Deploy Samples
       run: make deploy-samples
+    - name: Wait for Readiness
+      run: kubectl wait kafka/one --for=condition=Ready --timeout=10m -n kafka
     - name: Run Integration Tests
       run: make integration-tests
     - name: Capture Cluster State

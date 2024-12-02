@@ -17,6 +17,7 @@ import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Properties;
 
+/** Configures an abstract Source/Sink by applying TableTemplates */
 class K8sConnector implements Connector<Source> {
 
   private final K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> tableTemplateApi;

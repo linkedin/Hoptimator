@@ -1,0 +1,36 @@
+!set outputformat mysql
+!use k8s
+
+insert into kafka."existing-topic-1" select * from kafka."existing-topic-2";
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafka-database-existing-topic-2
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: existing-topic-2
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafka-database-existing-topic-1
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: existing-topic-1
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+
+!specify

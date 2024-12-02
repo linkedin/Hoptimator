@@ -1,5 +1,6 @@
 plugins {
   id 'java'
+  id 'java-test-fixtures'
 }
 
 dependencies {
@@ -8,11 +9,17 @@ dependencies {
   implementation libs.calcite.core
   implementation libs.calcite.server
   implementation libs.slf4j.api
-  testImplementation libs.quidem
+
+  testFixturesImplementation libs.quidem
+  testFixturesImplementation libs.calcite.core
+  testFixturesImplementation project(':hoptimator-api')
+  testFixturesImplementation project(':hoptimator-util')
 
   testRuntimeOnly project(':hoptimator-demodb')
+	testFixturesImplementation(platform('org.junit:junit-bom:5.11.3'))
 	testImplementation(platform('org.junit:junit-bom:5.11.3'))
 	testImplementation 'org.junit.jupiter:junit-jupiter'
+	testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
   testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 }
