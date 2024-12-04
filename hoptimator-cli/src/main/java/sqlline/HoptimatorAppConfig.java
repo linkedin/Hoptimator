@@ -7,6 +7,7 @@ import com.linkedin.hoptimator.util.planner.PipelineRel;
 
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 import org.jline.reader.Completer;
 
@@ -90,9 +91,7 @@ public class HoptimatorAppConfig extends Application {
       try {
         RelNode rel = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root.rel;
         PipelineRel.Implementor plan = DeploymentService.plan(rel);
-        Sink sink = new Sink("PIPELINE", Arrays.asList(new String[]{"PIPELINE", "SINK"}), plan.rowType(),
-          Collections.emptyMap());
-        sqlline.output(plan.insertInto(sink).sql());
+        sqlline.output(plan.sql().apply(AnsiSqlDialect.DEFAULT));
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();

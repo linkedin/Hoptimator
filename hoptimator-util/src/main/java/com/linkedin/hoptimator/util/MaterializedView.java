@@ -1,32 +1,67 @@
 package com.linkedin.hoptimator.util;
 
-import org.apache.calcite.jdbc.CalcitePrepare;
+import com.linkedin.hoptimator.util.planner.Pipeline;
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
+
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.SqlDialect;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
-public class MaterializedView extends Sink {
+public class MaterializedView {
 
-  private final CalcitePrepare.Context context;
-  private final String sql;
+  private final String database;
+  private final List<String> path;
+  private final String viewSql;
+  private final Function<SqlDialect, String> pipelineSql;
+  private final Pipeline pipeline;
 
-  public MaterializedView(CalcitePrepare.Context context, String database, List<String> path,
-      RelDataType rowType, String sql, Map<String, String> options) {
-    super(database, path, rowType, options);
-    this.context = context;
-    this.sql = sql;
+  public MaterializedView(String database, List<String> path, String viewSql,
+      Function<SqlDialect, String> pipelineSql, Pipeline pipeline) {
+    this.database = database;
+    this.path = path;
+    this.viewSql = viewSql;
+    this.pipelineSql = pipelineSql;
+    this.pipeline = pipeline;
   }
 
-  /** Context required to evaluate the view */
-  public CalcitePrepare.Context context() {
-    return context;
+  /** SQL query which defines this view, e.g. SELECT ... FROM ... */
+  public String viewSql() {
+    return viewSql;
   }
 
-  public String sql() {
-    return sql;
+  public Pipeline pipeline() {
+    return pipeline;
   }
 
+  public Function<SqlDialect, String> pipelineSql() {
+    return pipelineSql;
+  }
+
+  /** The internal name for the database this table belongs to. Not necessary the same as schema. */
+  public String database() {
+    return database;
+  }
+
+  public String table() {
+    return path.get(path.size() - 1);
+  }
+
+  public String schema() {
+    return path.get(path.size() - 2);
+  }
+
+  public List<String> path() {
+    return path;
+  }
+
+  protected String pathString() {
+    return path.stream().collect(Collectors.joining("."));
+  }
+ 
   @Override
   public String toString() {
     return "MaterializedView[" + pathString() + "]";

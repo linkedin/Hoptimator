@@ -93,8 +93,8 @@ public final class PipelineRules {
 
     @Override
     public void implement(Implementor implementor) throws SQLException {
-      implementor.implement(new Source(database, table.getQualifiedName(), table.getRowType(),
-          Collections.emptyMap()), Source.class); // TODO pass in table scan hints
+      implementor.addSource(database, table.getQualifiedName(), table.getRowType(),
+          Collections.emptyMap()); // TODO pass in table scan hints
     }
   }
 
@@ -149,8 +149,9 @@ public final class PipelineRules {
 
     @Override
     public void implement(Implementor implementor) throws SQLException {
-      implementor.implement(new Sink(database, table.getQualifiedName(), table.getRowType(),
-          Collections.emptyMap()), Sink.class);
+      implementor.setSink(database, table.getQualifiedName(), table.getRowType(),
+          Collections.emptyMap());
+      implementor.setQuery(getInput());
     }
   }
 

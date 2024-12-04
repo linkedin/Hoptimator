@@ -2,8 +2,12 @@ package com.linkedin.hoptimator.util.planner;
 
 import com.linkedin.hoptimator.Deployable;
 
+import org.apache.calcite.sql.SqlDialect;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 import java.sql.SQLException;
 
 /**
@@ -11,10 +15,10 @@ import java.sql.SQLException;
  */
 public class Pipeline implements Deployable {
 
-  private List<Deployable> deployables = new ArrayList<>();
+  private List<Deployable> deployables;
 
-  public void add(Deployable deployable) {
-    deployables.add(deployable);
+  public Pipeline(List<Deployable> deployables) {
+    this.deployables = deployables;
   }
 
   @Override

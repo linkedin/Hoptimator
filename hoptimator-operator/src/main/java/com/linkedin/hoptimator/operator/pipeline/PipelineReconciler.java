@@ -62,7 +62,7 @@ public class PipelineReconciler implements Reconciler {
 
       log.info("Checking status of Pipeline {}...", name);
  
-      boolean ready = Arrays.asList(object.getSpec().getYaml().split("^---$")).stream()
+      boolean ready = Arrays.asList(object.getSpec().getYaml().split("\n---\n")).stream()
           .filter(x -> x != null && !x.isEmpty())
           .allMatch(x -> isReady(x));
 

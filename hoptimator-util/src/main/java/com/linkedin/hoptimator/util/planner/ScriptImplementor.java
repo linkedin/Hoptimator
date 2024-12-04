@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.List;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.Optional;
 
@@ -105,6 +106,11 @@ public interface ScriptImplementor {
       .replaceAll("\\n", " ").replaceAll("\\s*;\\s*", ";\n").trim();
   }
 
+  /** Generate SQL for a given dialect */
+  default Function<SqlDialect, String> seal() {
+    return x -> sql(x);
+  }
+
   /** Implements an arbitrary RelNode as a statement */
   class StatementImplementor implements ScriptImplementor {
     private final RelNode relNode;
@@ -137,7 +143,8 @@ public interface ScriptImplementor {
       if (select.getSelectList() != null) {
         select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
       }
-      w.literal(select.toSqlString(w.getDialect()).getSql());
+//      w.literal(select.toSqlString(w.getDialect()).getSql());
+      select.unparse(w, 0, 0);
     }
 
     // A `ROW(...)` operator which will unparse as just `(...)`.

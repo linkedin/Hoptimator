@@ -61,7 +61,7 @@ public class K8sYamlApi implements Api<String> {
   private DynamicKubernetesObject objFromYaml(String yaml) {
     DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
     if (obj.getMetadata().getNamespace() == null) {
-      obj.getMetadata().namespace(context.namespace());
+      obj.setMetadata(obj.getMetadata().namespace(context.namespace()));
     }
     return obj;
   }

@@ -11,6 +11,7 @@ docker run \
   ghcr.io/kubernetes-client/java/crd-model-gen:v1.0.6 \
   /generate.sh -o "$(pwd)/hoptimator-k8s" -n "" -p "com.linkedin.hoptimator.k8s" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/databases.crd.yaml" \
+  -u "$(pwd)/hoptimator-k8s/src/main/resources/jobtemplates.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/pipelines.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/tabletemplates.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/views.crd.yaml" \

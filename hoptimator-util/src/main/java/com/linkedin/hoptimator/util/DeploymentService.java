@@ -97,7 +97,8 @@ public final class DeploymentService {
     // TODO add materializations here (currently empty list)
     PipelineRel plan = (PipelineRel) program.run(rel.getCluster().getPlanner(), rel,
         traitSet, Collections.emptyList(), Collections.emptyList());
-    PipelineRel.Implementor implementor = new PipelineRel.Implementor(plan);
+    PipelineRel.Implementor implementor = new PipelineRel.Implementor();
+    implementor.visit(plan);
     return implementor;
   }
 }
