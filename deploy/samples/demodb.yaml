@@ -1,0 +1,35 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: ads-database
+spec:
+  schema: ADS
+  url: jdbc:demodb://ads
+  dialect: Calcite
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: profile-database
+spec:
+  schema: PROFILE
+  url: jdbc:demodb://profile
+  dialect: Calcite
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTemplate
+metadata:
+  name: demodb-template
+spec:
+  databases:
+  - profile-database
+  - ads-database
+  connector: |
+    connector = demo
+    database = {{database}}
+    table = {{table}}
+

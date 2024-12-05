@@ -1,0 +1,17 @@
+!set outputformat mysql
+!use demodb
+
+# We cannot create tables directly, yet, so we try overwriting a table with
+# an incompatible view. The built-in validators will complain.
+
+create or replace view ads.page_views as select 1;
+Backwards-incompatible change: cannot add a new non-nullable field
+!error
+
+create or replace view ads.page_views as select 1 as page_urn;
+Backwards-incompatible change: cannot assign to INTEGER from VARCHAR
+!error
+
+create or replace view ads.page_views as select 1 as member_urn;
+Forwards-incompatible change: cannot assign to VARCHAR from INTEGER
+!error

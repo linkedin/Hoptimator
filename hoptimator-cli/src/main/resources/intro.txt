@@ -1,53 +1,10 @@
-*** What is Hoptimator? ***
+Try:
 
-Hoptimator is an SQL-based control plane for complex data pipelines.
-
-Hoptimator turns high-level SQL _subscriptions_ into low-level SQL
-_pipelines_. Pipelines may involve an auto-generated Flink job (or
-similar) and any arbitrary resources required for the job to run. 
-
-*** How does it work? ***
-
-Hoptimator has a pluggable _adapter_ framework, which lets you wire-up
-arbtitary data sources. Adapters loosely correspond to "connectors"
-in the underlying compute engine (e.g. Flink Connectors), but they may
-bring along additional _baggage_. For example, an adapter may bring
-along a cache or a CDC stream as part of the resulting pipeline.
-
-*** What is this CLI? ***
-
-This CLI, based on `sqlline`, makes it easy to experiment with
-Hoptimator's SQL engine without creating real pipelines.
-
-The CLI works by running an in-process Flink job and tailing the
-results. The Flink job is close to what would run in production,
-but it doesn't _write_ anywhere.
-
-*** Show me! ***
-
-Try the following queries:
-
-  -- Adapters are exposed to sqlline as "schemas".
-  > !schemas
-
-  -- In SQL, everything is a Table.
-  > !tables
-
-  -- Use the DATAGEN namespace to play with fake data.
-  > SELECT * FROM DATAGEN.PERSON;
-  > SELECT AGE FROM DATAGEN.PERSON p, DATAGEN.COMPANY c WHERE c.CEO = p.NAME;
-
-  -- For testing purposes, you can run pipelines locally:
-  > !insert into RAWKAFKA."test-sink" SELECT * FROM DATAGEN.PERSON
-
-  -- There are several commands for debugging purposes:
-  > !pipeline SELECT * FROM DATAGEN.PERSON
-  > !pipeline SELECT AGE FROM DATAGEN.PERSON p, DATAGEN.COMPANY c WHERE c.CEO = p.NAME
-  > !avro SELECT AGE FROM DATAGEN.PERSON p, DATAGEN.COMPANY c WHERE c.CEO = p.NAME
-  > !yaml insert into RAWKAFKA."test-sink" SELECT * FROM DATAGEN.PERSON
-  > !mermaid insert into RAWKAFKA."test-sink" SELECT * FROM DATAGEN.PERSON
-
-  -- Happy hopping!
   > !help
+  > !tables
+  > !schemas
+  > create view foo as select * from ads.ad_clicks natural join profile.members;
+  > !yaml select * from foo
+  > !pipeline select * from foo
 
 

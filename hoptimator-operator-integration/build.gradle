@@ -6,19 +6,7 @@ plugins {
 
 dependencies {
   implementation project(':hoptimator-operator')
- 
-  // include adapters in integration tests 
-  implementation project(':hoptimator-kafka-adapter')
-  implementation project(':hoptimator-mysql-adapter')
-  implementation project(':hoptimator-flink-adapter')
-  implementation libs.slf4jSimple
-
-  implementation libs.calciteCore
-  implementation libs.kubernetesClient
-  implementation libs.kubernetesExtendedClient
-  implementation libs.slf4jApi
-  implementation libs.commonsCli
-  implementation libs.avro
+  implementation libs.slf4j.simple
   
   testImplementation libs.junit
   testImplementation libs.assertj
