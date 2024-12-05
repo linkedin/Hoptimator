@@ -7,7 +7,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 
-/** Validates that tables follow backwards-compatible schema evolution rules.  */
+/** Validates that tables follow forwards-compatible schema evolution rules.  */
 class ForwardCompatibilityValidator extends CompatibilityValidatorBase {
   
   @Override
