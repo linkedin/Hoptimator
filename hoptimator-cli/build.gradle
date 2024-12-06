@@ -11,6 +11,7 @@ dependencies {
   implementation project(':hoptimator-avro')
   implementation project(':hoptimator-demodb')
   implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-kafka')
   implementation project(':hoptimator-k8s')
   implementation project(':hoptimator-util')
   implementation libs.calcite.core

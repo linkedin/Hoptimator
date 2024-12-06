@@ -1,6 +1,6 @@
 
 install:
-	./gradlew installDist
+	./gradlew compileJava installDist
 
 build:
 	./gradlew build
@@ -9,8 +9,11 @@ build:
 
 bounce: build undeploy deploy deploy-samples deploy-config deploy-demo
 
+# Integration tests expect K8s and Kafka to be running
 integration-tests:
-	echo "\nNOTHING TO DO FOR NOW"
+	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
+	./gradlew intTest || kill `cat port-forward.pid`
+	kill `cat port-forward.pid`
 
 clean:
 	./gradlew clean
@@ -26,7 +29,7 @@ undeploy:
 	kubectl delete -f ./deploy || echo "skipping"
 	kubectl delete configmap hoptimator-configmap || echo "skipping"
 
-quickstart: build deploy-dev-environment deploy
+quickstart: build deploy
 
 deploy-dev-environment: 
 	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
@@ -54,4 +57,4 @@ release:
 	test -n "$(VERSION)"  # MISSING ARG: $$VERSION
 	./gradlew publish
 
-.PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples deploy-config integration-tests bounce generate-models release
+.PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples deploy-demo deploy-config integration-tests bounce generate-models release

@@ -36,7 +36,7 @@ public class HoptimatorAppConfig extends Application {
     list.addAll(super.getCommandHandlers(sqlline));
     list.add(new IntroCommandHandler(sqlline));
     list.add(new PipelineCommandHandler(sqlline));
-    list.add(new YamlCommandHandler(sqlline));
+    list.add(new SpecifyCommandHandler(sqlline));
     return list;
   }
 
@@ -112,17 +112,17 @@ public class HoptimatorAppConfig extends Application {
   }
 
 
-  private static final class YamlCommandHandler implements CommandHandler {
+  private static final class SpecifyCommandHandler implements CommandHandler {
 
     private final SqlLine sqlline;
 
-    private YamlCommandHandler(SqlLine sqlline) {
+    private SpecifyCommandHandler(SqlLine sqlline) {
       this.sqlline = sqlline;
     }
 
     @Override
     public String getName() {
-      return "yaml";
+      return "specify";
     }
 
     @Override
@@ -137,7 +137,7 @@ public class HoptimatorAppConfig extends Application {
 
     @Override
     public String matches(String line) {
-      if (startsWith(line, "!yaml") || startsWith(line, "yaml")) {
+      if (startsWith(line, "!spec") || startsWith(line, "spec")) {
         return line;
       } else {
         return null;
@@ -147,7 +147,7 @@ public class HoptimatorAppConfig extends Application {
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
       if (!(sqlline.getConnection() instanceof CalciteConnection)) {
-        sqlline.error("This connection doesn't support `!yaml`.");
+        sqlline.error("This connection doesn't support `!specify`.");
         dispatchCallback.setToFailure();
         return;
       }

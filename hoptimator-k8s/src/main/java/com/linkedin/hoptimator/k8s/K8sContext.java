@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import io.kubernetes.client.apimachinery.GroupVersion;
+import io.kubernetes.client.informer.SharedInformerFactory;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.util.ClientBuilder;
@@ -15,6 +16,7 @@ import java.io.Reader;
 import java.util.Optional;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.time.Duration;
 
 public class K8sContext {
 
@@ -23,11 +25,13 @@ public class K8sContext {
   private final String name;
   private final String namespace;
   private final ApiClient apiClient;
+  private final SharedInformerFactory informerFactory;
 
   public K8sContext(String name, String namespace, ApiClient apiClient) {
     this.name = name;
     this.namespace = namespace;
     this.apiClient = apiClient;
+    this.informerFactory = new SharedInformerFactory(apiClient);
   }
 
   public ApiClient apiClient() {
@@ -40,6 +44,15 @@ public class K8sContext {
 
   public String namespace() {
     return namespace;
+  }
+
+  public SharedInformerFactory informerFactory() {
+    return informerFactory;
+  }
+
+  public <T extends KubernetesObject, U extends KubernetesListObject> void registerInformer(
+      K8sApiEndpoint<T, U> endpoint, Duration resyncPeriod) {
+    informerFactory.sharedIndexInformerFor(generic(endpoint), endpoint.elementType(), resyncPeriod.toMillis());
   }
 
   public DynamicKubernetesApi dynamic(String apiVersion, String plural) {

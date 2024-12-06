@@ -1,0 +1,90 @@
+!set outputformat mysql
+!use k8s
+
+select * from ads.page_views;
++-------------------+-------------------+
+| PAGE_URN          | MEMBER_URN        |
++-------------------+-------------------+
+| urn:li:page:10000 | urn:li:member:123 |
+| urn:li:page:10001 | urn:li:member:456 |
++-------------------+-------------------+
+(2 rows)
+
+!ok
+
+select * from profile.members;
++------------+-----------+-------------------+--------------------------+
+| FIRST_NAME | LAST_NAME | MEMBER_URN        | COMPANY_URN              |
++------------+-----------+-------------------+--------------------------+
+| Alice      | Addison   | urn:li:member:123 | urn:li:company:linkedin  |
+| Bob        | Baker     | urn:li:member:456 | urn:li:company:linkedin  |
+| Charlie    | Chapman   | urn:li:member:789 | urn:li:company:microsoft |
++------------+-----------+-------------------+--------------------------+
+(3 rows)
+
+!ok
+
+create or replace view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+select * from ads.audience;
++------------+-----------+
+| FIRST_NAME | LAST_NAME |
++------------+-----------+
+| Alice      | Addison   |
+| Bob        | Baker     |
++------------+-----------+
+(2 rows)
+
+!ok
+
+create or replace materialized view ads.audience2 as select * from ads.audience;
+(0 rows modified)
+
+!update
+
+select * from ads.audience2;
++------------+-----------+
+| FIRST_NAME | LAST_NAME |
++------------+-----------+
+| Alice      | Addison   |
+| Bob        | Baker     |
++------------+-----------+
+(2 rows)
+
+!ok
+
+create or replace view ads.target as select member_urn from ads.audience natural join profile.members;
+(0 rows modified)
+
+!update
+
+select * from ads.target;
++-------------------+
+| MEMBER_URN        |
++-------------------+
+| urn:li:member:123 |
+| urn:li:member:456 |
++-------------------+
+(2 rows)
+
+!ok
+
+create or replace materialized view ads.target2 as select member_urn from ads.audience natural join profile.members;
+(0 rows modified)
+
+!update
+
+select * from ads.target2;
++-------------------+
+| MEMBER_URN        |
++-------------------+
+| urn:li:member:123 |
+| urn:li:member:456 |
++-------------------+
+(2 rows)
+
+!ok
+

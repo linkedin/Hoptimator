@@ -5,9 +5,9 @@ import com.linkedin.hoptimator.util.Api;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import io.kubernetes.client.openapi.ApiException;
 
 import java.util.Collection;
-import java.util.Locale;
 import java.sql.SQLException;
 
 public class K8sYamlApi implements Api<String> {
@@ -27,44 +27,50 @@ public class K8sYamlApi implements Api<String> {
   public void create(String yaml) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
     KubernetesApiResponse<DynamicKubernetesObject> resp = context.dynamic(obj.getApiVersion(),
-        guessPlural(obj)).create(obj);
-    checkResponse(resp);
+        K8sUtils.guessPlural(obj)).create(obj);
+    checkResponse(yaml, resp);
   }
 
   @Override
   public void delete(String yaml) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
     KubernetesApiResponse<DynamicKubernetesObject> resp = context.dynamic(obj.getApiVersion(),
-        guessPlural(obj)).delete(obj.getMetadata().getName());
-    checkResponse(resp);
+        K8sUtils.guessPlural(obj)).delete(obj.getMetadata().getNamespace(),
+        obj.getMetadata().getName());
+    checkResponse(yaml, resp);
   }
 
   @Override
   public void update(String yaml) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
-    KubernetesApiResponse<DynamicKubernetesObject> resp = context.dynamic(obj.getApiVersion(),
-        guessPlural(obj)).update(obj);
-    checkResponse(resp);
-  }
-
-  private String guessPlural(DynamicKubernetesObject obj) {
-    String lower = obj.getKind().toLowerCase(Locale.ROOT);
-    if (lower.endsWith("y")) {
-      return lower.substring(0, lower.length() - 1) + "ies";
+    KubernetesApiResponse<DynamicKubernetesObject> existing = context.dynamic(obj.getApiVersion(),
+        K8sUtils.guessPlural(obj)).get(obj.getMetadata().getNamespace(),
+        obj.getMetadata().getName());
+    final KubernetesApiResponse<DynamicKubernetesObject> resp;
+    if (existing.isSuccess()) {
+      obj.setMetadata(existing.getObject().getMetadata());
+      resp = context.dynamic(obj.getApiVersion(),
+          K8sUtils.guessPlural(obj)).update(obj);
     } else {
-      return lower + "s";
+      resp = context.dynamic(obj.getApiVersion(),
+          K8sUtils.guessPlural(obj)).create(obj);
     }
+    checkResponse(yaml, resp);
   }
-
+ 
   private DynamicKubernetesObject objFromYaml(String yaml) {
     DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
-    obj.getMetadata().namespace(context.namespace());
+    if (obj.getMetadata().getNamespace() == null) {
+      obj.getMetadata().namespace(context.namespace());
+    }
     return obj;
   }
  
-  private void checkResponse(KubernetesApiResponse<?> resp) throws SQLException {
-    if (!resp.isSuccess()) {
-      throw new SQLException(resp.getStatus().getMessage());
+  private void checkResponse(String yaml, KubernetesApiResponse<?> resp) throws SQLException {
+    try {
+      resp.throwsApiException();
+    } catch (ApiException e) {
+      throw new SQLException("Error applying Kubernetes YAML:\n" + yaml, e);
     }
   }
 }
