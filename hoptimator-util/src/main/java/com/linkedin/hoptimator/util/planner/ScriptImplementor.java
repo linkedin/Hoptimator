@@ -143,7 +143,6 @@ public interface ScriptImplementor {
       if (select.getSelectList() != null) {
         select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
       }
-//      w.literal(select.toSqlString(w.getDialect()).getSql());
       select.unparse(w, 0, 0);
     }
 
