@@ -49,9 +49,6 @@ public class K8sYamlApi implements Api<String> {
     final KubernetesApiResponse<DynamicKubernetesObject> resp;
     if (existing.isSuccess()) {
       obj.setMetadata(existing.getObject().getMetadata());
-      if (obj.getMetadata().getResourceVersion() == null) {
-        throw new IllegalArgumentException("Wat.");
-      }
       resp = context.dynamic(obj.getApiVersion(),
           K8sUtils.guessPlural(obj)).update(obj);
     } else {

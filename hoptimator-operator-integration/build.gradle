@@ -13,7 +13,7 @@ dependencies {
 }
 
 application {
-  mainClassName  = 'com.linkedin.hoptimator.operator.HoptimatorOperatorApp2'
+  mainClassName  = 'com.linkedin.hoptimator.operator.PipelineOperatorApp'
 }
 
 idea {

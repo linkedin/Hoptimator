@@ -15,11 +15,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.time.Duration;
 
-public class HoptimatorOperatorApp2 {
+public class PipelineOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
 
   public static void main(String[] args) throws Exception {
-    new HoptimatorOperatorApp2().run();
+    new PipelineOperatorApp().run();
   }
 
   public void run() throws Exception {
