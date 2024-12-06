@@ -1,6 +1,8 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.util.Sink;
 import com.linkedin.hoptimator.util.Source;
+import com.linkedin.hoptimator.util.Job;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
@@ -27,6 +29,9 @@ public class K8sDeployerProvider implements DeployerProvider {
     }
     if (Source.class.isAssignableFrom(clazz)) {
       list.add((Deployer<T>) new K8sSourceDeployer(K8sContext.currentContext()));
+    }
+    if (Job.class.isAssignableFrom(clazz)) {
+      list.add((Deployer<T>) new K8sJobDeployer(K8sContext.currentContext()));
     }
     return list;
   }

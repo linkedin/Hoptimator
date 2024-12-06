@@ -31,53 +31,56 @@ public interface Template {
 
   /** Basic Environment implementation */
   class SimpleEnvironment implements Environment {
-    private final Map<String, String> vars = new HashMap<>();
+    private final Map<String, Supplier<String>> vars;
 
     public SimpleEnvironment() {
+      this.vars = new HashMap<>();
     }
 
-    public SimpleEnvironment(Properties properties) {
-      properties.forEach((k, v) -> vars.put(k.toString(), v.toString()));
+    public SimpleEnvironment(Map<String, Supplier<String>> vars) {
+      this.vars = vars;
     }
 
-    public SimpleEnvironment(Map<String, String> vars) {
-      exportAll(vars);
+    protected void export(String key, String value) {
+      vars.put(key, () -> value);
     }
 
-    protected void export(String property, String value) {
-      vars.put(property, value);
+    protected void export(String key, Supplier<String> supplier) {
+      vars.put(key, supplier);
     }
 
     protected void exportAll(Map<String, String> properties) {
-      vars.putAll(properties);
+      properties.forEach((k, v) -> vars.put(k, () -> v));
     }
 
     public SimpleEnvironment with(String key, String value) {
-      Map<String, String> thisVars = this.vars;
-      return new SimpleEnvironment(){{
-        exportAll(thisVars);
+      return new SimpleEnvironment(vars){{
         export(key, value);
       }};
     }
 
     public SimpleEnvironment with(Map<String, String> values) {
-      Map<String, String> thisVars = this.vars;
-      return new SimpleEnvironment() {{
-        exportAll(thisVars);
+      return new SimpleEnvironment(vars) {{
         exportAll(values);
+      }};
+    }
+
+    public SimpleEnvironment with(String key, Supplier<String> supplier) {
+      return new SimpleEnvironment(vars){{
+        export(key, supplier);
       }};
     }
 
     @Override
     public String getOrDefault(String key, Supplier<String> f) {
-      if (!vars.containsKey(key)) {
+      if (!vars.containsKey(key) || vars.get(key).get() == null) {
         if (f == null || f.get() == null) {
           throw new IllegalArgumentException("No variable '" + key + "' found in the environment");
         } else {
           return f.get();
         }
       }
-      return vars.get(key);
+      return vars.get(key).get();
     }
   }
 

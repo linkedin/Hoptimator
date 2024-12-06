@@ -2,6 +2,8 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
@@ -35,6 +37,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1TableTemplate, V1alpha1TableTemplateList> TABLE_TEMPLATES =
       new K8sApiEndpoint<>("TableTemplate", "hoptimator.linkedin.com", "v1alpha1", "tabletemplates", false,
       V1alpha1TableTemplate.class, V1alpha1TableTemplateList.class);
+  public static final K8sApiEndpoint<V1alpha1JobTemplate, V1alpha1JobTemplateList> JOB_TEMPLATES =
+      new K8sApiEndpoint<>("JobTemplate", "hoptimator.linkedin.com", "v1alpha1", "jobtemplates", false,
+      V1alpha1JobTemplate.class, V1alpha1JobTemplateList.class);
 
   private K8sApiEndpoints() {
   }

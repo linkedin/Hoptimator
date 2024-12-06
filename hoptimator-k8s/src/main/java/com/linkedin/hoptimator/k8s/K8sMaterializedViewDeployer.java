@@ -25,6 +25,6 @@ class K8sMaterializedViewDeployer extends K8sDeployer<MaterializedView, V1alpha1
         .metadata(new V1ObjectMeta().name(name))
         .spec(new V1alpha1ViewSpec()
             .view(q.pollLast()).schema(q.pollLast())
-            .sql(view.sql()).materialized(true));
+            .sql(view.viewSql()).materialized(true));
   }
 }

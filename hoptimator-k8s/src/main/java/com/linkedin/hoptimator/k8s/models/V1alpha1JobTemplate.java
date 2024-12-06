@@ -20,27 +20,21 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
-import io.kubernetes.client.openapi.models.V1ListMeta;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * TableTemplateList is a list of TableTemplate
+ * Template to apply to matching jobs.
  */
-@ApiModel(description = "TableTemplateList is a list of TableTemplate")
+@ApiModel(description = "Template to apply to matching jobs.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-04T03:00:43.571Z[Etc/UTC]")
-public class V1alpha1TableTemplateList implements io.kubernetes.client.common.KubernetesListObject {
+public class V1alpha1JobTemplate implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
-
-  public static final String SERIALIZED_NAME_ITEMS = "items";
-  @SerializedName(SERIALIZED_NAME_ITEMS)
-  private List<V1alpha1TableTemplate> items = new ArrayList<>();
 
   public static final String SERIALIZED_NAME_KIND = "kind";
   @SerializedName(SERIALIZED_NAME_KIND)
@@ -48,10 +42,14 @@ public class V1alpha1TableTemplateList implements io.kubernetes.client.common.Ku
 
   public static final String SERIALIZED_NAME_METADATA = "metadata";
   @SerializedName(SERIALIZED_NAME_METADATA)
-  private V1ListMeta metadata = null;
+  private V1ObjectMeta metadata = null;
+
+  public static final String SERIALIZED_NAME_SPEC = "spec";
+  @SerializedName(SERIALIZED_NAME_SPEC)
+  private V1alpha1JobTemplateSpec spec;
 
 
-  public V1alpha1TableTemplateList apiVersion(String apiVersion) {
+  public V1alpha1JobTemplate apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -74,34 +72,7 @@ public class V1alpha1TableTemplateList implements io.kubernetes.client.common.Ku
   }
 
 
-  public V1alpha1TableTemplateList items(List<V1alpha1TableTemplate> items) {
-    
-    this.items = items;
-    return this;
-  }
-
-  public V1alpha1TableTemplateList addItemsItem(V1alpha1TableTemplate itemsItem) {
-    this.items.add(itemsItem);
-    return this;
-  }
-
-   /**
-   * List of tabletemplates. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
-   * @return items
-  **/
-  @ApiModelProperty(required = true, value = "List of tabletemplates. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md")
-
-  public List<V1alpha1TableTemplate> getItems() {
-    return items;
-  }
-
-
-  public void setItems(List<V1alpha1TableTemplate> items) {
-    this.items = items;
-  }
-
-
-  public V1alpha1TableTemplateList kind(String kind) {
+  public V1alpha1JobTemplate kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -124,7 +95,7 @@ public class V1alpha1TableTemplateList implements io.kubernetes.client.common.Ku
   }
 
 
-  public V1alpha1TableTemplateList metadata(V1ListMeta metadata) {
+  public V1alpha1JobTemplate metadata(V1ObjectMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -137,13 +108,36 @@ public class V1alpha1TableTemplateList implements io.kubernetes.client.common.Ku
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1ListMeta getMetadata() {
+  public V1ObjectMeta getMetadata() {
     return metadata;
   }
 
 
-  public void setMetadata(V1ListMeta metadata) {
+  public void setMetadata(V1ObjectMeta metadata) {
     this.metadata = metadata;
+  }
+
+
+  public V1alpha1JobTemplate spec(V1alpha1JobTemplateSpec spec) {
+    
+    this.spec = spec;
+    return this;
+  }
+
+   /**
+   * Get spec
+   * @return spec
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "")
+
+  public V1alpha1JobTemplateSpec getSpec() {
+    return spec;
+  }
+
+
+  public void setSpec(V1alpha1JobTemplateSpec spec) {
+    this.spec = spec;
   }
 
 
@@ -155,27 +149,27 @@ public class V1alpha1TableTemplateList implements io.kubernetes.client.common.Ku
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1TableTemplateList v1alpha1TableTemplateList = (V1alpha1TableTemplateList) o;
-    return Objects.equals(this.apiVersion, v1alpha1TableTemplateList.apiVersion) &&
-        Objects.equals(this.items, v1alpha1TableTemplateList.items) &&
-        Objects.equals(this.kind, v1alpha1TableTemplateList.kind) &&
-        Objects.equals(this.metadata, v1alpha1TableTemplateList.metadata);
+    V1alpha1JobTemplate v1alpha1JobTemplate = (V1alpha1JobTemplate) o;
+    return Objects.equals(this.apiVersion, v1alpha1JobTemplate.apiVersion) &&
+        Objects.equals(this.kind, v1alpha1JobTemplate.kind) &&
+        Objects.equals(this.metadata, v1alpha1JobTemplate.metadata) &&
+        Objects.equals(this.spec, v1alpha1JobTemplate.spec);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(apiVersion, items, kind, metadata);
+    return Objects.hash(apiVersion, kind, metadata, spec);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1TableTemplateList {\n");
+    sb.append("class V1alpha1JobTemplate {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
-    sb.append("    items: ").append(toIndentedString(items)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    metadata: ").append(toIndentedString(metadata)).append("\n");
+    sb.append("    spec: ").append(toIndentedString(spec)).append("\n");
     sb.append("}");
     return sb.toString();
   }

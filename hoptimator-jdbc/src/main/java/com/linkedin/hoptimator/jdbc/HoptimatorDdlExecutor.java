@@ -22,9 +22,14 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.MaterializedView;
+import com.linkedin.hoptimator.util.Sink;
+import com.linkedin.hoptimator.util.planner.Pipeline;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.server.DdlExecutor;
@@ -35,6 +40,7 @@ import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
@@ -166,9 +172,18 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTableMacro);
       RelDataType rowType = materializedViewTable.getRowType(new SqlTypeFactoryImpl(
           RelDataTypeSystem.DEFAULT));
-      MaterializedView hook = new MaterializedView(context, database, viewPath, rowType, sql,
-          Collections.emptyMap());  // TODO support CREATE ... WITH (options...)
+ 
+      // Plan a pipeline to materialize the view.
+      RelNode rel = HoptimatorDriver.convert(context, sql).root.rel;
+      PipelineRel.Implementor plan = DeploymentService.plan(rel);
+      plan.setSink(database, viewPath, rowType, Collections.emptyMap());
+      Pipeline pipeline = plan.pipeline();
+   
+      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(),
+          plan.pipeline());
+      // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook, MaterializedView.class);
+      pipeline.update();
       if (create.getReplace()) {
         DeploymentService.update(hook, MaterializedView.class); 
       } else {

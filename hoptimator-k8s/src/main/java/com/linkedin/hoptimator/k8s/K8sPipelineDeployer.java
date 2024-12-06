@@ -11,6 +11,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
@@ -27,12 +28,9 @@ class K8sPipelineDeployer extends K8sDeployer<MaterializedView, V1alpha1Pipeline
   @Override
   protected V1alpha1Pipeline toK8sObject(MaterializedView view) throws SQLException {
     String name = K8sUtils.canonicalizeName(view.path());
-    RelNode rel = HoptimatorDriver.convert(view.context(), view.sql()).root.rel;
-    PipelineRel.Implementor plan = DeploymentService.plan(rel);
-    String sql = plan.insertInto(view).sql();
-    plan.implement(view, Sink.class); // include the sink in the plan
-    String yaml = plan.pipeline().specify().stream()
+    String yaml = view.pipeline().specify().stream()
         .collect(Collectors.joining("\n---\n"));
+    String sql = view.pipelineSql().apply(AnsiSqlDialect.DEFAULT);
     return new V1alpha1Pipeline().kind(K8sApiEndpoints.PIPELINES.kind())
         .apiVersion(K8sApiEndpoints.PIPELINES.apiVersion())
         .metadata(new V1ObjectMeta().name(name))
