@@ -1,10 +1,18 @@
 plugins {
+  id 'com.github.johnrengelman.shadow' version '8.1.1'
   id 'java'
   id 'maven-publish'
 }
 
 dependencies {
-  // plz keep it this way
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-util')
+  implementation project(':hoptimator-k8s')
+}
+
+shadowJar {
+  zip64 true
+  mergeServiceFiles()
 }
 
 publishing {
@@ -29,12 +37,12 @@ publishing {
   publications {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
-      artifactId = 'hoptimator-api'
+      artifactId = 'hoptimator-jdbc-driver'
       version = System.getenv('VERSION')
       from components.java
       pom {
-        name = 'LinkedIn Hoptimator API'
-        description = 'API for extending Hoptimator'
+        name = 'Hoptimator JDBC Driver'
+        description = 'JDBC driver fat jar'
         url = 'https://github.com/linkedin/Hoptimator'
         licenses {
           license {
