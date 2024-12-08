@@ -41,8 +41,8 @@ publishing {
       version = System.getenv('VERSION')
       from components.java
       pom {
-        name = 'Hoptimator JDBC Driver'
-        description = 'JDBC driver fat jar'
+        name = 'hoptimator-jdbc-driver'
+        description = 'Hoptimator JDBC driver fat jar'
         url = 'https://github.com/linkedin/Hoptimator'
         licenses {
           license {

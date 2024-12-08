@@ -33,7 +33,7 @@ publishing {
       version = System.getenv('VERSION')
       from components.java
       pom {
-        name = 'LinkedIn Hoptimator API'
+        name = 'hoptimator-api'
         description = 'API for extending Hoptimator'
         url = 'https://github.com/linkedin/Hoptimator'
         licenses {
