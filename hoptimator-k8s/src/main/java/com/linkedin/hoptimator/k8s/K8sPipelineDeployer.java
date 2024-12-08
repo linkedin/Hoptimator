@@ -1,9 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.MaterializedView;
-import com.linkedin.hoptimator.util.Sink;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
@@ -11,7 +12,6 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
@@ -30,7 +30,7 @@ class K8sPipelineDeployer extends K8sDeployer<MaterializedView, V1alpha1Pipeline
     String name = K8sUtils.canonicalizeName(view.path());
     String yaml = view.pipeline().specify().stream()
         .collect(Collectors.joining("\n---\n"));
-    String sql = view.pipelineSql().apply(AnsiSqlDialect.DEFAULT);
+    String sql = view.pipelineSql().apply(SqlDialect.ANSI);
     return new V1alpha1Pipeline().kind(K8sApiEndpoints.PIPELINES.kind())
         .apiVersion(K8sApiEndpoints.PIPELINES.apiVersion())
         .metadata(new V1ObjectMeta().name(name))

@@ -1,9 +1,4 @@
-package com.linkedin.hoptimator.util.planner;
-
-import com.linkedin.hoptimator.Deployable;
-
-import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+package com.linkedin.hoptimator;
 
 import java.util.ArrayList;
 import java.util.List;

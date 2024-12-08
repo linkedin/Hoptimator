@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.Sink;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
 import net.hydromatic.quidem.AbstractCommand;

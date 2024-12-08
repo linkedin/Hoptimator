@@ -1,13 +1,12 @@
 package sqlline;
 
+import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.Sink;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 import org.jline.reader.Completer;
 
@@ -91,7 +90,7 @@ public class HoptimatorAppConfig extends Application {
       try {
         RelNode rel = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root.rel;
         PipelineRel.Implementor plan = DeploymentService.plan(rel);
-        sqlline.output(plan.sql().apply(AnsiSqlDialect.DEFAULT));
+        sqlline.output(plan.sql().apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();

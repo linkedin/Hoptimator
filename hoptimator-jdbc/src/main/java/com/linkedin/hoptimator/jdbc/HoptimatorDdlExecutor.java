@@ -20,10 +20,10 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.MaterializedView;
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.planner.Pipeline;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 

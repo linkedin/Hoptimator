@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Source;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.Template;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;

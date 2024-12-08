@@ -1,10 +1,4 @@
-package com.linkedin.hoptimator.util;
-
-import com.linkedin.hoptimator.util.planner.Pipeline;
-import com.linkedin.hoptimator.util.planner.ScriptImplementor;
-
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.sql.SqlDialect;
+package com.linkedin.hoptimator;
 
 import java.util.List;
 import java.util.Map;
