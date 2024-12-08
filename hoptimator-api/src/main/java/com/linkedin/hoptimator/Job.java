@@ -1,6 +1,4 @@
-package com.linkedin.hoptimator.util;
-
-import org.apache.calcite.sql.SqlDialect;
+package com.linkedin.hoptimator;
 
 import java.util.List;
 import java.util.Map;

@@ -1,14 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Job;
+import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.Template;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
-
-import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-import org.apache.calcite.sql.dialect.MysqlSqlDialect;
-import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -36,9 +32,9 @@ class K8sJobDeployer extends K8sYamlDeployer<Job> {
         .with("database", job.sink().database())
         .with("schema", job.sink().schema())
         .with("table", job.sink().table())
-        .with("sql", sql.apply(MysqlSqlDialect.DEFAULT))
-        .with("ansisql", sql.apply(AnsiSqlDialect.DEFAULT))
-        .with("calcitesql", sql.apply(CalciteSqlDialect.DEFAULT))
+        .with("sql", sql.apply(SqlDialect.MYSQL))
+        .with("ansisql", sql.apply(SqlDialect.ANSI))
+        .with("calcitesql", sql.apply(SqlDialect.CALCITE))
         .with(job.sink().options());
     return jobTemplateApi.list().stream()
         .map(x -> x.getSpec())

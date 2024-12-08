@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.MaterializedView;
+import com.linkedin.hoptimator.MaterializedView;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;

@@ -20,6 +20,8 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlRowTypeNameSpec;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.dialect.MysqlSqlDialect;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
@@ -107,8 +109,24 @@ public interface ScriptImplementor {
   }
 
   /** Generate SQL for a given dialect */
-  default Function<SqlDialect, String> seal() {
-    return x -> sql(x);
+  default Function<com.linkedin.hoptimator.SqlDialect, String> seal() {
+    return x -> {
+      final SqlDialect dialect;
+      switch(x) {
+      case ANSI:
+        dialect = AnsiSqlDialect.DEFAULT;
+        break;
+      case CALCITE:
+        dialect = CalciteSqlDialect.DEFAULT;
+        break;
+      case MYSQL:
+        dialect = MysqlSqlDialect.DEFAULT;
+        break;
+      default:
+        throw new IllegalArgumentException("Unknown SQL dialect.");
+      };
+      return sql(dialect);
+    };
   }
 
   /** Implements an arbitrary RelNode as a statement */

@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Source;
-import com.linkedin.hoptimator.util.Sink;
 import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.ConnectorProvider;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
 
 import java.util.ArrayList;

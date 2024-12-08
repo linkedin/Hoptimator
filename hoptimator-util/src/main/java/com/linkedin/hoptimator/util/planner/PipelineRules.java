@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.Source;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcConvention;
 
 import org.apache.calcite.jdbc.CalciteSchema;

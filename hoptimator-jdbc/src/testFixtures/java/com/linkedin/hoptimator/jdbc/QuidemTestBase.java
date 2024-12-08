@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.Sink;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
 import net.hydromatic.quidem.AbstractCommand;
@@ -83,7 +83,7 @@ public abstract class QuidemTestBase {
               CalciteConnection conn = (CalciteConnection) context.connection();
               RelNode rel = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root.rel;
               String specs = DeploymentService.plan(rel).pipeline().specify().stream()
-                  .collect(Collectors.joining("---\n"));
+                  .sorted().collect(Collectors.joining("---\n"));
               String[] lines = specs.replaceAll(";\n","\n").split("\n");
               context.echo(Arrays.asList(lines));
             } else {

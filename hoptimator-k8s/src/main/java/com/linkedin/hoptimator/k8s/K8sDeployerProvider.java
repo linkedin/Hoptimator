@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.Source;
-import com.linkedin.hoptimator.util.Job;
+import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
-import com.linkedin.hoptimator.util.MaterializedView;
+import com.linkedin.hoptimator.MaterializedView;
 
 import org.apache.calcite.schema.impl.ViewTable;
 
