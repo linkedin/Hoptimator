@@ -10,7 +10,7 @@ build:
 bounce: build undeploy deploy deploy-samples deploy-config deploy-demo
 
 # Integration tests expect K8s and Kafka to be running
-integration-tests:
+integration-tests: deploy-samples
 	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
 	./gradlew intTest || kill `cat port-forward.pid`
 	kill `cat port-forward.pid`
@@ -44,7 +44,11 @@ deploy-samples: deploy
 	kubectl wait --for=condition=Established=True	\
 	  crds/subscriptions.hoptimator.linkedin.com \
 	  crds/kafkatopics.hoptimator.linkedin.com \
-	  crds/sqljobs.hoptimator.linkedin.com
+	  crds/databases.hoptimator.linkedin.com \
+	  crds/views.hoptimator.linkedin.com \
+	  crds/pipelines.hoptimator.linkedin.com \
+	  crds/tabletemplates.hoptimator.linkedin.com \
+	  crds/jobtemplates.hoptimator.linkedin.com
 	kubectl apply -f ./deploy/samples
 
 deploy-config:
