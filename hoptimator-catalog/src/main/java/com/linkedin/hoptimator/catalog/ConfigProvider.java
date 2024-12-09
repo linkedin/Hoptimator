@@ -4,8 +4,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+
 
 /** Provides key-value properties, e.g. for connector configs. */
 public interface ConfigProvider {
@@ -21,8 +22,7 @@ public interface ConfigProvider {
     if (configs == null) {
       return empty();
     } else {
-      return x -> configs.entrySet().stream()
-        .collect(Collectors.toMap(y -> y.getKey(), y -> y.getValue().toString()));
+      return x -> configs.entrySet().stream().collect(Collectors.toMap(y -> y.getKey(), y -> y.getValue().toString()));
     }
   }
 
@@ -66,7 +66,6 @@ public interface ConfigProvider {
   }
 
   default ConfigProvider withPrefix(String prefix) {
-    return x -> config(x).entrySet().stream()
-      .collect(Collectors.toMap(y -> prefix + y.getKey(), y -> y.getValue()));
+    return x -> config(x).entrySet().stream().collect(Collectors.toMap(y -> prefix + y.getKey(), y -> y.getValue()));
   }
 }

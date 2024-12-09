@@ -1,9 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
+import io.kubernetes.client.common.KubernetesListObject;
+import io.kubernetes.client.common.KubernetesObject;
+
 import com.linkedin.hoptimator.util.RemoteTable;
 
-import io.kubernetes.client.common.KubernetesObject;
-import io.kubernetes.client.common.KubernetesListObject;
 
 public abstract class K8sTable<T extends KubernetesObject, U extends KubernetesListObject, V>
     extends RemoteTable<T, V> {

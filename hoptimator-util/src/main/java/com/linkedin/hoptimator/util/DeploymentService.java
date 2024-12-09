@@ -1,24 +1,25 @@
 package com.linkedin.hoptimator.util;
 
-import com.linkedin.hoptimator.Deployable;
-import com.linkedin.hoptimator.Deployer;
-import com.linkedin.hoptimator.DeployerProvider;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
-import com.linkedin.hoptimator.util.planner.PipelineRules;
-
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.tools.Program;
-import org.apache.calcite.tools.Programs;
-
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
-import java.sql.SQLException;
+
+import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.tools.Program;
+import org.apache.calcite.tools.Programs;
+
+import com.linkedin.hoptimator.Deployable;
+import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeployerProvider;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
+import com.linkedin.hoptimator.util.planner.PipelineRules;
+
 
 public final class DeploymentService {
 
@@ -59,8 +60,7 @@ public final class DeploymentService {
   }
 
   public static <T> Collection<Deployer<T>> deployers(Class<T> clazz) {
-    return providers().stream().flatMap(x -> x.deployers(clazz).stream())
-        .collect(Collectors.toList());
+    return providers().stream().flatMap(x -> x.deployers(clazz).stream()).collect(Collectors.toList());
   }
 
   public static <T> List<Deployable> deployables(T object, Class<T> clazz) {
@@ -95,8 +95,8 @@ public final class DeploymentService {
     RelOptPlanner planner = rel.getCluster().getPlanner();
     PipelineRules.rules().forEach(x -> planner.addRule(x));
     // TODO add materializations here (currently empty list)
-    PipelineRel plan = (PipelineRel) program.run(rel.getCluster().getPlanner(), rel,
-        traitSet, Collections.emptyList(), Collections.emptyList());
+    PipelineRel plan = (PipelineRel) program.run(rel.getCluster().getPlanner(), rel, traitSet, Collections.emptyList(),
+        Collections.emptyList());
     PipelineRel.Implementor implementor = new PipelineRel.Implementor();
     implementor.visit(plan);
     return implementor;

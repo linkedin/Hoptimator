@@ -1,12 +1,13 @@
 package com.linkedin.hoptimator.operator;
 
-import io.kubernetes.client.openapi.models.V1ConfigMap;
-
 import java.util.ArrayList;
-import java.util.Properties;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
+
+import io.kubernetes.client.openapi.models.V1ConfigMap;
+
 
 public class ConfigAssembler {
   private final Operator operator;
@@ -14,7 +15,7 @@ public class ConfigAssembler {
   private final Map<String, String> overrides = new HashMap<>();
 
   public ConfigAssembler(Operator operator) {
-    this.operator = operator;    
+    this.operator = operator;
   }
 
   public void addOverride(String key, String value) {
@@ -48,7 +49,7 @@ public class ConfigAssembler {
     }
 
     Map<String, String> fetch(Operator operator) {
-      return operator.<V1ConfigMap>fetch("configmap", namespace, name).getData(); 
+      return operator.<V1ConfigMap>fetch("configmap", namespace, name).getData();
     }
   }
 }

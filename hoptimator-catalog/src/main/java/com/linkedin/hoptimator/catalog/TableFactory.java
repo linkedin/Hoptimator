@@ -1,8 +1,9 @@
 package com.linkedin.hoptimator.catalog;
 
+import java.util.Collections;
+
 import org.apache.calcite.rel.type.RelDataType;
 
-import java.util.Collections;
 
 /** Constructs a HopTable */
 public interface TableFactory {
@@ -35,8 +36,8 @@ public interface TableFactory {
     @Override
     public HopTable table(String database, String name, RelDataType rowType) {
       return new HopTable(database, name, rowType, resourceProvider.readResources(name),
-        resourceProvider.writeResources(name),
-        ScriptImplementor.empty().connector(database, name, rowType, configProvider.config(name)));
+          resourceProvider.writeResources(name),
+          ScriptImplementor.empty().connector(database, name, rowType, configProvider.config(name)));
     }
   }
 }

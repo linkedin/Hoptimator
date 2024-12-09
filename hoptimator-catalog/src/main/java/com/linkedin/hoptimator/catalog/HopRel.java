@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.catalog;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.rel.RelNode;
 
+
 /**
  * Calling convention that ultimately gets converted to a Pipeline or similar.
  *
@@ -11,7 +12,7 @@ import org.apache.calcite.rel.RelNode;
  * and/or Hoptimator may support additional calling conventions (e.g. batch jobs
  * or build-and-push jobs). This calling convention -- and indeed, this entire
  * module -- makes no assumptions about the compute layer.
- *  
+ *
  */
 public interface HopRel extends RelNode {
   Convention CONVENTION = new Convention.Impl("HOP", HopRel.class);

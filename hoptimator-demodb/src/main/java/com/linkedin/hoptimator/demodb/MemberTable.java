@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.demodb;
 
 import com.linkedin.hoptimator.util.ArrayTable;
 
+
 public class MemberTable extends ArrayTable<MemberTable.Row> {
 
   // CHECKSTYLE:OFF

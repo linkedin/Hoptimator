@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+
 /**
  * Enables an adapter to emit arbitrary Resources for a given table.
  *
@@ -20,16 +21,12 @@ public interface ResourceProvider {
 
   /** Resources required when reading from the table */
   default Collection<Resource> readResources(String tableName) {
-    return resources(tableName).stream()
-      .filter(x -> !(x instanceof WriteResource))
-      .collect(Collectors.toList());
+    return resources(tableName).stream().filter(x -> !(x instanceof WriteResource)).collect(Collectors.toList());
   }
 
   /** Resources required when writing to the table */
   default Collection<Resource> writeResources(String tableName) {
-    return resources(tableName).stream()
-      .filter(x -> !(x instanceof ReadResource))
-      .collect(Collectors.toList());
+    return resources(tableName).stream().filter(x -> !(x instanceof ReadResource)).collect(Collectors.toList());
   }
 
   /**
@@ -59,15 +56,14 @@ public interface ResourceProvider {
       combined.addAll(sources);
 
       // remove all non-leaf-node upstream Resources
-      sources.removeAll(sources.stream().flatMap(y -> y.inputs().stream())
-        .collect(Collectors.toList()));
+      sources.removeAll(sources.stream().flatMap(y -> y.inputs().stream()).collect(Collectors.toList()));
 
       // remove all read/write-only upstream Resources
       sources.removeAll(sources.stream()
-        .filter(y -> y instanceof ReadResource || y instanceof WriteResource)
-        .collect(Collectors.toList()));
+          .filter(y -> y instanceof ReadResource || y instanceof WriteResource)
+          .collect(Collectors.toList()));
 
-      // link all sources to all sinks       
+      // link all sources to all sinks
       sink.resources(x).forEach(y -> {
         combined.add(new Resource(y) {{
           if (!(y instanceof ReadResource || y instanceof WriteResource)) {
@@ -115,9 +111,8 @@ public interface ResourceProvider {
     return x -> {
       List<Resource> combined = new ArrayList<>();
       combined.addAll(resources(x));
-      combined.addAll(readResourceProvider.resources(x).stream()
-        .map(y -> new ReadResource(y))
-        .collect(Collectors.toList()));
+      combined.addAll(
+          readResourceProvider.resources(x).stream().map(y -> new ReadResource(y)).collect(Collectors.toList()));
       return combined;
     };
   }
@@ -127,9 +122,8 @@ public interface ResourceProvider {
     return x -> {
       List<Resource> combined = new ArrayList<>();
       combined.addAll(resources(x));
-      combined.addAll(writeResourceProvider.resources(x).stream()
-        .map(y -> new WriteResource(y))
-        .collect(Collectors.toList()));
+      combined.addAll(
+          writeResourceProvider.resources(x).stream().map(y -> new WriteResource(y)).collect(Collectors.toList()));
       return combined;
     };
   }
@@ -167,15 +161,15 @@ public interface ResourceProvider {
   }
 
   /** A Resource that shouldn't be provided when reading from the table. */
-  static class ReadResource extends Resource {
+  class ReadResource extends Resource {
 
     public ReadResource(Resource resource) {
       super(resource);
     }
   }
 
-  /** A Resource that shouldn't be provided when wriring to the table. */
-  static class WriteResource extends Resource {
+  /** A Resource that shouldn't be provided when wiring to the table. */
+  class WriteResource extends Resource {
 
     public WriteResource(Resource resource) {
       super(resource);

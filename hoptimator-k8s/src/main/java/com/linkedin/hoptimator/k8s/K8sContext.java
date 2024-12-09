@@ -1,22 +1,23 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.time.Duration;
+import java.util.Optional;
+
 import io.kubernetes.client.apimachinery.GroupVersion;
-import io.kubernetes.client.informer.SharedInformerFactory;
-import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.common.KubernetesListObject;
+import io.kubernetes.client.common.KubernetesObject;
+import io.kubernetes.client.informer.SharedInformerFactory;
+import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.util.ClientBuilder;
 import io.kubernetes.client.util.KubeConfig;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
-import io.kubernetes.client.openapi.ApiClient;
 
-import java.io.IOException;
-import java.io.File;
-import java.io.Reader;
-import java.util.Optional;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.time.Duration;
 
 public class K8sContext {
 
@@ -68,13 +69,15 @@ public class K8sContext {
     return dynamic(endpoint.group(), endpoint.version(), endpoint.plural());
   }
 
-  public <T extends KubernetesObject, U extends KubernetesListObject> GenericKubernetesApi<T, U> generic(Class<T> t, Class<U> u,
-      String group, String version, String plural) {
+  public <T extends KubernetesObject, U extends KubernetesListObject> GenericKubernetesApi<T, U> generic(Class<T> t,
+      Class<U> u, String group, String version, String plural) {
     return new GenericKubernetesApi<T, U>(t, u, group, version, plural, apiClient);
   }
 
-  public <T extends KubernetesObject, U extends KubernetesListObject> GenericKubernetesApi<T, U> generic(K8sApiEndpoint<T, U> endpoint) {
-    return generic(endpoint.elementType(), endpoint.listType(), endpoint.group(), endpoint.version(), endpoint.plural());
+  public <T extends KubernetesObject, U extends KubernetesListObject> GenericKubernetesApi<T, U> generic(
+      K8sApiEndpoint<T, U> endpoint) {
+    return generic(endpoint.elementType(), endpoint.listType(), endpoint.group(), endpoint.version(),
+        endpoint.plural());
   }
 
   @Override

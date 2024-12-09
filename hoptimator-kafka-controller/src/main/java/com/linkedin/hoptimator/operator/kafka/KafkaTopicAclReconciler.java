@@ -1,18 +1,11 @@
 package com.linkedin.hoptimator.operator.kafka;
 
-import com.linkedin.hoptimator.operator.Operator;
-import com.linkedin.hoptimator.operator.ConfigAssembler;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
-import com.linkedin.hoptimator.models.V1alpha1Acl;
-import com.linkedin.hoptimator.models.V1alpha1AclSpec;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.models.V1OwnerReference;
-
+import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.common.acl.AccessControlEntry;
 import org.apache.kafka.common.acl.AclBinding;
 import org.apache.kafka.common.acl.AclOperation;
@@ -20,18 +13,19 @@ import org.apache.kafka.common.acl.AclPermissionType;
 import org.apache.kafka.common.resource.PatternType;
 import org.apache.kafka.common.resource.ResourcePattern;
 import org.apache.kafka.common.resource.ResourceType;
-import org.apache.kafka.clients.admin.AdminClient;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.concurrent.ExecutionException;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+
+import com.linkedin.hoptimator.models.V1alpha1Acl;
+import com.linkedin.hoptimator.models.V1alpha1AclSpec;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
+import com.linkedin.hoptimator.operator.ConfigAssembler;
+import com.linkedin.hoptimator.operator.Operator;
+
 
 public class KafkaTopicAclReconciler implements Reconciler {
   private final static Logger log = LoggerFactory.getLogger(KafkaTopicAclReconciler.class);
@@ -60,7 +54,7 @@ public class KafkaTopicAclReconciler implements Reconciler {
 
       String targetKind = object.getSpec().getResource().getKind();
 
-      if (!targetKind.equals("KafkaTopic")) {
+      if (!"KafkaTopic".equals(targetKind)) {
         log.info("Not a KafkaTopic Acl. Skipping.");
         return new Result(false);
       }
@@ -68,17 +62,17 @@ public class KafkaTopicAclReconciler implements Reconciler {
       V1alpha1AclSpec.MethodEnum method = object.getSpec().getMethod();
       AclOperation operation;
       switch (method) {
-      case READ:
-        operation = AclOperation.READ;
-        break;
-      case WRITE:
-        operation = AclOperation.WRITE;
-        break;
-      default:
-        log.info("Unsupported KafkaTopic Acl operation {}. Skipping.", method);
-        return new Result(false);
+        case READ:
+          operation = AclOperation.READ;
+          break;
+        case WRITE:
+          operation = AclOperation.WRITE;
+          break;
+        default:
+          log.info("Unsupported KafkaTopic Acl operation {}. Skipping.", method);
+          return new Result(false);
       }
-      
+
       String targetName = object.getSpec().getResource().getName();
       String principal = object.getSpec().getPrincipal();
 
@@ -91,8 +85,8 @@ public class KafkaTopicAclReconciler implements Reconciler {
 
       // assemble AdminClient config
       ConfigAssembler assembler = new ConfigAssembler(operator);
-      list(target.getSpec().getClientConfigs()).forEach(x ->
-        assembler.addRef(namespace, x.getConfigMapRef().getName()));
+      list(target.getSpec().getClientConfigs()).forEach(
+          x -> assembler.addRef(namespace, x.getConfigMapRef().getName()));
       map(target.getSpec().getClientOverrides()).forEach((k, v) -> assembler.addOverride(k, v));
       Properties properties = assembler.assembleProperties();
       log.info("Using AdminClient config: {}", properties);
@@ -100,9 +94,9 @@ public class KafkaTopicAclReconciler implements Reconciler {
       AdminClient admin = AdminClient.create(properties);
       try {
         log.info("Creating KafkaTopic Acl for {}...", target.getSpec().getTopicName());
-        AclBinding binding = new AclBinding(new ResourcePattern(ResourceType.TOPIC,
-          target.getSpec().getTopicName(), PatternType.LITERAL), new AccessControlEntry(
-          principal, "*", operation, AclPermissionType.ALLOW));
+        AclBinding binding = new AclBinding(
+            new ResourcePattern(ResourceType.TOPIC, target.getSpec().getTopicName(), PatternType.LITERAL),
+            new AccessControlEntry(principal, "*", operation, AclPermissionType.ALLOW));
         admin.createAcls(Collections.singleton(binding)).all().get();
         log.info("Granted {} {} access to {}.", principal, method, target.getSpec().getTopicName());
       } finally {

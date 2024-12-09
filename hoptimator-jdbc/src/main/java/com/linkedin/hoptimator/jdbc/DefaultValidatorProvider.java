@@ -1,10 +1,11 @@
 package com.linkedin.hoptimator.jdbc;
 
+import java.util.Collection;
+import java.util.Collections;
+
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.ValidatorProvider;
 
-import java.util.Collection;
-import java.util.Collections;
 
 /** Provides DefaultValidator. */
 public class DefaultValidatorProvider implements ValidatorProvider {

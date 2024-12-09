@@ -1,23 +1,22 @@
 package com.linkedin.hoptimator.planner;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
+import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.util.Litmus;
 
-import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.catalog.ResourceProvider;
 import com.linkedin.hoptimator.catalog.HopTable;
+import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.catalog.ScriptImplementor;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 /**
  * Calling convention which implements an SQL-based streaming data pipeline.
@@ -81,8 +80,7 @@ public interface PipelineRel extends RelNode {
     public ScriptImplementor insertInto(HopTable sink) {
       RelOptUtil.eq(sink.name(), sink.rowType(), "subscription", rowType(), Litmus.THROW);
       RelNode castRel = RelOptUtil.createCastRel(relNode, sink.rowType(), true);
-      return script.database(sink.database()).with(sink)
-        .insert(sink.database(), sink.name(), castRel);
+      return script.database(sink.database()).with(sink).insert(sink.database(), sink.name(), castRel);
     }
 
     /** Add any resources, SQL, DDL etc required to access the table. */

@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.util;
 
-import java.util.Locale;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Properties;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 
 /** A convenient way to generate K8s YAML. */
 public interface Template {
@@ -54,7 +54,7 @@ public interface Template {
     }
 
     public SimpleEnvironment with(String key, String value) {
-      return new SimpleEnvironment(vars){{
+      return new SimpleEnvironment(vars) {{
         export(key, value);
       }};
     }
@@ -66,7 +66,7 @@ public interface Template {
     }
 
     public SimpleEnvironment with(String key, Supplier<String> supplier) {
-      return new SimpleEnvironment(vars){{
+      return new SimpleEnvironment(vars) {{
         export(key, supplier);
       }};
     }
@@ -157,12 +157,12 @@ public interface Template {
     public SimpleTemplate(String template) {
       this.template = template;
     }
-        
+
     @Override
     public String render(Environment env) {
       StringBuffer sb = new StringBuffer();
-      Pattern p = Pattern.compile(
-        "([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
+      Pattern p =
+          Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
       Matcher m = p.matcher(template);
       while (m.find()) {
         String prefix = m.group(1);
@@ -182,7 +182,7 @@ public interface Template {
         String replacement = quotedPrefix + quotedValue.replaceAll("\\n", quotedPrefix);
         m.appendReplacement(sb, replacement);
       }
-      m.appendTail(sb); 
+      m.appendTail(sb);
       return sb.toString();
     }
 
@@ -191,16 +191,16 @@ public interface Template {
       String[] funcs = transform.split("\\W+");
       for (String f : funcs) {
         switch (f) {
-        case "toLowerCase":
-          res = res.toLowerCase(Locale.ROOT);
-          break;
-        case "toUpperCase":
-          res = res.toUpperCase(Locale.ROOT);
-          break;
-        case "concat":
-          res = res.replace("\n", "");
-          break;
-        default:
+          case "toLowerCase":
+            res = res.toLowerCase(Locale.ROOT);
+            break;
+          case "toUpperCase":
+            res = res.toUpperCase(Locale.ROOT);
+            break;
+          case "concat":
+            res = res.replace("\n", "");
+            break;
+          default:
         }
       }
       return res;

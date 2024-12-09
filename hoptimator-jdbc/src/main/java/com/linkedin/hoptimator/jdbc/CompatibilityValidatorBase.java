@@ -1,14 +1,15 @@
 package com.linkedin.hoptimator.jdbc;
 
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+
 import com.linkedin.hoptimator.Validator;
 
-import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.SchemaPlus;
 
 /** Base class for shared schema evolution validators.  */
 abstract class CompatibilityValidatorBase implements Validator<SchemaPlus> {
-  
+
   @Override
   public void validate(SchemaPlus schema, Issues issues) {
     try {

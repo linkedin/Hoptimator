@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
 /**
  * Manifests streaming SqlJobs as Flink jobs.
  *
@@ -55,7 +56,7 @@ public class FlinkStreamingSqlJobReconciler implements Reconciler {
 
       List<String> sql = object.getSpec().getSql();
       String script = sql.stream().collect(Collectors.joining(";\n"));
- 
+
       DialectEnum dialect = object.getSpec().getDialect();
       if (!DialectEnum.FLINK.equals(dialect)) {
         log.info("Not Flink SQL. Skipping.");
@@ -73,7 +74,7 @@ public class FlinkStreamingSqlJobReconciler implements Reconciler {
       boolean allReady = true;
       boolean anyFailed = false;
       for (String yaml : sqlJob.render(templateFactory)) {
-        operator.apply(yaml, object); 
+        operator.apply(yaml, object);
         if (!operator.isReady(yaml)) {
           allReady = false;
         }
@@ -95,10 +96,10 @@ public class FlinkStreamingSqlJobReconciler implements Reconciler {
         result = new Result(false); // done
       }
 
-      operator.apiFor(SQLJOB).updateStatus(object, x -> object.getStatus())
+      operator.apiFor(SQLJOB)
+          .updateStatus(object, x -> object.getStatus())
           .onFailure((x, y) -> log.error("Failed to update status of SqlJob {}: {}.", name, y.getMessage()))
           .throwsApiException();
- 
     } catch (Exception e) {
       log.error("Encountered exception while reconciling Flink streaming SqlJob {}/{}", namespace, name, e);
       return new Result(true, operator.failureRetryDuration());

@@ -1,10 +1,26 @@
 package com.linkedin.hoptimator.operator;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.ControllerManager;
 import io.kubernetes.client.informer.SharedInformerFactory;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.util.Config;
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.ControllerManager;
 
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.k8s.K8sContext;
@@ -14,23 +30,6 @@ import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
 import com.linkedin.hoptimator.operator.subscription.SubscriptionReconciler;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 
-import org.apache.commons.cli.CommandLine;
-import org.apache.commons.cli.CommandLineParser;
-import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
-import org.apache.commons.cli.Option;
-import org.apache.commons.cli.Options;
-import org.apache.commons.cli.ParseException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 
 public class HoptimatorOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
@@ -81,8 +80,7 @@ public class HoptimatorOperatorApp {
     String urlInput = cmd.getArgs()[0];
     String namespaceInput = cmd.getOptionValue("namespace", "default");
 
-    new HoptimatorOperatorApp(urlInput, namespaceInput, Config.defaultClient(), null,
-        new Properties()).run();
+    new HoptimatorOperatorApp(urlInput, namespaceInput, Config.defaultClient(), null, new Properties()).run();
   }
 
   public void run() throws Exception {
@@ -91,24 +89,23 @@ public class HoptimatorOperatorApp {
     // ensure JDBC connection works, and that static classes are initialized in the main thread
     HoptimatorPlanner planner = plannerFactory.makePlanner();
 
-    apiClient.setHttpClient(apiClient.getHttpClient().newBuilder()
-      .readTimeout(0, TimeUnit.SECONDS).build());
+    apiClient.setHttpClient(apiClient.getHttpClient().newBuilder().readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
     Operator operator = new Operator(namespace, apiClient, informerFactory, properties);
     K8sContext context = K8sContext.currentContext();
 
-    operator.registerApi("Subscription", "subscription", "subscriptions", "hoptimator.linkedin.com",
-      "v1alpha1", V1alpha1Subscription.class, V1alpha1SubscriptionList.class);
+    operator.registerApi("Subscription", "subscription", "subscriptions", "hoptimator.linkedin.com", "v1alpha1",
+        V1alpha1Subscription.class, V1alpha1SubscriptionList.class);
 
     List<Controller> controllers = new ArrayList<>();
     controllers.addAll(ControllerService.controllers(operator));
     controllers.add(SubscriptionReconciler.controller(operator, plannerFactory, environment, subscriptionFilter));
     controllers.add(PipelineReconciler.controller(context));
 
-    ControllerManager controllerManager = new ControllerManager(operator.informerFactory(),
-      controllers.toArray(new Controller[0]));
-  
+    ControllerManager controllerManager =
+        new ControllerManager(operator.informerFactory(), controllers.toArray(new Controller[0]));
+
     log.info("Starting operator with {} controllers.", controllers.size());
-    controllerManager.run();  
+    controllerManager.run();
   }
 }

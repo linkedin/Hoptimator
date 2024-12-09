@@ -1,7 +1,9 @@
 package com.linkedin.hoptimator.jdbc;
 
-import com.linkedin.hoptimator.Catalog;
-import com.linkedin.hoptimator.util.WrappedSchemaPlus;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
 
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -13,10 +15,9 @@ import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParser;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Properties;
+import com.linkedin.hoptimator.Catalog;
+import com.linkedin.hoptimator.util.WrappedSchemaPlus;
+
 
 /** Driver for :jdbc:hoptimator:// connections. */
 public class HoptimatorDriver extends Driver {
@@ -93,7 +94,7 @@ public class HoptimatorDriver extends Driver {
     @Override
     protected SqlParser.Config parserConfig() {
       return SqlParser.config().withParserFactory(HoptimatorDdlExecutor.PARSER_FACTORY);
-    }  
+    }
 
     @Override
     public void executeDdl(Context context, SqlNode node) {

@@ -1,16 +1,18 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.Deployer;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 
-import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.common.KubernetesListObject;
+import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.util.Yaml;
 
-import java.util.List;
-import java.util.Collections;
-import java.sql.SQLException;
+import com.linkedin.hoptimator.Deployer;
 
-public abstract class K8sDeployer<T, U extends KubernetesObject, V extends KubernetesListObject> implements Deployer<T> {
+
+public abstract class K8sDeployer<T, U extends KubernetesObject, V extends KubernetesListObject>
+    implements Deployer<T> {
 
   private K8sApi<U, V> api;
 
@@ -38,5 +40,5 @@ public abstract class K8sDeployer<T, U extends KubernetesObject, V extends Kuber
     return Collections.singletonList(Yaml.dump(toK8sObject(t)));
   }
 
-  protected abstract U toK8sObject(T t) throws SQLException; 
+  protected abstract U toK8sObject(T t) throws SQLException;
 }

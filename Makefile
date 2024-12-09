@@ -67,7 +67,8 @@ undeploy: undeploy-dev-environment
 	kubectl delete configmap hoptimator-configmap || echo "skipping"
 
 generate-models:
-	./models/generate-models.sh
+	./generate-models.sh
+	./hoptimator-models/generate-models.sh # <-- marked for deletion
 
 release:
 	test -n "$(VERSION)"  # MISSING ARG: $$VERSION

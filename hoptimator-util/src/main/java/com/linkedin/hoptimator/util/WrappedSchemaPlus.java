@@ -1,8 +1,9 @@
 package com.linkedin.hoptimator.util;
 
+import java.sql.Wrapper;
+
 import org.apache.calcite.schema.SchemaPlus;
 
-import java.sql.Wrapper;
 
 public class WrappedSchemaPlus implements Wrapper {
 

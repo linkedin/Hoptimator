@@ -3,8 +3,8 @@ package com.linkedin.hoptimator;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,7 +12,7 @@ import java.util.function.Function;
 
 
 public interface Validator<T> {
-  
+
   void validate(T t, Issues issues);
 
   static void validateSubdomainName(String s, Issues issues) {
@@ -142,7 +142,7 @@ public interface Validator<T> {
       Collections.reverse(parts);
       return String.join("/", parts);
     }
-        
+
     private String format(int indentLevel) {
       if (empty()) {
         return "";

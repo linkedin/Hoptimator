@@ -1,22 +1,21 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Job;
-import com.linkedin.hoptimator.util.Template;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
-
-import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-import org.apache.calcite.sql.dialect.MysqlSqlDialect;
-import org.apache.calcite.sql.dialect.CalciteSqlDialect;
-
-import java.util.Collection;
-import java.util.Collections;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.sql.SQLException;
+
+import org.apache.calcite.sql.SqlDialect;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.sql.dialect.MysqlSqlDialect;
+
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
+import com.linkedin.hoptimator.util.Job;
+import com.linkedin.hoptimator.util.Template;
+
 
 /** Specifies an abstract Job with concrete YAML by applying JobTemplates. */
 class K8sJobDeployer extends K8sYamlDeployer<Job> {
@@ -31,8 +30,8 @@ class K8sJobDeployer extends K8sYamlDeployer<Job> {
   @Override
   public List<String> specify(Job job) throws SQLException {
     Function<SqlDialect, String> sql = job.sql();
-    Template.Environment env = Template.Environment.EMPTY
-        .with("name", job.sink().database() + "-" + job.sink().table().toLowerCase(Locale.ROOT))
+    Template.Environment env = Template.Environment.EMPTY.with("name",
+            job.sink().database() + "-" + job.sink().table().toLowerCase(Locale.ROOT))
         .with("database", job.sink().database())
         .with("schema", job.sink().schema())
         .with("table", job.sink().table())
@@ -40,7 +39,8 @@ class K8sJobDeployer extends K8sYamlDeployer<Job> {
         .with("ansisql", sql.apply(AnsiSqlDialect.DEFAULT))
         .with("calcitesql", sql.apply(CalciteSqlDialect.DEFAULT))
         .with(job.sink().options());
-    return jobTemplateApi.list().stream()
+    return jobTemplateApi.list()
+        .stream()
         .map(x -> x.getSpec())
         .filter(x -> x.getDatabases() == null || x.getDatabases().contains(job.sink().database()))
         .filter(x -> x.getYaml() != null)

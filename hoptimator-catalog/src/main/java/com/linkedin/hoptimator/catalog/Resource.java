@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.catalog;
 
-import java.io.InputStream;
 import java.io.IOException;
-import java.util.Arrays;
+import java.io.InputStream;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -11,16 +11,15 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.UUID;
 import java.util.function.Supplier;
-import java.util.regex.Pattern;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.net.URL;
+
 
 /**
  * Represents something required by a Table.
@@ -77,8 +76,8 @@ public abstract class Resource {
 
   /** Export a map of values */
   protected void export(String key, Map<String, String> values) {
-    export(key, values.entrySet().stream().map(x -> x.getKey() + ": " + x.getValue())
-      .collect(Collectors.joining("\n")));
+    export(key,
+        values.entrySet().stream().map(x -> x.getKey() + ": " + x.getValue()).collect(Collectors.joining("\n")));
   }
 
   /** Export a list of values */
@@ -124,7 +123,7 @@ public abstract class Resource {
   @Override
   public int hashCode() {
     return toString().hashCode();
-  } 
+  }
 
   @Override
   public String toString() {
@@ -199,7 +198,7 @@ public abstract class Resource {
       Map<String, String> newVars = new HashMap<>();
       newVars.putAll(vars);
       newVars.put(key, value);
-      return new SimpleEnvironment(){{
+      return new SimpleEnvironment() {{
         exportAll(newVars);
       }};
     }
@@ -300,12 +299,12 @@ public abstract class Resource {
       this.env = env;
       this.template = template;
     }
-        
+
     @Override
     public String render(Resource resource) {
       StringBuffer sb = new StringBuffer();
-      Pattern p = Pattern.compile(
-        "([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
+      Pattern p =
+          Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
       Matcher m = p.matcher(template);
       while (m.find()) {
         String prefix = m.group(1);
@@ -325,7 +324,7 @@ public abstract class Resource {
         String replacement = quotedPrefix + quotedValue.replaceAll("\\n", quotedPrefix);
         m.appendReplacement(sb, replacement);
       }
-      m.appendTail(sb); 
+      m.appendTail(sb);
       return sb.toString();
     }
 
@@ -334,18 +333,18 @@ public abstract class Resource {
       String[] funcs = transform.split("\\W+");
       for (String f : funcs) {
         switch (f) {
-        case "toLowerCase":
-          res = res.toLowerCase(Locale.ROOT);
-          break;
-        case "toUpperCase":
-          res = res.toUpperCase(Locale.ROOT);
-          break;
-        case "toName":
-          res = canonicalizeName(res);
-          break;
-        case "concat":
-          res = res.replace("\n", "");
-          break;
+          case "toLowerCase":
+            res = res.toLowerCase(Locale.ROOT);
+            break;
+          case "toUpperCase":
+            res = res.toUpperCase(Locale.ROOT);
+            break;
+          case "toName":
+            res = canonicalizeName(res);
+            break;
+          case "concat":
+            res = res.replace("\n", "");
+            break;
         }
       }
       return res;
@@ -362,12 +361,11 @@ public abstract class Resource {
     Collection<Template> find(Resource resource) throws IOException;
 
     default Collection<String> render(Resource resource) throws IOException {
-      return find(resource).stream().map(x -> x.render(resource))
-        .collect(Collectors.toList());
+      return find(resource).stream().map(x -> x.render(resource)).collect(Collectors.toList());
     }
   }
- 
-  /** Finds Templates for a given Resource by looking for resource files in the classpath. */ 
+
+  /** Finds Templates for a given Resource by looking for resource files in the classpath. */
   public static class SimpleTemplateFactory implements TemplateFactory {
     private final Environment env;
 
@@ -380,7 +378,7 @@ public abstract class Resource {
       String template = resource.template();
       List<Template> res = new ArrayList<>();
       for (Enumeration<URL> e = getClass().getClassLoader().getResources(template + ".yaml.template");
-          e.hasMoreElements();) {
+          e.hasMoreElements(); ) {
         InputStream in = e.nextElement().openStream();
         StringBuilder sb = new StringBuilder();
         Scanner scanner = new Scanner(in);

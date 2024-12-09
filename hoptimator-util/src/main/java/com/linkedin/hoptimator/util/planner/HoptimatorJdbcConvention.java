@@ -5,6 +5,7 @@ import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.sql.SqlDialect;
 
+
 public class HoptimatorJdbcConvention extends JdbcConvention {
 
   private final String database;
