@@ -1,15 +1,13 @@
 package com.linkedin.hoptimator.util;
 
-import com.linkedin.hoptimator.util.planner.Pipeline;
-import com.linkedin.hoptimator.util.planner.ScriptImplementor;
-
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.sql.SqlDialect;
-
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.apache.calcite.sql.SqlDialect;
+
+import com.linkedin.hoptimator.util.planner.Pipeline;
+
 
 public class MaterializedView {
 
@@ -19,8 +17,8 @@ public class MaterializedView {
   private final Function<SqlDialect, String> pipelineSql;
   private final Pipeline pipeline;
 
-  public MaterializedView(String database, List<String> path, String viewSql,
-      Function<SqlDialect, String> pipelineSql, Pipeline pipeline) {
+  public MaterializedView(String database, List<String> path, String viewSql, Function<SqlDialect, String> pipelineSql,
+      Pipeline pipeline) {
     this.database = database;
     this.path = path;
     this.viewSql = viewSql;
@@ -61,7 +59,7 @@ public class MaterializedView {
   protected String pathString() {
     return path.stream().collect(Collectors.joining("."));
   }
- 
+
   @Override
   public String toString() {
     return "MaterializedView[" + pathString() + "]";

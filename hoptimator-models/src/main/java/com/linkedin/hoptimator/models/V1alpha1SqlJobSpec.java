@@ -30,7 +30,7 @@ import java.util.List;
  * SQL job spec
  */
 @ApiModel(description = "SQL job spec")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-07-26T20:21:01.735Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-09T16:55:33.927Z[Etc/UTC]")
 public class V1alpha1SqlJobSpec {
   /**
    * Flink, etc.

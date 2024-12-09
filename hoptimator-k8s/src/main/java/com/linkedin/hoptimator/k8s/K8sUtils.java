@@ -1,15 +1,15 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Source;
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec.MethodsEnum;
-
-import io.kubernetes.client.common.KubernetesType;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-
 import java.util.Collection;
 import java.util.Locale;
 import java.util.stream.Collectors;
+
+import io.kubernetes.client.common.KubernetesType;
+
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec.MethodsEnum;
+import com.linkedin.hoptimator.util.Sink;
+import com.linkedin.hoptimator.util.Source;
+
 
 public final class K8sUtils {
 

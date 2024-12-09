@@ -1,18 +1,19 @@
 package com.linkedin.hoptimator.catalog;
 
-import org.apache.calcite.schema.impl.AbstractTable;
-import org.apache.calcite.schema.TranslatableTable;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.sql.SqlWriter;
-import org.apache.calcite.sql.pretty.SqlPrettyWriter;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.plan.RelOptCluster;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.schema.TranslatableTable;
+import org.apache.calcite.schema.impl.AbstractTable;
+import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+
 
 /**
  * HopTables can have "baggage", including Resources and arbitrary DDL/SQL.
@@ -22,7 +23,7 @@ import java.util.Map;
  * table can bring along a CDC stream or a cache. Generally, such Resources
  * won't physically exist until they are needed by a pipeline, at which point
  * Hoptimator will orchestrate their deployment.
- */ 
+ */
 public class HopTable extends AbstractTable implements ScriptImplementor, TranslatableTable {
   private final String database;
   private final String name;
@@ -31,9 +32,8 @@ public class HopTable extends AbstractTable implements ScriptImplementor, Transl
   private final Collection<Resource> writeResources;
   private final ScriptImplementor implementor;
 
-  public HopTable(String database, String name, RelDataType rowType,
-      Collection<Resource> readResources, Collection<Resource> writeResources, 
-      ScriptImplementor implementor) {
+  public HopTable(String database, String name, RelDataType rowType, Collection<Resource> readResources,
+      Collection<Resource> writeResources, ScriptImplementor implementor) {
     this.database = database;
     this.name = name;
     this.rowType = rowType;
@@ -43,11 +43,10 @@ public class HopTable extends AbstractTable implements ScriptImplementor, Transl
   }
 
   /** Convenience constructor for HopTables that only need a connector config. */
-  public HopTable(String database, String name, RelDataType rowType,
-      Collection<Resource> readResources, Collection<Resource> writeResources,
-      Map<String, String> connectorConfig) {
+  public HopTable(String database, String name, RelDataType rowType, Collection<Resource> readResources,
+      Collection<Resource> writeResources, Map<String, String> connectorConfig) {
     this(database, name, rowType, readResources, writeResources,
-      new ScriptImplementor.ConnectorImplementor(database, name, rowType, connectorConfig));
+        new ScriptImplementor.ConnectorImplementor(database, name, rowType, connectorConfig));
   }
 
   /** Convenience constructor for HopTables that only need a connector config. */
@@ -56,10 +55,8 @@ public class HopTable extends AbstractTable implements ScriptImplementor, Transl
     this(database, name, rowType, resources, resources, connectorConfig);
   }
 
-
   /** Convenience constructor for HopTables that only need a connector config. */
-  public HopTable(String database, String name, RelDataType rowType,
-      Map<String, String> connectorConfig) {
+  public HopTable(String database, String name, RelDataType rowType, Map<String, String> connectorConfig) {
     this(database, name, rowType, Collections.emptyList(), connectorConfig);
   }
 

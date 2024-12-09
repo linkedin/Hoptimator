@@ -1,18 +1,17 @@
 package com.linkedin.hoptimator.jdbc;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.sql.SQLException;
 
 public abstract class JdbcTestBase {
 

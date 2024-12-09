@@ -1,14 +1,15 @@
 package com.linkedin.hoptimator.catalog;
 
-import org.apache.calcite.schema.TranslatableTable;
-import org.apache.calcite.schema.impl.AbstractTable;
-import org.apache.calcite.plan.RelOptTable;
+import java.util.concurrent.ExecutionException;
+
 import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.schema.TranslatableTable;
+import org.apache.calcite.schema.impl.AbstractTable;
 
-import java.util.concurrent.ExecutionException;
 
 /** Enables lazy-loading of HopTables */
 public class ProtoTable extends AbstractTable implements TranslatableTable {

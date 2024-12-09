@@ -1,11 +1,12 @@
 package com.linkedin.hoptimator.util.planner;
 
-import com.linkedin.hoptimator.Deployable;
-import com.linkedin.hoptimator.util.ConnectionService;
-import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.Source;
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.Job;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptUtil;
@@ -14,13 +15,13 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.util.Litmus;
 
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.sql.SQLException;
+import com.linkedin.hoptimator.Deployable;
+import com.linkedin.hoptimator.util.ConnectionService;
+import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.Job;
+import com.linkedin.hoptimator.util.Sink;
+import com.linkedin.hoptimator.util.Source;
+
 
 /**
  * Calling convention which implements a data pipeline.
@@ -57,12 +58,11 @@ public interface PipelineRel extends RelNode {
 
     /**
      * Adds a source to the pipeline.
-     * 
+     *
      * This involves deploying any relevant objects, and configuring a
      * a connector. The connector is configured via `CREATE TABLE...WITH(...)`.
      */
-    public void addSource(String database, List<String> path, RelDataType rowType,
-        Map<String, String> options) {
+    public void addSource(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
       sources.add(new Source(database, path, rowType, options));
     }
 
@@ -72,8 +72,7 @@ public interface PipelineRel extends RelNode {
      * By default, the sink is `PIPELINE.SINK`. An expected row type is required
      * for validation purposes.
      */
-    public void setSink(String database, List<String> path, RelDataType rowType,
-        Map<String, String> options) {
+    public void setSink(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
       this.sinkDatabase = database;
       this.sinkPath = path;
       this.sinkRowType = rowType;

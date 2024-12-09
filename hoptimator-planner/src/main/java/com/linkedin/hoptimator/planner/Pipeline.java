@@ -1,16 +1,17 @@
 package com.linkedin.hoptimator.planner;
 
-import org.apache.calcite.rel.type.RelDataType;
-
-import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.catalog.ResourceProvider;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.apache.calcite.rel.type.RelDataType;
+
+import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.catalog.ResourceProvider;
+
 
 /** A set of Resources that deliver data.
  *
@@ -21,8 +22,8 @@ public class Pipeline {
   private final SqlJob sqlJob;
   private final RelDataType outputType;
 
-  public Pipeline(Collection<Resource> upstreamResources, SqlJob sqlJob,
-      Collection<Resource> downstreamResources, RelDataType outputType) {
+  public Pipeline(Collection<Resource> upstreamResources, SqlJob sqlJob, Collection<Resource> downstreamResources,
+      RelDataType outputType) {
     this.upstreamResources = upstreamResources;
     this.sqlJob = sqlJob;
     this.downstreamResources = downstreamResources;
@@ -51,10 +52,8 @@ public class Pipeline {
   /** All Resources in the pipeline, including the SQL job and sink. */
   public Collection<Resource> resources() {
     // We re-use ResourceProvider here for its source->sink relationships
-    ResourceProvider resourceProvider = ResourceProvider
-      .from(upstreamResources)
-      .to(sqlJob)
-      .toAll(x -> downstreamResources);
+    ResourceProvider resourceProvider =
+        ResourceProvider.from(upstreamResources).to(sqlJob).toAll(x -> downstreamResources);
 
     // All resources are now "provided", so we can pass null here:
     return resourceProvider.resources(null);
@@ -73,17 +72,17 @@ public class Pipeline {
   public String mermaid() {
     StringBuilder sb = new StringBuilder();
     sb.append("flowchart\n");
-    Map<String, List<Resource>> grouped = resources().stream()
-      .collect(Collectors.groupingBy(x -> x.template()));
+    Map<String, List<Resource>> grouped = resources().stream().collect(Collectors.groupingBy(x -> x.template()));
     grouped.forEach((k, v) -> {
       sb.append("  subgraph " + k + "\n");
       v.forEach(x -> {
-        String description = x.keys().stream()
-          .filter(k2 -> x.property(k2) != null)
-          .filter(k2 -> !x.property(k2).isEmpty())
-          .filter(k2 -> !"id".equals(k2))
-          .map(k2 -> k2 + ": " + sanitize(x.property(k2)))
-          .collect(Collectors.joining("\n"));
+        String description = x.keys()
+            .stream()
+            .filter(k2 -> x.property(k2) != null)
+            .filter(k2 -> !x.property(k2).isEmpty())
+            .filter(k2 -> !"id".equals(k2))
+            .map(k2 -> k2 + ": " + sanitize(x.property(k2)))
+            .collect(Collectors.joining("\n"));
         sb.append("  " + id(x) + "[\"" + description + "\"]\n");
       });
       sb.append("  end\n");
@@ -107,7 +106,7 @@ public class Pipeline {
   private static String sanitize(String s) {
     String safe = s.replaceAll("\"", "&quot;").replaceAll("\n", " ").trim();
     if (safe.length() > 20) {
-      return safe.substring(0, 17) + "..."; 
+      return safe.substring(0, 17) + "...";
     }
     return safe;
   }

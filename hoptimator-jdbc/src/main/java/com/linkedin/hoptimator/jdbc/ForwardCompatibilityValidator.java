@@ -7,9 +7,10 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 
+
 /** Validates that tables follow forwards-compatible schema evolution rules.  */
 class ForwardCompatibilityValidator extends CompatibilityValidatorBase {
-  
+
   @Override
   protected void validate(Table table, Table originalTable, Issues issues) {
     RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
@@ -23,8 +24,8 @@ class ForwardCompatibilityValidator extends CompatibilityValidatorBase {
       if (newField != null && !SqlTypeUtil.canAssignFrom(newField.getType(), field.getType())) {
         String fromTypeName = newField.getType().getSqlTypeName().getName();
         String toTypeName = field.getType().getSqlTypeName().getName();
-        issues.child(field.getName()).error("Forwards-incompatible change: cannot assign to "
-            + toTypeName + " from " + fromTypeName);
+        issues.child(field.getName())
+            .error("Forwards-incompatible change: cannot assign to " + toTypeName + " from " + fromTypeName);
       }
     }
   }

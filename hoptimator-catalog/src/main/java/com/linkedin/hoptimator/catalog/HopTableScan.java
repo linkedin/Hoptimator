@@ -1,12 +1,13 @@
 package com.linkedin.hoptimator.catalog;
 
-import org.apache.calcite.rel.core.TableScan;
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.plan.RelOptTable;
+import java.util.Collections;
+
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.core.TableScan;
 
-import java.util.Collections;
 
 /** Internal. */
 public final class HopTableScan extends TableScan implements HopRel {

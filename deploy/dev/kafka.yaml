@@ -26,6 +26,10 @@ spec:
     version: 3.8.0
     replicas: 1
     listeners:
+      - name: plain
+        port: 9094
+        type: internal
+        tls: false
       - name: tls
         port: 9093
         type: internal

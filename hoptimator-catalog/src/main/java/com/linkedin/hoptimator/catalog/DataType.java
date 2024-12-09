@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.catalog;
 
+import java.util.Collections;
+import java.util.stream.Collectors;
+
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -8,8 +11,6 @@ import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 
-import java.util.Collections;
-import java.util.stream.Collectors;
 
 /** Common data types. Not authoratitive or exhaustive. */
 public enum DataType {
@@ -22,7 +23,7 @@ public enum DataType {
   private final RelProtoDataType protoType;
 
   DataType(RelProtoDataType protoType) {
-    this.protoType = protoType; 
+    this.protoType = protoType;
   }
 
   public RelProtoDataType proto() {
@@ -38,7 +39,7 @@ public enum DataType {
       return null;
     } else {
       return protoType.apply(DEFAULT_TYPE_FACTORY);
-    } 
+    }
   }
 
   public static RelDataTypeFactory.Builder builder() {
@@ -87,9 +88,8 @@ public enum DataType {
       return x -> {
         RelDataType dataType = apply(x);
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(x);
-        builder.addAll(dataType.getFieldList().stream()
-          .filter(y -> !y.getName().equals(name))
-          .collect(Collectors.toList()));
+        builder.addAll(
+            dataType.getFieldList().stream().filter(y -> !y.getName().equals(name)).collect(Collectors.toList()));
         return builder.build();
       };
     }
@@ -98,9 +98,10 @@ public enum DataType {
       return x -> {
         RelDataType dataType = apply(x);
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(x);
-        builder.addAll(dataType.getFieldList().stream()
-          .filter(y -> y.getType().getSqlTypeName() != SqlTypeName.ROW)
-          .collect(Collectors.toList()));
+        builder.addAll(dataType.getFieldList()
+            .stream()
+            .filter(y -> y.getType().getSqlTypeName() != SqlTypeName.ROW)
+            .collect(Collectors.toList()));
         return builder.build();
       };
     }
@@ -116,7 +117,7 @@ public enum DataType {
           return builder.build();
         }
       };
-    } 
+    }
   }
 }
- 
+

@@ -1,6 +1,8 @@
 package com.linkedin.hoptimator.avro;
 
-import com.linkedin.hoptimator.Validator;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
@@ -11,16 +13,15 @@ import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import com.linkedin.hoptimator.Validator;
+
 
 /** Validates that tables follow Avro schema evolution rules.  */
 class AvroTableValidator implements Validator<SchemaPlus> {
-  
+
   @Override
   public void validate(SchemaPlus schema, Issues issues) {
     try {
@@ -55,7 +56,7 @@ class AvroTableValidator implements Validator<SchemaPlus> {
         DataFileWriter<Object> dataFileWriter = new DataFileWriter<Object>(datumWriter)) {
       dataFileWriter.create(originalAvroSchema, out);
       for (Object obj : new RandomData(avroSchema, 1)) {
-          dataFileWriter.append(obj);
+        dataFileWriter.append(obj);
       }
     } catch (IOException | RuntimeException e) {
       issues.error("Avro schema evolution error: cannot serialize new records using the existing schema");

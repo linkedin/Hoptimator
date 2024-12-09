@@ -1,35 +1,33 @@
 package sqlline;
 
-import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
-import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
-
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-
-import org.jline.reader.Completer;
-
-import java.util.Arrays;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
-import java.sql.SQLException;
+
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.jline.reader.Completer;
+
+import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
+
 
 public class HoptimatorAppConfig extends Application {
 
   public String getInfoMessage() {
-    Scanner scanner = new Scanner(Thread.currentThread().getContextClassLoader()
-        .getResourceAsStream("welcome.txt"), "utf-8");
+    Scanner scanner =
+        new Scanner(Thread.currentThread().getContextClassLoader().getResourceAsStream("welcome.txt"), "utf-8");
     StringBuilder sb = new StringBuilder();
     while (scanner.hasNext()) {
       sb.append(scanner.nextLine());
       sb.append("\n");
     }
-    return sb.toString(); 
+    return sb.toString();
   }
 
   public Collection<CommandHandler> getCommandHandlers(SqlLine sqlline) {
@@ -95,7 +93,7 @@ public class HoptimatorAppConfig extends Application {
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
-        return; 
+        return;
       }
     }
 
@@ -109,7 +107,6 @@ public class HoptimatorAppConfig extends Application {
       return false;
     }
   }
-
 
   private static final class SpecifyCommandHandler implements CommandHandler {
 
@@ -165,7 +162,7 @@ public class HoptimatorAppConfig extends Application {
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
-        return; 
+        return;
       }
     }
 
@@ -214,7 +211,8 @@ public class HoptimatorAppConfig extends Application {
 
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
-      Scanner scanner = new Scanner(Thread.currentThread().getContextClassLoader().getResourceAsStream("intro.txt"), "utf-8");
+      Scanner scanner =
+          new Scanner(Thread.currentThread().getContextClassLoader().getResourceAsStream("intro.txt"), "utf-8");
       while (scanner.hasNext()) {
         sqlline.output(scanner.nextLine());
       }

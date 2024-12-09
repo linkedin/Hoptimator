@@ -1,21 +1,21 @@
 package com.linkedin.hoptimator.catalog;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
-import org.apache.calcite.sql.SqlWriter;
-// needed in next Calcite version
-// import org.apache.calcite.sql.SqlWriterConfig;
-import org.apache.calcite.sql.SqlDataTypeSpec;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
-import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
-import org.apache.calcite.sql.SqlRowTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
@@ -23,19 +23,14 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlRowTypeNameSpec;
 import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
-import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 
-import java.util.Map;
-import java.util.List;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.stream.Collectors;
 
 /**
  * An abstract way to write SQL scripts.
@@ -67,7 +62,8 @@ public interface ScriptImplementor {
 
   /** Construct an empty ScriptImplementor */
   static ScriptImplementor empty() {
-    return w -> { };
+    return w -> {
+    };
   }
 
   /** Append a subsequent ScriptImplementor */
@@ -99,7 +95,7 @@ public interface ScriptImplementor {
     return with(new InsertImplementor(database, name, relNode));
   }
 
-  /** Render the script as DDL/SQL in the default dialect */ 
+  /** Render the script as DDL/SQL in the default dialect */
   default String sql() {
     return sql(AnsiSqlDialect.DEFAULT);
   }
@@ -111,8 +107,7 @@ public interface ScriptImplementor {
 //  above is deprecated; replace with:
 //    SqlWriter w = new SqlPrettyWriter(SqlWriterConfig.of().withDialect(dialect));
     implement(w);
-    return w.toSqlString().getSql()
-      .replaceAll("\\n", " ").replaceAll(";", ";\n").trim();
+    return w.toSqlString().getSql().replaceAll("\\n", " ").replaceAll(";", ";\n").trim();
   }
 
   /** Implements an arbitrary RelNode as a statement */
@@ -128,8 +123,8 @@ public interface ScriptImplementor {
       RelToSqlConverter converter = new RelToSqlConverter(w.getDialect());
       w.literal(converter.visitRoot(relNode).asStatement().toSqlString(w.getDialect()).getSql());
       w.literal(";");
-    }  
-  } 
+    }
+  }
 
   /** Implements an arbitrary RelNode as a query */
   class QueryImplementor implements ScriptImplementor {
@@ -159,8 +154,7 @@ public interface ScriptImplementor {
       public SqlNode visit(SqlCall call) {
         List<SqlNode> operands = call.getOperandList().stream().map(x -> x.accept(this)).collect(Collectors.toList());
         if ((call.getKind() == SqlKind.ROW || call.getKind() == SqlKind.COLUMN_LIST
-              || call.getOperator() instanceof SqlRowOperator)
-              && operands.size() > 1) {
+            || call.getOperator() instanceof SqlRowOperator) && operands.size() > 1) {
           return IMPLIED_ROW_OPERATOR.createCall(call.getParserPosition(), operands);
         } else {
           return call.getOperator().createCall(call.getParserPosition(), operands);
@@ -324,14 +318,13 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      List<SqlIdentifier> fieldNames = dataType.getFieldList().stream()
-        .map(x -> x.getName())
-        .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
-        .collect(Collectors.toList());
-      List<SqlDataTypeSpec> fieldTypes = dataType.getFieldList().stream()
-        .map(x -> x.getType())
-        .map(x -> toSpec(x))
-        .collect(Collectors.toList());
+      List<SqlIdentifier> fieldNames = dataType.getFieldList()
+          .stream()
+          .map(x -> x.getName())
+          .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
+          .collect(Collectors.toList());
+      List<SqlDataTypeSpec> fieldTypes =
+          dataType.getFieldList().stream().map(x -> x.getType()).map(x -> toSpec(x)).collect(Collectors.toList());
       for (int i = 0; i < fieldNames.size(); i++) {
         w.sep(",");
         fieldNames.get(i).unparse(w, 0, 0);
@@ -340,26 +333,29 @@ public interface ScriptImplementor {
         } else {
           fieldTypes.get(i).unparse(w, 0, 0);
         }
-      } 
+      }
     }
 
     private static SqlDataTypeSpec toSpec(RelDataType dataType) {
       if (dataType.isStruct()) {
-        List<SqlIdentifier> fieldNames = dataType.getFieldList().stream()
-          .map(x -> x.getName())
-          .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
-          .collect(Collectors.toList());
-        List<SqlDataTypeSpec> fieldTypes = dataType.getFieldList().stream()
-          .map(x -> x.getType())
-          .map(x -> toSpec(x))
-          .collect(Collectors.toList());
-        return maybeNullable(dataType, new SqlDataTypeSpec(new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes), SqlParserPos.ZERO));
-      } if (dataType.getComponentType() != null) {
-        return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(new SqlBasicTypeNameSpec(
-          dataType.getComponentType().getSqlTypeName(), SqlParserPos.ZERO), dataType.getSqlTypeName(), SqlParserPos.ZERO),
-          SqlParserPos.ZERO));
+        List<SqlIdentifier> fieldNames = dataType.getFieldList()
+            .stream()
+            .map(x -> x.getName())
+            .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
+            .collect(Collectors.toList());
+        List<SqlDataTypeSpec> fieldTypes =
+            dataType.getFieldList().stream().map(x -> x.getType()).map(x -> toSpec(x)).collect(Collectors.toList());
+        return maybeNullable(dataType,
+            new SqlDataTypeSpec(new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes), SqlParserPos.ZERO));
+      }
+      if (dataType.getComponentType() != null) {
+        return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(
+            new SqlBasicTypeNameSpec(dataType.getComponentType().getSqlTypeName(), SqlParserPos.ZERO),
+            dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
       } else {
-        return maybeNullable(dataType, new SqlDataTypeSpec(new SqlBasicTypeNameSpec(dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
+        return maybeNullable(dataType,
+            new SqlDataTypeSpec(new SqlBasicTypeNameSpec(dataType.getSqlTypeName(), SqlParserPos.ZERO),
+                SqlParserPos.ZERO));
       }
     }
 
@@ -388,13 +384,13 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       List<SqlIdentifier> fieldNames = fields.stream()
-        .map(x -> x.getName())
-        .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
-        .collect(Collectors.toList());
-     for (int i = 0; i < fieldNames.size(); i++) {
+          .map(x -> x.getName())
+          .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
+          .collect(Collectors.toList());
+      for (int i = 0; i < fieldNames.size(); i++) {
         w.sep(",");
         fieldNames.get(i).unparse(w, 0, 0);
-      } 
+      }
     }
   }
 
@@ -413,5 +409,5 @@ public interface ScriptImplementor {
         w.literal("'" + k + "'='" + v + "'");
       });
     }
-  } 
+  }
 }

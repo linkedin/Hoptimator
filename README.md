@@ -39,11 +39,24 @@ Materialized views result in `pipelines`:
 
 Hoptimator requires a Kubernetes cluster. To connect from outside a Kubernetes cluster, make sure your `kubectl` is properly configured.
 
+The below setup will install two local demo DBs, ads and profiles.
+
 ```
   $ make install            # build and install SQL CLI
-  $ make deploy deploy-demo # install CRDs and K8s objects
-  $ kubectl port-forward -n kafka svc/one-kafka-external-0 9092 &
-  $ ./hoptimator
+  $ make deploy deploy-demo # install demo DB CRDs and K8s objects
+  $ ./hoptimator            # start the SQL CLI
+  > !intro
+```
+
+## Set up Kafka & Flink clusters
+
+The below setup will install a Kafka and Flink cluster within Kubernetes.
+
+```
+  $ make install                                                    # build and install SQL CLI
+  $ make deploy-dev-environment                                     # start local Kafka & Flink setups
+  $ kubectl port-forward -n kafka svc/one-kafka-external-0 9092 &   # forward external Kafka port for use by SQL CLI
+  $ ./hoptimator                                                    # start the SQL CLI
   > !intro
 ```
 

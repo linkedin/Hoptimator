@@ -1,17 +1,18 @@
 package com.linkedin.hoptimator.util;
 
-import org.apache.calcite.rel.type.RelDataType;
-
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.apache.calcite.rel.type.RelDataType;
+
 
 public class Source {
 
   private final String database;
   private final List<String> path;
   private final RelDataType rowType;
-  private final Map<String, String> options; 
+  private final Map<String, String> options;
 
   public Source(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
     this.database = database;

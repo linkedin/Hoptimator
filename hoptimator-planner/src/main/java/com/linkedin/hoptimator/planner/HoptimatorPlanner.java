@@ -1,72 +1,57 @@
 package com.linkedin.hoptimator.planner;
 
-import org.apache.calcite.adapter.jdbc.JdbcSchema;
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Properties;
+import javax.sql.DataSource;
+
 import org.apache.calcite.adapter.jdbc.JdbcCatalogSchema;
+import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.config.CalciteConnectionConfig;
 import org.apache.calcite.config.CalciteConnectionConfigImpl;
-import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.model.ModelHandler;
+import org.apache.calcite.plan.ConventionTraitDef;
+import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelTraitDef;
+import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.JoinPushThroughJoinRule;
 import org.apache.calcite.rel.rules.PruneEmptyRules;
-import org.apache.calcite.plan.ConventionTraitDef;
-import org.apache.calcite.plan.RelTraitDef;
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.plan.RelOptRule;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.tools.FrameworkConfig;
+import org.apache.calcite.tools.Frameworks;
+import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
-import org.apache.calcite.tools.Frameworks;
-import org.apache.calcite.tools.FrameworkConfig;
-import org.apache.calcite.tools.Planner;
 
 import com.linkedin.hoptimator.catalog.Database;
 import com.linkedin.hoptimator.catalog.DatabaseSchema;
 
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.NoSuchElementException;
-import java.sql.SQLException;
-import javax.sql.DataSource;
 
 /** A one-shot stateful object, which creates Pipelines from SQL. */
 public class HoptimatorPlanner {
 
-  public static final List<RelOptRule> RULE_SET = Arrays.asList(new RelOptRule[]{
-      PruneEmptyRules.PROJECT_INSTANCE,
-      PruneEmptyRules.FILTER_INSTANCE,
-      CoreRules.PROJECT_TO_SEMI_JOIN,
-      //CoreRules.JOIN_ON_UNIQUE_TO_SEMI_JOIN, // not in this version of calcite
-      CoreRules.JOIN_TO_SEMI_JOIN,
-      CoreRules.MATCH,
-      CoreRules.PROJECT_MERGE,
-      CoreRules.FILTER_MERGE,
-      CoreRules.AGGREGATE_STAR_TABLE,
-      CoreRules.AGGREGATE_PROJECT_STAR_TABLE,
-      CoreRules.FILTER_SCAN,
-      CoreRules.FILTER_TO_CALC,
-      CoreRules.PROJECT_TO_CALC,
-      CoreRules.FILTER_PROJECT_TRANSPOSE,
-      CoreRules.PROJECT_CALC_MERGE,
-      CoreRules.FILTER_CALC_MERGE,
-      CoreRules.CALC_MERGE,
-      CoreRules.FILTER_INTO_JOIN,
-      CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES,
-      CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
-      CoreRules.FILTER_AGGREGATE_TRANSPOSE,
-      CoreRules.JOIN_COMMUTE,
-      JoinPushThroughJoinRule.RIGHT,
-      JoinPushThroughJoinRule.LEFT,
-      CoreRules.SORT_PROJECT_TRANSPOSE
-   });
+  public static final List<RelOptRule> RULE_SET = Arrays.asList(
+      new RelOptRule[]{PruneEmptyRules.PROJECT_INSTANCE, PruneEmptyRules.FILTER_INSTANCE,
+          CoreRules.PROJECT_TO_SEMI_JOIN,
+          //CoreRules.JOIN_ON_UNIQUE_TO_SEMI_JOIN, // not in this version of calcite
+          CoreRules.JOIN_TO_SEMI_JOIN, CoreRules.MATCH, CoreRules.PROJECT_MERGE, CoreRules.FILTER_MERGE,
+          CoreRules.AGGREGATE_STAR_TABLE, CoreRules.AGGREGATE_PROJECT_STAR_TABLE, CoreRules.FILTER_SCAN,
+          CoreRules.FILTER_TO_CALC, CoreRules.PROJECT_TO_CALC, CoreRules.FILTER_PROJECT_TRANSPOSE,
+          CoreRules.PROJECT_CALC_MERGE, CoreRules.FILTER_CALC_MERGE, CoreRules.CALC_MERGE, CoreRules.FILTER_INTO_JOIN,
+          CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES, CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
+          CoreRules.FILTER_AGGREGATE_TRANSPOSE, CoreRules.JOIN_COMMUTE, JoinPushThroughJoinRule.RIGHT,
+          JoinPushThroughJoinRule.LEFT, CoreRules.SORT_PROJECT_TRANSPOSE});
 
   /** HoptimatorPlanner is a one-shot stateful object, so we construct them via factories */
   public interface Factory {
@@ -134,16 +119,14 @@ public class HoptimatorPlanner {
     }
     Schema subSchema = schema.getSubSchema(name);
     if (subSchema == null) {
-      throw new NoSuchElementException("No database '" + name + "' found in schema '"
-        + rootName + "'");
+      throw new NoSuchElementException("No database '" + name + "' found in schema '" + rootName + "'");
     }
     if (subSchema instanceof SchemaPlus) {
       subSchema = ((SchemaPlus) subSchema).unwrap(DatabaseSchema.class);
     }
     if (!(subSchema instanceof DatabaseSchema)) {
-      throw new IllegalArgumentException("No database '" + name + "' found in schema '"
-        + rootName + "'. A sub-schema was found, but it is not a DatabaseSchema. Found instead: "
-        + subSchema.toString());
+      throw new IllegalArgumentException("No database '" + name + "' found in schema '" + rootName
+          + "'. A sub-schema was found, but it is not a DatabaseSchema. Found instead: " + subSchema.toString());
     }
     return ((DatabaseSchema) subSchema).database();
   }
@@ -177,7 +160,7 @@ public class HoptimatorPlanner {
   public static HoptimatorPlanner fromJdbc(String url, Properties properties) throws SQLException, IOException {
     if (url.startsWith("jdbc:calcite:model=")) {
       return fromModelFile(url.substring("jdbc:calcite:model=".length()), properties);
-    } else { 
+    } else {
       return fromJdbc(url, properties.getProperty("catalog"), properties.getProperty("username"),
           properties.getProperty("password"));
     }

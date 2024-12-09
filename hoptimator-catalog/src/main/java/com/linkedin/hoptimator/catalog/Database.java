@@ -1,11 +1,12 @@
 package com.linkedin.hoptimator.catalog;
 
-import org.apache.calcite.rel.type.RelDataType;
-
-import java.util.Map;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
+
+import org.apache.calcite.rel.type.RelDataType;
+
 
 /** A set of tables with unique names */
 public class Database {
@@ -22,20 +23,18 @@ public class Database {
   }
 
   /** Convenience constructor for simple connector-based tables */
-  public Database(String name, TableLister lister, TableResolver resolver,
-      ConfigProvider configs) {
+  public Database(String name, TableLister lister, TableResolver resolver, ConfigProvider configs) {
     this(name, lister, resolver, TableFactory.connector(configs));
   }
 
   /** Convenience constructor for simple connector-based tables with resources */
-  public Database(String name, TableLister lister, TableResolver resolver,
-      ConfigProvider configs, ResourceProvider resources) {
+  public Database(String name, TableLister lister, TableResolver resolver, ConfigProvider configs,
+      ResourceProvider resources) {
     this(name, lister, resolver, TableFactory.connector(configs, resources));
   }
 
   /** Convenience constructor for a list of connector-based tables */
-  public Database(String name, Collection<String> tables, TableResolver resolver,
-      ConfigProvider configs) {
+  public Database(String name, Collection<String> tables, TableResolver resolver, ConfigProvider configs) {
     this(name, tables, resolver, TableFactory.connector(configs));
   }
 
@@ -46,8 +45,8 @@ public class Database {
 
   /** Convenience constructor for a static table map */
   public Database(String name, Map<String, HopTable> tableMap) {
-    this(name, () -> Collections.unmodifiableCollection(tableMap.keySet()),
-      x -> tableMap.get(x).rowType(), (x, y, z) -> tableMap.get(y));
+    this(name, () -> Collections.unmodifiableCollection(tableMap.keySet()), x -> tableMap.get(x).rowType(),
+        (x, y, z) -> tableMap.get(y));
   }
 
   /** Find a specific table in the database. */

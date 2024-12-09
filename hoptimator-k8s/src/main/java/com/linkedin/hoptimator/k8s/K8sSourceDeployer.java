@@ -1,16 +1,15 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Source;
-import com.linkedin.hoptimator.util.Template;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Locale;
+import java.util.stream.Collectors;
+
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
+import com.linkedin.hoptimator.util.Source;
+import com.linkedin.hoptimator.util.Template;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.sql.SQLException;
-import java.util.Locale;
 
 /** Specifies an abstract Source with concrete YAML by applying TableTemplates. */
 class K8sSourceDeployer extends K8sYamlDeployer<Source> {
@@ -24,13 +23,14 @@ class K8sSourceDeployer extends K8sYamlDeployer<Source> {
 
   @Override
   public List<String> specify(Source source) throws SQLException {
-    Template.Environment env = Template.Environment.EMPTY
-        .with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
-        .with("database", source.database())
-        .with("schema", source.schema())
-        .with("table", source.table())
-        .with(source.options());
-    return tableTemplateApi.list().stream()
+    Template.Environment env =
+        Template.Environment.EMPTY.with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
+            .with("database", source.database())
+            .with("schema", source.schema())
+            .with("table", source.table())
+            .with(source.options());
+    return tableTemplateApi.list()
+        .stream()
         .map(x -> x.getSpec())
         .filter(x -> x.getDatabases() == null || x.getDatabases().contains(source.database()))
         .filter(x -> x.getMethods() == null || x.getMethods().contains(K8sUtils.method(source)))

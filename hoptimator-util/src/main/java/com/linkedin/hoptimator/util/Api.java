@@ -1,11 +1,12 @@
 package com.linkedin.hoptimator.util;
 
-import java.util.Collection;
 import java.sql.SQLException;
+import java.util.Collection;
+
 
 /** A set of CRUD'able objects. */
 public interface Api<T> {
-  
+
   Collection<T> list() throws SQLException;
 
   default void create(T t) throws SQLException {

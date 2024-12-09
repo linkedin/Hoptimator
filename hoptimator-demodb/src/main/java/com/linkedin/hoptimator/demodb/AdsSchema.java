@@ -1,10 +1,11 @@
 package com.linkedin.hoptimator.demodb;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 
-import java.util.HashMap;
-import java.util.Map;
 
 public class AdsSchema extends AbstractSchema {
 

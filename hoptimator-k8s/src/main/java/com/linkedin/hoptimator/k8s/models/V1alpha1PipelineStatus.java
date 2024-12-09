@@ -28,7 +28,7 @@ import java.io.IOException;
  * Pipeline status.
  */
 @ApiModel(description = "Pipeline status.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-04T03:00:43.571Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-09T16:52:51.758Z[Etc/UTC]")
 public class V1alpha1PipelineStatus {
   public static final String SERIALIZED_NAME_FAILED = "failed";
   @SerializedName(SERIALIZED_NAME_FAILED)

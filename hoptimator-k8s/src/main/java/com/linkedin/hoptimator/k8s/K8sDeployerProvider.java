@@ -1,18 +1,17 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.Source;
-import com.linkedin.hoptimator.util.Job;
-
-import com.linkedin.hoptimator.Deployer;
-import com.linkedin.hoptimator.DeployerProvider;
-import com.linkedin.hoptimator.util.MaterializedView;
-
-import org.apache.calcite.schema.impl.ViewTable;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+
+import org.apache.calcite.schema.impl.ViewTable;
+
+import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeployerProvider;
+import com.linkedin.hoptimator.util.Job;
+import com.linkedin.hoptimator.util.MaterializedView;
+import com.linkedin.hoptimator.util.Source;
+
 
 public class K8sDeployerProvider implements DeployerProvider {
 

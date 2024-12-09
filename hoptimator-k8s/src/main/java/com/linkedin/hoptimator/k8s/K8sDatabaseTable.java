@@ -1,9 +1,8 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
-import com.linkedin.hoptimator.util.HoptimatorJdbcSchema;
+import java.util.Locale;
+import java.util.Optional;
+import javax.sql.DataSource;
 
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.schema.Schema;
@@ -15,12 +14,13 @@ import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
-import java.util.Locale;
-import java.util.Optional;
-import javax.sql.DataSource;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
+import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
+import com.linkedin.hoptimator.util.HoptimatorJdbcSchema;
 
-public class K8sDatabaseTable extends
-    K8sTable<V1alpha1Database, V1alpha1DatabaseList, K8sDatabaseTable.Row> {
+
+public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1DatabaseList, K8sDatabaseTable.Row> {
 
   // CHECKSTYLE:OFF
   public static class Row {
@@ -46,8 +46,8 @@ public class K8sDatabaseTable extends
 
   public void addDatabases(SchemaPlus parentSchema) {
     for (Row row : rows()) {
-      parentSchema.add(schemaName(row), HoptimatorJdbcSchema.create(row.NAME, null,
-          row.SCHEMA, dataSource(row), parentSchema, dialect(row)));
+      parentSchema.add(schemaName(row),
+          HoptimatorJdbcSchema.create(row.NAME, null, row.SCHEMA, dataSource(row), parentSchema, dialect(row)));
     }
   }
 
@@ -64,8 +64,10 @@ public class K8sDatabaseTable extends
     return new V1alpha1Database().kind(K8sApiEndpoints.DATABASES.kind())
         .apiVersion(K8sApiEndpoints.DATABASES.apiVersion())
         .metadata(new V1ObjectMeta().name(row.NAME))
-        .spec(new V1alpha1DatabaseSpec().url(row.URL).schema(row.SCHEMA).driver(row.DRIVER)
-        .dialect(V1alpha1DatabaseSpec.DialectEnum.fromValue(row.DIALECT)));
+        .spec(new V1alpha1DatabaseSpec().url(row.URL)
+            .schema(row.SCHEMA)
+            .driver(row.DRIVER)
+            .dialect(V1alpha1DatabaseSpec.DialectEnum.fromValue(row.DIALECT)));
   }
 
   private static String schemaName(Row row) {
@@ -86,12 +88,12 @@ public class K8sDatabaseTable extends
       return null;
     }
     switch (row.DIALECT) {
-    case "ANSI":
-      return AnsiSqlDialect.DEFAULT;
-    case "MySQL":
-      return MysqlSqlDialect.DEFAULT; 
-    default:
-      return CalciteSqlDialect.DEFAULT;
+      case "ANSI":
+        return AnsiSqlDialect.DEFAULT;
+      case "MySQL":
+        return MysqlSqlDialect.DEFAULT;
+      default:
+        return CalciteSqlDialect.DEFAULT;
     }
   }
 

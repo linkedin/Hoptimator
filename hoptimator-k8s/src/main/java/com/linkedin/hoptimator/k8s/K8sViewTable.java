@@ -1,27 +1,28 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.Validated;
-import com.linkedin.hoptimator.Validator;
-import com.linkedin.hoptimator.k8s.models.V1alpha1View;
-import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
-import com.linkedin.hoptimator.jdbc.MaterializedViewTable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
-import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import com.linkedin.hoptimator.Validated;
+import com.linkedin.hoptimator.Validator;
+import com.linkedin.hoptimator.jdbc.MaterializedViewTable;
+import com.linkedin.hoptimator.k8s.models.V1alpha1View;
+import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
+
 
 public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sViewTable.Row> implements Validated {
-  
+
   // CHECKSTYLE:OFF
   public static class Row {
     public String NAME;
@@ -60,7 +61,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
         return VIEW;
       } else {
         return NAME;
-      } 
+      }
     }
 
     @Override
@@ -96,8 +97,10 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
   }
 
   public Row find(String name) {
-    return rows().stream().filter(x -> x.NAME.equals(name)).findFirst()
-      .orElseThrow(() -> new IllegalArgumentException("Table " + name + " not found."));
+    return rows().stream()
+        .filter(x -> x.NAME.equals(name))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("Table " + name + " not found."));
   }
 
   public void remove(String name) {
@@ -105,8 +108,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
   }
 
   private Table makeView(SchemaPlus parentSchema, Row row) {
-    ViewTableMacro viewTableMacro = ViewTable.viewMacro(parentSchema, row.SQL,
-        row.schemaPath(), row.viewPath(), false);
+    ViewTableMacro viewTableMacro = ViewTable.viewMacro(parentSchema, row.SQL, row.schemaPath(), row.viewPath(), false);
     if (row.MATERIALIZED) {
       return new MaterializedViewTable(viewTableMacro);
     } else {

@@ -1,10 +1,11 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 
-import java.util.HashMap;
-import java.util.Map;
 
 /** Built-in K8s metadata tables */
 public class K8sMetadata extends AbstractSchema {
@@ -12,7 +13,7 @@ public class K8sMetadata extends AbstractSchema {
   private final Map<String, Table> tableMap = new HashMap<>();
   private final K8sDatabaseTable databaseTable;
   private final K8sViewTable viewTable;
- 
+
   public K8sMetadata(K8sContext context) {
     this.databaseTable = new K8sDatabaseTable(context);
     this.viewTable = new K8sViewTable(context);

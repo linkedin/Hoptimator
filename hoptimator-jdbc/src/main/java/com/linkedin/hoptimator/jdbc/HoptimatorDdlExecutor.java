@@ -19,85 +19,80 @@
  */
 package com.linkedin.hoptimator.jdbc;
 
-import com.linkedin.hoptimator.Database;
-import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.MaterializedView;
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.planner.Pipeline;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
-import com.linkedin.hoptimator.util.planner.ScriptImplementor;
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
-import org.apache.calcite.server.DdlExecutor;
-import org.apache.calcite.server.ServerDdlExecutor;
 import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
+import org.apache.calcite.server.DdlExecutor;
+import org.apache.calcite.server.ServerDdlExecutor;
 import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUtil;
-import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.ddl.SqlCreateMaterializedView;
 import org.apache.calcite.sql.ddl.SqlCreateView;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
-import org.apache.calcite.sql.parser.ddl.SqlDdlParserImpl; // TODO: replace with our own
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
 import org.apache.calcite.sql.parser.SqlParserImplFactory;
 import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.parser.ddl.SqlDdlParserImpl;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
+import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.MaterializedView;
+import com.linkedin.hoptimator.util.planner.Pipeline;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
+
 import static org.apache.calcite.util.Static.RESOURCE;
 
-import java.io.Reader;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public static final HoptimatorDdlExecutor INSTANCE = new HoptimatorDdlExecutor();
 
   @SuppressWarnings("unused") // used via reflection
-  public static final SqlParserImplFactory PARSER_FACTORY =
-      new SqlParserImplFactory() {
-        @Override
-        public SqlAbstractParserImpl getParser(Reader stream) {
-          SqlAbstractParserImpl parser = SqlDdlParserImpl.FACTORY.getParser(stream);
-          parser.setConformance(SqlConformanceEnum.BABEL);
-          return parser;
-        }
+  public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
+    @Override
+    public SqlAbstractParserImpl getParser(Reader stream) {
+      SqlAbstractParserImpl parser = SqlDdlParserImpl.FACTORY.getParser(stream);
+      parser.setConformance(SqlConformanceEnum.BABEL);
+      return parser;
+    }
 
-        @Override
-        public DdlExecutor getDdlExecutor() {
-          return HoptimatorDdlExecutor.INSTANCE;
-        }
-      };
+    @Override
+    public DdlExecutor getDdlExecutor() {
+      return HoptimatorDdlExecutor.INSTANCE;
+    }
+  };
 
   // N.B. copy-pasted from Apache Calcite
+
   /** Executes a {@code CREATE VIEW} command. */
-  public void execute(SqlCreateView create,
-      CalcitePrepare.Context context) {
-    final Pair<CalciteSchema, String> pair =
-        schema(context, true, create.name);
+  public void execute(SqlCreateView create, CalcitePrepare.Context context) {
+    final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
     final SchemaPlus schemaPlus = pair.left.plus();
     for (Function function : schemaPlus.getFunctions(pair.right)) {
       if (function.getParameters().isEmpty()) {
         if (!create.getReplace()) {
-          throw SqlUtil.newContextException(create.name.getParserPosition(),
-              RESOURCE.viewExists(pair.right));
+          throw SqlUtil.newContextException(create.name.getParserPosition(), RESOURCE.viewExists(pair.right));
         }
         pair.left.removeFunction(pair.right);
       }
@@ -110,13 +105,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     List<String> viewPath = new ArrayList<>();
     viewPath.addAll(schemaPath);
     viewPath.add(viewName);
-    ViewTableMacro viewTableMacro = ViewTable.viewMacro(schemaPlus, sql, schemaPath,
-        viewPath, false);
+    ViewTableMacro viewTableMacro = ViewTable.viewMacro(schemaPlus, sql, schemaPath, viewPath, false);
     ViewTable viewTable = (ViewTable) viewTableMacro.apply(Collections.emptyList());
     try {
       ValidationService.validateOrThrow(viewTable, TranslatableTable.class);
       if (create.getReplace()) {
-        DeploymentService.update(viewTable, ViewTable.class); 
+        DeploymentService.update(viewTable, ViewTable.class);
       } else {
         DeploymentService.create(viewTable, ViewTable.class);
       }
@@ -127,20 +121,19 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   }
 
   // N.B. copy-pasted from Apache Calcite
+
   /** Executes a {@code CREATE MATERIALIZED VIEW} command. */
-  public void execute(SqlCreateMaterializedView create,
-      CalcitePrepare.Context context) {
+  public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
     if (pair.left == null) {
-      throw SqlUtil.newContextException(create.name.getParserPosition(),  
+      throw SqlUtil.newContextException(create.name.getParserPosition(),
           RESOURCE.schemaNotFound(create.name.getSimple()));
     }
     if (pair.left.plus().getTable(pair.right) != null) {
       // Materialized view exists.
       if (!create.ifNotExists && !create.getReplace()) {
         // They did not specify IF NOT EXISTS, so give error.
-        throw SqlUtil.newContextException(create.name.getParserPosition(),
-            RESOURCE.tableExists(pair.right));
+        throw SqlUtil.newContextException(create.name.getParserPosition(), RESOURCE.tableExists(pair.right));
       }
       if (create.getReplace()) {
         pair.left.plus().removeTable(pair.right);
@@ -167,25 +160,22 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       String database = ((Database) pair.left.schema).databaseName();
 
       // Table does not exist. Create it.
-      ViewTableMacro viewTableMacro = ViewTable.viewMacro(schemaPlus, sql, schemaPath,
-          viewPath, false);
+      ViewTableMacro viewTableMacro = ViewTable.viewMacro(schemaPlus, sql, schemaPath, viewPath, false);
       MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTableMacro);
-      RelDataType rowType = materializedViewTable.getRowType(new SqlTypeFactoryImpl(
-          RelDataTypeSystem.DEFAULT));
- 
+      RelDataType rowType = materializedViewTable.getRowType(new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
+
       // Plan a pipeline to materialize the view.
       RelNode rel = HoptimatorDriver.convert(context, sql).root.rel;
       PipelineRel.Implementor plan = DeploymentService.plan(rel);
       plan.setSink(database, viewPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline();
-   
-      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(),
-          plan.pipeline());
+
+      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(), plan.pipeline());
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook, MaterializedView.class);
       pipeline.update();
       if (create.getReplace()) {
-        DeploymentService.update(hook, MaterializedView.class); 
+        DeploymentService.update(hook, MaterializedView.class);
       } else {
         DeploymentService.create(hook, MaterializedView.class);
       }
@@ -196,9 +186,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   }
 
   // N.B. copy-pasted from Apache Calcite
+
   /** Returns the schema in which to create an object. */
-  static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context,
-      boolean mutable, SqlIdentifier id) {
+  static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context, boolean mutable, SqlIdentifier id) {
     final String name;
     final List<String> path;
     if (id.isSimple()) {
@@ -208,9 +198,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       path = Util.skipLast(id.names);
       name = Util.last(id.names);
     }
-    CalciteSchema schema =
-        mutable ? context.getMutableRootSchema()
-            : context.getRootSchema();
+    CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
     for (String p : path) {
       schema = schema.getSubSchema(p, true);
     }
@@ -218,19 +206,17 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   }
 
   // N.B. copy-pasted from Apache Calcite
+
   /** Wraps a query to rename its columns. Used by CREATE VIEW and CREATE
    * MATERIALIZED VIEW. */
-  static SqlNode renameColumns(SqlNodeList columnList,
-      SqlNode query) {
+  static SqlNode renameColumns(SqlNodeList columnList, SqlNode query) {
     if (columnList == null) {
       return query;
     }
     final SqlParserPos p = query.getParserPosition();
     final SqlNodeList selectList = SqlNodeList.SINGLETON_STAR;
-    final SqlCall from =
-        SqlStdOperatorTable.AS.createCall(p,
-            Arrays.asList(new SqlNode[]{query, new SqlIdentifier("_", p), columnList}));
-    return new SqlSelect(p, null, selectList, from, null, null, null, null,
-        null, null, null, null, null);
+    final SqlCall from = SqlStdOperatorTable.AS.createCall(p,
+        Arrays.asList(new SqlNode[]{query, new SqlIdentifier("_", p), columnList}));
+    return new SqlSelect(p, null, selectList, from, null, null, null, null, null, null, null, null, null);
   }
 }

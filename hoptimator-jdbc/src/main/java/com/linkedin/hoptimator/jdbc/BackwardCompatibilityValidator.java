@@ -7,9 +7,10 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 
+
 /** Validates that tables follow backwards-compatible schema evolution rules.  */
 class BackwardCompatibilityValidator extends CompatibilityValidatorBase {
-  
+
   @Override
   protected void validate(Table table, Table originalTable, Issues issues) {
     RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
@@ -23,8 +24,8 @@ class BackwardCompatibilityValidator extends CompatibilityValidatorBase {
       if (existingField != null && !SqlTypeUtil.canAssignFrom(existingField.getType(), field.getType())) {
         String fromTypeName = existingField.getType().getSqlTypeName().getName();
         String toTypeName = field.getType().getSqlTypeName().getName();
-        issues.child(field.getName()).error("Backwards-incompatible change: cannot assign to "
-            + toTypeName + " from " + fromTypeName);
+        issues.child(field.getName())
+            .error("Backwards-incompatible change: cannot assign to " + toTypeName + " from " + fromTypeName);
       }
     }
   }
