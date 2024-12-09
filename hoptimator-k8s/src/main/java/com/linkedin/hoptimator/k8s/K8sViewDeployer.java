@@ -1,14 +1,15 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.k8s.models.V1alpha1View;
-import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
-import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
+import java.util.LinkedList;
 
 import org.apache.calcite.schema.impl.ViewTable;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
-import java.util.LinkedList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1View;
+import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
+
 
 class K8sViewDeployer extends K8sDeployer<ViewTable, V1alpha1View, V1alpha1ViewList> {
 
@@ -23,8 +24,7 @@ class K8sViewDeployer extends K8sDeployer<ViewTable, V1alpha1View, V1alpha1ViewL
     return new V1alpha1View().kind(K8sApiEndpoints.VIEWS.kind())
         .apiVersion(K8sApiEndpoints.VIEWS.apiVersion())
         .metadata(new V1ObjectMeta().name(name))
-        .spec(new V1alpha1ViewSpec()
-            .view(q.pollLast()).schema(q.pollLast())
-            .sql(view.getViewSql()).materialized(false));
+        .spec(
+            new V1alpha1ViewSpec().view(q.pollLast()).schema(q.pollLast()).sql(view.getViewSql()).materialized(false));
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.demodb;
 
 import com.linkedin.hoptimator.util.ArrayTable;
 
+
 public class PageViewTable extends ArrayTable<PageViewTable.Row> {
 
   // CHECKSTYLE:OFF

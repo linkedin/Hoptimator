@@ -1,9 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.RemoteTable;
-
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1SecretList;
+
+import com.linkedin.hoptimator.util.RemoteTable;
+
 
 public class SecretTable extends RemoteTable<V1Secret, SecretTable.Row> {
 

@@ -1,11 +1,5 @@
 package com.linkedin.hoptimator.demodb;
 
-import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.jdbc.Driver;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.impl.AbstractSchema;
-
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -14,6 +8,13 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import org.apache.calcite.avatica.DriverVersion;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.jdbc.Driver;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.impl.AbstractSchema;
+
 
 /** JDBC driver with fake in-memory data. */
 public class DemoDriver extends Driver {
@@ -38,10 +39,12 @@ public class DemoDriver extends Driver {
       return null;
     }
     String params = url.substring(getConnectStringPrefix().length());
-    Set<String> schemas = Arrays.asList(params.split(",")).stream()
+    Set<String> schemas = Arrays.asList(params.split(","))
+        .stream()
         .map(x -> x.trim())
         .filter(x -> !x.isEmpty())
-        .map(x -> x.toUpperCase(Locale.ROOT)).collect(Collectors.toSet());
+        .map(x -> x.toUpperCase(Locale.ROOT))
+        .collect(Collectors.toSet());
     try {
       Connection connection = super.connect(url, props);
       if (connection == null) {

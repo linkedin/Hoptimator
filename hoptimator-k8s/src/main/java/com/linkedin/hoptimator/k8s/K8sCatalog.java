@@ -1,14 +1,14 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.Catalog;
+import java.sql.SQLException;
+import java.sql.Wrapper;
 
 import org.apache.calcite.schema.SchemaPlus;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
-import java.sql.Wrapper;
+import com.linkedin.hoptimator.Catalog;
+
 
 /** The k8s catalog. */
 class K8sCatalog implements Catalog {

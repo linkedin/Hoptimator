@@ -1,19 +1,23 @@
 package com.linkedin.hoptimator.catalog;
 
+import org.apache.avro.Schema;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.util.Litmus;
-import org.apache.avro.Schema;
+import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import org.junit.Test;
+
 
 public class AvroConverterTest {
 
   @Test
   public void convertsNestedSchemas() {
-    String schemaString = "{\"type\":\"record\",\"name\":\"E\",\"namespace\":\"ns\",\"fields\":[{\"name\":\"h\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"H\",\"namespace\":\"ns\",\"fields\":[{\"name\":\"A\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"A\",\"fields\":[]}]}]}]}]}";
+    // CHECKSTYLE:OFF
+    String schemaString =
+        "{\"type\":\"record\",\"name\":\"E\",\"namespace\":\"ns\",\"fields\":[{\"name\":\"h\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"H\",\"namespace\":\"ns\",\"fields\":[{\"name\":\"A\",\"type\":[\"null\",{\"type\":\"record\",\"name\":\"A\",\"fields\":[]}]}]}]}]}";
+    // CHECKSTYLE:ON
 
     Schema avroSchema1 = (new Schema.Parser()).parse(schemaString);
     RelDataType rel1 = AvroConverter.rel(avroSchema1);

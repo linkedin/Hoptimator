@@ -1,13 +1,9 @@
 package com.linkedin.hoptimator.operator.subscription;
 
-import io.kubernetes.client.extended.controller.reconciler.Request;
-
 import com.linkedin.hoptimator.catalog.AvroConverter;
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.planner.Pipeline;
 
-import java.util.Map;
-import java.util.Collections;
 
 /**
  * Exposes Subscription variables to resource templates.
@@ -32,7 +28,7 @@ public class SubscriptionEnvironment extends Resource.SimpleEnvironment {
   public SubscriptionEnvironment(String namespace, String name, Pipeline pipeline) {
     export("pipeline.namespace", namespace);
     export("pipeline.name", name);
-    export("pipeline.avroSchema", AvroConverter.avro("com.linkedin.hoptimator", "OutputRecord",
-      pipeline.outputType()).toString(false));
+    export("pipeline.avroSchema",
+        AvroConverter.avro("com.linkedin.hoptimator", "OutputRecord", pipeline.outputType()).toString(false));
   }
 }

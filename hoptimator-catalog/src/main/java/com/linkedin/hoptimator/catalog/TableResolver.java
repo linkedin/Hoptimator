@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.catalog;
 
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelProtoDataType;
-
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+
 
 /** Resolves a table name into a concrete row type. Usually involves a network call. */
 public interface TableResolver {

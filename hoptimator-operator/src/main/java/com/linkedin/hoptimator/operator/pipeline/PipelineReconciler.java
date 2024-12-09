@@ -1,35 +1,33 @@
 package com.linkedin.hoptimator.operator.pipeline;
 
+import java.time.Duration;
+import java.util.Arrays;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.dynamic.Dynamics;
+
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
 
-import io.kubernetes.client.common.KubernetesObject;
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.informer.SharedInformerFactory;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Arrays;
-import java.time.Duration;
 
 /**
  * Manages Pipelines.
  */
-public class PipelineReconciler implements Reconciler {
+public final class PipelineReconciler implements Reconciler {
   private final static Logger log = LoggerFactory.getLogger(PipelineReconciler.class);
 
   private final K8sContext context;
@@ -48,8 +46,8 @@ public class PipelineReconciler implements Reconciler {
     Result result = new Result(true, pendingRetryDuration());
     try {
       V1alpha1Pipeline object = pipelineApi.get(name);
- 
-      if (object ==  null) {
+
+      if (object == null) {
         log.info("Object {} deleted. Skipping.", name);
         return new Result(false);
       }
@@ -61,8 +59,9 @@ public class PipelineReconciler implements Reconciler {
       }
 
       log.info("Checking status of Pipeline {}...", name);
- 
-      boolean ready = Arrays.asList(object.getSpec().getYaml().split("\n---\n")).stream()
+
+      boolean ready = Arrays.asList(object.getSpec().getYaml().split("\n---\n"))
+          .stream()
           .filter(x -> x != null && !x.isEmpty())
           .allMatch(x -> isReady(x));
 
@@ -89,22 +88,22 @@ public class PipelineReconciler implements Reconciler {
 
   // TODO load from configuration
   protected Duration failureRetryDuration() {
-    return Duration.ofMinutes(5); 
+    return Duration.ofMinutes(5);
   }
 
   // TODO load from configuration
   protected Duration pendingRetryDuration() {
-    return Duration.ofMinutes(1); 
+    return Duration.ofMinutes(1);
   }
 
   public static Controller controller(K8sContext context) {
     Reconciler reconciler = new PipelineReconciler(context);
     return ControllerBuilder.defaultBuilder(context.informerFactory())
-      .withReconciler(reconciler)
-      .withName("pipeline-controller")
-      .withWorkerCount(1)
-      .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1Pipeline.class, x).build())
-      .build();
+        .withReconciler(reconciler)
+        .withName("pipeline-controller")
+        .withWorkerCount(1)
+        .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1Pipeline.class, x).build())
+        .build();
   }
 
   private boolean isReady(String yaml) {
@@ -113,8 +112,9 @@ public class PipelineReconciler implements Reconciler {
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
     try {
-      KubernetesApiResponse<DynamicKubernetesObject> existing = context.dynamic(obj.getApiVersion(),
-          K8sUtils.guessPlural(obj)).get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+      KubernetesApiResponse<DynamicKubernetesObject> existing =
+          context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
+              .get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
       existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));
       if (!existing.isSuccess()) {
         return false;
@@ -142,20 +142,30 @@ public class PipelineReconciler implements Reconciler {
       log.debug("Exception looking for .status.ready. Swallowing.", e);
     }
     try {
-      return obj.getRaw().get("status").getAsJsonObject().get("state").getAsString()
-        .matches("(?i)READY|RUNNING|FINISHED");
+      return obj.getRaw()
+          .get("status")
+          .getAsJsonObject()
+          .get("state")
+          .getAsString()
+          .matches("(?i)READY|RUNNING|FINISHED");
     } catch (Exception e) {
       log.debug("Exception looking for .status.state. Swallowing.", e);
     }
     try {
-      return obj.getRaw().get("status").getAsJsonObject().get("jobStatus").getAsJsonObject()
-        .get("state").getAsString().matches("(?i)READY|RUNNING|FINISHED");
+      return obj.getRaw()
+          .get("status")
+          .getAsJsonObject()
+          .get("jobStatus")
+          .getAsJsonObject()
+          .get("state")
+          .getAsString()
+          .matches("(?i)READY|RUNNING|FINISHED");
     } catch (Exception e) {
       log.debug("Exception looking for .status.jobStatus.state. Swallowing.", e);
     }
     // TODO: Look for common Conditions
-    log.warn("Object {}/{}/{} considered ready by default.", obj.getMetadata().getNamespace(),
-      obj.getKind(), obj.getMetadata().getName());
+    log.warn("Object {}/{}/{} considered ready by default.", obj.getMetadata().getNamespace(), obj.getKind(),
+        obj.getMetadata().getName());
     return true;
   }
 }

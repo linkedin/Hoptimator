@@ -1,15 +1,17 @@
 package com.linkedin.hoptimator.operator.subscription;
 
-import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.catalog.HopTable;
-import com.linkedin.hoptimator.models.V1alpha1Subscription;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
-import com.linkedin.hoptimator.operator.Operator;
-import com.linkedin.hoptimator.operator.ConfigAssembler;
-import com.linkedin.hoptimator.planner.HoptimatorPlanner;
-import com.linkedin.hoptimator.planner.Pipeline;
-import com.linkedin.hoptimator.planner.PipelineRel;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.extended.controller.Controller;
@@ -17,32 +19,22 @@ import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
 import io.kubernetes.client.extended.controller.reconciler.Request;
 import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.linkedin.hoptimator.catalog.HopTable;
+import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.models.V1alpha1Subscription;
+import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
+import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
+import com.linkedin.hoptimator.operator.Operator;
+import com.linkedin.hoptimator.planner.HoptimatorPlanner;
+import com.linkedin.hoptimator.planner.Pipeline;
+import com.linkedin.hoptimator.planner.PipelineRel;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.CountDownLatch;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
-public class SubscriptionReconciler implements Reconciler {
+public final class SubscriptionReconciler implements Reconciler {
   private final static Logger log = LoggerFactory.getLogger(SubscriptionReconciler.class);
   private final static String SUBSCRIPTION = "hoptimator.linkedin.com/v1alpha1/Subscription";
 
@@ -67,10 +59,9 @@ public class SubscriptionReconciler implements Reconciler {
 
     Result result = new Result(true, operator.pendingRetryDuration());
     try {
-      V1alpha1Subscription object = operator.<V1alpha1Subscription>fetch(SUBSCRIPTION, namespace,
-        name);
- 
-      if (object ==  null) {
+      V1alpha1Subscription object = operator.<V1alpha1Subscription>fetch(SUBSCRIPTION, namespace, name);
+
+      if (object == null) {
         log.info("Object {}/{} deleted. Skipping.", namespace, name);
         return new Result(false);
       }
@@ -79,7 +70,7 @@ public class SubscriptionReconciler implements Reconciler {
         log.info("Object {}/{} filtered. Skipping.", namespace, name);
         return new Result(false);
       }
-      
+
       String kind = object.getKind();
 
       object.getMetadata().setNamespace(namespace);
@@ -114,34 +105,35 @@ public class SubscriptionReconciler implements Reconciler {
 
         try {
           Pipeline pipeline = pipeline(object);
-          Resource.Environment subEnv = new SubscriptionEnvironment(namespace, name, pipeline)
-            .orElse(environment);
+          Resource.Environment subEnv = new SubscriptionEnvironment(namespace, name, pipeline).orElse(environment);
           Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(subEnv);
 
           // For sink resources, also expose hints.
-          Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(subEnv
-            .orElse(new Resource.SimpleEnvironment(map(object.getSpec().getHints()))));
-   
+          Resource.TemplateFactory sinkTemplateFactory = new Resource.SimpleTemplateFactory(
+              subEnv.orElse(new Resource.SimpleEnvironment(map(object.getSpec().getHints()))));
+
           // Render resources related to all source tables.
-          List<String> upstreamResources = pipeline.upstreamResources().stream()
-            .flatMap(x -> x.render(templateFactory).stream())
-            .collect(Collectors.toList());
+          List<String> upstreamResources = pipeline.upstreamResources()
+              .stream()
+              .flatMap(x -> x.render(templateFactory).stream())
+              .collect(Collectors.toList());
 
           // Render the SQL job
           Collection<String> sqlJob = pipeline.sqlJob().render(templateFactory);
 
           // Render resources related to the sink table. For these resources, we pass along any
           // "hints" as part of the environment.
-          List<String> downstreamResources = pipeline.downstreamResources().stream()
-            .flatMap(x -> x.render(sinkTemplateFactory).stream())
-            .collect(Collectors.toList());
+          List<String> downstreamResources = pipeline.downstreamResources()
+              .stream()
+              .flatMap(x -> x.render(sinkTemplateFactory).stream())
+              .collect(Collectors.toList());
 
           List<String> combined = new ArrayList<>();
           combined.addAll(upstreamResources);
           combined.addAll(sqlJob);
           combined.addAll(downstreamResources);
 
-          status.setResources(combined);  
+          status.setResources(combined);
           status.setJobResources(new ArrayList<>(sqlJob));
           status.setDownstreamResources(downstreamResources);
 
@@ -152,7 +144,7 @@ public class SubscriptionReconciler implements Reconciler {
           status.setMessage("Planned.");
         } catch (Exception e) {
           log.error("Encountered error when planning a pipeline for {}/{} with SQL `{}`.", kind, name,
-            object.getSpec().getSql(), e);
+              object.getSpec().getSql(), e);
 
           // Mark the Subscription as failed.
           status.setFailed(true);
@@ -162,9 +154,8 @@ public class SubscriptionReconciler implements Reconciler {
       } else if (status.getReady() == null && status.getResources() != null) {
         // Phase 2
         log.info("Deploying pipeline for {}/{}...", kind, name);
-        
-        boolean deployed = status.getResources().stream()
-          .allMatch(x -> apply(x, object));
+
+        boolean deployed = status.getResources().stream().allMatch(x -> apply(x, object));
 
         if (deployed) {
           status.setReady(false);
@@ -176,8 +167,7 @@ public class SubscriptionReconciler implements Reconciler {
       } else {
         log.info("Checking status of pipeline for {}/{}...", kind, name);
 
-        boolean ready = status.getResources().stream()
-          .allMatch(x -> operator.isReady(x));
+        boolean ready = status.getResources().stream().allMatch(x -> operator.isReady(x));
 
         if (ready) {
           status.setReady(true);
@@ -198,8 +188,9 @@ public class SubscriptionReconciler implements Reconciler {
           .flatMap(x -> x.entrySet().stream())
           .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue(), (x, y) -> y)));
 
-      operator.apiFor(SUBSCRIPTION).updateStatus(object, x -> object.getStatus())
-        .onFailure((x, y) -> log.error("Failed to update status of {}/{}: {}.", kind, name, y.getMessage()));
+      operator.apiFor(SUBSCRIPTION)
+          .updateStatus(object, x -> object.getStatus())
+          .onFailure((x, y) -> log.error("Failed to update status of {}/{}: {}.", kind, name, y.getMessage()));
     } catch (Exception e) {
       log.error("Encountered exception while reconciling Subscription {}/{}", namespace, name, e);
       return new Result(true, operator.failureRetryDuration());
@@ -234,8 +225,8 @@ public class SubscriptionReconciler implements Reconciler {
 
   // Whether status has diverged from spec (i.e. we need to re-plan the pipeline)
   private static boolean diverged(V1alpha1SubscriptionSpec spec, V1alpha1SubscriptionStatus status) {
-    return status.getSql() == null || !status.getSql().equals(spec.getSql())
-        || status.getHints() == null || !status.getHints().equals(spec.getHints());
+    return status.getSql() == null || !status.getSql().equals(spec.getSql()) || status.getHints() == null
+        || !status.getHints().equals(spec.getHints());
   }
 
   // Fetch attributes from downstream controllers
@@ -250,7 +241,7 @@ public class SubscriptionReconciler implements Reconciler {
       if (!existing.isSuccess()) {
         return Collections.emptyMap();
       } else {
-        return guessAttributes(existing.getObject()); 
+        return guessAttributes(existing.getObject());
       }
     } catch (Exception e) {
       return Collections.emptyMap();
@@ -263,38 +254,54 @@ public class SubscriptionReconciler implements Reconciler {
       return Collections.emptyMap();
     }
     try {
-      return obj.getRaw().get("status").getAsJsonObject().get("attributes").getAsJsonObject().entrySet().stream()
+      return obj.getRaw()
+          .get("status")
+          .getAsJsonObject()
+          .get("attributes")
+          .getAsJsonObject()
+          .entrySet()
+          .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
           .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status.attributes. Swallowing.", e);
     }
     try {
-      return obj.getRaw().get("status").getAsJsonObject().get("jobStatus").getAsJsonObject().entrySet().stream()
+      return obj.getRaw()
+          .get("status")
+          .getAsJsonObject()
+          .get("jobStatus")
+          .getAsJsonObject()
+          .entrySet()
+          .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
           .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status.jobStatus. Swallowing.", e);
     }
     try {
-      return obj.getRaw().get("status").getAsJsonObject().entrySet().stream()
+      return obj.getRaw()
+          .get("status")
+          .getAsJsonObject()
+          .entrySet()
+          .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
           .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status. Swallowing.", e);
     }
     return Collections.emptyMap();
-  } 
+  }
 
   public static Controller controller(Operator operator, HoptimatorPlanner.Factory plannerFactory,
       Resource.Environment environment, Predicate<V1alpha1Subscription> filter) {
     Reconciler reconciler = new SubscriptionReconciler(operator, plannerFactory, environment, filter);
     return ControllerBuilder.defaultBuilder(operator.informerFactory())
-      .withReconciler(reconciler)
-      .withName("subscription-controller")
-      .withWorkerCount(1)
-      .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1Subscription.class, x).build())
-      .build();
+        .withReconciler(reconciler)
+        .withName("subscription-controller")
+        .withWorkerCount(1)
+        .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1Subscription.class, x).build())
+        .build();
   }
 
   private static Map<String, String> map(Map<String, String> m) {

@@ -1,33 +1,29 @@
 package com.linkedin.hoptimator.operator.kafka;
 
-import com.linkedin.hoptimator.operator.Operator;
-import com.linkedin.hoptimator.operator.ConfigAssembler;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopicStatus;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.NewPartitions;
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
 import io.kubernetes.client.extended.controller.reconciler.Request;
 import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.models.V1OwnerReference;
 
-import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.admin.NewTopic;
-import org.apache.kafka.clients.admin.NewPartitions;
-import org.apache.kafka.clients.admin.TopicDescription;
-import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopicStatus;
+import com.linkedin.hoptimator.operator.ConfigAssembler;
+import com.linkedin.hoptimator.operator.Operator;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 
 public class KafkaTopicReconciler implements Reconciler {
   private final static Logger log = LoggerFactory.getLogger(KafkaTopicReconciler.class);
@@ -60,10 +56,11 @@ public class KafkaTopicReconciler implements Reconciler {
       String topicName = object.getSpec().getTopicName();
       Integer desiredPartitions = object.getSpec().getNumPartitions();
       Integer desiredReplicationFactor = object.getSpec().getReplicationFactor();
-      
+
       // assemble AdminClient config
       ConfigAssembler assembler = new ConfigAssembler(operator);
-      list(object.getSpec().getClientConfigs()).forEach(x -> assembler.addRef(namespace, x.getConfigMapRef().getName()));
+      list(object.getSpec().getClientConfigs()).forEach(
+          x -> assembler.addRef(namespace, x.getConfigMapRef().getName()));
       map(object.getSpec().getClientOverrides()).forEach((k, v) -> assembler.addOverride(k, v));
       Properties properties = assembler.assembleProperties();
       log.info("Using AdminClient config: {}", properties);
@@ -73,22 +70,25 @@ public class KafkaTopicReconciler implements Reconciler {
       // Describe existing Kafka topic, if any
       try {
         log.info("Querying Kafka for topic {}...", topicName);
-        TopicDescription topicDescription = admin.describeTopics(Collections.singleton(topicName)).all().get().get(topicName);
+        TopicDescription topicDescription =
+            admin.describeTopics(Collections.singleton(topicName)).all().get().get(topicName);
 
         log.info("Found existing topic {}", topicName);
         int actualPartitions = topicDescription.partitions().size();
         object.getStatus().setNumPartitions(actualPartitions);
         if (desiredPartitions != null && desiredPartitions > actualPartitions) {
-          log.info("Desired partitions {} > actual partitions {}. Creating additional partitions.",
-            desiredPartitions, actualPartitions);
-          admin.createPartitions(Collections.singletonMap(topicName, NewPartitions.increaseTo(desiredPartitions))).all().get();
+          log.info("Desired partitions {} > actual partitions {}. Creating additional partitions.", desiredPartitions,
+              actualPartitions);
+          admin.createPartitions(Collections.singletonMap(topicName, NewPartitions.increaseTo(desiredPartitions)))
+              .all()
+              .get();
           object.getStatus().setNumPartitions(desiredPartitions);
         }
-      } catch(ExecutionException e) {
-        if (e.getCause() instanceof UnknownTopicOrPartitionException ) {
+      } catch (ExecutionException e) {
+        if (e.getCause() instanceof UnknownTopicOrPartitionException) {
           log.info("No existing topic {}. Will create it.", topicName);
           admin.createTopics(Collections.singleton(new NewTopic(topicName, Optional.ofNullable(desiredPartitions),
-            Optional.ofNullable(desiredReplicationFactor).map(x -> x.shortValue())))).all().get();
+              Optional.ofNullable(desiredReplicationFactor).map(x -> x.shortValue())))).all().get();
           object.getStatus().setNumPartitions(desiredPartitions);
         } else {
           throw e;
@@ -97,9 +97,10 @@ public class KafkaTopicReconciler implements Reconciler {
         admin.close();
       }
 
-      operator.apiFor(KAFKATOPIC).updateStatus(object, x -> object.getStatus())
-        .onFailure((x, y) -> log.error("Failed to update status of KafkaTopic {}/{}: {}.", namespace, name,
-        y.getMessage()));
+      operator.apiFor(KAFKATOPIC)
+          .updateStatus(object, x -> object.getStatus())
+          .onFailure(
+              (x, y) -> log.error("Failed to update status of KafkaTopic {}/{}: {}.", namespace, name, y.getMessage()));
     } catch (Exception e) {
       log.error("Encountered exception while reconciling KafkaTopic {}/{}", namespace, name, e);
       return new Result(true, operator.failureRetryDuration());

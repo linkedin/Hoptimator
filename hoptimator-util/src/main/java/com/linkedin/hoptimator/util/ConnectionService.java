@@ -1,16 +1,17 @@
 package com.linkedin.hoptimator.util;
 
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.ServiceLoader;
+import java.util.stream.Collectors;
+
 import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.ConnectorProvider;
 
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Collection;
-import java.util.List;
-import java.util.ServiceLoader;
-import java.util.stream.Collectors;
-import java.sql.SQLException;
 
 public final class ConnectionService {
 
@@ -33,7 +34,6 @@ public final class ConnectionService {
   }
 
   public static <T> Collection<Connector<T>> connectors(Class<T> clazz) {
-    return providers().stream().flatMap(x -> x.connectors(clazz).stream())
-        .collect(Collectors.toList());
+    return providers().stream().flatMap(x -> x.connectors(clazz).stream()).collect(Collectors.toList());
   }
 }

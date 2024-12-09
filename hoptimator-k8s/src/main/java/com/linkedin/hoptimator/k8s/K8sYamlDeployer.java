@@ -1,8 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.sql.SQLException;
+
 import com.linkedin.hoptimator.Deployer;
 
-import java.sql.SQLException;
 
 public abstract class K8sYamlDeployer<T> implements Deployer<T> {
 

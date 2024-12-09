@@ -1,14 +1,11 @@
 package com.linkedin.hoptimator.util.planner;
 
-import com.linkedin.hoptimator.Deployable;
-
-import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
-import java.sql.SQLException;
+
+import com.linkedin.hoptimator.Deployable;
+
 
 /**
  * A set of Deployable objects that work together to deliver data.
@@ -40,7 +37,7 @@ public class Pipeline implements Deployable {
     for (Deployable deployable : deployables) {
       deployable.update();
     }
-  } 
+  }
 
   @Override
   public List<String> specify() throws SQLException {

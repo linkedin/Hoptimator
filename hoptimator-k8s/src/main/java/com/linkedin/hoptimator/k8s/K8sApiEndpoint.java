@@ -1,7 +1,8 @@
 package com.linkedin.hoptimator.k8s;
 
-import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.common.KubernetesListObject;
+import io.kubernetes.client.common.KubernetesObject;
+
 
 public class K8sApiEndpoint<T extends KubernetesObject, U extends KubernetesListObject> {
 
@@ -14,8 +15,8 @@ public class K8sApiEndpoint<T extends KubernetesObject, U extends KubernetesList
   private final Class<U> u;
   private final String apiVersion;
 
-  public K8sApiEndpoint(String kind, String group, String version, String plural,
-      boolean clusterScoped, Class<T> t, Class<U> u) {
+  public K8sApiEndpoint(String kind, String group, String version, String plural, boolean clusterScoped, Class<T> t,
+      Class<U> u) {
     this.kind = kind;
     this.group = group;
     this.version = version;

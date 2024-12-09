@@ -1,63 +1,58 @@
 package com.linkedin.hoptimator.planner;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Convention;
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
-import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.plan.RelRule;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
+import org.apache.calcite.rel.core.Calc;
+import org.apache.calcite.rel.core.CorrelationId;
+import org.apache.calcite.rel.core.Filter;
+import org.apache.calcite.rel.core.Join;
+import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.core.Project;
+import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalCalc;
 import org.apache.calcite.rel.logical.LogicalFilter;
-import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.logical.LogicalJoin;
-import org.apache.calcite.rel.core.Calc;
-import org.apache.calcite.rel.core.TableScan;
-import org.apache.calcite.rel.core.Filter;
-import org.apache.calcite.rel.core.Project;
-import org.apache.calcite.rel.core.Join;
-import org.apache.calcite.rel.core.CorrelationId;
-import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
 
+import com.linkedin.hoptimator.catalog.HopRel;
 import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.HopTableScan;
-import com.linkedin.hoptimator.catalog.HopRel;
 import com.linkedin.hoptimator.catalog.ProtoTable;
 import com.linkedin.hoptimator.catalog.RuleProvider;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Set;
-import java.util.Objects;
 
 public class PipelineRules implements RuleProvider {
 
   @Override
   public Collection<RelOptRule> rules() {
-    return Arrays.asList(
-      PipelineTableScanRule.INSTANCE,
-      PipelineFilterRule.INSTANCE,
-      PipelineProjectRule.INSTANCE,
-      PipelineJoinRule.INSTANCE,
-      PipelineCalcRule.INSTANCE);
+    return Arrays.asList(PipelineTableScanRule.INSTANCE, PipelineFilterRule.INSTANCE, PipelineProjectRule.INSTANCE,
+        PipelineJoinRule.INSTANCE, PipelineCalcRule.INSTANCE);
   }
- 
+
   static class PipelineTableScanRule extends ConverterRule {
-    static final PipelineTableScanRule INSTANCE = Config.INSTANCE
-      .withConversion(HopTableScan.class, HopRel.CONVENTION,
-          PipelineRel.CONVENTION, "PipelineTableScanRule")
-      .withRuleFactory(PipelineTableScanRule::new)
-      .as(Config.class)
-      .toRule(PipelineTableScanRule.class);
+    static final PipelineTableScanRule INSTANCE =
+        Config.INSTANCE.withConversion(HopTableScan.class, HopRel.CONVENTION, PipelineRel.CONVENTION,
+                "PipelineTableScanRule")
+            .withRuleFactory(PipelineTableScanRule::new)
+            .as(Config.class)
+            .toRule(PipelineTableScanRule.class);
 
     protected PipelineTableScanRule(Config config) {
       super(config);
@@ -95,12 +90,12 @@ public class PipelineRules implements RuleProvider {
   }
 
   static class PipelineFilterRule extends ConverterRule {
-    static final PipelineFilterRule INSTANCE = Config.INSTANCE
-      .withConversion(LogicalFilter.class, Convention.NONE,
-          PipelineRel.CONVENTION, "PipelineFilterRule")
-      .withRuleFactory(PipelineFilterRule::new)
-      .as(Config.class)
-      .toRule(PipelineFilterRule.class);
+    static final PipelineFilterRule INSTANCE =
+        Config.INSTANCE.withConversion(LogicalFilter.class, Convention.NONE, PipelineRel.CONVENTION,
+                "PipelineFilterRule")
+            .withRuleFactory(PipelineFilterRule::new)
+            .as(Config.class)
+            .toRule(PipelineFilterRule.class);
 
     protected PipelineFilterRule(Config config) {
       super(config);
@@ -133,12 +128,12 @@ public class PipelineRules implements RuleProvider {
   }
 
   static class PipelineProjectRule extends ConverterRule {
-    static final PipelineProjectRule INSTANCE = Config.INSTANCE
-      .withConversion(LogicalProject.class, Convention.NONE,
-          PipelineRel.CONVENTION, "PipelineProjectRule")
-      .withRuleFactory(PipelineProjectRule::new)
-      .as(Config.class)
-      .toRule(PipelineProjectRule.class);
+    static final PipelineProjectRule INSTANCE =
+        Config.INSTANCE.withConversion(LogicalProject.class, Convention.NONE, PipelineRel.CONVENTION,
+                "PipelineProjectRule")
+            .withRuleFactory(PipelineProjectRule::new)
+            .as(Config.class)
+            .toRule(PipelineProjectRule.class);
 
     protected PipelineProjectRule(Config config) {
       super(config);
@@ -149,14 +144,14 @@ public class PipelineRules implements RuleProvider {
       Project project = (Project) rel;
       RelTraitSet traitSet = project.getTraitSet().replace(PipelineRel.CONVENTION);
       return new PipelineProject(rel.getCluster(), traitSet, convert(project.getInput(), PipelineRel.CONVENTION),
-        project.getProjects(), project.getRowType());
+          project.getProjects(), project.getRowType());
     }
   }
 
   static class PipelineProject extends Project implements PipelineRel {
 
-    PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, RelNode input,
-        List<? extends RexNode> projects, RelDataType rowType) {
+    PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, List<? extends RexNode> projects,
+        RelDataType rowType) {
       super(cluster, traitSet, Collections.emptyList(), input, projects, rowType);
       assert getConvention() == PipelineRel.CONVENTION;
       assert input.getConvention() == PipelineRel.CONVENTION;
@@ -173,12 +168,11 @@ public class PipelineRules implements RuleProvider {
   }
 
   static class PipelineJoinRule extends ConverterRule {
-    static final PipelineJoinRule INSTANCE = Config.INSTANCE
-      .withConversion(LogicalJoin.class, Convention.NONE,
-          PipelineRel.CONVENTION, "PipelineJoinRule")
-      .withRuleFactory(PipelineJoinRule::new)
-      .as(Config.class)
-      .toRule(PipelineJoinRule.class);
+    static final PipelineJoinRule INSTANCE =
+        Config.INSTANCE.withConversion(LogicalJoin.class, Convention.NONE, PipelineRel.CONVENTION, "PipelineJoinRule")
+            .withRuleFactory(PipelineJoinRule::new)
+            .as(Config.class)
+            .toRule(PipelineJoinRule.class);
 
     protected PipelineJoinRule(Config config) {
       super(config);
@@ -189,15 +183,15 @@ public class PipelineRules implements RuleProvider {
       Join join = (Join) rel;
       RelTraitSet traitSet = join.getTraitSet().replace(PipelineRel.CONVENTION);
       return new PipelineJoin(rel.getCluster(), traitSet, convert(join.getLeft(), PipelineRel.CONVENTION),
-          convert(join.getRight(), PipelineRel.CONVENTION), join.getCondition(),
-          join.getVariablesSet(), join.getJoinType());
+          convert(join.getRight(), PipelineRel.CONVENTION), join.getCondition(), join.getVariablesSet(),
+          join.getJoinType());
     }
   }
 
   static class PipelineJoin extends Join implements PipelineRel {
 
     PipelineJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left, RelNode right, RexNode condition,
-         Set<CorrelationId> variablesSet, JoinRelType joinType) {
+        Set<CorrelationId> variablesSet, JoinRelType joinType) {
       super(cluster, traitSet, Collections.emptyList(), left, right, condition, variablesSet, joinType);
     }
 
@@ -213,12 +207,11 @@ public class PipelineRules implements RuleProvider {
   }
 
   static class PipelineCalcRule extends ConverterRule {
-    static final PipelineCalcRule INSTANCE = Config.INSTANCE
-      .withConversion(LogicalCalc.class, Convention.NONE,
-          PipelineRel.CONVENTION, "PipelineCalcRule")
-      .withRuleFactory(PipelineCalcRule::new)
-      .as(Config.class)
-      .toRule(PipelineCalcRule.class);
+    static final PipelineCalcRule INSTANCE =
+        Config.INSTANCE.withConversion(LogicalCalc.class, Convention.NONE, PipelineRel.CONVENTION, "PipelineCalcRule")
+            .withRuleFactory(PipelineCalcRule::new)
+            .as(Config.class)
+            .toRule(PipelineCalcRule.class);
 
     protected PipelineCalcRule(Config config) {
       super(config);
@@ -263,10 +256,11 @@ public class PipelineRules implements RuleProvider {
       List<String> tail = qualifiedName.subList(1, qualifiedName.size());
       CalciteSchema subSchema = schema.getSubSchema(head, false);
       if (subSchema == null) {
-        throw new IllegalArgumentException("No schema '" + schema.getName() + "' found when looking for table '"
-            + qualifiedName.get(qualifiedName.size() - 1) + "'");
+        throw new IllegalArgumentException(
+            "No schema '" + schema.getName() + "' found when looking for table '" + qualifiedName.get(
+                qualifiedName.size() - 1) + "'");
       }
-      return findTable(subSchema, tail); 
+      return findTable(subSchema, tail);
     }
   }
 

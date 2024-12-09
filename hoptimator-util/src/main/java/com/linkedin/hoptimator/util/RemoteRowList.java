@@ -1,8 +1,9 @@
 package com.linkedin.hoptimator.util;
 
+import java.sql.SQLException;
 import java.util.AbstractCollection;
 import java.util.Iterator;
-import java.sql.SQLException;
+
 
 /** A list of rows corresponding to remote objects behind some API. */
 public class RemoteRowList<T, U> extends AbstractCollection<U> {

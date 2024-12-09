@@ -1,6 +1,9 @@
 package com.linkedin.hoptimator.kafka;
 
-import org.apache.kafka.clients.admin.AdminClient;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
 
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
@@ -8,11 +11,6 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Locale;
-import java.util.Properties;
 
 /** JDBC driver for Kafka topics. */
 public class KafkaDriver extends Driver {

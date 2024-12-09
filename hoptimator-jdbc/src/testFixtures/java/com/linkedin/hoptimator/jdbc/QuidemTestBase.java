@@ -1,23 +1,5 @@
 package com.linkedin.hoptimator.jdbc;
 
-import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
-import com.linkedin.hoptimator.util.ConnectionService;
-import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
-
-import net.hydromatic.quidem.AbstractCommand;
-import net.hydromatic.quidem.Command;
-import net.hydromatic.quidem.CommandHandler;
-import net.hydromatic.quidem.Quidem;
-
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.jdbc.CalciteConnection;
-
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -26,16 +8,25 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
-import java.sql.Connection;
-import java.sql.DriverManager;
+
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.rel.RelNode;
+import org.junit.jupiter.api.Assertions;
+
+import net.hydromatic.quidem.AbstractCommand;
+import net.hydromatic.quidem.Command;
+import net.hydromatic.quidem.CommandHandler;
+import net.hydromatic.quidem.Quidem;
+
+import com.linkedin.hoptimator.util.DeploymentService;
+
 
 public abstract class QuidemTestBase {
 
@@ -46,8 +37,7 @@ public abstract class QuidemTestBase {
   protected void run(URI resource) throws IOException {
     File in = new File(resource);
     File out = File.createTempFile(in.getName(), ".out");
-    try (Reader r = new FileReader(in);
-      Writer w = new PrintWriter(out)) {
+    try (Reader r = new FileReader(in); Writer w = new PrintWriter(out)) {
       Quidem.Config config = Quidem.configBuilder()
           .withReader(r)
           .withWriter(w)
@@ -70,7 +60,7 @@ public abstract class QuidemTestBase {
     @Override
     public Command parseCommand(List<String> lines, List<String> content, final String line) {
       List<String> copy = new ArrayList<>();
-      copy.addAll(lines); 
+      copy.addAll(lines);
       if (line.startsWith("spec")) {
         return new AbstractCommand() {
           @Override
@@ -82,9 +72,9 @@ public abstract class QuidemTestBase {
               String sql = context.previousSqlCommand().sql;
               CalciteConnection conn = (CalciteConnection) context.connection();
               RelNode rel = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root.rel;
-              String specs = DeploymentService.plan(rel).pipeline().specify().stream()
-                  .collect(Collectors.joining("---\n"));
-              String[] lines = specs.replaceAll(";\n","\n").split("\n");
+              String specs =
+                  DeploymentService.plan(rel).pipeline().specify().stream().collect(Collectors.joining("---\n"));
+              String[] lines = specs.replaceAll(";\n", "\n").split("\n");
               context.echo(Arrays.asList(lines));
             } else {
               context.echo(content);

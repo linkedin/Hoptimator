@@ -1,19 +1,19 @@
 package com.linkedin.hoptimator.operator;
 
-import io.kubernetes.client.informer.SharedInformerFactory;
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.ControllerManager;
-
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
-import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.time.Duration;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.ControllerManager;
+
+import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
+
 
 public class PipelineOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
@@ -32,10 +32,10 @@ public class PipelineOperatorApp {
     // TODO: add additional controllers from ControllerProvider SPI
     controllers.add(PipelineReconciler.controller(context));
 
-    ControllerManager controllerManager = new ControllerManager(context.informerFactory(),
-        controllers.toArray(new Controller[0]));
-  
+    ControllerManager controllerManager =
+        new ControllerManager(context.informerFactory(), controllers.toArray(new Controller[0]));
+
     log.info("Starting operator with {} controllers.", controllers.size());
-    controllerManager.run();  
+    controllerManager.run();
   }
 }

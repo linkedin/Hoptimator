@@ -1,39 +1,40 @@
 package com.linkedin.hoptimator.util;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.linq4j.Enumerable;
 import org.apache.calcite.linq4j.Linq4j;
-import org.apache.calcite.linq4j.Queryable;
 import org.apache.calcite.linq4j.QueryProvider;
+import org.apache.calcite.linq4j.Queryable;
 import org.apache.calcite.linq4j.tree.Expression;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.schema.ModifiableTable;
 import org.apache.calcite.schema.ScannableTable;
-import org.apache.calcite.schema.TranslatableTable;
-import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.plan.Convention;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.plan.RelOptCluster;
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.prepare.Prepare;
+import org.apache.calcite.schema.Schemas;
+import org.apache.calcite.schema.TranslatableTable;
+import org.apache.calcite.schema.impl.AbstractTable;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 /** An in-memory table. */
-public abstract class ArrayTable<T> extends AbstractTable implements TranslatableTable, ModifiableTable,
-    ScannableTable {
+public abstract class ArrayTable<T> extends AbstractTable
+    implements TranslatableTable, ModifiableTable, ScannableTable {
 
   private final Class<T> elementType;
   private final RelDataType javaType;
@@ -88,11 +89,12 @@ public abstract class ArrayTable<T> extends AbstractTable implements Translatabl
   }
 
   @Override
-  public TableModify toModificationRel(RelOptCluster cluster, RelOptTable table, Prepare.CatalogReader schema, RelNode input,
-      TableModify.Operation operation, List<String> updateColumnList, List<RexNode> sourceExpressionList, boolean flattened) {
+  public TableModify toModificationRel(RelOptCluster cluster, RelOptTable table, Prepare.CatalogReader schema,
+      RelNode input, TableModify.Operation operation, List<String> updateColumnList, List<RexNode> sourceExpressionList,
+      boolean flattened) {
     RelTraitSet traitSet = cluster.traitSetOf(Convention.NONE);
-    return new LogicalTableModify(cluster, traitSet, table, schema, input,
-        operation, updateColumnList, sourceExpressionList, flattened);
+    return new LogicalTableModify(cluster, traitSet, table, schema, input, operation, updateColumnList,
+        sourceExpressionList, flattened);
   }
 
   @SuppressWarnings("unchecked")
