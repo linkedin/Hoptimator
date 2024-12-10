@@ -55,7 +55,7 @@ public final class DeploymentService {
   public static Collection<DeployerProvider> providers() {
     ServiceLoader<DeployerProvider> loader = ServiceLoader.load(DeployerProvider.class);
     List<DeployerProvider> providers = new ArrayList<>();
-    loader.iterator().forEachRemaining(x -> providers.add(x));
+    loader.iterator().forEachRemaining(providers::add);
     return providers;
   }
 
@@ -89,11 +89,11 @@ public final class DeploymentService {
   }
 
   /** Plans a deployable Pipeline which implements the query. */
-  public static PipelineRel.Implementor plan(RelNode rel) throws SQLException {
+  public static PipelineRel.Implementor plan(RelNode rel) {
     RelTraitSet traitSet = rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = rel.getCluster().getPlanner();
-    PipelineRules.rules().forEach(x -> planner.addRule(x));
+    PipelineRules.rules().forEach(planner::addRule);
     // TODO add materializations here (currently empty list)
     PipelineRel plan = (PipelineRel) program.run(rel.getCluster().getPlanner(), rel, traitSet, Collections.emptyList(),
         Collections.emptyList());

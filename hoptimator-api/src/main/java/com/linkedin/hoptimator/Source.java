@@ -2,7 +2,6 @@ package com.linkedin.hoptimator;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 
 public class Source {
@@ -39,7 +38,7 @@ public class Source {
   }
 
   protected String pathString() {
-    return path.stream().collect(Collectors.joining("."));
+    return String.join(".", path);
   }
 
   @Override

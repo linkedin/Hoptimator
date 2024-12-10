@@ -10,6 +10,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
 
+import static java.util.Objects.requireNonNull;
+
 
 class K8sViewDeployer extends K8sDeployer<ViewTable, V1alpha1View, V1alpha1ViewList> {
 
@@ -19,8 +21,8 @@ class K8sViewDeployer extends K8sDeployer<ViewTable, V1alpha1View, V1alpha1ViewL
 
   @Override
   protected V1alpha1View toK8sObject(ViewTable view) {
-    String name = K8sUtils.canonicalizeName(view.getViewPath());
-    LinkedList<String> q = new LinkedList<>(view.getViewPath());
+    LinkedList<String> q = new LinkedList<>(requireNonNull(view.getViewPath()));
+    String name = K8sUtils.canonicalizeName(q);
     return new V1alpha1View().kind(K8sApiEndpoints.VIEWS.kind())
         .apiVersion(K8sApiEndpoints.VIEWS.apiVersion())
         .metadata(new V1ObjectMeta().name(name))

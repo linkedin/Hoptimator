@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -88,6 +89,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code CREATE VIEW} command. */
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
+    Objects.requireNonNull(pair.left);
+    Objects.requireNonNull(pair.right);
     final SchemaPlus schemaPlus = pair.left.plus();
     for (Function function : schemaPlus.getFunctions(pair.right)) {
       if (function.getParameters().isEmpty()) {
@@ -102,8 +105,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     List<String> schemaPath = pair.left.path(null);
     String schemaName = schemaPlus.getName();
     String viewName = pair.right;
-    List<String> viewPath = new ArrayList<>();
-    viewPath.addAll(schemaPath);
+    List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
     ViewTableMacro viewTableMacro = ViewTable.viewMacro(schemaPlus, sql, schemaPath, viewPath, false);
     ViewTable viewTable = (ViewTable) viewTableMacro.apply(Collections.emptyList());
@@ -150,8 +152,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     SchemaPlus schemaPlus = pair.left.plus();
     String schemaName = schemaPlus.getName();
     String viewName = pair.right;
-    List<String> viewPath = new ArrayList<>();
-    viewPath.addAll(schemaPath);
+    List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
     try {
       if (!(pair.left.schema instanceof Database)) {
@@ -200,6 +201,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
     for (String p : path) {
+      Objects.requireNonNull(schema);
       schema = schema.getSubSchema(p, true);
     }
     return Pair.of(schema, name);
@@ -216,7 +218,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final SqlParserPos p = query.getParserPosition();
     final SqlNodeList selectList = SqlNodeList.SINGLETON_STAR;
     final SqlCall from = SqlStdOperatorTable.AS.createCall(p,
-        Arrays.asList(new SqlNode[]{query, new SqlIdentifier("_", p), columnList}));
+        Arrays.asList(query, new SqlIdentifier("_", p), columnList));
     return new SqlSelect(p, null, selectList, from, null, null, null, null, null, null, null, null, null);
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import io.kubernetes.client.common.KubernetesType;
@@ -17,7 +18,7 @@ public final class K8sUtils {
   }
 
   public static String canonicalizeName(Collection<String> parts) {
-    return parts.stream().filter(x -> x != null).map(x -> canonicalizeName(x)).collect(Collectors.joining("-"));
+    return parts.stream().filter(Objects::nonNull).map(K8sUtils::canonicalizeName).collect(Collectors.joining("-"));
   }
 
   // TODO: Robust and reversible canonicalization

@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.operator.pipeline;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Objects;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,10 +61,11 @@ public final class PipelineReconciler implements Reconciler {
 
       log.info("Checking status of Pipeline {}...", name);
 
-      boolean ready = Arrays.asList(object.getSpec().getYaml().split("\n---\n"))
-          .stream()
+      Objects.requireNonNull(object.getSpec());
+      Objects.requireNonNull(object.getSpec().getYaml());
+      boolean ready = Arrays.stream(object.getSpec().getYaml().split("\n---\n"))
           .filter(x -> x != null && !x.isEmpty())
-          .allMatch(x -> isReady(x));
+          .allMatch(this::isReady);
 
       if (ready) {
         status.setReady(true);
@@ -87,12 +89,12 @@ public final class PipelineReconciler implements Reconciler {
   }
 
   // TODO load from configuration
-  protected Duration failureRetryDuration() {
+  private Duration failureRetryDuration() {
     return Duration.ofMinutes(5);
   }
 
   // TODO load from configuration
-  protected Duration pendingRetryDuration() {
+  private Duration pendingRetryDuration() {
     return Duration.ofMinutes(1);
   }
 
@@ -113,8 +115,7 @@ public final class PipelineReconciler implements Reconciler {
     String kind = obj.getKind();
     try {
       KubernetesApiResponse<DynamicKubernetesObject> existing =
-          context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
-              .get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+          context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(namespace, name);
       existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));
       if (!existing.isSuccess()) {
         return false;

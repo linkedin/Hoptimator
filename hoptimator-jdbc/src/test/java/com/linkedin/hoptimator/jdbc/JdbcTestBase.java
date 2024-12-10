@@ -49,7 +49,7 @@ public abstract class JdbcTestBase {
 
   protected void assertQueryNonEmpty(String q) throws SQLException {
     List<Object[]> res = query(q);
-    Assertions.assertTrue(!res.isEmpty(), "ResultSet is empty");
+    Assertions.assertFalse(res.isEmpty(), "ResultSet is empty");
   }
 
   protected List<Object[]> query(String query) throws SQLException {

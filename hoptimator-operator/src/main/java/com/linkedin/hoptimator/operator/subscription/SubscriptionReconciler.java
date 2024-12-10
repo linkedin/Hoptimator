@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,7 +60,7 @@ public final class SubscriptionReconciler implements Reconciler {
 
     Result result = new Result(true, operator.pendingRetryDuration());
     try {
-      V1alpha1Subscription object = operator.<V1alpha1Subscription>fetch(SUBSCRIPTION, namespace, name);
+      V1alpha1Subscription object = operator.fetch(SUBSCRIPTION, namespace, name);
 
       if (object == null) {
         log.info("Object {}/{} deleted. Skipping.", namespace, name);
@@ -73,6 +74,7 @@ public final class SubscriptionReconciler implements Reconciler {
 
       String kind = object.getKind();
 
+      Objects.requireNonNull(object.getMetadata());
       object.getMetadata().setNamespace(namespace);
 
       V1alpha1SubscriptionStatus status = object.getStatus();
@@ -81,6 +83,7 @@ public final class SubscriptionReconciler implements Reconciler {
         object.setStatus(status);
       }
 
+      Objects.requireNonNull(object.getSpec());
       if (object.getSpec().getHints() == null) {
         object.getSpec().setHints(new HashMap<>());
       }
@@ -97,7 +100,7 @@ public final class SubscriptionReconciler implements Reconciler {
       // 1. Plan a pipeline, and write the plan to Status.
       // 2. Deploy the pipeline per plan.
       // 3. Verify readiness of the entire pipeline.
-      // Each phase should be a separate reconcilation loop to avoid races.
+      // Each phase should be a separate reconciliation loop to avoid races.
       // TODO: We should disown orphaned resources when the pipeline changes.
       if (diverged(object.getSpec(), status)) {
         // Phase 1
@@ -167,7 +170,8 @@ public final class SubscriptionReconciler implements Reconciler {
       } else {
         log.info("Checking status of pipeline for {}/{}...", kind, name);
 
-        boolean ready = status.getResources().stream().allMatch(x -> operator.isReady(x));
+        Objects.requireNonNull(status.getResources());
+        boolean ready = status.getResources().stream().allMatch(operator::isReady);
 
         if (ready) {
           status.setReady(true);
@@ -184,9 +188,9 @@ public final class SubscriptionReconciler implements Reconciler {
       }
 
       status.setAttributes(Stream.concat(status.getJobResources().stream(), status.getDownstreamResources().stream())
-          .map(x -> fetchAttributes(x))
+          .map(this::fetchAttributes)
           .flatMap(x -> x.entrySet().stream())
-          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue(), (x, y) -> y)));
+          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x, y) -> y)));
 
       operator.apiFor(SUBSCRIPTION)
           .updateStatus(object, x -> object.getStatus())
@@ -208,6 +212,8 @@ public final class SubscriptionReconciler implements Reconciler {
   }
 
   private Pipeline pipeline(V1alpha1Subscription object) throws Exception {
+    Objects.requireNonNull(object.getMetadata());
+    Objects.requireNonNull(object.getSpec());
     String name = object.getMetadata().getName();
     String sql = object.getSpec().getSql();
     String database = object.getSpec().getDatabase();
@@ -262,7 +268,7 @@ public final class SubscriptionReconciler implements Reconciler {
           .entrySet()
           .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
-          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+          .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status.attributes. Swallowing.", e);
     }
@@ -275,7 +281,7 @@ public final class SubscriptionReconciler implements Reconciler {
           .entrySet()
           .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
-          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+          .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status.jobStatus. Swallowing.", e);
     }
@@ -286,7 +292,7 @@ public final class SubscriptionReconciler implements Reconciler {
           .entrySet()
           .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
-          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+          .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status. Swallowing.", e);
     }

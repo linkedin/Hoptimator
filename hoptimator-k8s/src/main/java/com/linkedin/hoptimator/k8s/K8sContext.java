@@ -71,7 +71,7 @@ public class K8sContext {
 
   public <T extends KubernetesObject, U extends KubernetesListObject> GenericKubernetesApi<T, U> generic(Class<T> t,
       Class<U> u, String group, String version, String plural) {
-    return new GenericKubernetesApi<T, U>(t, u, group, version, plural, apiClient);
+    return new GenericKubernetesApi<>(t, u, group, version, plural, apiClient);
   }
 
   public <T extends KubernetesObject, U extends KubernetesListObject> GenericKubernetesApi<T, U> generic(

@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.operator.kafka;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
@@ -42,7 +43,7 @@ public class KafkaTopicReconciler implements Reconciler {
     String namespace = request.getNamespace();
 
     try {
-      V1alpha1KafkaTopic object = operator.<V1alpha1KafkaTopic>fetch(KAFKATOPIC, namespace, name);
+      V1alpha1KafkaTopic object = operator.fetch(KAFKATOPIC, namespace, name);
 
       if (object == null) {
         log.info("Object {}/{} deleted. Skipping.", namespace, name);
@@ -53,6 +54,7 @@ public class KafkaTopicReconciler implements Reconciler {
         object.setStatus(new V1alpha1KafkaTopicStatus());
       }
 
+      Objects.requireNonNull(object.getSpec());
       String topicName = object.getSpec().getTopicName();
       Integer desiredPartitions = object.getSpec().getNumPartitions();
       Integer desiredReplicationFactor = object.getSpec().getReplicationFactor();
@@ -60,8 +62,11 @@ public class KafkaTopicReconciler implements Reconciler {
       // assemble AdminClient config
       ConfigAssembler assembler = new ConfigAssembler(operator);
       list(object.getSpec().getClientConfigs()).forEach(
-          x -> assembler.addRef(namespace, x.getConfigMapRef().getName()));
-      map(object.getSpec().getClientOverrides()).forEach((k, v) -> assembler.addOverride(k, v));
+          x -> {
+            Objects.requireNonNull(x.getConfigMapRef());
+            assembler.addRef(namespace, x.getConfigMapRef().getName());
+          });
+      map(object.getSpec().getClientOverrides()).forEach(assembler::addOverride);
       Properties properties = assembler.assembleProperties();
       log.info("Using AdminClient config: {}", properties);
 
@@ -88,7 +93,7 @@ public class KafkaTopicReconciler implements Reconciler {
         if (e.getCause() instanceof UnknownTopicOrPartitionException) {
           log.info("No existing topic {}. Will create it.", topicName);
           admin.createTopics(Collections.singleton(new NewTopic(topicName, Optional.ofNullable(desiredPartitions),
-              Optional.ofNullable(desiredReplicationFactor).map(x -> x.shortValue())))).all().get();
+              Optional.ofNullable(desiredReplicationFactor).map(Integer::shortValue)))).all().get();
           object.getStatus().setNumPartitions(desiredPartitions);
         } else {
           throw e;

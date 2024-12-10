@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Scanner;
 
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -21,7 +22,8 @@ public class HoptimatorAppConfig extends Application {
 
   public String getInfoMessage() {
     Scanner scanner =
-        new Scanner(Thread.currentThread().getContextClassLoader().getResourceAsStream("welcome.txt"), "utf-8");
+        new Scanner(
+            Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResourceAsStream("welcome.txt")), "utf-8");
     StringBuilder sb = new StringBuilder();
     while (scanner.hasNext()) {
       sb.append(scanner.nextLine());
@@ -31,8 +33,7 @@ public class HoptimatorAppConfig extends Application {
   }
 
   public Collection<CommandHandler> getCommandHandlers(SqlLine sqlline) {
-    Collection<CommandHandler> list = new ArrayList<>();
-    list.addAll(super.getCommandHandlers(sqlline));
+    Collection<CommandHandler> list = new ArrayList<>(super.getCommandHandlers(sqlline));
     list.add(new IntroCommandHandler(sqlline));
     list.add(new PipelineCommandHandler(sqlline));
     list.add(new SpecifyCommandHandler(sqlline));
@@ -93,7 +94,6 @@ public class HoptimatorAppConfig extends Application {
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
-        return;
       }
     }
 
@@ -162,7 +162,6 @@ public class HoptimatorAppConfig extends Application {
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
-        return;
       }
     }
 
@@ -212,7 +211,8 @@ public class HoptimatorAppConfig extends Application {
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
       Scanner scanner =
-          new Scanner(Thread.currentThread().getContextClassLoader().getResourceAsStream("intro.txt"), "utf-8");
+          new Scanner(
+              Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResourceAsStream("intro.txt")), "utf-8");
       while (scanner.hasNext()) {
         sqlline.output(scanner.nextLine());
       }

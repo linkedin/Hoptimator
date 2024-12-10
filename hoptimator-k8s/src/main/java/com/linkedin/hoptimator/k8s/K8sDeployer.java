@@ -14,10 +14,10 @@ import com.linkedin.hoptimator.Deployer;
 public abstract class K8sDeployer<T, U extends KubernetesObject, V extends KubernetesListObject>
     implements Deployer<T> {
 
-  private K8sApi<U, V> api;
+  private final K8sApi<U, V> api;
 
   K8sDeployer(K8sContext context, K8sApiEndpoint<U, V> endpoint) {
-    this.api = new K8sApi<U, V>(context, endpoint);
+    this.api = new K8sApi<>(context, endpoint);
   }
 
   @Override

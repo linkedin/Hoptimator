@@ -7,10 +7,10 @@ public class MemberTable extends ArrayTable<MemberTable.Row> {
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String FIRST_NAME;
-    public String LAST_NAME;
-    public String MEMBER_URN;
-    public String COMPANY_URN;
+    public final String FIRST_NAME;
+    public final String LAST_NAME;
+    public final String MEMBER_URN;
+    public final String COMPANY_URN;
 
     public Row(String firstName, String lastName, String memberUrn, String companyUrn) {
       this.FIRST_NAME = firstName;

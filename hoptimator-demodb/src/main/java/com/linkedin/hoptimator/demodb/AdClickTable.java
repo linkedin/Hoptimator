@@ -7,8 +7,8 @@ public class AdClickTable extends ArrayTable<AdClickTable.Row> {
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String CAMPAIGN_URN;
-    public String MEMBER_URN;
+    public final String CAMPAIGN_URN;
+    public final String MEMBER_URN;
 
     public Row(String campaignUrn, String memberUrn) {
       this.CAMPAIGN_URN = campaignUrn;

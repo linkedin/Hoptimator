@@ -7,8 +7,8 @@ public class PageViewTable extends ArrayTable<PageViewTable.Row> {
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String PAGE_URN;
-    public String MEMBER_URN;
+    public final String PAGE_URN;
+    public final String MEMBER_URN;
 
     public Row(String pageUrn, String memberUrn) {
       this.PAGE_URN = pageUrn;

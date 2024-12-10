@@ -2,7 +2,6 @@ package com.linkedin.hoptimator;
 
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 
 public class MaterializedView {
@@ -53,7 +52,7 @@ public class MaterializedView {
   }
 
   protected String pathString() {
-    return path.stream().collect(Collectors.joining("."));
+    return String.join(".", path);
   }
 
   @Override

@@ -3,17 +3,15 @@ package com.linkedin.hoptimator.k8s;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-import org.apache.calcite.sql.dialect.CalciteSqlDialect;
-import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
 import com.linkedin.hoptimator.util.Template;
 
 
@@ -40,10 +38,11 @@ class K8sJobDeployer extends K8sYamlDeployer<Job> {
         .with(job.sink().options());
     return jobTemplateApi.list()
         .stream()
-        .map(x -> x.getSpec())
+        .map(V1alpha1JobTemplate::getSpec)
+        .filter(Objects::nonNull)
         .filter(x -> x.getDatabases() == null || x.getDatabases().contains(job.sink().database()))
-        .filter(x -> x.getYaml() != null)
-        .map(x -> x.getYaml())
+        .map(V1alpha1JobTemplateSpec::getYaml)
+        .filter(Objects::nonNull)
         .map(x -> new Template.SimpleTemplate(x).render(env))
         .collect(Collectors.toList());
   }

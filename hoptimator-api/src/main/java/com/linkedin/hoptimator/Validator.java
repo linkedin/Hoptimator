@@ -29,7 +29,7 @@ public interface Validator<T> {
   }
 
   static <T, U> void validateUnique(Collection<T> collection, Function<T, U> accessor, Issues issues) {
-    Set<U> keys = new HashSet<U>();
+    Set<U> keys = new HashSet<>();
     for (T t : collection) {
       U u = accessor.apply(t);
       if (keys.contains(u)) {
@@ -104,7 +104,7 @@ public interface Validator<T> {
     /** For convenience only, enabling try-with-resources */
     public void close() {
       closed = true;
-      children.values().forEach(x -> x.checkClosed());
+      children.values().forEach(Issues::checkClosed);
     }
 
     private void emit(String message) {
@@ -129,7 +129,7 @@ public interface Validator<T> {
     }
 
     private boolean empty() {
-      return issues.isEmpty() && children.values().stream().allMatch(x -> x.empty());
+      return issues.isEmpty() && children.values().stream().allMatch(Issues::empty);
     }
 
     private String fullPath() {

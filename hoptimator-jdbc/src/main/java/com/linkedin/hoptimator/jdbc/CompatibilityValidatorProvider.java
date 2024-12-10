@@ -17,8 +17,8 @@ public class CompatibilityValidatorProvider implements ValidatorProvider {
   @Override
   public <T> Collection<Validator<T>> validators(Class<T> clazz) {
     if (SchemaPlus.class.isAssignableFrom(clazz)) {
-      return Arrays.asList(new Validator[]{(Validator<T>) new BackwardCompatibilityValidator(),
-          (Validator<T>) new ForwardCompatibilityValidator()});
+      return Arrays.asList((Validator<T>) new BackwardCompatibilityValidator(),
+          (Validator<T>) new ForwardCompatibilityValidator());
     } else {
       return Collections.emptyList();
     }

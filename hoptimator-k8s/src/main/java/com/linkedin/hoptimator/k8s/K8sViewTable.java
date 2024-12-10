@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.k8s;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
@@ -25,11 +26,11 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String NAME;
-    public String SCHEMA;
-    public String VIEW;
-    public String SQL;
-    public boolean MATERIALIZED;
+    public final String NAME;
+    public final String SCHEMA;
+    public final String VIEW;
+    public final String SQL;
+    public final boolean MATERIALIZED;
 
     public Row(String name, String schema, String view, String sql, boolean materialized) {
       this.NAME = name;
@@ -40,8 +41,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     }
 
     public List<String> viewPath() {
-      List<String> path = new ArrayList<>();
-      path.addAll(schemaPath());
+      List<String> path = new ArrayList<>(schemaPath());
       path.add(viewName());
       return path;
     }
@@ -81,6 +81,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
       // build schema path, filling in any missing schemas
       SchemaPlus schema = parentSchema;
       for (String pos : row.schemaPath()) {
+        Objects.requireNonNull(schema);
         SchemaPlus next = schema.getSubSchema(pos);
         if (next == null) {
           schema.add(pos, new AbstractSchema());
@@ -88,6 +89,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
         }
         schema = next;
       }
+      Objects.requireNonNull(schema);
       schema.add(row.viewName(), makeView(schema, row));
     }
   }
@@ -118,6 +120,8 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
 
   @Override
   public Row toRow(V1alpha1View obj) {
+    Objects.requireNonNull(obj.getMetadata());
+    Objects.requireNonNull(obj.getSpec());
     return new Row(obj.getMetadata().getName(), obj.getSpec().getSchema(), obj.getSpec().getView(),
         obj.getSpec().getSql(), Boolean.TRUE.equals(obj.getSpec().getMaterialized()));
   }

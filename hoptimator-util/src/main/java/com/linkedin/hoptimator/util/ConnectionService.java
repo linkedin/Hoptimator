@@ -29,7 +29,7 @@ public final class ConnectionService {
   public static Collection<ConnectorProvider> providers() {
     ServiceLoader<ConnectorProvider> loader = ServiceLoader.load(ConnectorProvider.class);
     List<ConnectorProvider> providers = new ArrayList<>();
-    loader.iterator().forEachRemaining(x -> providers.add(x));
+    loader.iterator().forEachRemaining(providers::add);
     return providers;
   }
 

@@ -18,7 +18,7 @@ public final class ControllerService {
   public static Collection<ControllerProvider> providers() {
     ServiceLoader<ControllerProvider> loader = ServiceLoader.load(ControllerProvider.class);
     List<ControllerProvider> providers = new ArrayList<>();
-    loader.iterator().forEachRemaining(x -> providers.add(x));
+    loader.iterator().forEachRemaining(providers::add);
     return providers;
   }
 

@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class ClusterSchema extends AbstractSchema {
 
-  private static Logger log = LoggerFactory.getLogger(ClusterSchema.class);
+  private static final Logger log = LoggerFactory.getLogger(ClusterSchema.class);
 
   private final Properties properties;
   private final Map<String, Table> tableMap = new HashMap<>();
@@ -26,12 +26,13 @@ public class ClusterSchema extends AbstractSchema {
 
   public void populate() throws InterruptedException, ExecutionException {
     tableMap.clear();
-    AdminClient adminClient = AdminClient.create(properties);
-    log.info("Loading Kafka topics from {} ...", properties.getProperty("bootstrap.servers"));
-    Set<String> topicNames = adminClient.listTopics().names().get();
-    log.info("Loaded {} topics.", topicNames.size());
-    for (String name : topicNames) {
-      tableMap.put(name, new KafkaTopic(name, properties));
+    try (AdminClient adminClient = AdminClient.create(properties)) {
+      log.info("Loading Kafka topics from {} ...", properties.getProperty("bootstrap.servers"));
+      Set<String> topicNames = adminClient.listTopics().names().get();
+      log.info("Loaded {} topics.", topicNames.size());
+      for (String name : topicNames) {
+        tableMap.put(name, new KafkaTopic(name, properties));
+      }
     }
   }
 

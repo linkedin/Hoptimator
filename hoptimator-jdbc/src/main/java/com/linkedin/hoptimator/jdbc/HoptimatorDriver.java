@@ -23,7 +23,7 @@ import com.linkedin.hoptimator.util.WrappedSchemaPlus;
 public class HoptimatorDriver extends Driver {
 
   public HoptimatorDriver() {
-    super(() -> new Prepare());
+    super(Prepare::new);
   }
 
   static {
@@ -71,7 +71,7 @@ public class HoptimatorDriver extends Driver {
       calciteConnection.setSchema("DEFAULT");
 
       WrappedSchemaPlus wrappedRootSchema = new WrappedSchemaPlus(rootSchema);
-      if (catalogs.length == 0 || catalogs[0].length() == 0) {
+      if (catalogs.length == 0 || catalogs[0].isEmpty()) {
         // load all catalogs (typical usage)
         for (Catalog catalog : CatalogService.catalogs()) {
           catalog.register(wrappedRootSchema);

@@ -43,6 +43,6 @@ public class KafkaControllerProvider implements ControllerProvider {
         .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1Acl.class, x).build())
         .build();
 
-    return Arrays.asList(new Controller[]{topicController, topicAclController});
+    return Arrays.asList(topicController, topicAclController);
   }
 }

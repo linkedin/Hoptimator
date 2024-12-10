@@ -7,7 +7,7 @@ import com.linkedin.hoptimator.Deployer;
 
 public abstract class K8sYamlDeployer<T> implements Deployer<T> {
 
-  private K8sYamlApi api;
+  private final K8sYamlApi api;
 
   public K8sYamlDeployer(K8sContext context) {
     this.api = new K8sYamlApi(context);

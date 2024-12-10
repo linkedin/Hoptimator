@@ -87,7 +87,7 @@ public class HoptimatorOperatorApp {
     HoptimatorPlanner.Factory plannerFactory = HoptimatorPlanner.Factory.fromJdbc(url, properties);
 
     // ensure JDBC connection works, and that static classes are initialized in the main thread
-    HoptimatorPlanner planner = plannerFactory.makePlanner();
+    plannerFactory.makePlanner();
 
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder().readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
@@ -97,8 +97,7 @@ public class HoptimatorOperatorApp {
     operator.registerApi("Subscription", "subscription", "subscriptions", "hoptimator.linkedin.com", "v1alpha1",
         V1alpha1Subscription.class, V1alpha1SubscriptionList.class);
 
-    List<Controller> controllers = new ArrayList<>();
-    controllers.addAll(ControllerService.controllers(operator));
+    List<Controller> controllers = new ArrayList<>(ControllerService.controllers(operator));
     controllers.add(SubscriptionReconciler.controller(operator, plannerFactory, environment, subscriptionFilter));
     controllers.add(PipelineReconciler.controller(context));
 

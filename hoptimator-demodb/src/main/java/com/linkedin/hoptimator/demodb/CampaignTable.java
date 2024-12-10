@@ -7,8 +7,8 @@ public class CampaignTable extends ArrayTable<CampaignTable.Row> {
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String CAMPAIGN_URN;
-    public String COMPANY_URN;
+    public final String CAMPAIGN_URN;
+    public final String COMPANY_URN;
 
     public Row(String campaignUrn, String companyUrn) {
       this.CAMPAIGN_URN = campaignUrn;

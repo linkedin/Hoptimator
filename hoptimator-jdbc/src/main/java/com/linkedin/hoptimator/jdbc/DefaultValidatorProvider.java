@@ -12,6 +12,6 @@ public class DefaultValidatorProvider implements ValidatorProvider {
 
   @Override
   public <T> Collection<Validator<T>> validators(Class<T> clazz) {
-    return Collections.singletonList(new Validator.DefaultValidator<T>());
+    return Collections.singletonList(new Validator.DefaultValidator<>());
   }
 }

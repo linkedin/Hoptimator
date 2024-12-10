@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.util.Objects;
+
 import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1SecretList;
 
@@ -10,8 +12,8 @@ public class SecretTable extends RemoteTable<V1Secret, SecretTable.Row> {
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String NAME;
-    public String TYPE;
+    public final String NAME;
+    public final String TYPE;
 
     public Row(String name, String type) {
       this.NAME = name;
@@ -25,11 +27,11 @@ public class SecretTable extends RemoteTable<V1Secret, SecretTable.Row> {
   }
 
   public SecretTable(K8sContext context) {
-    this(new K8sApi<V1Secret, V1SecretList>(context, K8sApiEndpoints.SECRETS));
+    this(new K8sApi<>(context, K8sApiEndpoints.SECRETS));
   }
 
   @Override
   public Row toRow(V1Secret obj) {
-    return new Row(obj.getMetadata().getName(), obj.getType());
+    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), obj.getType());
   }
 }

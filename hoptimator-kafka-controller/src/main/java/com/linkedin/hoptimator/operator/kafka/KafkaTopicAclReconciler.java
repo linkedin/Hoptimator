@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.operator.kafka;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.kafka.clients.admin.AdminClient;
@@ -45,13 +46,14 @@ public class KafkaTopicAclReconciler implements Reconciler {
     String namespace = request.getNamespace();
 
     try {
-      V1alpha1Acl object = operator.<V1alpha1Acl>fetch(ACL, namespace, name);
+      V1alpha1Acl object = operator.fetch(ACL, namespace, name);
 
       if (object == null) {
         log.info("Object {}/{} deleted. Skipping.", namespace, name);
         return new Result(false);
       }
 
+      Objects.requireNonNull(object.getSpec());
       String targetKind = object.getSpec().getResource().getKind();
 
       if (!"KafkaTopic".equals(targetKind)) {
@@ -76,31 +78,33 @@ public class KafkaTopicAclReconciler implements Reconciler {
       String targetName = object.getSpec().getResource().getName();
       String principal = object.getSpec().getPrincipal();
 
-      V1alpha1KafkaTopic target = operator.<V1alpha1KafkaTopic>fetch(KAFKATOPIC, namespace, targetName);
+      V1alpha1KafkaTopic target = operator.fetch(KAFKATOPIC, namespace, targetName);
 
       if (target == null) {
         log.info("Target KafkaTopic {}/{} not found. Retrying.", namespace, targetName);
         return new Result(true, operator.failureRetryDuration());
       }
 
+      Objects.requireNonNull(target.getSpec());
+
       // assemble AdminClient config
       ConfigAssembler assembler = new ConfigAssembler(operator);
       list(target.getSpec().getClientConfigs()).forEach(
-          x -> assembler.addRef(namespace, x.getConfigMapRef().getName()));
-      map(target.getSpec().getClientOverrides()).forEach((k, v) -> assembler.addOverride(k, v));
+          x -> {
+            Objects.requireNonNull(x.getConfigMapRef());
+            assembler.addRef(namespace, x.getConfigMapRef().getName());
+          });
+      map(target.getSpec().getClientOverrides()).forEach(assembler::addOverride);
       Properties properties = assembler.assembleProperties();
       log.info("Using AdminClient config: {}", properties);
 
-      AdminClient admin = AdminClient.create(properties);
-      try {
+      try (AdminClient admin = AdminClient.create(properties)) {
         log.info("Creating KafkaTopic Acl for {}...", target.getSpec().getTopicName());
         AclBinding binding = new AclBinding(
             new ResourcePattern(ResourceType.TOPIC, target.getSpec().getTopicName(), PatternType.LITERAL),
             new AccessControlEntry(principal, "*", operation, AclPermissionType.ALLOW));
         admin.createAcls(Collections.singleton(binding)).all().get();
         log.info("Granted {} {} access to {}.", principal, method, target.getSpec().getTopicName());
-      } finally {
-        admin.close();
       }
     } catch (Exception e) {
       log.error("Encountered exception while reconciling KafkaTopic Acl {}/{}", namespace, name, e);

@@ -81,7 +81,7 @@ public abstract class RemoteTable<T, U> extends AbstractTable
   }
 
   @Override
-  public Class getElementType() {
+  public Class<U> getElementType() {
     return elementType;
   }
 

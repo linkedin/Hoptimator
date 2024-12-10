@@ -22,7 +22,7 @@ class K8sPipelineDeployer extends K8sDeployer<MaterializedView, V1alpha1Pipeline
   @Override
   protected V1alpha1Pipeline toK8sObject(MaterializedView view) throws SQLException {
     String name = K8sUtils.canonicalizeName(view.path());
-    String yaml = view.pipeline().specify().stream().collect(Collectors.joining("\n---\n"));
+    String yaml = String.join("\n---\n", view.pipeline().specify());
     String sql = view.pipelineSql().apply(SqlDialect.ANSI);
     return new V1alpha1Pipeline().kind(K8sApiEndpoints.PIPELINES.kind())
         .apiVersion(K8sApiEndpoints.PIPELINES.apiVersion())

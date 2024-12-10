@@ -31,6 +31,8 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
 
+import com.google.common.collect.ImmutableSet;
+
 import com.linkedin.hoptimator.catalog.HopRel;
 import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.HopTableScan;
@@ -152,7 +154,7 @@ public class PipelineRules implements RuleProvider {
 
     PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, List<? extends RexNode> projects,
         RelDataType rowType) {
-      super(cluster, traitSet, Collections.emptyList(), input, projects, rowType);
+      super(cluster, traitSet, Collections.emptyList(), input, projects, rowType, ImmutableSet.of());
       assert getConvention() == PipelineRel.CONVENTION;
       assert input.getConvention() == PipelineRel.CONVENTION;
     }
@@ -242,7 +244,7 @@ public class PipelineRules implements RuleProvider {
   }
 
   static Table findTable(CalciteSchema schema, List<String> qualifiedName) {
-    if (qualifiedName.size() == 0) {
+    if (qualifiedName.isEmpty()) {
       throw new IllegalArgumentException("Empty qualified name.");
     } else if (qualifiedName.size() == 1) {
       String name = qualifiedName.get(0);
@@ -269,11 +271,11 @@ public class PipelineRules implements RuleProvider {
   }
 
   static CalciteSchema schema(RelNode node) {
-    return (CalciteSchema) node.getTable().unwrap(CalciteSchema.class);
+    return Objects.requireNonNull(node.getTable()).unwrap(CalciteSchema.class);
   }
 
   static List<String> qualifiedName(RelNode node) {
-    return node.getTable().getQualifiedName();
+    return Objects.requireNonNull(node.getTable()).getQualifiedName();
   }
 
   static List<String> qualifiedName(RelOptTable table) {

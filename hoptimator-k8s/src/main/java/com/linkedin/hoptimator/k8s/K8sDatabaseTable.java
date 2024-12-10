@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import javax.sql.DataSource;
 
@@ -24,11 +25,11 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String NAME;
-    public String URL;
-    public String SCHEMA;
-    public String DIALECT;
-    public String DRIVER;
+    public final String NAME;
+    public final String URL;
+    public final String SCHEMA;
+    public final String DIALECT;
+    public final String DRIVER;
 
     public Row(String name, String url, String schema, String dialect, String driver) {
       this.NAME = name;
@@ -53,8 +54,10 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
 
   @Override
   public Row toRow(V1alpha1Database obj) {
+    Objects.requireNonNull(obj.getMetadata());
+    Objects.requireNonNull(obj.getSpec());
     return new Row(obj.getMetadata().getName(), obj.getSpec().getUrl(), obj.getSpec().getSchema(),
-        Optional.ofNullable(obj.getSpec().getDialect()).map(x -> x.toString()).orElseGet(() -> null),
+        Optional.ofNullable(obj.getSpec().getDialect()).map(V1alpha1DatabaseSpec.DialectEnum::toString).orElse(null),
         obj.getSpec().getDriver());
   }
 

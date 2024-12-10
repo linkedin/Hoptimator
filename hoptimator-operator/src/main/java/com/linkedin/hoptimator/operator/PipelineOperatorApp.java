@@ -18,11 +18,11 @@ import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
 public class PipelineOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
 
-  public static void main(String[] args) throws Exception {
+  public static void main(String[] args) {
     new PipelineOperatorApp().run();
   }
 
-  public void run() throws Exception {
+  public void run() {
     K8sContext context = K8sContext.currentContext();
 
     // register informers

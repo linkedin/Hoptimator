@@ -10,7 +10,7 @@ import java.util.List;
  */
 public class Pipeline implements Deployable {
 
-  private List<Deployable> deployables;
+  private final List<Deployable> deployables;
 
   public Pipeline(List<Deployable> deployables) {
     this.deployables = deployables;

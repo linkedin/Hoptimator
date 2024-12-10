@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -34,6 +33,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
+
+import com.google.common.collect.ImmutableSet;
 
 
 public final class PipelineRules {
@@ -81,7 +82,7 @@ public final class PipelineRules {
     }
 
     @Override
-    public void implement(Implementor implementor) throws SQLException {
+    public void implement(Implementor implementor) {
       implementor.addSource(database, table.getQualifiedName(), table.getRowType(),
           Collections.emptyMap()); // TODO pass in table scan hints
     }
@@ -133,7 +134,7 @@ public final class PipelineRules {
     }
 
     @Override
-    public void implement(Implementor implementor) throws SQLException {
+    public void implement(Implementor implementor) {
       implementor.setSink(database, table.getQualifiedName(), table.getRowType(), Collections.emptyMap());
       implementor.setQuery(getInput());
     }
@@ -202,7 +203,7 @@ public final class PipelineRules {
 
     PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, List<? extends RexNode> projects,
         RelDataType rowType) {
-      super(cluster, traitSet, Collections.emptyList(), input, projects, rowType);
+      super(cluster, traitSet, Collections.emptyList(), input, projects, rowType, ImmutableSet.of());
       assert getConvention() == PipelineRel.CONVENTION;
       assert input.getConvention() == PipelineRel.CONVENTION;
     }
@@ -292,7 +293,7 @@ public final class PipelineRules {
   }
 
   static Table findTable(CalciteSchema schema, List<String> qualifiedName) {
-    if (qualifiedName.size() == 0) {
+    if (qualifiedName.isEmpty()) {
       throw new IllegalArgumentException("Empty qualified name.");
     } else if (qualifiedName.size() == 1) {
       String name = qualifiedName.get(0);
@@ -319,14 +320,14 @@ public final class PipelineRules {
   }
 
   static CalciteSchema schema(RelNode node) {
-    return (CalciteSchema) Optional.ofNullable(node.getTable())
+    return Optional.ofNullable(node.getTable())
         .map(x -> x.unwrap(CalciteSchema.class))
         .orElseThrow(() -> new IllegalArgumentException("null table?"));
   }
 
   static List<String> qualifiedName(RelNode node) {
     return Optional.ofNullable(node.getTable())
-        .map(x -> x.getQualifiedName())
+        .map(RelOptTable::getQualifiedName)
         .orElseThrow(() -> new IllegalArgumentException("null table?"));
   }
 

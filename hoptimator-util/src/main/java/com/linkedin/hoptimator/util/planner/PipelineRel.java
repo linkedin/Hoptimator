@@ -27,7 +27,7 @@ import com.linkedin.hoptimator.util.DeploymentService;
 
 /**
  * Calling convention which implements a data pipeline.
- *
+ * <p>
  * "Convention" here just means a target set of "traits" the planner should
  * aim for. We can ask the planner to convert a query into the PIPELINE
  * convention, and the result will be a PipelineRel. This in turn can be
@@ -37,18 +37,18 @@ public interface PipelineRel extends RelNode {
 
   Convention CONVENTION = new Convention.Impl("PIPELINE", PipelineRel.class);
 
-  void implement(Implementor implementor) throws SQLException;
+  void implement(Implementor implementor);
 
   /** Implements a deployable Pipeline. */
   class Implementor {
     private final Map<Source, RelDataType> sources = new HashMap<>();
     private RelNode query;
     private String sinkDatabase = "pipeline";
-    private List<String> sinkPath = Arrays.asList(new String[]{"PIPELINE", "SINK"});
+    private List<String> sinkPath = Arrays.asList("PIPELINE", "SINK");
     private RelDataType sinkRowType = null;
     private Map<String, String> sinkOptions = Collections.emptyMap();
 
-    public void visit(RelNode node) throws SQLException {
+    public void visit(RelNode node) {
       if (query == null) {
         query = node;
       }
@@ -60,8 +60,8 @@ public interface PipelineRel extends RelNode {
 
     /**
      * Adds a source to the pipeline.
-     *
-     * This involves deploying any relevant objects, and configuring a
+     * <p>
+     * This involves deploying any relevant objects, and configuring
      * a connector. The connector is configured via `CREATE TABLE...WITH(...)`.
      */
     public void addSource(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
@@ -70,7 +70,7 @@ public interface PipelineRel extends RelNode {
 
     /**
      * Sets the sink to use for the pipeline.
-     *
+     * <p>
      * By default, the sink is `PIPELINE.SINK`. An expected row type is required
      * for validation purposes.
      */
@@ -90,14 +90,12 @@ public interface PipelineRel extends RelNode {
       List<Deployable> deployables = new ArrayList<>();
       for (Source source : sources.keySet()) {
         DeploymentService.deployables(source, Source.class).forEach(x -> deployables.add(x));
-        Map<String, String> configs = ConnectionService.configure(source, Source.class);
       }
       RelDataType targetRowType = sinkRowType;
       if (targetRowType == null) {
         targetRowType = query.getRowType();
       }
       Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
-      Map<String, String> sinkConfigs = ConnectionService.configure(sink, Sink.class);
       Job job = new Job(sink, sql());
       RelOptUtil.eq(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       DeploymentService.deployables(sink, Sink.class).forEach(x -> deployables.add(x));
@@ -107,7 +105,6 @@ public interface PipelineRel extends RelNode {
 
     public Function<SqlDialect, String> sql() throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
-      List<Deployable> deployables = new ArrayList<>();
       for (Map.Entry<Source, RelDataType> source : sources.entrySet()) {
         Map<String, String> configs = ConnectionService.configure(source.getKey(), Source.class);
         script = script.connector(source.getKey().table(), source.getValue(), configs);

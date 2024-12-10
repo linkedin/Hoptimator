@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.util;
 import java.sql.SQLException;
 import java.util.AbstractCollection;
 import java.util.Iterator;
+import javax.annotation.Nonnull;
 
 
 /** A list of rows corresponding to remote objects behind some API. */
@@ -26,7 +27,7 @@ public class RemoteRowList<T, U> extends AbstractCollection<U> {
   }
 
   @Override
-  public Iterator<U> iterator() {
+  public @Nonnull Iterator<U> iterator() {
     final Iterator<T> iter;
     try {
       iter = api.list().iterator();

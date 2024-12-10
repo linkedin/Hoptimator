@@ -2,8 +2,10 @@ package com.linkedin.hoptimator.util.planner;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,21 +40,21 @@ import org.apache.calcite.sql.util.SqlShuttle;
 
 /**
  * An abstract way to write SQL scripts.
- *
+ * <p>
  * To generate a specific statement, implement this interface, or use one
  * of the provided implementations, e.g. `QueryImplementor`.
- *
+ * <p>
  * To generate a script (more than one statement), start with `empty()`
  * and append subsequent ScriptImplementors with `with(...)` etc.
- *
+ * <p>
  * e.g.
- *
+ * <p>
  *   ScriptImplementor.empty()
  *     .database(db)
  *     .connector(db, name, rowType, configs)
- *
+ * <p>
  * ... would produce something like
- *
+ * <p>
  *   CREATE DATABASE IF NOT EXIST `FOO`;
  *   CREATE TABLE `BAR` (NAME VARCHAR) WITH ('key1' = 'value1');
  */
@@ -121,7 +123,7 @@ public interface ScriptImplementor {
           break;
         default:
           throw new IllegalStateException("unreachable");
-      };
+      }
       return sql;
     };
   }
@@ -156,7 +158,8 @@ public interface ScriptImplementor {
       SqlImplementor.Result result = converter.visitRoot(relNode);
       SqlSelect select = result.asSelect();
       if (select.getSelectList() != null) {
-        select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
+        select.setSelectList((SqlNodeList) Objects.requireNonNull(
+            select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR)));
       }
       select.unparse(w, 0, 0);
     }
@@ -181,7 +184,7 @@ public interface ScriptImplementor {
 
   /**
    * Implements a CREATE TABLE...WITH... DDL statement.
-   *
+   * <p>
    * N.B. the following magic:
    *  - field 'PRIMARY_KEY' is treated as a PRIMARY KEY
    *  - NULL fields are promoted to BYTES
@@ -238,10 +241,10 @@ public interface ScriptImplementor {
   }
 
   /** Implements an INSERT INTO statement.
-   *
+   * <p>
    * N.B. the following magic:
    *  - NULL columns (e.g. `NULL AS KEY`) are elided from the pipeline
-   *
+   * <p>
    * */
   class InsertImplementor implements ScriptImplementor {
     private final String name;
@@ -308,7 +311,7 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(new String[]{database, name}), SqlParserPos.ZERO);
+      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(database, name), SqlParserPos.ZERO);
       identifier.unparse(w, 0, 0);
     }
   }
@@ -323,13 +326,13 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(new String[]{name}), SqlParserPos.ZERO);
+      SqlIdentifier identifier = new SqlIdentifier(Collections.singletonList(name), SqlParserPos.ZERO);
       identifier.unparse(w, 0, 0);
     }
   }
 
   /** Implements row type specs, e.g. `NAME VARCHAR(20), AGE INTEGER`.
-   *
+   * <p>
    * N.B. the following magic:
    *  - NULL fields are promoted to BYTES
    */
@@ -344,11 +347,11 @@ public interface ScriptImplementor {
     public void implement(SqlWriter w) {
       List<SqlIdentifier> fieldNames = dataType.getFieldList()
           .stream()
-          .map(x -> x.getName())
+          .map(RelDataTypeField::getName)
           .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
           .collect(Collectors.toList());
       List<SqlDataTypeSpec> fieldTypes =
-          dataType.getFieldList().stream().map(x -> x.getType()).map(x -> toSpec(x)).collect(Collectors.toList());
+          dataType.getFieldList().stream().map(RelDataTypeField::getType).map(RowTypeSpecImplementor::toSpec).collect(Collectors.toList());
       for (int i = 0; i < fieldNames.size(); i++) {
         w.sep(",");
         fieldNames.get(i).unparse(w, 0, 0);
@@ -364,17 +367,17 @@ public interface ScriptImplementor {
       if (dataType.isStruct()) {
         List<SqlIdentifier> fieldNames = dataType.getFieldList()
             .stream()
-            .map(x -> x.getName())
+            .map(RelDataTypeField::getName)
             .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
             .collect(Collectors.toList());
         List<SqlDataTypeSpec> fieldTypes =
-            dataType.getFieldList().stream().map(x -> x.getType()).map(x -> toSpec(x)).collect(Collectors.toList());
+            dataType.getFieldList().stream().map(RelDataTypeField::getType).map(RowTypeSpecImplementor::toSpec).collect(Collectors.toList());
         return maybeNullable(dataType,
             new SqlDataTypeSpec(new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes), SqlParserPos.ZERO));
       } else if (dataType.getComponentType() != null) {
         return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(new SqlBasicTypeNameSpec(
             Optional.ofNullable(dataType.getComponentType())
-                .map(x -> x.getSqlTypeName())
+                .map(RelDataType::getSqlTypeName)
                 .orElseThrow(() -> new IllegalArgumentException("not a collection?")), SqlParserPos.ZERO),
             dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
       } else {
@@ -409,12 +412,12 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       List<SqlIdentifier> fieldNames = fields.stream()
-          .map(x -> x.getName())
+          .map(RelDataTypeField::getName)
           .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
           .collect(Collectors.toList());
-      for (int i = 0; i < fieldNames.size(); i++) {
+      for (SqlIdentifier fieldName : fieldNames) {
         w.sep(",");
-        fieldNames.get(i).unparse(w, 0, 0);
+        fieldName.unparse(w, 0, 0);
       }
     }
   }

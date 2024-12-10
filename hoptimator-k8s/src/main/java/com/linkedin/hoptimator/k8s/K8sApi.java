@@ -35,23 +35,23 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
   public T get(String name) throws SQLException {
     final KubernetesApiResponse<T> resp;
     if (endpoint.clusterScoped()) {
-      resp = context.<T, U>generic(endpoint).get(name);
+      resp = context.generic(endpoint).get(name);
     } else {
-      resp = context.<T, U>generic(endpoint).get(context.namespace(), name);
+      resp = context.generic(endpoint).get(context.namespace(), name);
     }
     checkResponse(resp);
     return resp.getObject();
   }
 
   public T get(String namespace, String name) throws SQLException {
-    KubernetesApiResponse<T> resp = context.<T, U>generic(endpoint).get(namespace, name);
+    KubernetesApiResponse<T> resp = context.generic(endpoint).get(namespace, name);
     checkResponse(resp);
     return resp.getObject();
   }
 
   @SuppressWarnings("unchecked")
   public Collection<T> select(String labelSelector) throws SQLException {
-    GenericKubernetesApi<T, U> generic = context.<T, U>generic(endpoint);
+    GenericKubernetesApi<T, U> generic = context.generic(endpoint);
     ListOptions options = new ListOptions();
     options.setLabelSelector(labelSelector);
     final KubernetesApiResponse<U> resp;
@@ -72,7 +72,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     if (obj.getMetadata().getNamespace() == null && !endpoint.clusterScoped()) {
       obj.getMetadata().namespace(context.namespace());
     }
-    KubernetesApiResponse<T> resp = context.<T, U>generic(endpoint).create(obj);
+    KubernetesApiResponse<T> resp = context.generic(endpoint).create(obj);
     checkResponse(resp);
   }
 
@@ -82,7 +82,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       obj.getMetadata().namespace(context.namespace());
     }
     KubernetesApiResponse<T> resp =
-        context.<T, U>generic(endpoint).delete(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+        context.generic(endpoint).delete(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
     checkResponse(resp);
   }
 
@@ -93,16 +93,16 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     }
     final KubernetesApiResponse<T> existing;
     if (endpoint.clusterScoped()) {
-      existing = context.<T, U>generic(endpoint).get(obj.getMetadata().getName());
+      existing = context.generic(endpoint).get(obj.getMetadata().getName());
     } else {
-      existing = context.<T, U>generic(endpoint).get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+      existing = context.generic(endpoint).get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
     }
     final KubernetesApiResponse<T> resp;
     if (existing.isSuccess()) {
       obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion());
-      resp = context.<T, U>generic(endpoint).update(obj);
+      resp = context.generic(endpoint).update(obj);
     } else {
-      resp = context.<T, U>generic(endpoint).create(obj);
+      resp = context.generic(endpoint).create(obj);
     }
     checkResponse(resp);
   }
@@ -111,7 +111,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     if (!endpoint.clusterScoped()) {
       obj.getMetadata().namespace(context.namespace());
     }
-    KubernetesApiResponse<T> resp = context.<T, U>generic(endpoint).updateStatus(obj, x -> status);
+    KubernetesApiResponse<T> resp = context.generic(endpoint).updateStatus(obj, x -> status);
     checkResponse(resp);
   }
 

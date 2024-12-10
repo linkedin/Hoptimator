@@ -1,8 +1,10 @@
 package com.linkedin.hoptimator.catalog;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -10,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
@@ -23,16 +26,16 @@ import java.util.stream.Collectors;
 
 /**
  * Represents something required by a Table.
- *
+ * <p>
  * In Hoptimator, Tables can come with "baggage" in the form of Resources,
  * which are essentially YAML files. Each Resource is rendered into YAML
  * with a specific Template. Thus, it's possible to represent Kafka topics,
  * Brooklin datastreams, Flink jobs, and so on, as part of a Table, just
  * by including a corresponding Resource.
- *
+ * <p>
  * Resources are injected into a Pipeline by the planner as needed. Generally,
  * each Resource Template corresponds to a Kubernetes controller.
- *
+ * <p>
  * Resources may optionally link to input Resources, which is used strictly
  * for informational/debugging purposes.
  */
@@ -44,7 +47,7 @@ public abstract class Resource {
   /** A Resource which should be rendered with the given template */
   public Resource(String template) {
     this.template = template;
-    export("id", () -> id());
+    export("id", this::id);
   }
 
   /** Copy constructor */
@@ -82,7 +85,7 @@ public abstract class Resource {
 
   /** Export a list of values */
   protected void export(String key, List<String> values) {
-    export(key, values.stream().collect(Collectors.joining("\n")));
+    export(key, String.join("\n", values));
   }
 
   /** Reference an input resource */
@@ -125,10 +128,22 @@ public abstract class Resource {
     return toString().hashCode();
   }
 
+  public boolean equals(Object obj) {
+    if (this == obj) {
+      return true;
+    }
+    if (obj == null || getClass() != obj.getClass()) {
+      return false;
+    }
+    Resource other = (Resource) obj;
+    return Objects.equals(template, other.template) && Objects.equals(properties, other.properties) && Objects.equals(
+        inputs, other.inputs);
+  }
+
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("[ template: " + template() + " ");
+    sb.append("[ template: ").append(template()).append(" ");
     for (Map.Entry<String, Supplier<String>> entry : properties.entrySet()) {
       if (entry.getKey().equals("id")) {
         // special case for "id" to avoid recursion
@@ -195,8 +210,7 @@ public abstract class Resource {
     }
 
     public SimpleEnvironment with(String key, String value) {
-      Map<String, String> newVars = new HashMap<>();
-      newVars.putAll(vars);
+      Map<String, String> newVars = new HashMap<>(vars);
       newVars.put(key, value);
       return new SimpleEnvironment() {{
         exportAll(newVars);
@@ -254,41 +268,41 @@ public abstract class Resource {
 
   /**
    * Replaces `{{var}}` in a template file with the corresponding variable.
-   *
+   * <p>
    * Resource-scoped variables take precedence over Environment-scoped
    * variables.
-   *
-   * Default values can supplied with `{{var:default}}`.
-   *
+   * <p>
+   * Default values can be supplied with `{{var:default}}`.
+   * <p>
    * Built-in transformations can be applied to variables, including:
-   *
+   * <p>
    *   - `{{var toName}}`, `{{var:default toName}}`: canonicalize the
    *     variable as a valid K8s object name.
    *   - `{{var toUpperCase}}`, `{{var:default toUpperCase}}`: render in
    *      all upper case.
    *   - `{{var toLowerCase}}`, `{{var:default toLowerCase}}`: render in
    *     all lower case.
-   *   - `{{var concat}}`, `{{var:default concat}}`: concatinate a multiline
+   *   - `{{var concat}}`, `{{var:default concat}}`: concatenate a multiline
    *     string into one line
    *   - `{{var concat toUpperCase}}`: apply both transformations in sequence.
-   *
+   * <p>
    * If `var` contains multiple lines, the behavior depends on context;
    * specifically, whether the pattern appears within a list or comment
    * (prefixed with `-` or `#`). For example, if the template includes:
-   *
+   * <p>
    *   - {{var}}
-   *
+   * <p>
    * ...and `var` contains multiple lines, then the output will be:
-   *
+   * <p>
    *   - value line 1
    *   - value line 2
-   *
+   * <p>
    * To avoid this behavior (and just get a multiline string), use one of
    * YAML's multiline markers, e.g.
-   *
+   * <p>
    *   - |
    *       {{var}}
-   *
+   * <p>
    * In either case, the multiline string will be properly indented.
    */
   public static class SimpleTemplate implements Template {
@@ -345,6 +359,8 @@ public abstract class Resource {
           case "concat":
             res = res.replace("\n", "");
             break;
+          default:
+            break;
         }
       }
       return res;
@@ -379,9 +395,9 @@ public abstract class Resource {
       List<Template> res = new ArrayList<>();
       for (Enumeration<URL> e = getClass().getClassLoader().getResources(template + ".yaml.template");
           e.hasMoreElements(); ) {
-        InputStream in = e.nextElement().openStream();
+        Reader reader = new InputStreamReader(e.nextElement().openStream(), StandardCharsets.UTF_8);
         StringBuilder sb = new StringBuilder();
-        Scanner scanner = new Scanner(in);
+        Scanner scanner = new Scanner(reader);
         scanner.useDelimiter("\n");
         while (scanner.hasNext()) {
           sb.append(scanner.next());

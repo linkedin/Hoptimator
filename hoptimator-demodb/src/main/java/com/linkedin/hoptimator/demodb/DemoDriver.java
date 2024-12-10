@@ -39,9 +39,8 @@ public class DemoDriver extends Driver {
       return null;
     }
     String params = url.substring(getConnectStringPrefix().length());
-    Set<String> schemas = Arrays.asList(params.split(","))
-        .stream()
-        .map(x -> x.trim())
+    Set<String> schemas = Arrays.stream(params.split(","))
+        .map(String::trim)
         .filter(x -> !x.isEmpty())
         .map(x -> x.toUpperCase(Locale.ROOT))
         .collect(Collectors.toSet());

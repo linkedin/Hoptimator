@@ -72,9 +72,9 @@ public class Pipeline {
   public String mermaid() {
     StringBuilder sb = new StringBuilder();
     sb.append("flowchart\n");
-    Map<String, List<Resource>> grouped = resources().stream().collect(Collectors.groupingBy(x -> x.template()));
+    Map<String, List<Resource>> grouped = resources().stream().collect(Collectors.groupingBy(Resource::template));
     grouped.forEach((k, v) -> {
-      sb.append("  subgraph " + k + "\n");
+      sb.append("  subgraph ").append(k).append("\n");
       v.forEach(x -> {
         String description = x.keys()
             .stream()
@@ -83,24 +83,20 @@ public class Pipeline {
             .filter(k2 -> !"id".equals(k2))
             .map(k2 -> k2 + ": " + sanitize(x.property(k2)))
             .collect(Collectors.joining("\n"));
-        sb.append("  " + id(x) + "[\"" + description + "\"]\n");
+        sb.append("  ").append(id(x)).append("[\"").append(description).append("\"]\n");
       });
       sb.append("  end\n");
     });
     grouped.forEach((k, v) -> {
-      sb.append("  subgraph " + k + "\n");
-      v.forEach(x -> {
-        x.inputs().forEach(y -> {
-          sb.append("    " + id(y) + " --> " + id(x) + "\n");
-        });
-      });
+      sb.append("  subgraph ").append(k).append("\n");
+      v.forEach(x -> x.inputs().forEach(y -> sb.append("    ").append(id(y)).append(" --> ").append(id(x)).append("\n")));
       sb.append("  end\n");
     });
     return sb.toString();
   }
 
   private static String id(Resource resource) {
-    return "R" + Integer.toString(resource.hashCode());
+    return "R" + resource.hashCode();
   }
 
   private static String sanitize(String s) {

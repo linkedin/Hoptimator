@@ -7,15 +7,15 @@ import com.linkedin.hoptimator.jdbc.CatalogService;
 import com.linkedin.hoptimator.util.RemoteTable;
 
 
-/** A table populated with all available Catlaogs. */
+/** A table populated with all available Catalogs. */
 public class CatalogTable extends RemoteTable<Catalog, CatalogTable.Row> {
 
   // This and other Row classes are used by generated code, so it is important
   // that they follow this pattern.
   // CHECKSTYLE:OFF
   public static class Row {
-    public String NAME;
-    public String DESCRIPTION;
+    public final String NAME;
+    public final String DESCRIPTION;
 
     public Row(String name, String description) {
       this.NAME = name;

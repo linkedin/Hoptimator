@@ -7,8 +7,8 @@ public class CompanyTable extends ArrayTable<CompanyTable.Row> {
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String COMPANY_NAME;
-    public String COMPANY_URN;
+    public final String COMPANY_NAME;
+    public final String COMPANY_URN;
 
     public Row(String companyName, String companyUrn) {
       this.COMPANY_NAME = companyName;

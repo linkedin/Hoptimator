@@ -20,7 +20,7 @@ public class K8sYamlApi implements Api<String> {
   }
 
   @Override
-  public Collection<String> list() throws SQLException {
+  public Collection<String> list() {
     throw new UnsupportedOperationException("Cannot list a dynamic YAML API.");
   }
 

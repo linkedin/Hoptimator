@@ -13,7 +13,6 @@ dependencies {
   testRuntimeOnly project(':hoptimator-demodb')
 
   testRuntimeOnly project(':hoptimator-k8s')
-  testRuntimeOnly project(':hoptimator-kafka')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
 	testImplementation(platform('org.junit:junit-bom:5.11.3'))
 	testImplementation 'org.junit.jupiter:junit-jupiter'

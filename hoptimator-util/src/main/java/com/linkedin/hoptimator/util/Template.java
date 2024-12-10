@@ -117,38 +117,38 @@ public interface Template {
 
   /**
    * Replaces `{{var}}` in a template file with the corresponding variable.
-   *
-   * Default values can supplied with `{{var:default}}`.
-   *
+   * <p>
+   * Default values can be supplied with `{{var:default}}`.
+   * <p>
    * Built-in transformations can be applied to variables, including:
-   *
+   * <p>
    *   - `{{var toName}}`, `{{var:default toName}}`: canonicalize the
    *     variable as a valid K8s object name.
    *   - `{{var toUpperCase}}`, `{{var:default toUpperCase}}`: render in
    *      all upper case.
    *   - `{{var toLowerCase}}`, `{{var:default toLowerCase}}`: render in
    *     all lower case.
-   *   - `{{var concat}}`, `{{var:default concat}}`: concatinate a multiline
+   *   - `{{var concat}}`, `{{var:default concat}}`: concatenate a multiline
    *     string into one line
    *   - `{{var concat toUpperCase}}`: apply both transformations in sequence.
-   *
+   * <p>
    * If `var` contains multiple lines, the behavior depends on context;
    * specifically, whether the pattern appears within a list or comment
    * (prefixed with `-` or `#`). For example, if the template includes:
-   *
+   * <p>
    *   - {{var}}
-   *
+   * <p>
    * ...and `var` contains multiple lines, then the output will be:
-   *
+   * <p>
    *   - value line 1
    *   - value line 2
-   *
+   * <p>
    * To avoid this behavior (and just get a multiline string), use one of
    * YAML's multiline markers, e.g.
-   *
+   * <p>
    *   - |
    *       {{var}}
-   *
+   * <p>
    * In either case, the multiline string will be properly indented.
    */
   class SimpleTemplate implements Template {

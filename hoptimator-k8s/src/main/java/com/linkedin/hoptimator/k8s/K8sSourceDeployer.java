@@ -3,11 +3,13 @@ package com.linkedin.hoptimator.k8s;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
 import com.linkedin.hoptimator.util.Template;
 
 
@@ -31,11 +33,12 @@ class K8sSourceDeployer extends K8sYamlDeployer<Source> {
             .with(source.options());
     return tableTemplateApi.list()
         .stream()
-        .map(x -> x.getSpec())
+        .map(V1alpha1TableTemplate::getSpec)
+        .filter(Objects::nonNull)
         .filter(x -> x.getDatabases() == null || x.getDatabases().contains(source.database()))
         .filter(x -> x.getMethods() == null || x.getMethods().contains(K8sUtils.method(source)))
-        .filter(x -> x.getYaml() != null)
-        .map(x -> x.getYaml())
+        .map(V1alpha1TableTemplateSpec::getYaml)
+        .filter(Objects::nonNull)
         .map(x -> new Template.SimpleTemplate(x).render(env))
         .collect(Collectors.toList());
   }

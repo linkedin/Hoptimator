@@ -78,7 +78,7 @@ public abstract class ArrayTable<T> extends AbstractTable
   }
 
   @Override
-  public Class getElementType() {
+  public Class<T> getElementType() {
     return elementType;
   }
 

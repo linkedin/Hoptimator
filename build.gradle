@@ -6,12 +6,12 @@ subprojects {
   apply plugin: 'checkstyle'
   apply plugin: 'com.github.spotbugs'
 
-  tasks.withType(JavaCompile) {
+  tasks.withType(JavaCompile).configureEach {
     options.release = 8
     options.compilerArgs << '-Xlint:deprecation'
     options.compilerArgs << '-Xlint:unchecked'
   }
-  tasks.withType(Javadoc) {
+  tasks.withType(Javadoc).configureEach {
     options.addStringOption('Xdoclint:none', '-quiet')
   }
 

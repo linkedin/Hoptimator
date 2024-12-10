@@ -2,6 +2,8 @@ package com.linkedin.hoptimator.avro;
 
 import java.util.AbstractMap;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.avro.Schema;
@@ -33,7 +35,6 @@ public final class AvroConverter {
     } else {
       switch (dataType.getSqlTypeName()) {
         case INTEGER:
-          return createAvroTypeWithNullability(Schema.Type.INT, dataType.isNullable());
         case SMALLINT:
           return createAvroTypeWithNullability(Schema.Type.INT, dataType.isNullable());
         case BIGINT:
@@ -49,8 +50,8 @@ public final class AvroConverter {
         case BOOLEAN:
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:
-          return createAvroSchemaWithNullability(Schema.createArray(avro(null, null, dataType.getComponentType())),
-              dataType.isNullable());
+          return createAvroSchemaWithNullability(Schema.createArray(avro(null, null,
+                  Objects.requireNonNull(dataType.getComponentType()))), dataType.isNullable());
         // TODO support map types
         // Appears to require a Calcite version bump
         //    case MAP:
@@ -113,8 +114,9 @@ public final class AvroConverter {
 //      return typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory));
       case UNION:
         if (schema.isNullable() && schema.getTypes().size() == 2) {
-          Schema innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst().get();
-          return typeFactory.createTypeWithNullability(rel(innerType, typeFactory), true);
+          Optional<Schema> innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst();
+          assert innerType.isPresent();
+          return typeFactory.createTypeWithNullability(rel(innerType.get(), typeFactory), true);
         } else {
           // TODO support more elaborate union types
           return typeFactory.createTypeWithNullability(typeFactory.createUnknownType(), true);

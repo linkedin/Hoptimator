@@ -55,7 +55,7 @@ public class Database {
   }
 
   /** List tables in the database. */
-  public Collection<String> tables() throws InterruptedException, ExecutionException {
+  public Collection<String> tables() {
     return tableLister.list();
   }
 

@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.util.Objects;
+
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1NamespaceList;
 
@@ -10,8 +12,8 @@ public class NamespaceTable extends RemoteTable<V1Namespace, NamespaceTable.Row>
 
   // CHECKSTYLE:OFF
   public static class Row {
-    public String NAME;
-    public String STATUS;
+    public final String NAME;
+    public final String STATUS;
 
     public Row(String name, String status) {
       this.NAME = name;
@@ -25,11 +27,13 @@ public class NamespaceTable extends RemoteTable<V1Namespace, NamespaceTable.Row>
   }
 
   public NamespaceTable(K8sContext context) {
-    this(new K8sApi<V1Namespace, V1NamespaceList>(context, K8sApiEndpoints.NAMESPACES));
+    this(new K8sApi<>(context, K8sApiEndpoints.NAMESPACES));
   }
 
   @Override
   public Row toRow(V1Namespace obj) {
+    Objects.requireNonNull(obj.getMetadata());
+    Objects.requireNonNull(obj.getStatus());
     return new Row(obj.getMetadata().getName(), obj.getStatus().getPhase());
   }
 }

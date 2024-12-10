@@ -62,12 +62,11 @@ public class Operator {
 
   public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(String kind, String singular,
       String plural, String group, String version, Class<T> type, Class<L> list) {
-    registerApi(new ApiInfo<T, L>(kind, singular, plural, group, version, type, list), true);
+    registerApi(new ApiInfo<>(kind, singular, plural, group, version, type, list), true);
   }
 
   public void registerApi(String kind, String singular, String plural, String group, String version) {
-    registerApi(new ApiInfo<KubernetesObject, KubernetesListObject>(kind, singular, plural, group, version,
-        KubernetesObject.class, KubernetesListObject.class), false);
+    registerApi(new ApiInfo<>(kind, singular, plural, group, version, KubernetesObject.class, KubernetesListObject.class), false);
   }
 
   public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(ApiInfo<T, L> api,
@@ -103,7 +102,7 @@ public class Operator {
 
   @SuppressWarnings("unchecked")
   public <T extends KubernetesObject> Lister<T> lister(String groupVersionKind) {
-    return new Lister<T>((Indexer<T>) informer(groupVersionKind).getIndexer());
+    return new Lister<>((Indexer<T>) informer(groupVersionKind).getIndexer());
   }
 
   public DynamicKubernetesApi apiFor(DynamicKubernetesObject obj) {
@@ -310,7 +309,7 @@ public class Operator {
     }
 
     public GenericKubernetesApi<T, L> generic(ApiClient apiClient) {
-      return new GenericKubernetesApi<T, L>(type(), list(), group(), version(), plural(), apiClient);
+      return new GenericKubernetesApi<>(type(), list(), group(), version(), plural(), apiClient);
     }
 
     public DynamicKubernetesApi dynamic(ApiClient apiClient) {

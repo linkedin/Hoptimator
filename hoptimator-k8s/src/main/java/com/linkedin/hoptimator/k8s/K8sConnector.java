@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
@@ -13,6 +14,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
 import com.linkedin.hoptimator.util.Template;
 
 
@@ -34,11 +36,12 @@ class K8sConnector implements Connector<Source> {
             .with(source.options());
     String configs = tableTemplateApi.list()
         .stream()
-        .map(x -> x.getSpec())
+        .map(V1alpha1TableTemplate::getSpec)
+        .filter(Objects::nonNull)
         .filter(x -> x.getDatabases() == null || x.getDatabases().contains(source.database()))
         .filter(x -> x.getMethods() == null || x.getMethods().contains(K8sUtils.method(source)))
-        .filter(x -> x.getConnector() != null)
-        .map(x -> x.getConnector())
+        .map(V1alpha1TableTemplateSpec::getConnector)
+        .filter(Objects::nonNull)
         .map(x -> new Template.SimpleTemplate(x).render(env))
         .collect(Collectors.joining("\n"));
     Properties props = new Properties();
