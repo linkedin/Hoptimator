@@ -1,10 +1,8 @@
-package com.linkedin.hoptimator.util.planner;
+package com.linkedin.hoptimator;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-
-import com.linkedin.hoptimator.Deployable;
 
 
 /**

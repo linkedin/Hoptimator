@@ -28,6 +28,7 @@ import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.SqlWriterConfig;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
@@ -107,8 +108,22 @@ public interface ScriptImplementor {
   }
 
   /** Generate SQL for a given dialect */
-  default Function<SqlDialect, String> seal() {
-    return x -> sql(x);
+  default Function<com.linkedin.hoptimator.SqlDialect, String> seal() {
+    return x -> {
+      final String sql;
+      switch(x) {
+        case ANSI:
+          sql = sql(AnsiSqlDialect.DEFAULT);
+          break;
+        case FLINK:
+          // Flink uses MySQL dialect, more or less
+          sql = sql(MysqlSqlDialect.DEFAULT);
+          break;
+        default:
+          throw new IllegalStateException("unreachable");
+      };
+      return sql;
+    };
   }
 
   /** Implements an arbitrary RelNode as a statement */

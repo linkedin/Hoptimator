@@ -1,12 +1,8 @@
-package com.linkedin.hoptimator.util;
+package com.linkedin.hoptimator;
 
 import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import org.apache.calcite.sql.SqlDialect;
-
-import com.linkedin.hoptimator.util.planner.Pipeline;
 
 
 public class MaterializedView {

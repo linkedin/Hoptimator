@@ -6,7 +6,7 @@ import java.util.List;
 
 import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.ConnectorProvider;
-import com.linkedin.hoptimator.util.Source;
+import com.linkedin.hoptimator.Source;
 
 
 public class K8sConnectorProvider implements ConnectorProvider {

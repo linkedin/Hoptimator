@@ -57,9 +57,9 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
 import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.MaterializedView;
-import com.linkedin.hoptimator.util.planner.Pipeline;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
 import static org.apache.calcite.util.Static.RESOURCE;

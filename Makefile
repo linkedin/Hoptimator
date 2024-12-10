@@ -10,7 +10,10 @@ build:
 bounce: build undeploy deploy deploy-samples deploy-config deploy-demo
 
 # Integration tests expect K8s and Kafka to be running
-integration-tests:
+integration-tests: deploy-dev-environment deploy-samples
+	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
 	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
 	./gradlew intTest || kill `cat port-forward.pid`
 	kill `cat port-forward.pid`
@@ -50,8 +53,8 @@ deploy-dev-environment: deploy-config
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
 
 undeploy-dev-environment:
-	kubectl delete $(shell kubectl get kafkatopic.kafka.strimzi.io -o name -n kafka) -n kafka || echo "skipping"
-	kubectl delete $(shell kubectl get strimzi -o name -n kafka) -n kafka || echo "skipping"
+	kubectl delete kafkatopic.kafka.strimzi.io -n kafka --all || echo "skipping"
+	kubectl delete strimzi -n kafka --all || echo "skipping"
 	kubectl delete pvc -l strimzi.io/name=one-kafka -n kafka || echo "skipping"
 	kubectl delete -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka || echo "skipping"
 	kubectl delete -f ./deploy/samples/kafkadb.yaml || echo "skipping"

@@ -6,12 +6,11 @@ import java.util.List;
 
 import org.apache.calcite.schema.impl.ViewTable;
 
+import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
-import com.linkedin.hoptimator.util.Job;
-import com.linkedin.hoptimator.util.MaterializedView;
-import com.linkedin.hoptimator.util.Source;
-
 
 public class K8sDeployerProvider implements DeployerProvider {
 
