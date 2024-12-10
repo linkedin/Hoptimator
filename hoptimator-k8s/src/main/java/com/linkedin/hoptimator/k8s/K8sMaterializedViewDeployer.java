@@ -4,10 +4,10 @@ import java.util.LinkedList;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
+import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
-import com.linkedin.hoptimator.util.MaterializedView;
 
 
 class K8sMaterializedViewDeployer extends K8sDeployer<MaterializedView, V1alpha1View, V1alpha1ViewList> {

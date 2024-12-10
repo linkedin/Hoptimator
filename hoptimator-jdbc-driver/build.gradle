@@ -1,10 +1,20 @@
 plugins {
+  id 'com.gradleup.shadow' version '8.3.5'
   id 'java'
   id 'maven-publish'
 }
 
 dependencies {
-  // plz keep it this way
+  implementation project(':hoptimator-avro')
+  implementation project(':hoptimator-demodb')
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-util')
+  implementation project(':hoptimator-k8s')
+}
+
+shadowJar {
+  zip64 true
+  mergeServiceFiles()
 }
 
 publishing {
@@ -27,14 +37,14 @@ publishing {
     }
   }
   publications {
-    maven(MavenPublication) {
+    shadow(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
-      artifactId = 'hoptimator-api'
+      artifactId = 'hoptimator-jdbc-driver'
       version = System.getenv('VERSION')
-      from components.java
+      from components.shadow
       pom {
-        name = 'hoptimator-api'
-        description = 'API for extending Hoptimator'
+        name = 'hoptimator-jdbc-driver'
+        description = 'Hoptimator JDBC driver fat jar'
         url = 'https://github.com/linkedin/Hoptimator'
         licenses {
           license {

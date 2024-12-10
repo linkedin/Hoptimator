@@ -6,9 +6,9 @@ import java.util.stream.Collectors;
 
 import io.kubernetes.client.common.KubernetesType;
 
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec.MethodsEnum;
-import com.linkedin.hoptimator.util.Sink;
-import com.linkedin.hoptimator.util.Source;
 
 
 public final class K8sUtils {
