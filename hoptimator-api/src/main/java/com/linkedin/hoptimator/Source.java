@@ -1,23 +1,19 @@
-package com.linkedin.hoptimator.util;
+package com.linkedin.hoptimator;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import org.apache.calcite.rel.type.RelDataType;
 
 
 public class Source {
 
   private final String database;
   private final List<String> path;
-  private final RelDataType rowType;
   private final Map<String, String> options;
 
-  public Source(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
+  public Source(String database, List<String> path, Map<String, String> options) {
     this.database = database;
     this.path = path;
-    this.rowType = rowType;
     this.options = options;
   }
 
@@ -40,10 +36,6 @@ public class Source {
 
   public List<String> path() {
     return path;
-  }
-
-  public RelDataType rowType() {
-    return rowType;
   }
 
   protected String pathString() {

@@ -1,8 +1,6 @@
-package com.linkedin.hoptimator.util;
+package com.linkedin.hoptimator;
 
 import java.util.function.Function;
-
-import org.apache.calcite.sql.SqlDialect;
 
 
 public class Job {
