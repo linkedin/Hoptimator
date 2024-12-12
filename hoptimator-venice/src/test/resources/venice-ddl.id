@@ -1,0 +1,35 @@
+!set outputformat mysql
+!use k8s
+
+insert into "VENICE-CLUSTER0"."test-store-1" select * from "VENICE-CLUSTER0"."test-store";
+
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: venice-cluster0-test-store-1
+spec:
+  image: docker.io/library/hoptimator-flink-runner
+  imagePullPolicy: Never
+  flinkVersion: v1_16
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: "1"
+  serviceAccount: flink
+  jobManager:
+    resource:
+      memory: "2048m"
+      cpu: 0.1
+  taskManager:
+    resource:
+      memory: "2048m"
+      cpu: 0.1
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE TABLE IF NOT EXISTS `test-store` (`KEY_string` VARCHAR, `string` VARCHAR) WITH ('storeName'='test-store', 'connector'='venice', 'key.fields-prefix'='KEY_', 'key.fields'='KEY_string', 'partial-update-mode'='true')
+    - CREATE TABLE IF NOT EXISTS `test-store-1` (`KEY_string` VARCHAR, `string` VARCHAR) WITH ('storeName'='test-store-1', 'connector'='venice', 'key.fields-prefix'='KEY_', 'key.fields'='KEY_string', 'partial-update-mode'='true')
+    - INSERT INTO `test-store-1` (`KEY_string`, `string`) SELECT * FROM `VENICE-CLUSTER0`.`test-store`
+    jarURI: local:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify

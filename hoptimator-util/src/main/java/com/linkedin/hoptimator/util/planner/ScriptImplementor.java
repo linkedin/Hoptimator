@@ -117,7 +117,7 @@ public interface ScriptImplementor {
   default Function<com.linkedin.hoptimator.SqlDialect, String> seal() {
     return x -> {
       final String sql;
-      switch(x) {
+      switch (x) {
         case ANSI:
           sql = sql(AnsiSqlDialect.DEFAULT);
           break;

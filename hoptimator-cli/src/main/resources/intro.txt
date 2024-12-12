@@ -4,7 +4,7 @@ Try:
   > !tables
   > !schemas
   > create view foo as select * from ads.ad_clicks natural join profile.members;
-  > !yaml select * from foo
+  > !specify select * from foo
   > !pipeline select * from foo
 
 

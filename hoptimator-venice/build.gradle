@@ -1,23 +1,44 @@
 plugins {
-  id 'java'
-  id 'application'
-  id 'idea'
+  id 'java-library'
   id 'maven-publish'
 }
 
 dependencies {
-  implementation project(':hoptimator-jdbc')
-  implementation project(':hoptimator-api')
   implementation project(':hoptimator-avro')
-  implementation project(':hoptimator-demodb')
-  implementation project(':hoptimator-jdbc')
-  implementation project(':hoptimator-kafka')
-  implementation project(':hoptimator-venice')
-  implementation project(':hoptimator-k8s')
-  implementation project(':hoptimator-util')
   implementation libs.calcite.core
-  implementation libs.sqlline
-  implementation libs.slf4j.simple
+  implementation(libs.venice) {
+    // Venice pulls in snakeyaml v2.0 which has conflicting APIs with 1.x
+    exclude group: 'org.yaml'
+  }
+  implementation libs.venice.client
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+
+  // These are included in case the demo databases are deployed.
+  testRuntimeOnly project(':hoptimator-demodb')
+
+  testRuntimeOnly project(':hoptimator-k8s')
+  testImplementation(testFixtures(project(':hoptimator-jdbc')))
+	testImplementation(platform('org.junit:junit-bom:5.11.3'))
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+tasks.register('intTest', Test) {
+  description = 'Runs integration tests.'
+  group = 'verification'
+
+  shouldRunAfter test
+
+  useJUnitPlatform {
+    includeTags 'integration'
+  }
+
+  testLogging {
+    events "passed", "skipped", "failed"
+  }
 }
 
 publishing {
@@ -42,7 +63,7 @@ publishing {
   publications {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
-      artifactId = 'hoptimator-cli'
+      artifactId = 'hoptimator-venice'
       version = System.getenv('VERSION')
       from components.java
       pom {
@@ -53,27 +74,14 @@ publishing {
           license {
             name = 'BSD 2-Clause'
             url = 'https://raw.githubusercontent.com/linkedin/Hoptimator/main/LICENSE'
-            }
           }
+        }
         scm {
           connection = 'scm:git:git://github.com:linkedin/Hoptimator.git'
           developerConnection = 'scm:git:ssh://github.com:linkedin/Hoptimator.git'
           url = 'https://github.com/linkedin/Hoptimator'
         }
       }
-
     }
-  }
-}
-
-java {
-  withJavadocJar()
-  withSourcesJar()
-}
-
-idea {
-  module {
-    downloadJavadoc = true
-    downloadSources = true
   }
 }
