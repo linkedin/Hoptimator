@@ -27,7 +27,7 @@ public class ClusterSchema extends AbstractSchema {
   private static final String SSL_FACTORY_CLASS_NAME = "ssl.factory.class.name";
   public static final String DEFAULT_SSL_FACTORY_CLASS_NAME = "com.linkedin.venice.security.DefaultSSLFactory";
 
-  private final Properties properties;
+  protected final Properties properties;
   private final Map<String, Table> tableMap = new HashMap<>();
 
   public ClusterSchema(Properties properties) {
@@ -53,7 +53,7 @@ public class ClusterSchema extends AbstractSchema {
       log.info("Loaded {} Venice stores.", stores.length);
       for (String store : stores) {
         StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(store);
-        tableMap.put(store, new VeniceStore(storeSchemaFetcher));
+        tableMap.put(store, createVeniceStore(storeSchemaFetcher));
       }
     }
   }
@@ -71,6 +71,10 @@ public class ClusterSchema extends AbstractSchema {
     return ClientFactory.createStoreSchemaFetcher(
         ClientConfig.defaultGenericClientConfig(storeName)
             .setVeniceURL(properties.getProperty("router.url")));
+  }
+
+  protected VeniceStore createVeniceStore(StoreSchemaFetcher storeSchemaFetcher) {
+    return new VeniceStore(storeSchemaFetcher);
   }
 
   @Override

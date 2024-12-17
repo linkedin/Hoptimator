@@ -59,4 +59,8 @@ public class VeniceStore extends AbstractTable {
     }
     return AvroConverter.rel(combinedSchema, typeFactory);
   }
+
+  protected RelDataType rel(Schema schema, RelDataTypeFactory typeFactory) {
+    return AvroConverter.rel(schema, typeFactory);
+  }
 }
