@@ -1,0 +1,24 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: venice-cluster0
+spec:
+  schema: VENICE-CLUSTER0
+  url: jdbc:venice://cluster=venice-cluster0;router.url=http://localhost:7777
+  dialect: Calcite
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTemplate
+metadata:
+  name: venice-template-cluster0
+spec:
+  databases:
+    - venice-cluster0
+  connector: |
+    connector = venice
+    storeName = {{table}}
+    partial-update-mode = true
+    key.fields-prefix = KEY_
+    key.fields = {{keys}}

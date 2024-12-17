@@ -17,9 +17,13 @@ include 'hoptimator-operator'
 include 'hoptimator-operator-integration'
 include 'hoptimator-planner'          // <-- marked for deletion
 include 'hoptimator-util'
+include 'hoptimator-venice'
 
 dependencyResolutionManagement {
   repositories {
     mavenCentral()
+    maven {
+      url  "https://linkedin.jfrog.io/artifactory/open-source"
+    }
   }
 }
