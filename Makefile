@@ -9,15 +9,6 @@ build:
 
 bounce: build undeploy deploy deploy-samples deploy-config deploy-demo
 
-# Integration tests expect K8s, Kafka, and Venice to be running
-integration-tests: deploy-kafka deploy-venice deploy-samples
-	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
-	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
-	./gradlew intTest || kill `cat port-forward.pid`
-	kill `cat port-forward.pid`
-
 clean:
 	./gradlew clean
 
@@ -98,6 +89,19 @@ undeploy-venice:
 	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
 	docker compose -f ./deploy/docker/docker-compose-single-dc-setup.yaml down
 
+deploy-dev-environment: deploy deploy-flink deploy-kafka deploy-venice
+
+undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy
+
+# Integration tests expect K8s, Kafka, and Venice to be running
+integration-tests: deploy-dev-environment deploy-samples
+	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
+	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
+	./gradlew intTest || kill `cat port-forward.pid`
+	kill `cat port-forward.pid`
+
 generate-models:
 	./generate-models.sh
 	./hoptimator-models/generate-models.sh # <-- marked for deletion
@@ -106,4 +110,4 @@ release:
 	test -n "$(VERSION)"  # MISSING ARG: $$VERSION
 	./gradlew publish
 
-.PHONY: install build bounce integration-tests clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice generate-models release
+.PHONY: install build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice integration-tests deploy-dev-environment undeploy-dev-environment generate-models release

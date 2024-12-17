@@ -54,7 +54,7 @@ The below setup will install a Kafka and Flink cluster within Kubernetes.
 
 ```
   $ make install                                                    # build and install SQL CLI
-  $ make deploy-dev-environment                                     # start local Kafka & Flink setups
+  $ make deploy-dev-environment                                     # start all local dev setups
   $ kubectl port-forward -n kafka svc/one-kafka-external-0 9092 &   # forward external Kafka port for use by SQL CLI
   $ ./hoptimator                                                    # start the SQL CLI
   > !intro
