@@ -12,6 +12,9 @@ import org.apache.calcite.schema.impl.AbstractSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.linkedin.venice.client.schema.StoreSchemaFetcher;
+import com.linkedin.venice.client.store.ClientConfig;
+import com.linkedin.venice.client.store.ClientFactory;
 import com.linkedin.venice.controllerapi.ControllerClient;
 import com.linkedin.venice.controllerapi.ControllerClientFactory;
 import com.linkedin.venice.security.SSLFactory;
@@ -33,13 +36,8 @@ public class ClusterSchema extends AbstractSchema {
 
   public void populate() throws InterruptedException, ExecutionException, IOException {
     tableMap.clear();
-    String controllerUrl = properties.getProperty("controller.url");
     String cluster = properties.getProperty("cluster");
-    boolean isLocalCluster = false;
-    if (controllerUrl.contains("localhost")) {
-      isLocalCluster = true;
-    }
-    log.info("Loading Venice stores on {} for cluster {}", controllerUrl, cluster);
+    log.info("Loading Venice stores for cluster {}", cluster);
 
     String sslConfigPath = properties.getProperty("ssl-config-path");
     Optional<SSLFactory> sslFactory = Optional.empty();
@@ -49,20 +47,30 @@ public class ClusterSchema extends AbstractSchema {
       String sslFactoryClassName = sslProperties.getProperty(SSL_FACTORY_CLASS_NAME, DEFAULT_SSL_FACTORY_CLASS_NAME);
       sslFactory = Optional.of(SslUtils.getSSLFactory(sslProperties, sslFactoryClassName));
     }
-    ControllerClient controllerClient;
-    if (isLocalCluster) {
-      controllerClient = new LocalControllerClient(cluster, controllerUrl, sslFactory);
+
+    try (ControllerClient controllerClient = createControllerClient(cluster, sslFactory)) {
+      String[] stores = controllerClient.queryStoreList(false).getStores();
+      log.info("Loaded {} Venice stores.", stores.length);
+      for (String store : stores) {
+        StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(store);
+        tableMap.put(store, new VeniceStore(storeSchemaFetcher));
+      }
+    }
+  }
+
+  protected ControllerClient createControllerClient(String cluster, Optional<SSLFactory> sslFactory) {
+    String routerUrl = properties.getProperty("router.url");
+    if (routerUrl.contains("localhost")) {
+      return new LocalControllerClient(cluster, routerUrl, sslFactory);
     } else {
-      controllerClient = ControllerClientFactory.getControllerClient(cluster, controllerUrl, sslFactory);
+      return ControllerClientFactory.getControllerClient(cluster, routerUrl, sslFactory);
     }
-    String[] stores = controllerClient.queryStoreList(false).getStores();
-    log.info("Loaded {} Venice stores.",  stores.length);
-    for (String store : stores) {
-      tableMap.put(store, new VeniceStore(store, properties));
-    }
-    if (isLocalCluster) {
-      controllerClient.close();
-    }
+  }
+
+  protected StoreSchemaFetcher createStoreSchemaFetcher(String storeName) {
+    return ClientFactory.createStoreSchemaFetcher(
+        ClientConfig.defaultGenericClientConfig(storeName)
+            .setVeniceURL(properties.getProperty("router.url")));
   }
 
   @Override

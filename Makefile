@@ -74,7 +74,7 @@ deploy-kafka: deploy deploy-flink
 	kubectl apply -f ./deploy/samples/demodb.yaml
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
 
-undeploy-kafka: undeploy undeploy-flink
+undeploy-kafka:
 	kubectl delete kafkatopic.kafka.strimzi.io -n kafka --all || echo "skipping"
 	kubectl delete strimzi -n kafka --all || echo "skipping"
 	kubectl delete pvc -l strimzi.io/name=one-kafka -n kafka || echo "skipping"
@@ -94,7 +94,7 @@ deploy-venice: deploy deploy-flink
 	docker exec venice-client ./run-vpj.sh sample-data/single-dc-configs/batch-push-job.properties || echo "skipping"
 	kubectl apply -f ./deploy/samples/venicedb.yaml
 
-undeploy-venice: undeploy undeploy-flink
+undeploy-venice:
 	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
 	docker compose -f ./deploy/docker/docker-compose-single-dc-setup.yaml down
 

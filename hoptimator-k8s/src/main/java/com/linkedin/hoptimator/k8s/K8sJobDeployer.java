@@ -6,10 +6,6 @@ import java.util.Locale;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-import org.apache.calcite.sql.dialect.CalciteSqlDialect;
-import org.apache.calcite.sql.dialect.MysqlSqlDialect;
-
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;

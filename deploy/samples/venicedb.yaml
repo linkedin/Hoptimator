@@ -3,8 +3,8 @@ kind: Database
 metadata:
   name: venice-cluster0
 spec:
-  schema: VENICE
-  url: jdbc:venice://cluster=venice-cluster0;controller.url=http://localhost:5555
+  schema: VENICE-CLUSTER0
+  url: jdbc:venice://cluster=venice-cluster0;router.url=http://localhost:7777
   dialect: Calcite
 
 ---
@@ -18,7 +18,7 @@ spec:
     - venice-cluster0
   connector: |
     connector = venice
-    cluster = {{database}}
-    store = {{table}}
-    properties.controller.url = http://localhost:5555
-
+    storeName = {{table}}
+    partial-update-mode = true
+    key.fields-prefix = KEY_
+    key.fields = {{keys}}

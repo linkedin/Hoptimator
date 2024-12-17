@@ -20,6 +20,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 /**
  * Represents something required by a Table.
@@ -37,6 +40,7 @@ import java.util.stream.Collectors;
  * for informational/debugging purposes.
  */
 public abstract class Resource {
+  private static final Logger log = LoggerFactory.getLogger(Resource.class);
   private final String template;
   private final SortedMap<String, Supplier<String>> properties = new TreeMap<>();
   private final List<Resource> inputs = new ArrayList<>();
@@ -344,6 +348,9 @@ public abstract class Resource {
             break;
           case "concat":
             res = res.replace("\n", "");
+            break;
+          default:
+            log.info("Transformation function '{}' not found", f);
             break;
         }
       }
