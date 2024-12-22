@@ -47,7 +47,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   public void addDatabases(SchemaPlus parentSchema) {
     for (Row row : rows()) {
       parentSchema.add(schemaName(row),
-          HoptimatorJdbcSchema.create(row.NAME, null, row.SCHEMA, dataSource(row), parentSchema, dialect(row)));
+          HoptimatorJdbcSchema.create(row.NAME, row.SCHEMA, dataSource(row), parentSchema, dialect(row)));
     }
   }
 

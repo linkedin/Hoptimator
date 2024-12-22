@@ -2,7 +2,7 @@ package com.linkedin.hoptimator.jdbc.schema;
 
 import java.sql.SQLException;
 import java.sql.Wrapper;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import org.apache.calcite.schema.SchemaPlus;
@@ -15,7 +15,7 @@ import com.linkedin.hoptimator.Catalog;
 /** Built-in utility tables. */
 public class UtilityCatalog extends AbstractSchema implements Catalog {
 
-  private final Map<String, Table> tableMap = new HashMap<>();
+  private final Map<String, Table> tableMap = new LinkedHashMap<>();
 
   public UtilityCatalog() {
     tableMap.put("PRINT", new PrintTable());

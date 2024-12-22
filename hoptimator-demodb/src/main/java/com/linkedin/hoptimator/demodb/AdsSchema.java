@@ -14,6 +14,7 @@ public class AdsSchema extends AbstractSchema {
   public AdsSchema() {
     tableMap.put("PAGE_VIEWS", new PageViewTable());
     tableMap.put("AD_CLICKS", new AdClickTable());
+    tableMap.put("CAMPAIGNS", new CampaignTable());
   }
 
   @Override

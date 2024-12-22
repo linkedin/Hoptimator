@@ -24,8 +24,8 @@ spec:
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:
-    - CREATE TABLE IF NOT EXISTS `existing-topic-2` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('properties.bootstrap.servers'='localhost:9092', 'topic'='existing-topic-2', 'connector'='kafka')
-    - CREATE TABLE IF NOT EXISTS `existing-topic-1` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('properties.bootstrap.servers'='localhost:9092', 'topic'='existing-topic-1', 'connector'='kafka')
+    - CREATE TABLE IF NOT EXISTS `existing-topic-2` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'properties.bootstrap.servers'='localhost:9092', 'topic'='existing-topic-2')
+    - CREATE TABLE IF NOT EXISTS `existing-topic-1` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'properties.bootstrap.servers'='localhost:9092', 'topic'='existing-topic-1')
     - INSERT INTO `existing-topic-1` (`KEY`, `VALUE`) SELECT * FROM `KAFKA`.`existing-topic-2`
     jarURI: local:///opt/hoptimator-flink-runner.jar
     parallelism: 1

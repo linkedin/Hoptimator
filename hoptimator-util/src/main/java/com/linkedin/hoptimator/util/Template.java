@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.util;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Supplier;
@@ -34,7 +34,7 @@ public interface Template {
     private final Map<String, Supplier<String>> vars;
 
     public SimpleEnvironment() {
-      this.vars = new HashMap<>();
+      this.vars = new LinkedHashMap<>();
     }
 
     public SimpleEnvironment(Map<String, Supplier<String>> vars) {
