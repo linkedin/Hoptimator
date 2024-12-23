@@ -8,6 +8,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import com.linkedin.hoptimator.util.DataTypeUtils;
 
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Convention;
@@ -31,9 +35,13 @@ import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 
 
 public final class PipelineRules {
@@ -82,7 +90,9 @@ public final class PipelineRules {
 
     @Override
     public void implement(Implementor implementor) throws SQLException {
-      implementor.addSource(database, table.getQualifiedName(), table.getRowType(),
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      implementor.addSource(database, table.getQualifiedName(),
+          DataTypeUtils.unflatten(table.getRowType(), typeFactory),
           Collections.emptyMap()); // TODO pass in table scan hints
     }
   }
@@ -134,7 +144,14 @@ public final class PipelineRules {
 
     @Override
     public void implement(Implementor implementor) throws SQLException {
-      implementor.setSink(database, table.getQualifiedName(), table.getRowType(), Collections.emptyMap());
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType flattened = DataTypeUtils.flatten(table.getRowType(), typeFactory);
+      RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
+      for (RelDataTypeField field : flattened.getFieldList()) {
+        // Rewrite FOO$BAR as FOO_BAR in output tables
+        builder.add(field.getName().replaceAll("\\$", "_"), field.getType());
+      }
+      implementor.setSink(database, table.getQualifiedName(), builder.build(), Collections.emptyMap());
       implementor.setQuery(getInput());
     }
   }

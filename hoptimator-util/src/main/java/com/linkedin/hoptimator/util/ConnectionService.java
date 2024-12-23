@@ -3,7 +3,7 @@ package com.linkedin.hoptimator.util;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
@@ -19,7 +19,7 @@ public final class ConnectionService {
   }
 
   public static <T> Map<String, String> configure(T object, Class<T> clazz) throws SQLException {
-    Map<String, String> configs = new HashMap<>();
+    Map<String, String> configs = new LinkedHashMap<>();
     for (Connector<T> connector : connectors(clazz)) {
       configs.putAll(connector.configure(object));
     }

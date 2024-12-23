@@ -7,13 +7,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import com.linkedin.hoptimator.util.DataTypeUtils;
 
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
@@ -32,6 +37,7 @@ import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 
@@ -49,7 +55,7 @@ import org.apache.calcite.sql.util.SqlShuttle;
  *
  *   ScriptImplementor.empty()
  *     .database(db)
- *     .connector(db, name, rowType, configs)
+ *     .connector(name, rowType, configs)
  *
  * ... would produce something like
  *
@@ -158,7 +164,7 @@ public interface ScriptImplementor {
       if (select.getSelectList() != null) {
         select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
       }
-      select.unparse(w, 0, 0);
+      select.accept(UNFLATTEN_MEMBER_ACCESS).unparse(w, 0, 0);
     }
 
     // A `ROW(...)` operator which will unparse as just `(...)`.
@@ -175,6 +181,18 @@ public interface ScriptImplementor {
         } else {
           return call.getOperator().createCall(call.getParserPosition(), operands);
         }
+      }
+    };
+
+    // a shuttle that replaces `FOO$BAR` with  `FOO.BAR`
+    private static final SqlShuttle UNFLATTEN_MEMBER_ACCESS = new SqlShuttle() {
+      @Override
+      public SqlNode visit(SqlIdentifier id) {
+        SqlIdentifier replacement = new SqlIdentifier(id.names.stream()
+            .flatMap(x -> Stream.of(x.split("\\$")))
+            .collect(Collectors.toList()), SqlParserPos.ZERO);
+        id.assignNamesFrom(replacement);
+        return id;
       }
     };
   }
@@ -256,10 +274,8 @@ public interface ScriptImplementor {
     public void implement(SqlWriter w) {
       w.keyword("INSERT INTO");
       (new IdentifierImplementor(name)).implement(w);
-      SqlWriter.Frame frame1 = w.startList("(", ")");
       RelNode project = dropNullFields(relNode);
       (new ColumnListImplementor(project.getRowType())).implement(w);
-      w.endList(frame1);
       (new QueryImplementor(project)).implement(w);
       w.literal(";");
     }
@@ -332,6 +348,7 @@ public interface ScriptImplementor {
    *
    * N.B. the following magic:
    *  - NULL fields are promoted to BYTES
+   *  - Flattened fields like FOO$BAR are renamed FOO_BAR
    */
   class RowTypeSpecImplementor implements ScriptImplementor {
     private final RelDataType dataType;
@@ -342,13 +359,16 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      List<SqlIdentifier> fieldNames = dataType.getFieldList()
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType flattened = dataType;
+      List<SqlIdentifier> fieldNames = flattened.getFieldList()
           .stream()
           .map(x -> x.getName())
+          .map(x -> x.replaceAll("\\$", "_"))  // support FOO$BAR columns as FOO_BAR
           .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
           .collect(Collectors.toList());
       List<SqlDataTypeSpec> fieldTypes =
-          dataType.getFieldList().stream().map(x -> x.getType()).map(x -> toSpec(x)).collect(Collectors.toList());
+          flattened.getFieldList().stream().map(x -> x.getType()).map(x -> toSpec(x)).collect(Collectors.toList());
       for (int i = 0; i < fieldNames.size(); i++) {
         w.sep(",");
         fieldNames.get(i).unparse(w, 0, 0);
@@ -408,14 +428,17 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
+      SqlWriter.Frame frame1 = w.startList("(", ")"); 
       List<SqlIdentifier> fieldNames = fields.stream()
           .map(x -> x.getName())
+          .map(x -> x.replaceAll("\\$", "_"))  // support FOO$BAR columns as FOO_BAR
           .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
           .collect(Collectors.toList());
       for (int i = 0; i < fieldNames.size(); i++) {
         w.sep(",");
         fieldNames.get(i).unparse(w, 0, 0);
       }
+      w.endList(frame1);
     }
   }
 

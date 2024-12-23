@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -41,7 +41,7 @@ public interface PipelineRel extends RelNode {
 
   /** Implements a deployable Pipeline. */
   class Implementor {
-    private final Map<Source, RelDataType> sources = new HashMap<>();
+    private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private RelNode query;
     private String sinkDatabase = "pipeline";
     private List<String> sinkPath = Arrays.asList(new String[]{"PIPELINE", "SINK"});

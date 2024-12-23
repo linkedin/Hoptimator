@@ -2,6 +2,9 @@
 install:
 	./gradlew compileJava installDist
 
+test:
+	./gradlew test -x spotbugsMain -x spotbugsTest -x spotbugsTestFixtures
+
 build:
 	./gradlew build
 	docker build . -t hoptimator
@@ -77,4 +80,4 @@ release:
 	test -n "$(VERSION)"  # MISSING ARG: $$VERSION
 	./gradlew publish
 
-.PHONY: build clean quickstart deploy-dev-environment deploy deploy-samples deploy-demo deploy-config integration-tests bounce generate-models release
+.PHONY: build test install clean quickstart deploy-dev-environment deploy deploy-samples deploy-demo deploy-config integration-tests bounce generate-models release

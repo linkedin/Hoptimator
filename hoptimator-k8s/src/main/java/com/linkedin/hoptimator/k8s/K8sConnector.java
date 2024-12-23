@@ -3,7 +3,7 @@ package com.linkedin.hoptimator.k8s;
 import java.io.IOException;
 import java.io.StringReader;
 import java.sql.SQLException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -47,10 +47,9 @@ class K8sConnector implements Connector<Source> {
     } catch (IOException e) {
       throw new SQLException(e);
     }
-    Map<String, String> map = new HashMap<>();
-    for (String key : props.stringPropertyNames()) {
-      map.put(key, props.getProperty(key));
-    }
+    Map<String, String> map = new LinkedHashMap<>();
+    props.stringPropertyNames().stream().sorted().forEach(k ->
+        map.put(k, props.getProperty(k)));
     return map;
   }
 }
