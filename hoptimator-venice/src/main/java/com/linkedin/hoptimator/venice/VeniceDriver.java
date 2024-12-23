@@ -16,6 +16,8 @@ import org.apache.calcite.schema.SchemaPlus;
 /** JDBC driver for Venice topics. */
 public class VeniceDriver extends Driver {
 
+  public static final String CATALOG_NAME = "VENICE";
+
   static {
     new VeniceDriver().register();
   }
@@ -40,13 +42,17 @@ public class VeniceDriver extends Driver {
     if (cluster == null) {
       throw new IllegalArgumentException("Missing required cluster property. Need: jdbc:venice://cluster=...");
     }
+    cluster = cluster.toUpperCase(Locale.ROOT);
+    if (!cluster.startsWith(CATALOG_NAME)) {
+      cluster = CATALOG_NAME + "-" + cluster;
+    }
     try {
       Connection connection = super.connect(url, props);
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
       connection.setAutoCommit(true); // to prevent rollback()
-      connection.setCatalog("VENICE");
+      connection.setCatalog(CATALOG_NAME);
       CalciteConnection calciteConnection = (CalciteConnection) connection;
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
       ClusterSchema schema = createClusterSchema(properties);

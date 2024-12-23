@@ -16,6 +16,9 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.Litmus;
+import org.apache.calcite.util.Pair;
+
+import com.google.common.collect.ImmutableList;
 
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Job;
@@ -47,17 +50,19 @@ public interface PipelineRel extends RelNode {
   class Implementor {
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private RelNode query;
+    private ImmutableList<Pair<Integer, String>> targetFields;
     private String sinkDatabase = "pipeline";
     private List<String> sinkPath = Arrays.asList(new String[]{"PIPELINE", "SINK"});
     private RelDataType sinkRowType = null;
     private Map<String, String> sinkOptions = Collections.emptyMap();
 
-    public void visit(RelNode node) throws SQLException {
-      if (query == null) {
-        query = node;
+    public void visit(RelNode node, ImmutableList<Pair<Integer, String>> targetFields) throws SQLException {
+      if (this.query == null) {
+        this.query = node;
+        this.targetFields = targetFields;
       }
       for (RelNode input : node.getInputs()) {
-        visit(input);
+        visit(input, targetFields);
       }
       ((PipelineRel) node).implement(this);
     }
@@ -65,7 +70,7 @@ public interface PipelineRel extends RelNode {
     /**
      * Adds a source to the pipeline.
      *
-     * This involves deploying any relevant objects, and configuring a
+     * This involves deploying any relevant objects, and configuring
      * a connector. The connector is configured via `CREATE TABLE...WITH(...)`.
      */
     public void addSource(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
@@ -95,8 +100,10 @@ public interface PipelineRel extends RelNode {
       String keyString = rowType.getFieldList().stream()
           .map(RelDataTypeField::getName)
           .filter(name -> name.startsWith(KEY_PREFIX))
-          .collect(Collectors.joining(", "));
-      newOptions.put(KEY_OPTION, keyString);
+          .collect(Collectors.joining(";"));
+      if (!keyString.isEmpty()) {
+        newOptions.put(KEY_OPTION, keyString);
+      }
       return newOptions;
     }
 
@@ -137,7 +144,7 @@ public interface PipelineRel extends RelNode {
       Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
       Map<String, String> sinkConfigs = ConnectionService.configure(sink, Sink.class);
       script = script.connector(sink.table(), targetRowType, sinkConfigs);
-      script = script.insert(sink.table(), query);
+      script = script.insert(sink.table(), sink.schema(), query, targetFields);
       RelOptUtil.eq(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       return script.seal();
     }

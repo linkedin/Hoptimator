@@ -1,0 +1,23 @@
+{
+  "type": "record",
+  "name": "SampleTableValue",
+  "doc": "SampleTableValue",
+  "fields": [
+    {
+      "name": "intField",
+      "type": [
+        "null",
+        "int"
+      ],
+      "default": null
+    },
+    {
+      "name": "stringField",
+      "type": [
+        "null",
+        "string"
+      ],
+      "default": null
+    }
+  ]
+}

@@ -19,7 +19,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelRoot;
 import org.junit.jupiter.api.Assertions;
 
 import net.hydromatic.quidem.AbstractCommand;
@@ -73,9 +73,9 @@ public abstract class QuidemTestBase {
                 }
                 String sql = context.previousSqlCommand().sql;
                 CalciteConnection conn = (CalciteConnection) connection;
-                RelNode rel = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root.rel;
+                RelRoot root = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root;
                 String specs =
-                    DeploymentService.plan(rel).pipeline().specify().stream().sorted()
+                    DeploymentService.plan(root).pipeline().specify().stream().sorted()
                         .collect(Collectors.joining("---\n"));
                 String[] lines = specs.replaceAll(";\n", "\n").split("\n");
                 context.echo(Arrays.asList(lines));

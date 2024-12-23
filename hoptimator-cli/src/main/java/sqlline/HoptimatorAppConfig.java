@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Scanner;
 
 import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelRoot;
 import org.jline.reader.Completer;
 
 import com.linkedin.hoptimator.SqlDialect;
@@ -87,8 +87,8 @@ public class HoptimatorAppConfig extends Application {
       String sql = split[1];
       CalciteConnection conn = (CalciteConnection) sqlline.getConnection();
       try {
-        RelNode rel = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root.rel;
-        PipelineRel.Implementor plan = DeploymentService.plan(rel);
+        RelRoot root = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root;
+        PipelineRel.Implementor plan = DeploymentService.plan(root);
         sqlline.output(plan.sql().apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
@@ -155,9 +155,9 @@ public class HoptimatorAppConfig extends Application {
       }
       String sql = split[1];
       CalciteConnection conn = (CalciteConnection) sqlline.getConnection();
-      RelNode rel = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root.rel;
+      RelRoot root = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root;
       try {
-        List<String> specs = DeploymentService.plan(rel).pipeline().specify();
+        List<String> specs = DeploymentService.plan(root).pipeline().specify();
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
       } catch (SQLException e) {
         sqlline.error(e);

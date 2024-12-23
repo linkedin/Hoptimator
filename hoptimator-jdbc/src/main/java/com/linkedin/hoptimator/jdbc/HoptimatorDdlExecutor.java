@@ -28,6 +28,7 @@ import java.util.List;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.Function;
@@ -165,8 +166,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       RelDataType rowType = materializedViewTable.getRowType(new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
 
       // Plan a pipeline to materialize the view.
-      RelNode rel = HoptimatorDriver.convert(context, sql).root.rel;
-      PipelineRel.Implementor plan = DeploymentService.plan(rel);
+      RelRoot root = HoptimatorDriver.convert(context, sql).root;
+      PipelineRel.Implementor plan = DeploymentService.plan(root);
       plan.setSink(database, viewPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline();
 

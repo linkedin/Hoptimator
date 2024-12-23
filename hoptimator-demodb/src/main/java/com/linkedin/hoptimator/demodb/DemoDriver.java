@@ -59,9 +59,6 @@ public class DemoDriver extends Driver {
       if (schemas.isEmpty() || schemas.contains("ADS")) {
         rootSchema.add("ADS", new AdsSchema());
       }
-      if (schemas.isEmpty() || schemas.contains("VENICE")) {
-        rootSchema.add("VENICE", new AbstractSchema());
-      }
       return connection;
     } catch (Exception e) {
       throw new SQLException("Problem loading " + url, e);

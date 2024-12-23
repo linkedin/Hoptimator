@@ -42,8 +42,8 @@ publishing {
           license {
             name = 'BSD 2-Clause'
             url = 'https://raw.githubusercontent.com/linkedin/Hoptimator/main/LICENSE'
-            }
           }
+        }
         scm {
           connection = 'scm:git:git://github.com:linkedin/Hoptimator.git'
           developerConnection = 'scm:git:ssh://github.com:linkedin/Hoptimator.git'

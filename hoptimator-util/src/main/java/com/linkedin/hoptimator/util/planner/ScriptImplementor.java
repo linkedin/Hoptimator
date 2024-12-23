@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -40,6 +41,9 @@ import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.util.Pair;
+
+import com.google.common.collect.ImmutableList;
 
 
 /**
@@ -97,8 +101,9 @@ public interface ScriptImplementor {
   }
 
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
-  default ScriptImplementor insert(String name, RelNode relNode) {
-    return with(new InsertImplementor(name, relNode));
+  default ScriptImplementor insert(String name, String schema, RelNode relNode,
+      ImmutableList<Pair<Integer, String>> targetFields) {
+    return with(new InsertImplementor(name, schema, relNode, targetFields));
   }
 
   /** Render the script as DDL/SQL in the default dialect */
@@ -263,27 +268,43 @@ public interface ScriptImplementor {
    * */
   class InsertImplementor implements ScriptImplementor {
     private final String name;
+    private final String schema;
     private final RelNode relNode;
+    private final ImmutableList<Pair<Integer, String>> targetFields;
 
-    public InsertImplementor(String name, RelNode relNode) {
+    public InsertImplementor(String name, String schema, RelNode relNode,
+        ImmutableList<Pair<Integer, String>> targetFields) {
       this.name = name;
+      this.schema = schema;
       this.relNode = relNode;
+      this.targetFields = targetFields;
     }
 
     @Override
     public void implement(SqlWriter w) {
       w.keyword("INSERT INTO");
       (new IdentifierImplementor(name)).implement(w);
-      RelNode project = dropNullFields(relNode);
+//      SqlWriter.Frame frame1 = w.startList("(", ")");
+      RelNode project = dropFields(schema, relNode, targetFields);
       (new ColumnListImplementor(project.getRowType())).implement(w);
+//      w.endList(frame1);
       (new QueryImplementor(project)).implement(w);
       w.literal(";");
     }
 
-    private static RelNode dropNullFields(RelNode relNode) {
+    // Drops NULL fields
+    // Drops additional fields by schema
+    private static RelNode dropFields(String schema, RelNode relNode,
+        ImmutableList<Pair<Integer, String>> targetFields) {
       List<Integer> cols = new ArrayList<>();
       int i = 0;
+      Set<String> targetFieldNames = targetFields.stream().map(x -> x.right).collect(Collectors.toSet());
       for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
+        // TODO: Need a better way to dynamically modify the script implementer based on the schema
+        if (schema.startsWith("VENICE")
+          && !targetFieldNames.contains(field.getName())) {
+          continue;
+        }
         if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
           cols.add(i);
         }
@@ -428,7 +449,7 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      SqlWriter.Frame frame1 = w.startList("(", ")"); 
+      SqlWriter.Frame frame1 = w.startList("(", ")");
       List<SqlIdentifier> fieldNames = fields.stream()
           .map(x -> x.getName())
           .map(x -> x.replaceAll("\\$", "_"))  // support FOO$BAR columns as FOO_BAR

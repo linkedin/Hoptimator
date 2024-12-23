@@ -22,13 +22,12 @@ import com.linkedin.venice.utils.SslUtils;
 
 
 public class ClusterSchema extends AbstractSchema {
-
   private static final Logger log = LoggerFactory.getLogger(ClusterSchema.class);
-  private static final String SSL_FACTORY_CLASS_NAME = "ssl.factory.class.name";
-  public static final String DEFAULT_SSL_FACTORY_CLASS_NAME = "com.linkedin.venice.security.DefaultSSLFactory";
 
+  protected static final String SSL_FACTORY_CLASS_NAME = "ssl.factory.class.name";
+  protected static final String DEFAULT_SSL_FACTORY_CLASS_NAME = "com.linkedin.venice.security.DefaultSSLFactory";
   protected final Properties properties;
-  private final Map<String, Table> tableMap = new HashMap<>();
+  protected final Map<String, Table> tableMap = new HashMap<>();
 
   public ClusterSchema(Properties properties) {
     this.properties = properties;
