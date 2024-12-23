@@ -25,9 +25,9 @@ spec:
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:
-    - CREATE TABLE IF NOT EXISTS `test-store` (`KEY_string` VARCHAR, `string` VARCHAR) WITH ('storeName'='test-store', 'connector'='venice', 'key.fields-prefix'='KEY_', 'key.fields'='KEY_string', 'partial-update-mode'='true')
-    - CREATE TABLE IF NOT EXISTS `test-store-1` (`KEY_string` VARCHAR, `string` VARCHAR) WITH ('storeName'='test-store-1', 'connector'='venice', 'key.fields-prefix'='KEY_', 'key.fields'='KEY_string', 'partial-update-mode'='true')
-    - INSERT INTO `test-store-1` (`KEY_string`, `string`) SELECT * FROM `VENICE-CLUSTER0`.`test-store`
+    - CREATE TABLE IF NOT EXISTS `test-store` (`KEY_id` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('value.fields-include'='EXCEPT_KEY', 'storeName'='test-store', 'connector'='venice', 'key.fields-prefix'='KEY_', 'key.fields'='KEY_id', 'partial-update-mode'='true')
+    - CREATE TABLE IF NOT EXISTS `test-store-1` (`KEY_id` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('value.fields-include'='EXCEPT_KEY', 'storeName'='test-store-1', 'connector'='venice', 'key.fields-prefix'='KEY_', 'key.fields'='KEY_id', 'partial-update-mode'='true')
+    - INSERT INTO `test-store-1` (`KEY_id`, `intField`, `stringField`) SELECT * FROM `VENICE-CLUSTER0`.`test-store`
     jarURI: local:///opt/hoptimator-flink-runner.jar
     parallelism: 1
     upgradeMode: stateless

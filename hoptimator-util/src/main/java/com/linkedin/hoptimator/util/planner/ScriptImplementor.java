@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -10,16 +11,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import com.linkedin.hoptimator.util.DataTypeUtils;
-
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
@@ -41,7 +41,9 @@ import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
+import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.Util;
 
 import com.google.common.collect.ImmutableList;
 
@@ -303,6 +305,7 @@ public interface ScriptImplementor {
         // TODO: Need a better way to dynamically modify the script implementer based on the schema
         if (schema.startsWith("VENICE")
           && !targetFieldNames.contains(field.getName())) {
+          i++;
           continue;
         }
         if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
@@ -310,8 +313,48 @@ public interface ScriptImplementor {
         }
         i++;
       }
-      return RelOptUtil.createProject(relNode, cols);
+      return createForceProject(relNode, cols);
     }
+  }
+
+  static RelNode createForceProject(final RelNode child, final List<Integer> posList) {
+    return createForceProject(RelFactories.DEFAULT_PROJECT_FACTORY, child, posList);
+  }
+
+  // By default, "projectNamed" will try to provide an optimization by not creating a new project if the
+  // field types are the same. This is not desirable in the insert case as the field names need to match the sink.
+  //
+  // Example:
+  // INSERT INTO `my-store` (`KEY_id`, `stringField`) SELECT * FROM `KAFKA`.`existing-topic-1`;
+  // Without forced projection this will get optimized to:
+  // INSERT INTO `my-store` (`KEYFIELD`, `VARCHARFIELD`) SELECT * FROM `KAFKA`.`existing-topic-1`;
+  // With forced project this will resolve as:
+  // INSERT INTO `my-store` (`KEY_id`, `stringField`) SELECT `KEYFIELD` AS `KEY_id`, \
+  // `VARCHARFIELD` AS `stringField` FROM `KAFKA`.`existing-topic-1`;
+  //
+  // This implementation is largely a duplicate of RelOptUtil.createProject(relNode, cols); which does not allow
+  // overriding the "force" argument of "projectNamed".
+  static RelNode createForceProject(final RelFactories.ProjectFactory factory,
+      final RelNode child, final List<Integer> posList) {
+    RelDataType rowType = child.getRowType();
+    final List<String> fieldNames = rowType.getFieldNames();
+    final RelBuilder relBuilder =
+        RelBuilder.proto(factory).create(child.getCluster(), null);
+    final List<RexNode> exprs = new AbstractList<RexNode>() {
+      @Override public int size() {
+        return posList.size();
+      }
+
+      @Override public RexNode get(int index) {
+        final int pos = posList.get(index);
+        return relBuilder.getRexBuilder().makeInputRef(child, pos);
+      }
+    };
+    final List<String> names = Util.select(fieldNames, posList);
+    return relBuilder
+        .push(child)
+        .projectNamed(exprs, names, true)
+        .build();
   }
 
   /** Implements a CREATE DATABASE IF NOT EXISTS statement */
