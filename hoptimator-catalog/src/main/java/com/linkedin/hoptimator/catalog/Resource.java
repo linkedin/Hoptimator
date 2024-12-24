@@ -350,7 +350,7 @@ public abstract class Resource {
             res = res.replace("\n", "");
             break;
           default:
-            log.info("Transformation function '{}' not found", f);
+            log.warn("Transformation function '{}' not found", f);
             break;
         }
       }

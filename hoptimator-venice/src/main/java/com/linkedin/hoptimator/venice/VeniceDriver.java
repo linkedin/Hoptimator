@@ -13,7 +13,7 @@ import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
 
 
-/** JDBC driver for Venice topics. */
+/** JDBC driver for Venice stores. */
 public class VeniceDriver extends Driver {
 
   public static final String CATALOG_NAME = "VENICE";

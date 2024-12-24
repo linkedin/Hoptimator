@@ -5,8 +5,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import com.linkedin.hoptimator.util.planner.ScriptImplementor;
-
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -14,9 +12,10 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
-
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 
 
 public class TestDataTypeUtils {
@@ -33,7 +32,7 @@ public class TestDataTypeUtils {
     builder3.add("FOO", builder1.build());
     builder3.add("BAR", builder2.build());
     RelDataType rowType = builder3.build();
-    Assertions.assertEquals(2, rowType.getFieldList().size()); 
+    Assertions.assertEquals(2, rowType.getFieldList().size());
     RelDataType flattenedType = DataTypeUtils.flatten(rowType, typeFactory);
     Assertions.assertEquals(3, flattenedType.getFieldList().size());
     List<String> flattenedNames = flattenedType.getFieldList().stream().map(x -> x.getName())
@@ -65,7 +64,7 @@ public class TestDataTypeUtils {
     builder3.add("FOO", typeFactory.createArrayType(builder1.build(), -1));
     builder3.add("BAR", typeFactory.createArrayType(builder2.build(), -1));
     RelDataType rowType = builder3.build();
-    Assertions.assertEquals(2, rowType.getFieldList().size()); 
+    Assertions.assertEquals(2, rowType.getFieldList().size());
     RelDataType flattenedType = DataTypeUtils.flatten(rowType, typeFactory);
     Assertions.assertEquals(2, flattenedType.getFieldList().size());
     List<String> flattenedNames = flattenedType.getFieldList().stream().map(x -> x.getName())
@@ -77,5 +76,5 @@ public class TestDataTypeUtils {
     Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `T1` (`FOO` ANY ARRAY, "
         + "`BAR` ANY ARRAY) WITH ();", flattenedConnector,
         "Flattened connector should have simplified arrays");
-  } 
-} 
+  }
+}

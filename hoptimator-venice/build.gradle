@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
   implementation project(':hoptimator-avro')
+  implementation project(':hoptimator-util')
   implementation libs.calcite.core
   implementation(libs.venice) {
     // Venice pulls in snakeyaml v2.0 which has conflicting APIs with 1.x

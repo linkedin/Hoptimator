@@ -103,9 +103,8 @@ public interface ScriptImplementor {
   }
 
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
-  default ScriptImplementor insert(String name, String schema, RelNode relNode,
-      ImmutableList<Pair<Integer, String>> targetFields) {
-    return with(new InsertImplementor(name, schema, relNode, targetFields));
+  default ScriptImplementor insert(String name, RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
+    return with(new InsertImplementor(name, relNode, targetFields));
   }
 
   /** Render the script as DDL/SQL in the default dialect */
@@ -171,7 +170,7 @@ public interface ScriptImplementor {
       if (select.getSelectList() != null) {
         select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
       }
-      select.accept(UNFLATTEN_MEMBER_ACCESS).unparse(w, 0, 0);
+      select.accept(new UnflattenMemberAccess(this)).unparse(w, 0, 0);
     }
 
     // A `ROW(...)` operator which will unparse as just `(...)`.
@@ -191,17 +190,31 @@ public interface ScriptImplementor {
       }
     };
 
-    // a shuttle that replaces `FOO$BAR` with  `FOO.BAR`
-    private static final SqlShuttle UNFLATTEN_MEMBER_ACCESS = new SqlShuttle() {
+    private class UnflattenMemberAccess extends SqlShuttle {
+      private final Set<String> sinkFieldList;
+
+      UnflattenMemberAccess(QueryImplementor outer) {
+        this.sinkFieldList = outer.relNode.getRowType().getFieldList()
+            .stream()
+            .map(RelDataTypeField::getName)
+            .collect(Collectors.toSet());
+      }
+
+      // SqlShuttle gets called for every field in SELECT and every table name in FROM alike
+      // For fields in SELECT, we want to unflatten them as `FOO_BAR`, for tables `FOO.BAR`
       @Override
       public SqlNode visit(SqlIdentifier id) {
-        SqlIdentifier replacement = new SqlIdentifier(id.names.stream()
-            .flatMap(x -> Stream.of(x.split("\\$")))
-            .collect(Collectors.toList()), SqlParserPos.ZERO);
-        id.assignNamesFrom(replacement);
+        if (id.names.size() == 1 && sinkFieldList.contains(id.names.get(0))) {
+          id.assignNamesFrom(new SqlIdentifier(id.names.get(0).replaceAll("\\$", "_"), SqlParserPos.ZERO));
+        } else {
+          SqlIdentifier replacement = new SqlIdentifier(id.names.stream()
+              .flatMap(x -> Stream.of(x.split("\\$")))
+              .collect(Collectors.toList()), SqlParserPos.ZERO);
+          id.assignNamesFrom(replacement);
+        }
         return id;
       }
-    };
+    }
   }
 
   /**
@@ -270,14 +283,11 @@ public interface ScriptImplementor {
    * */
   class InsertImplementor implements ScriptImplementor {
     private final String name;
-    private final String schema;
     private final RelNode relNode;
     private final ImmutableList<Pair<Integer, String>> targetFields;
 
-    public InsertImplementor(String name, String schema, RelNode relNode,
-        ImmutableList<Pair<Integer, String>> targetFields) {
+    public InsertImplementor(String name, RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
       this.name = name;
-      this.schema = schema;
       this.relNode = relNode;
       this.targetFields = targetFields;
     }
@@ -286,29 +296,21 @@ public interface ScriptImplementor {
     public void implement(SqlWriter w) {
       w.keyword("INSERT INTO");
       (new IdentifierImplementor(name)).implement(w);
-//      SqlWriter.Frame frame1 = w.startList("(", ")");
-      RelNode project = dropFields(schema, relNode, targetFields);
+      RelNode project = dropFields(relNode, targetFields);
       (new ColumnListImplementor(project.getRowType())).implement(w);
-//      w.endList(frame1);
       (new QueryImplementor(project)).implement(w);
       w.literal(";");
     }
 
     // Drops NULL fields
-    // Drops additional fields by schema
-    private static RelNode dropFields(String schema, RelNode relNode,
-        ImmutableList<Pair<Integer, String>> targetFields) {
+    // Drops non-target columns, for use case: INSERT INTO (col1, col2) SELECT * FROM ...
+    private static RelNode dropFields(RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
       List<Integer> cols = new ArrayList<>();
       int i = 0;
       Set<String> targetFieldNames = targetFields.stream().map(x -> x.right).collect(Collectors.toSet());
       for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
-        // TODO: Need a better way to dynamically modify the script implementer based on the schema
-        if (schema.startsWith("VENICE")
-          && !targetFieldNames.contains(field.getName())) {
-          i++;
-          continue;
-        }
-        if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
+        if (targetFieldNames.contains(field.getName())
+            && !field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
           cols.add(i);
         }
         i++;

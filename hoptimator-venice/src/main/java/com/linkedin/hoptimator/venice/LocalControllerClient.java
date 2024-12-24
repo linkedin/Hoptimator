@@ -20,7 +20,7 @@ public class LocalControllerClient extends ControllerClient  {
       URL controllerUrl = new URL(super.discoverLeaderController());
       return controllerUrl.getProtocol() + "://localhost:" + controllerUrl.getPort();
     } catch (MalformedURLException e) {
-      throw new RuntimeException(e);
+      throw new IllegalArgumentException(e);
     }
   }
 }

@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,7 +15,8 @@ import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 
@@ -27,6 +29,7 @@ import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.ConnectionService;
+import com.linkedin.hoptimator.util.DataTypeUtils;
 import com.linkedin.hoptimator.util.DeploymentService;
 
 
@@ -93,12 +96,14 @@ public interface PipelineRel extends RelNode {
     private Map<String, String> addKeysAsOption(Map<String, String> options, RelDataType rowType) {
       Map<String, String> newOptions = new HashMap<>(options);
 
+      RelDataType flattened = DataTypeUtils.flatten(rowType, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
+
       // If the keys are already set, don't overwrite them
       if (newOptions.containsKey(KEY_OPTION)) {
         return newOptions;
       }
-      String keyString = rowType.getFieldList().stream()
-          .map(RelDataTypeField::getName)
+      String keyString = flattened.getFieldList().stream()
+          .map(x -> x.getName().replaceAll("\\$", "_"))
           .filter(name -> name.startsWith(KEY_PREFIX))
           .collect(Collectors.joining(";"));
       if (!keyString.isEmpty()) {
@@ -125,7 +130,7 @@ public interface PipelineRel extends RelNode {
       Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
       ConnectionService.configure(sink, Sink.class);
       Job job = new Job(sink, sql());
-      RelOptUtil.eq(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
+      RelOptUtil.equal(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       deployables.addAll(DeploymentService.deployables(sink, Sink.class));
       deployables.addAll(DeploymentService.deployables(job, Job.class));
       return new Pipeline(deployables);
@@ -144,8 +149,8 @@ public interface PipelineRel extends RelNode {
       Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
       Map<String, String> sinkConfigs = ConnectionService.configure(sink, Sink.class);
       script = script.connector(sink.table(), targetRowType, sinkConfigs);
-      script = script.insert(sink.table(), sink.schema(), query, targetFields);
-      RelOptUtil.eq(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
+      script = script.insert(sink.table(), query, targetFields);
+      RelOptUtil.equal(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       return script.seal();
     }
   }
