@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,21 +50,24 @@ public interface PipelineRel extends RelNode {
 
   /** Implements a deployable Pipeline. */
   class Implementor {
+    private final ImmutableList<Pair<Integer, String>> targetFields;
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private RelNode query;
-    private ImmutableList<Pair<Integer, String>> targetFields;
     private String sinkDatabase = "pipeline";
     private List<String> sinkPath = Arrays.asList(new String[]{"PIPELINE", "SINK"});
     private RelDataType sinkRowType = null;
     private Map<String, String> sinkOptions = Collections.emptyMap();
 
-    public void visit(RelNode node, ImmutableList<Pair<Integer, String>> targetFields) throws SQLException {
+    public Implementor(ImmutableList<Pair<Integer, String>> targetFields) {
+      this.targetFields = targetFields;
+    }
+
+    public void visit(RelNode node) throws SQLException {
       if (this.query == null) {
         this.query = node;
-        this.targetFields = targetFields;
       }
       for (RelNode input : node.getInputs()) {
-        visit(input, targetFields);
+        visit(input);
       }
       ((PipelineRel) node).implement(this);
     }
@@ -94,7 +96,7 @@ public interface PipelineRel extends RelNode {
     }
 
     private Map<String, String> addKeysAsOption(Map<String, String> options, RelDataType rowType) {
-      Map<String, String> newOptions = new HashMap<>(options);
+      Map<String, String> newOptions = new LinkedHashMap<>(options);
 
       RelDataType flattened = DataTypeUtils.flatten(rowType, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
 

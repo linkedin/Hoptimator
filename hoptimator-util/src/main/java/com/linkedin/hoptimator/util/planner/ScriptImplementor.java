@@ -190,7 +190,7 @@ public interface ScriptImplementor {
       }
     };
 
-    private class UnflattenMemberAccess extends SqlShuttle {
+    private static class UnflattenMemberAccess extends SqlShuttle {
       private final Set<String> sinkFieldList;
 
       UnflattenMemberAccess(QueryImplementor outer) {

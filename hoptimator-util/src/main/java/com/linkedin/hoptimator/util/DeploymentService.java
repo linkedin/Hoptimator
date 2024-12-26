@@ -97,8 +97,8 @@ public final class DeploymentService {
     // TODO add materializations here (currently empty list)
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, Collections.emptyList(),
         Collections.emptyList());
-    PipelineRel.Implementor implementor = new PipelineRel.Implementor();
-    implementor.visit(plan, root.fields);
+    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields);
+    implementor.visit(plan);
     return implementor;
   }
 }
