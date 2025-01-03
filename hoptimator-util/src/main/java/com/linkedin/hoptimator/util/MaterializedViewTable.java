@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator.jdbc;
+package com.linkedin.hoptimator.util;
 
 import java.util.Collections;
 import java.util.List;

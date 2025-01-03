@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1ConfigMapList;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1NamespaceList;
 import io.kubernetes.client.openapi.models.V1Secret;
@@ -41,6 +43,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1JobTemplate, V1alpha1JobTemplateList> JOB_TEMPLATES =
       new K8sApiEndpoint<>("JobTemplate", "hoptimator.linkedin.com", "v1alpha1", "jobtemplates", false,
           V1alpha1JobTemplate.class, V1alpha1JobTemplateList.class);
+  public static final K8sApiEndpoint<V1ConfigMap, V1ConfigMapList> CONFIG_MAP_TEMPLATES =
+      new K8sApiEndpoint<>("ConfigMap", "", "v1", "configmaps", false,
+          V1ConfigMap.class, V1ConfigMapList.class);
 
   private K8sApiEndpoints() {
   }

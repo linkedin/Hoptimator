@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.jdbc;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.calcite.avatica.DriverVersion;
@@ -14,16 +15,22 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.linkedin.hoptimator.Catalog;
+import com.linkedin.hoptimator.k8s.K8sConfigMapUtils;
+import com.linkedin.hoptimator.util.PropertyUtils;
 import com.linkedin.hoptimator.util.WrappedSchemaPlus;
 
 
 /** Driver for :jdbc:hoptimator:// connections. */
 public class HoptimatorDriver extends Driver {
 
+  private static final Logger log = LoggerFactory.getLogger(HoptimatorDriver.class);
+
   public HoptimatorDriver() {
-    super(() -> new Prepare());
+    super(Prepare::new);
   }
 
   static {
@@ -54,6 +61,7 @@ public class HoptimatorDriver extends Driver {
       return null;
     }
     try {
+      loadConfigMapAsSystemProps();
       Connection connection = super.connect(url, props);
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
@@ -86,6 +94,17 @@ public class HoptimatorDriver extends Driver {
       return connection;
     } catch (Exception e) {
       throw new SQLException("Problem loading " + url, e);
+    }
+  }
+
+  // A Prefix is appended to all system configs added to prevent collisions
+  private void loadConfigMapAsSystemProps() {
+    try {
+      Map<String, String> configMap = K8sConfigMapUtils.loadConfigMap(K8sConfigMapUtils.HOPTIMATOR_CONFIG_MAP);
+      log.info("Loaded config map: {}", configMap);
+      configMap.forEach((key, value) -> System.setProperty(PropertyUtils.HOPTIMATOR_CONFIG_DOMAIN + "." + key, value));
+    } catch (Exception e) {
+      log.warn("Could not load config map " + K8sConfigMapUtils.HOPTIMATOR_CONFIG_MAP, e);
     }
   }
 
