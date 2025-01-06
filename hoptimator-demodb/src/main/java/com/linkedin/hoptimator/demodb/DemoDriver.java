@@ -13,7 +13,6 @@ import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.impl.AbstractSchema;
 
 
 /** JDBC driver with fake in-memory data. */
@@ -58,9 +57,6 @@ public class DemoDriver extends Driver {
       }
       if (schemas.isEmpty() || schemas.contains("ADS")) {
         rootSchema.add("ADS", new AdsSchema());
-      }
-      if (schemas.isEmpty() || schemas.contains("VENICE")) {
-        rootSchema.add("VENICE", new AbstractSchema());
       }
       return connection;
     } catch (Exception e) {

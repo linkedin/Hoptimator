@@ -12,29 +12,30 @@ build:
 
 bounce: build undeploy deploy deploy-samples deploy-config deploy-demo
 
-# Integration tests expect K8s and Kafka to be running
-integration-tests: deploy-dev-environment deploy-samples
-	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
-	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
-	./gradlew intTest || kill `cat port-forward.pid`
-	kill `cat port-forward.pid`
-
 clean:
 	./gradlew clean
 
 deploy-config:
 	kubectl create configmap hoptimator-configmap --from-file=model.yaml=test-model.yaml --dry-run=client -o yaml | kubectl apply -f -
 
+undeploy-config:
+	kubectl delete configmap hoptimator-configmap || echo "skipping"
+
 deploy: deploy-config
 	kubectl apply -f ./hoptimator-k8s/src/main/resources/
 	kubectl apply -f ./deploy
+
+undeploy: undeploy-config
+	kubectl delete -f ./deploy || echo "skipping"
+	kubectl delete -f ./hoptimator-k8s/src/main/resources/ || echo "skipping"
 
 quickstart: build deploy
 
 deploy-demo: deploy
 	kubectl apply -f ./deploy/samples/demodb.yaml
+
+undeploy-demo: undeploy
+	kubectl delete -f ./deploy/samples/demodb.yaml
 
 deploy-samples: deploy
 	kubectl wait --for=condition=Established=True	\
@@ -43,11 +44,23 @@ deploy-samples: deploy
 	  crds/sqljobs.hoptimator.linkedin.com
 	kubectl apply -f ./deploy/samples
 
-deploy-dev-environment: deploy-config
-	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
-	kubectl create namespace kafka || echo "skipping"
+undeploy-samples: undeploy
+	kubectl delete -f ./deploy/samples || echo "skipping"
+
+deploy-flink:
 	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.9.0/
 	helm upgrade --install --atomic --set webhook.create=false flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
+
+undeploy-flink:
+	kubectl delete flinkdeployments.flink.apache.org --all || echo "skipping"
+	kubectl delete flinksessionjobs.flink.apache.org --all || echo "skipping"
+	kubectl delete crd flinkdeployments.flink.apache.org || echo "skipping"
+	kubectl delete crd flinksessionjobs.flink.apache.org || echo "skipping"
+	helm uninstall flink-kubernetes-operator || echo "skipping"
+
+deploy-kafka: deploy deploy-flink
+	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
+	kubectl create namespace kafka || echo "skipping"
 	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
 	kubectl apply -f ./hoptimator-k8s/src/main/resources/
@@ -55,7 +68,7 @@ deploy-dev-environment: deploy-config
 	kubectl apply -f ./deploy/samples/demodb.yaml
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
 
-undeploy-dev-environment:
+undeploy-kafka:
 	kubectl delete kafkatopic.kafka.strimzi.io -n kafka --all || echo "skipping"
 	kubectl delete strimzi -n kafka --all || echo "skipping"
 	kubectl delete pvc -l strimzi.io/name=one-kafka -n kafka || echo "skipping"
@@ -65,12 +78,31 @@ undeploy-dev-environment:
 	kubectl delete -f ./deploy/dev || echo "skipping"
 	kubectl delete -f ./hoptimator-k8s/src/main/resources/ || echo "skipping"
 	kubectl delete namespace kafka || echo "skipping"
-	helm uninstall flink-kubernetes-operator || echo "skipping"
 	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 
-undeploy: undeploy-dev-environment
-	kubectl delete -f ./deploy || echo "skipping"
-	kubectl delete configmap hoptimator-configmap || echo "skipping"
+# Deploys Venice cluster in docker and creates two stores in Venice. Stores are not managed via K8s for now.
+deploy-venice: deploy deploy-flink
+	docker compose -f ./deploy/docker/docker-compose-single-dc-setup.yaml up -d --wait
+	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store schemas/keySchema.avsc schemas/valueSchema.avsc
+	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store-1 schemas/keySchema.avsc schemas/valueSchema.avsc
+	kubectl apply -f ./deploy/samples/venicedb.yaml
+
+undeploy-venice:
+	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
+	docker compose -f ./deploy/docker/docker-compose-single-dc-setup.yaml down
+
+deploy-dev-environment: deploy deploy-flink deploy-kafka deploy-venice
+
+undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy
+
+# Integration tests expect K8s, Kafka, and Venice to be running
+integration-tests: deploy-dev-environment deploy-samples
+	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
+	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
+	./gradlew intTest || kill `cat port-forward.pid`
+	kill `cat port-forward.pid`
 
 generate-models:
 	./generate-models.sh
@@ -80,4 +112,4 @@ release:
 	test -n "$(VERSION)"  # MISSING ARG: $$VERSION
 	./gradlew publish
 
-.PHONY: build test install clean quickstart deploy-dev-environment deploy deploy-samples deploy-demo deploy-config integration-tests bounce generate-models release
+.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice integration-tests deploy-dev-environment undeploy-dev-environment generate-models release

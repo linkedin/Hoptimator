@@ -9,8 +9,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
-import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Connector;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.util.Template;

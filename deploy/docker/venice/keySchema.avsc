@@ -1,0 +1,11 @@
+{
+  "type": "record",
+  "name": "SampleTableKey",
+  "doc": "SampleTableKey",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int"
+    }
+  ]
+}

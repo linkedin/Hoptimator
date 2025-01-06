@@ -13,6 +13,7 @@ dependencies {
   // These are included in case the demo databases are deployed.
   testRuntimeOnly project(':hoptimator-demodb')
   testRuntimeOnly project(':hoptimator-kafka')
+  testRuntimeOnly project(':hoptimator-venice')
 
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
 	testImplementation(platform('org.junit:junit-bom:5.11.3'))

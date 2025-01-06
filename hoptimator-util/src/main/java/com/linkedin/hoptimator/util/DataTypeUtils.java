@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.util;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -19,13 +19,13 @@ public final class DataTypeUtils {
 
   /**
    * Flattens nested structs and complex arrays.
-   * 
-   * Nested structs like `FOO Row(BAR Row(QUX VARCHAR)))` are promoted to
+   *
+   * Nested structs like `FOO Row(BAR Row(QUX VARCHAR))` are promoted to
    * top-level fields like `FOO$BAR$QUX VARCHAR`.
    *
    * Complex arrays are demoted to just `ANY ARRAY`. Primitive arrays are
    * unchanged.
-   * 
+   *
    */
   public static RelDataType flatten(RelDataType dataType, RelDataTypeFactory typeFactory) {
     if (!dataType.isStruct()) {
@@ -56,7 +56,7 @@ public final class DataTypeUtils {
   /** Restructures flattened types, from `FOO$BAR VARCHAR` to `FOO Row(BAR VARCHAR...)` */
   public static RelDataType unflatten(RelDataType dataType, RelDataTypeFactory typeFactory) {
     if (!dataType.isStruct()) {
-      throw new IllegalArgumentException("Can only unflatten a struct type."); 
+      throw new IllegalArgumentException("Can only unflatten a struct type.");
     }
     Node root = new Node();
     for (RelDataTypeField field : dataType.getFieldList()) {

@@ -1,12 +1,45 @@
 plugins {
-  id 'java'
+  id 'java-library'
   id 'maven-publish'
 }
 
 dependencies {
-  implementation project(':hoptimator-api')
-  implementation libs.avro
+  implementation project(':hoptimator-avro')
+  implementation project(':hoptimator-util')
   implementation libs.calcite.core
+  implementation(libs.venice) {
+    // Venice pulls in snakeyaml v2.0 which has conflicting APIs with 1.x
+    exclude group: 'org.yaml'
+  }
+  implementation libs.venice.client
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
+
+  // These are included in case the demo databases are deployed.
+  testRuntimeOnly project(':hoptimator-demodb')
+
+  testRuntimeOnly project(':hoptimator-k8s')
+  testImplementation(testFixtures(project(':hoptimator-jdbc')))
+	testImplementation(platform('org.junit:junit-bom:5.11.3'))
+	testImplementation 'org.junit.jupiter:junit-jupiter'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
+}
+
+tasks.register('intTest', Test) {
+  description = 'Runs integration tests.'
+  group = 'verification'
+
+  shouldRunAfter test
+
+  useJUnitPlatform {
+    includeTags 'integration'
+  }
+
+  testLogging {
+    events "passed", "skipped", "failed"
+  }
 }
 
 publishing {
@@ -31,12 +64,12 @@ publishing {
   publications {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
-      artifactId = 'hoptimator-avro'
+      artifactId = 'hoptimator-venice'
       version = System.getenv('VERSION')
       from components.java
       pom {
-        name = 'hoptimator-avro'
-        description = 'Hoptimator plugin for Apache Avro'
+        name = 'LinkedIn Hoptimator'
+        description = 'Multi-hop declarative data pipelines'
         url = 'https://github.com/linkedin/Hoptimator'
         licenses {
           license {
