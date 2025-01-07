@@ -3,6 +3,7 @@ plugins {
 }
 
 dependencies {
+  implementation project(':hoptimator-util')
   implementation libs.calcite.core
   implementation libs.kafka.clients
 

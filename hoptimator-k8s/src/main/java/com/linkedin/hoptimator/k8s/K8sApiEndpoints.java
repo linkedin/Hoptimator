@@ -26,6 +26,9 @@ public final class K8sApiEndpoints {
       new K8sApiEndpoint<>("Namespace", "", "v1", "namespaces", true, V1Namespace.class, V1NamespaceList.class);
   public static final K8sApiEndpoint<V1Secret, V1SecretList> SECRETS =
       new K8sApiEndpoint<>("Secret", "", "v1", "secrets", false, V1Secret.class, V1SecretList.class);
+  public static final K8sApiEndpoint<V1ConfigMap, V1ConfigMapList> CONFIG_MAPS =
+      new K8sApiEndpoint<>("ConfigMap", "", "v1", "configmaps", false,
+          V1ConfigMap.class, V1ConfigMapList.class);
 
   // Hoptimator custom resources
   public static final K8sApiEndpoint<V1alpha1Database, V1alpha1DatabaseList> DATABASES =
@@ -43,9 +46,6 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1JobTemplate, V1alpha1JobTemplateList> JOB_TEMPLATES =
       new K8sApiEndpoint<>("JobTemplate", "hoptimator.linkedin.com", "v1alpha1", "jobtemplates", false,
           V1alpha1JobTemplate.class, V1alpha1JobTemplateList.class);
-  public static final K8sApiEndpoint<V1ConfigMap, V1ConfigMapList> CONFIG_MAP_TEMPLATES =
-      new K8sApiEndpoint<>("ConfigMap", "", "v1", "configmaps", false,
-          V1ConfigMap.class, V1ConfigMapList.class);
 
   private K8sApiEndpoints() {
   }

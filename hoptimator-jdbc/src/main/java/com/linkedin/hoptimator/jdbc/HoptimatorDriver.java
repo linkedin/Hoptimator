@@ -3,9 +3,7 @@ package com.linkedin.hoptimator.jdbc;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Map;
 import java.util.Properties;
-import java.util.ServiceLoader;
 
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -16,19 +14,13 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParser;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import com.linkedin.hoptimator.Catalog;
-import com.linkedin.hoptimator.ConfigProvider;
-import com.linkedin.hoptimator.util.PropertyUtils;
 import com.linkedin.hoptimator.util.WrappedSchemaPlus;
 
 
 /** Driver for :jdbc:hoptimator:// connections. */
 public class HoptimatorDriver extends Driver {
-
-  private static final Logger log = LoggerFactory.getLogger(HoptimatorDriver.class);
 
   public HoptimatorDriver() {
     super(Prepare::new);
@@ -62,7 +54,6 @@ public class HoptimatorDriver extends Driver {
       return null;
     }
     try {
-      loadConfigMapAsSystemProps();
       Connection connection = super.connect(url, props);
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
@@ -95,20 +86,6 @@ public class HoptimatorDriver extends Driver {
       return connection;
     } catch (Exception e) {
       throw new SQLException("Problem loading " + url, e);
-    }
-  }
-
-  // A Prefix is appended to all system configs added to prevent collisions
-  private void loadConfigMapAsSystemProps() {
-    ServiceLoader<ConfigProvider> loader = ServiceLoader.load(ConfigProvider.class);
-    for (ConfigProvider provider : loader) {
-      try {
-        Map<String, String> configMap = provider.loadConfig();
-        log.info("Loaded config map: {}", configMap);
-        configMap.forEach((key, value) -> System.setProperty(PropertyUtils.HOPTIMATOR_CONFIG_DOMAIN + "." + key, value));
-      } catch (Exception e) {
-        log.warn("Could not load config map for provider={}", provider, e);
-      }
     }
   }
 

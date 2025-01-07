@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator;
 
-import java.util.Map;
+import java.util.Properties;
 
 public interface ConfigProvider {
 
-  Map<String, String> loadConfig() throws Exception;
+  Properties loadConfig(String... expansionFields) throws Exception;
 }

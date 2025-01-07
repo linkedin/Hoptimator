@@ -1,10 +1,11 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.io.IOException;
 import java.io.StringReader;
-import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1ConfigMapList;
@@ -14,29 +15,30 @@ import com.linkedin.hoptimator.ConfigProvider;
 
 public class K8sConfigProvider implements ConfigProvider {
 
+  private static final Logger log = LoggerFactory.getLogger(K8sConfigProvider.class);
   public static final String HOPTIMATOR_CONFIG_MAP = "hoptimator-configmap";
 
-  public Map<String, String> loadConfig() throws Exception {
-    return loadConfig(HOPTIMATOR_CONFIG_MAP);
-  }
-
-  // Load top-level config map properties
-  public Map<String, String> loadConfig(String configMapName) throws Exception {
-    K8sApi<V1ConfigMap, V1ConfigMapList> configMapApi = new K8sApi<>(K8sContext.currentContext(), K8sApiEndpoints.CONFIG_MAP_TEMPLATES);
-    return configMapApi.get(configMapName).getData();
-  }
-
-  // Load config map properties under a file-like property key
+  // Loads top level configs and expands given properties under a file-like property key
   // Ex:
   //  log.properties: |
   //    level=INFO
-  public Properties loadConfigMapPropertiesFile(String configMapName, String filePropertyName) throws Exception {
-    Map<String, String> configMap = loadConfig(configMapName);
-    if (configMap == null || !configMap.containsKey(filePropertyName)) {
-      throw new SQLException("Config map does not contain " + filePropertyName);
-    }
+  public Properties loadConfig(String... expansionFields) throws Exception {
+    Map<String, String> topLevelConfigs = loadTopLevelConfig(HOPTIMATOR_CONFIG_MAP);
     Properties p = new Properties();
-    p.load(new StringReader(configMap.get(filePropertyName)));
+    p.putAll(topLevelConfigs);
+    for (String expansionField : expansionFields) {
+      if (topLevelConfigs == null || !topLevelConfigs.containsKey(expansionField)) {
+        log.warn("Config map does not contain {}", expansionField);
+        continue;
+      }
+      p.load(new StringReader(topLevelConfigs.get(expansionField)));
+    }
     return p;
+  }
+
+  // Load top-level config map properties
+  private Map<String, String> loadTopLevelConfig(String configMapName) throws Exception {
+    K8sApi<V1ConfigMap, V1ConfigMapList> configMapApi = new K8sApi<>(K8sContext.currentContext(), K8sApiEndpoints.CONFIG_MAPS);
+    return configMapApi.get(configMapName).getData();
   }
 }
