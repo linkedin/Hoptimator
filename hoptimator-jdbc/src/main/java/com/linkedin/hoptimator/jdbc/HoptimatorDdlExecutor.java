@@ -60,7 +60,6 @@ import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.MaterializedViewTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
 import static org.apache.calcite.util.Static.RESOURCE;

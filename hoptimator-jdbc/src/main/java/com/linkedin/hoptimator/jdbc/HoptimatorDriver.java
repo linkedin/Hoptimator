@@ -5,6 +5,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.Properties;
+import java.util.ServiceLoader;
 
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -19,7 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.linkedin.hoptimator.Catalog;
-import com.linkedin.hoptimator.k8s.K8sConfigMapUtils;
+import com.linkedin.hoptimator.ConfigProvider;
 import com.linkedin.hoptimator.util.PropertyUtils;
 import com.linkedin.hoptimator.util.WrappedSchemaPlus;
 
@@ -99,12 +100,15 @@ public class HoptimatorDriver extends Driver {
 
   // A Prefix is appended to all system configs added to prevent collisions
   private void loadConfigMapAsSystemProps() {
-    try {
-      Map<String, String> configMap = K8sConfigMapUtils.loadConfigMap(K8sConfigMapUtils.HOPTIMATOR_CONFIG_MAP);
-      log.info("Loaded config map: {}", configMap);
-      configMap.forEach((key, value) -> System.setProperty(PropertyUtils.HOPTIMATOR_CONFIG_DOMAIN + "." + key, value));
-    } catch (Exception e) {
-      log.warn("Could not load config map " + K8sConfigMapUtils.HOPTIMATOR_CONFIG_MAP, e);
+    ServiceLoader<ConfigProvider> loader = ServiceLoader.load(ConfigProvider.class);
+    for (ConfigProvider provider : loader) {
+      try {
+        Map<String, String> configMap = provider.loadConfig();
+        log.info("Loaded config map: {}", configMap);
+        configMap.forEach((key, value) -> System.setProperty(PropertyUtils.HOPTIMATOR_CONFIG_DOMAIN + "." + key, value));
+      } catch (Exception e) {
+        log.warn("Could not load config map for provider={}", provider, e);
+      }
     }
   }
 

@@ -6,7 +6,6 @@ plugins {
 dependencies {
   implementation project(':hoptimator-api')
   implementation project(':hoptimator-util')
-  implementation project(':hoptimator-k8s')
   implementation libs.calcite.core
   implementation libs.calcite.server
   implementation libs.slf4j.api
@@ -26,10 +25,27 @@ dependencies {
 }
 
 test {
-	useJUnitPlatform()
+  useJUnitPlatform {
+    excludeTags 'integration'
+  }
 	testLogging {
 		events "passed", "skipped", "failed"
 	}
+}
+
+tasks.register('intTest', Test) {
+  description = 'Runs integration tests.'
+  group = 'verification'
+
+  shouldRunAfter test
+
+  useJUnitPlatform {
+    includeTags 'integration'
+  }
+
+  testLogging {
+    events "passed", "skipped", "failed"
+  }
 }
 
 java {
