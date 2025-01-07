@@ -1,6 +1,6 @@
 plugins {
   id 'java'
-  id 'java-test-fixtures'
+  id 'maven-publish'
 }
 
 dependencies {
@@ -12,23 +12,21 @@ dependencies {
 
   // These are included in case the demo databases are deployed.
   testRuntimeOnly project(':hoptimator-demodb')
-  testRuntimeOnly project(':hoptimator-kafka')
-  testRuntimeOnly project(':hoptimator-venice')
 
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
-	testImplementation(platform('org.junit:junit-bom:5.11.3'))
-	testImplementation 'org.junit.jupiter:junit-jupiter'
+  testImplementation(platform('org.junit:junit-bom:5.11.3'))
+  testImplementation 'org.junit.jupiter:junit-jupiter'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
   testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 }
 
 test {
-	useJUnitPlatform {
+  useJUnitPlatform {
     excludeTags 'integration'
   }
-	testLogging {
-		events "passed", "skipped", "failed"
-	}
+  testLogging {
+    events "passed", "skipped", "failed"
+  }
 }
 
 tasks.register('intTest', Test) {
@@ -43,5 +41,50 @@ tasks.register('intTest', Test) {
 
   testLogging {
     events "passed", "skipped", "failed"
+  }
+}
+
+publishing {
+  repositories {
+    maven {
+      name 'GitHubPackages'
+      url = 'https://maven.pkg.github.com/linkedin/Hoptimator'
+      credentials {
+        username = System.getenv('GITHUB_ACTOR')
+        password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+    maven {
+      name 'LinkedInJFrog'
+      url 'https://linkedin.jfrog.io/artifactory/hoptimator'
+      credentials {
+        username = System.getenv('JFROG_USERNAME')
+        password = System.getenv('JFROG_API_KEY')
+      }
+    }
+  }
+  publications {
+    maven(MavenPublication) {
+      groupId = 'com.linkedin.hoptimator'
+      artifactId = 'hoptimator-k8s'
+      version = System.getenv('VERSION')
+      from components.java
+      pom {
+        name = 'LinkedIn Hoptimator'
+        description = 'Multi-hop declarative data pipelines'
+        url = 'https://github.com/linkedin/Hoptimator'
+        licenses {
+          license {
+            name = 'BSD 2-Clause'
+            url = 'https://raw.githubusercontent.com/linkedin/Hoptimator/main/LICENSE'
+          }
+        }
+        scm {
+          connection = 'scm:git:git://github.com:linkedin/Hoptimator.git'
+          developerConnection = 'scm:git:ssh://github.com:linkedin/Hoptimator.git'
+          url = 'https://github.com/linkedin/Hoptimator'
+        }
+      }
+    }
   }
 }
