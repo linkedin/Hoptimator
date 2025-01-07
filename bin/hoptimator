@@ -1,3 +1,0 @@
-#!/bin/sh
-
-kubectl exec -it hoptimator -c hoptimator -- ./hoptimator-cli-integration/bin/hoptimator-cli-integration -n "" -p "" -u "jdbc:calcite:model=/etc/config/model.yaml" "$@"
