@@ -11,6 +11,8 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
 
+import com.linkedin.hoptimator.util.ConfigService;
+
 
 /** JDBC driver for Kafka topics. */
 public class KafkaDriver extends Driver {
@@ -34,7 +36,9 @@ public class KafkaDriver extends Driver {
     if (!url.startsWith(getConnectStringPrefix())) {
       return null;
     }
-    Properties properties = ConnectStringParser.parse(url.substring(getConnectStringPrefix().length()));
+    // Connection string properties are given precedence over config properties
+    Properties properties = ConfigService.config();
+    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     try {
       Connection connection = super.connect(url, props);
       if (connection == null) {

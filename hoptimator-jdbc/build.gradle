@@ -14,21 +14,38 @@ dependencies {
   testFixturesImplementation libs.calcite.core
   testFixturesImplementation project(':hoptimator-api')
   testFixturesImplementation project(':hoptimator-util')
+  testFixturesImplementation(platform('org.junit:junit-bom:5.11.3'))
+  testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
 
   testRuntimeOnly project(':hoptimator-demodb')
-	testFixturesImplementation(platform('org.junit:junit-bom:5.11.3'))
-	testImplementation(platform('org.junit:junit-bom:5.11.3'))
-	testImplementation 'org.junit.jupiter:junit-jupiter'
-	testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
+  testImplementation(platform('org.junit:junit-bom:5.11.3'))
+  testImplementation 'org.junit.jupiter:junit-jupiter'
   testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
   testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 }
 
 test {
-	useJUnitPlatform()
+  useJUnitPlatform {
+    excludeTags 'integration'
+  }
 	testLogging {
 		events "passed", "skipped", "failed"
 	}
+}
+
+tasks.register('intTest', Test) {
+  description = 'Runs integration tests.'
+  group = 'verification'
+
+  shouldRunAfter test
+
+  useJUnitPlatform {
+    includeTags 'integration'
+  }
+
+  testLogging {
+    events "passed", "skipped", "failed"
+  }
 }
 
 java {

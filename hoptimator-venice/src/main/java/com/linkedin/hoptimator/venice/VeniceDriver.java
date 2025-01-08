@@ -12,11 +12,13 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
 
+import com.linkedin.hoptimator.util.ConfigService;
+
 
 /** JDBC driver for Venice stores. */
 public class VeniceDriver extends Driver {
-
   public static final String CATALOG_NAME = "VENICE";
+  public static final String CONFIG_NAME = "venice.config";
 
   static {
     new VeniceDriver().register();
@@ -37,7 +39,9 @@ public class VeniceDriver extends Driver {
     if (!url.startsWith(getConnectStringPrefix())) {
       return null;
     }
-    Properties properties = ConnectStringParser.parse(url.substring(getConnectStringPrefix().length()));
+    // Connection string properties are given precedence over config properties
+    Properties properties = ConfigService.config(CONFIG_NAME);
+    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     String cluster = properties.getProperty("cluster");
     if (cluster == null) {
       throw new IllegalArgumentException("Missing required cluster property. Need: jdbc:venice://cluster=...");

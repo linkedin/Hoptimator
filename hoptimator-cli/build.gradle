@@ -6,7 +6,6 @@ plugins {
 }
 
 dependencies {
-  implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-api')
   implementation project(':hoptimator-avro')
   implementation project(':hoptimator-demodb')

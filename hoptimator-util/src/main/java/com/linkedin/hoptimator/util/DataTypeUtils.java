@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.util;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -80,7 +81,7 @@ public final class DataTypeUtils {
       return node.dataType;
     }
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-    for (LinkedHashMap.Entry<String, Node> child : node.children.entrySet()) {
+    for (Map.Entry<String, Node> child : node.children.entrySet()) {
       builder.add(child.getKey(), buildRecord(child.getValue(), typeFactory));
     }
     return builder.build();

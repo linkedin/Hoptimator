@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1ConfigMapList;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1NamespaceList;
 import io.kubernetes.client.openapi.models.V1Secret;
@@ -24,6 +26,9 @@ public final class K8sApiEndpoints {
       new K8sApiEndpoint<>("Namespace", "", "v1", "namespaces", true, V1Namespace.class, V1NamespaceList.class);
   public static final K8sApiEndpoint<V1Secret, V1SecretList> SECRETS =
       new K8sApiEndpoint<>("Secret", "", "v1", "secrets", false, V1Secret.class, V1SecretList.class);
+  public static final K8sApiEndpoint<V1ConfigMap, V1ConfigMapList> CONFIG_MAPS =
+      new K8sApiEndpoint<>("ConfigMap", "", "v1", "configmaps", false,
+          V1ConfigMap.class, V1ConfigMapList.class);
 
   // Hoptimator custom resources
   public static final K8sApiEndpoint<V1alpha1Database, V1alpha1DatabaseList> DATABASES =

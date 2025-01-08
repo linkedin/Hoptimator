@@ -16,7 +16,7 @@ clean:
 	./gradlew clean
 
 deploy-config:
-	kubectl create configmap hoptimator-configmap --from-file=model.yaml=test-model.yaml --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -f ./deploy/config/hoptimator-configmap.yaml
 
 undeploy-config:
 	kubectl delete configmap hoptimator-configmap || echo "skipping"

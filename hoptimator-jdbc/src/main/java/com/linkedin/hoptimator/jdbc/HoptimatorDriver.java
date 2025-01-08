@@ -23,7 +23,7 @@ import com.linkedin.hoptimator.util.WrappedSchemaPlus;
 public class HoptimatorDriver extends Driver {
 
   public HoptimatorDriver() {
-    super(() -> new Prepare());
+    super(Prepare::new);
   }
 
   static {
