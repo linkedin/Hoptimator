@@ -28,7 +28,7 @@ class K8sConnector implements Connector<Source> {
   @Override
   public Map<String, String> configure(Source source) throws SQLException {
     Template.Environment env =
-        Template.Environment.EMPTY.with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
+        new Template.SimpleEnvironment().with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
             .with("database", source.database())
             .with("table", source.table())
             .with(source.options());

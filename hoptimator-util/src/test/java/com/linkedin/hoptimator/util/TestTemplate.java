@@ -11,8 +11,7 @@ public class TestTemplate {
 
   @Test
   public void testRender() {
-    Template.Environment env =
-        Template.Environment.EMPTY
+    Template.Environment env = new Template.SimpleEnvironment()
             .with("name", "name")
             .with("nameUpper", "name")
             .with("nameLower", "NAME")
