@@ -24,7 +24,7 @@ class K8sSourceDeployer extends K8sYamlDeployer<Source> {
   @Override
   public List<String> specify(Source source) throws SQLException {
     Template.Environment env =
-        Template.Environment.EMPTY.with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
+        new Template.SimpleEnvironment().with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
             .with("database", source.database())
             .with("schema", source.schema())
             .with("table", source.table())
