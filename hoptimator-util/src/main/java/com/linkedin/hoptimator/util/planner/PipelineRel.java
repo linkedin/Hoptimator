@@ -19,6 +19,7 @@ import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 
 import com.linkedin.hoptimator.Deployable;
@@ -44,6 +45,8 @@ public interface PipelineRel extends RelNode {
 
   Convention CONVENTION = new Convention.Impl("PIPELINE", PipelineRel.class);
   String KEY_OPTION = "keys";
+  String KEY_PREFIX_OPTION = "keyPrefix";
+  String KEY_TYPE_OPTION = "keyType";
   String KEY_PREFIX = "KEY_";
 
   void implement(Implementor implementor) throws SQLException;
@@ -95,7 +98,8 @@ public interface PipelineRel extends RelNode {
       this.sinkOptions = addKeysAsOption(options, rowType);
     }
 
-    private Map<String, String> addKeysAsOption(Map<String, String> options, RelDataType rowType) {
+    @VisibleForTesting
+    static Map<String, String> addKeysAsOption(Map<String, String> options, RelDataType rowType) {
       Map<String, String> newOptions = new LinkedHashMap<>(options);
 
       RelDataType flattened = DataTypeUtils.flatten(rowType, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
@@ -104,12 +108,15 @@ public interface PipelineRel extends RelNode {
       if (newOptions.containsKey(KEY_OPTION)) {
         return newOptions;
       }
+
       String keyString = flattened.getFieldList().stream()
           .map(x -> x.getName().replaceAll("\\$", "_"))
           .filter(name -> name.startsWith(KEY_PREFIX))
           .collect(Collectors.joining(";"));
       if (!keyString.isEmpty()) {
         newOptions.put(KEY_OPTION, keyString);
+        newOptions.put(KEY_PREFIX_OPTION, KEY_PREFIX);
+        newOptions.put(KEY_TYPE_OPTION, "RECORD");
       }
       return newOptions;
     }

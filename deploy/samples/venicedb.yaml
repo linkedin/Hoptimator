@@ -20,6 +20,7 @@ spec:
     connector = venice
     storeName = {{table}}
     partial-update-mode = true
-    key.fields-prefix = KEY_
-    key.fields = {{keys}}
+    key.fields-prefix = {{keyPrefix:}}
+    key.fields = {{keys:KEY}}
+    key.type = {{keyType:PRIMITIVE}}
     value.fields-include: EXCEPT_KEY
