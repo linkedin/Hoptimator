@@ -29,7 +29,6 @@ spec:
   - profile-database
   - ads-database
   connector: |
-    connector = demo
-    database = {{database}}
-    table = {{table}}
+    connector = datagen
+    number-of-rows = 10
 

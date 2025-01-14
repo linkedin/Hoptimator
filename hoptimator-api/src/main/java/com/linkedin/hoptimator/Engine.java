@@ -10,4 +10,6 @@ public interface Engine {
   DataSource dataSource();
 
   SqlDialect dialect();
+
+  String url();
 }

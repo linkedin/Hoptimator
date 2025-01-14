@@ -7,7 +7,7 @@ spec:
   imagePullPolicy: Never
   flinkVersion: v1_18
   flinkConfiguration:
-    taskmanager.numberOfTaskSlots: "3"
+    taskmanager.numberOfTaskSlots: "6"
   serviceAccount: flink
   jobManager:
     resource:

@@ -4,7 +4,6 @@ import java.util.Collections;
 
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
 import org.apache.calcite.adapter.jdbc.JdbcImplementor;
-import org.apache.calcite.adapter.jdbc.JdbcRel;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.Convention;
@@ -31,8 +30,28 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+
+import org.apache.calcite.adapter.enumerable.EnumerableConvention;
+import org.apache.calcite.adapter.enumerable.EnumerableRel;
+import org.apache.calcite.adapter.enumerable.EnumerableRelImplementor;
+import org.apache.calcite.adapter.enumerable.JavaRowFormat;
+import org.apache.calcite.adapter.enumerable.PhysType;
+import org.apache.calcite.adapter.enumerable.PhysTypeImpl;
+import org.apache.calcite.linq4j.tree.BlockBuilder;
+import org.apache.calcite.linq4j.tree.Expression;
+import org.apache.calcite.linq4j.tree.Expressions;
+import org.apache.calcite.plan.ConventionTraitDef;
+import org.apache.calcite.plan.RelOptCluster;
+import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.convert.ConverterImpl;
+import org.apache.calcite.rel.convert.ConverterRule;
+import org.apache.calcite.runtime.Hook;
+import org.apache.calcite.util.BuiltInMethod;
 
 import com.linkedin.hoptimator.Engine;
 
@@ -47,18 +66,16 @@ public final class EngineRules {
   }
 
   public void register(HoptimatorJdbcConvention inTrait, RelOptPlanner planner) {
-    SqlDialect dialect = dialect(engine);
-    String name = engine.engineName() + "-" + inTrait.database();
-    JdbcConvention outTrait = JdbcConvention.of(dialect, inTrait.expression, name);
- 
-    System.out.println("Registering rules for " + name + " using dialect " + dialect.toString());
+    String name = engine.engineName() + "-" +  inTrait.database();
+    RemoteConvention remote = new RemoteConvention(name, engine);
+    planner.addRule(RemoteToEnumerableConverterRule.create(remote));
     planner.addRule(RemoteJoinRule.Config.INSTANCE
-        .withConversion(Join.class, Convention.NONE, outTrait, "RemoteJoinRule")
+        .withConversion(PipelineRules.PipelineJoin.class, PipelineRel.CONVENTION, remote, "RemoteJoinRule")
         .withRuleFactory(RemoteJoinRule::new)
         .as(RemoteJoinRule.Config.class)
         .toRule(RemoteJoinRule.class));
     planner.addRule(RemoteTableScanRule.Config.INSTANCE
-        .withConversion(TableScan.class, Convention.NONE, outTrait, "RemoteTableScan")
+        .withConversion(PipelineRules.PipelineTableScan.class, PipelineRel.CONVENTION, remote, "RemoteTableScan")
         .withRuleFactory(RemoteTableScanRule::new)
         .as(RemoteTableScanRule.Config.class)
         .toRule(RemoteTableScanRule.class));
@@ -79,19 +96,10 @@ public final class EngineRules {
     }
   }
 
-  private class RemoteTableScan extends TableScan implements JdbcRel {
+  private class RemoteTableScan extends TableScan implements RemoteRel {
 
     public RemoteTableScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table) {
       super(cluster, traitSet, Collections.emptyList(), table);
-    }
-
-    @Override
-    public JdbcImplementor.Result implement(JdbcImplementor implementor) {
-      SqlDialect dialect = dialect(engine);
-      System.out.println("Generating sql in dialect " + dialect.toString());
-      JdbcImplementor.Result res = new JdbcImplementor(dialect, new JavaTypeFactoryImpl()).implement(getInput(0));
-      System.out.println("Implemented: " + res.toString());
-      return res;
     }
   }
 
@@ -109,13 +117,12 @@ public final class EngineRules {
         return new RemoteJoin(rel.getCluster(), newTraitSet, join.getLeft(), join.getRight(),
             join.getCondition(), join.getJoinType());
       } catch (InvalidRelException e) {
-        System.out.println(e);
         throw new AssertionError(e);
       }
     }
   }
 
-  private class RemoteJoin extends Join implements JdbcRel {
+  private class RemoteJoin extends Join implements RemoteRel {
 
     protected RemoteJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left,
         RelNode right, RexNode condition, JoinRelType joinType)
@@ -130,7 +137,6 @@ public final class EngineRules {
       try {
         return new RemoteJoin(getCluster(), traitSet, left, right, condition, joinType);
       } catch (InvalidRelException e) {
-        System.out.println(e);
         throw new AssertionError(e);
       }
     }
@@ -138,16 +144,6 @@ public final class EngineRules {
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
       return super.computeSelfCost(planner, mq).multiplyBy(0);  // TODO fix zero cost
-    }
-
-    @Override
-    public JdbcImplementor.Result implement(JdbcImplementor implementor) {
-      SqlDialect dialect = dialect(engine);
-      System.out.println("Generating sql in dialect " + dialect.toString());
-      JdbcImplementor.Result res = new JdbcImplementor(dialect,
-          new JavaTypeFactoryImpl()).implement(getInput(0));
-      System.out.println("implemented (2) " + res.toString());
-      return res;
     }
   }
 

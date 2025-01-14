@@ -17,6 +17,7 @@ dependencies {
   implementation libs.calcite.core
   implementation libs.sqlline
   implementation libs.slf4j.simple
+  implementation libs.flink.jdbc
 }
 
 publishing {
