@@ -23,13 +23,19 @@ import com.google.gson.stream.JsonWriter;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Database spec.
+ * Engine spec.
  */
-@ApiModel(description = "Database spec.")
+@ApiModel(description = "Engine spec.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-14T18:40:21.513Z[Etc/UTC]")
-public class V1alpha1DatabaseSpec {
+public class V1alpha1EngineSpec {
+  public static final String SERIALIZED_NAME_DATABASES = "databases";
+  @SerializedName(SERIALIZED_NAME_DATABASES)
+  private List<String> databases = null;
+
   /**
    * SQL dialect the driver expects.
    */
@@ -87,16 +93,43 @@ public class V1alpha1DatabaseSpec {
   @SerializedName(SERIALIZED_NAME_DRIVER)
   private String driver;
 
-  public static final String SERIALIZED_NAME_SCHEMA = "schema";
-  @SerializedName(SERIALIZED_NAME_SCHEMA)
-  private String schema;
-
   public static final String SERIALIZED_NAME_URL = "url";
   @SerializedName(SERIALIZED_NAME_URL)
   private String url;
 
 
-  public V1alpha1DatabaseSpec dialect(DialectEnum dialect) {
+  public V1alpha1EngineSpec databases(List<String> databases) {
+    
+    this.databases = databases;
+    return this;
+  }
+
+  public V1alpha1EngineSpec addDatabasesItem(String databasesItem) {
+    if (this.databases == null) {
+      this.databases = new ArrayList<>();
+    }
+    this.databases.add(databasesItem);
+    return this;
+  }
+
+   /**
+   * Databases this engine supports. If null, supports everything.
+   * @return databases
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Databases this engine supports. If null, supports everything.")
+
+  public List<String> getDatabases() {
+    return databases;
+  }
+
+
+  public void setDatabases(List<String> databases) {
+    this.databases = databases;
+  }
+
+
+  public V1alpha1EngineSpec dialect(DialectEnum dialect) {
     
     this.dialect = dialect;
     return this;
@@ -119,7 +152,7 @@ public class V1alpha1DatabaseSpec {
   }
 
 
-  public V1alpha1DatabaseSpec driver(String driver) {
+  public V1alpha1EngineSpec driver(String driver) {
     
     this.driver = driver;
     return this;
@@ -142,30 +175,7 @@ public class V1alpha1DatabaseSpec {
   }
 
 
-  public V1alpha1DatabaseSpec schema(String schema) {
-    
-    this.schema = schema;
-    return this;
-  }
-
-   /**
-   * Schema name, as rendered in the catalog.
-   * @return schema
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "Schema name, as rendered in the catalog.")
-
-  public String getSchema() {
-    return schema;
-  }
-
-
-  public void setSchema(String schema) {
-    this.schema = schema;
-  }
-
-
-  public V1alpha1DatabaseSpec url(String url) {
+  public V1alpha1EngineSpec url(String url) {
     
     this.url = url;
     return this;
@@ -195,26 +205,26 @@ public class V1alpha1DatabaseSpec {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1DatabaseSpec v1alpha1DatabaseSpec = (V1alpha1DatabaseSpec) o;
-    return Objects.equals(this.dialect, v1alpha1DatabaseSpec.dialect) &&
-        Objects.equals(this.driver, v1alpha1DatabaseSpec.driver) &&
-        Objects.equals(this.schema, v1alpha1DatabaseSpec.schema) &&
-        Objects.equals(this.url, v1alpha1DatabaseSpec.url);
+    V1alpha1EngineSpec v1alpha1EngineSpec = (V1alpha1EngineSpec) o;
+    return Objects.equals(this.databases, v1alpha1EngineSpec.databases) &&
+        Objects.equals(this.dialect, v1alpha1EngineSpec.dialect) &&
+        Objects.equals(this.driver, v1alpha1EngineSpec.driver) &&
+        Objects.equals(this.url, v1alpha1EngineSpec.url);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(dialect, driver, schema, url);
+    return Objects.hash(databases, dialect, driver, url);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1DatabaseSpec {\n");
+    sb.append("class V1alpha1EngineSpec {\n");
+    sb.append("    databases: ").append(toIndentedString(databases)).append("\n");
     sb.append("    dialect: ").append(toIndentedString(dialect)).append("\n");
     sb.append("    driver: ").append(toIndentedString(driver)).append("\n");
-    sb.append("    schema: ").append(toIndentedString(schema)).append("\n");
     sb.append("    url: ").append(toIndentedString(url)).append("\n");
     sb.append("}");
     return sb.toString();

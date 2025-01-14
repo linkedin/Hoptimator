@@ -20,21 +20,27 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Engine;
+import io.kubernetes.client.openapi.models.V1ListMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Template to apply to matching jobs.
+ * EngineList is a list of Engine
  */
-@ApiModel(description = "Template to apply to matching jobs.")
+@ApiModel(description = "EngineList is a list of Engine")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-14T18:40:21.513Z[Etc/UTC]")
-public class V1alpha1JobTemplate implements io.kubernetes.client.common.KubernetesObject {
+public class V1alpha1EngineList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
+
+  public static final String SERIALIZED_NAME_ITEMS = "items";
+  @SerializedName(SERIALIZED_NAME_ITEMS)
+  private List<V1alpha1Engine> items = new ArrayList<>();
 
   public static final String SERIALIZED_NAME_KIND = "kind";
   @SerializedName(SERIALIZED_NAME_KIND)
@@ -42,14 +48,10 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
 
   public static final String SERIALIZED_NAME_METADATA = "metadata";
   @SerializedName(SERIALIZED_NAME_METADATA)
-  private V1ObjectMeta metadata = null;
-
-  public static final String SERIALIZED_NAME_SPEC = "spec";
-  @SerializedName(SERIALIZED_NAME_SPEC)
-  private V1alpha1JobTemplateSpec spec;
+  private V1ListMeta metadata = null;
 
 
-  public V1alpha1JobTemplate apiVersion(String apiVersion) {
+  public V1alpha1EngineList apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -72,7 +74,34 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
   }
 
 
-  public V1alpha1JobTemplate kind(String kind) {
+  public V1alpha1EngineList items(List<V1alpha1Engine> items) {
+    
+    this.items = items;
+    return this;
+  }
+
+  public V1alpha1EngineList addItemsItem(V1alpha1Engine itemsItem) {
+    this.items.add(itemsItem);
+    return this;
+  }
+
+   /**
+   * List of engines. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
+   * @return items
+  **/
+  @ApiModelProperty(required = true, value = "List of engines. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md")
+
+  public List<V1alpha1Engine> getItems() {
+    return items;
+  }
+
+
+  public void setItems(List<V1alpha1Engine> items) {
+    this.items = items;
+  }
+
+
+  public V1alpha1EngineList kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -95,7 +124,7 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
   }
 
 
-  public V1alpha1JobTemplate metadata(V1ObjectMeta metadata) {
+  public V1alpha1EngineList metadata(V1ListMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -108,36 +137,13 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1ObjectMeta getMetadata() {
+  public V1ListMeta getMetadata() {
     return metadata;
   }
 
 
-  public void setMetadata(V1ObjectMeta metadata) {
+  public void setMetadata(V1ListMeta metadata) {
     this.metadata = metadata;
-  }
-
-
-  public V1alpha1JobTemplate spec(V1alpha1JobTemplateSpec spec) {
-    
-    this.spec = spec;
-    return this;
-  }
-
-   /**
-   * Get spec
-   * @return spec
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "")
-
-  public V1alpha1JobTemplateSpec getSpec() {
-    return spec;
-  }
-
-
-  public void setSpec(V1alpha1JobTemplateSpec spec) {
-    this.spec = spec;
   }
 
 
@@ -149,27 +155,27 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1JobTemplate v1alpha1JobTemplate = (V1alpha1JobTemplate) o;
-    return Objects.equals(this.apiVersion, v1alpha1JobTemplate.apiVersion) &&
-        Objects.equals(this.kind, v1alpha1JobTemplate.kind) &&
-        Objects.equals(this.metadata, v1alpha1JobTemplate.metadata) &&
-        Objects.equals(this.spec, v1alpha1JobTemplate.spec);
+    V1alpha1EngineList v1alpha1EngineList = (V1alpha1EngineList) o;
+    return Objects.equals(this.apiVersion, v1alpha1EngineList.apiVersion) &&
+        Objects.equals(this.items, v1alpha1EngineList.items) &&
+        Objects.equals(this.kind, v1alpha1EngineList.kind) &&
+        Objects.equals(this.metadata, v1alpha1EngineList.metadata);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(apiVersion, kind, metadata, spec);
+    return Objects.hash(apiVersion, items, kind, metadata);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1JobTemplate {\n");
+    sb.append("class V1alpha1EngineList {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
+    sb.append("    items: ").append(toIndentedString(items)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    metadata: ").append(toIndentedString(metadata)).append("\n");
-    sb.append("    spec: ").append(toIndentedString(spec)).append("\n");
     sb.append("}");
     return sb.toString();
   }

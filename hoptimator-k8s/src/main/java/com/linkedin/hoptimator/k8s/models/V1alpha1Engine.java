@@ -20,18 +20,18 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1EngineSpec;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * Template to apply to matching jobs.
+ * Engine metadata.
  */
-@ApiModel(description = "Template to apply to matching jobs.")
+@ApiModel(description = "Engine metadata.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-14T18:40:21.513Z[Etc/UTC]")
-public class V1alpha1JobTemplate implements io.kubernetes.client.common.KubernetesObject {
+public class V1alpha1Engine implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
@@ -46,10 +46,14 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
 
   public static final String SERIALIZED_NAME_SPEC = "spec";
   @SerializedName(SERIALIZED_NAME_SPEC)
-  private V1alpha1JobTemplateSpec spec;
+  private V1alpha1EngineSpec spec;
+
+  public static final String SERIALIZED_NAME_STATUS = "status";
+  @SerializedName(SERIALIZED_NAME_STATUS)
+  private Object status;
 
 
-  public V1alpha1JobTemplate apiVersion(String apiVersion) {
+  public V1alpha1Engine apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -72,7 +76,7 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
   }
 
 
-  public V1alpha1JobTemplate kind(String kind) {
+  public V1alpha1Engine kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -95,7 +99,7 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
   }
 
 
-  public V1alpha1JobTemplate metadata(V1ObjectMeta metadata) {
+  public V1alpha1Engine metadata(V1ObjectMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -118,7 +122,7 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
   }
 
 
-  public V1alpha1JobTemplate spec(V1alpha1JobTemplateSpec spec) {
+  public V1alpha1Engine spec(V1alpha1EngineSpec spec) {
     
     this.spec = spec;
     return this;
@@ -131,13 +135,36 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1alpha1JobTemplateSpec getSpec() {
+  public V1alpha1EngineSpec getSpec() {
     return spec;
   }
 
 
-  public void setSpec(V1alpha1JobTemplateSpec spec) {
+  public void setSpec(V1alpha1EngineSpec spec) {
     this.spec = spec;
+  }
+
+
+  public V1alpha1Engine status(Object status) {
+    
+    this.status = status;
+    return this;
+  }
+
+   /**
+   * Get status
+   * @return status
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "")
+
+  public Object getStatus() {
+    return status;
+  }
+
+
+  public void setStatus(Object status) {
+    this.status = status;
   }
 
 
@@ -149,27 +176,29 @@ public class V1alpha1JobTemplate implements io.kubernetes.client.common.Kubernet
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1JobTemplate v1alpha1JobTemplate = (V1alpha1JobTemplate) o;
-    return Objects.equals(this.apiVersion, v1alpha1JobTemplate.apiVersion) &&
-        Objects.equals(this.kind, v1alpha1JobTemplate.kind) &&
-        Objects.equals(this.metadata, v1alpha1JobTemplate.metadata) &&
-        Objects.equals(this.spec, v1alpha1JobTemplate.spec);
+    V1alpha1Engine v1alpha1Engine = (V1alpha1Engine) o;
+    return Objects.equals(this.apiVersion, v1alpha1Engine.apiVersion) &&
+        Objects.equals(this.kind, v1alpha1Engine.kind) &&
+        Objects.equals(this.metadata, v1alpha1Engine.metadata) &&
+        Objects.equals(this.spec, v1alpha1Engine.spec) &&
+        Objects.equals(this.status, v1alpha1Engine.status);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(apiVersion, kind, metadata, spec);
+    return Objects.hash(apiVersion, kind, metadata, spec, status);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1JobTemplate {\n");
+    sb.append("class V1alpha1Engine {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    metadata: ").append(toIndentedString(metadata)).append("\n");
     sb.append("    spec: ").append(toIndentedString(spec)).append("\n");
+    sb.append("    status: ").append(toIndentedString(status)).append("\n");
     sb.append("}");
     return sb.toString();
   }
