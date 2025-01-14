@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.util;
 import java.io.StringReader;
 import java.util.Properties;
 import java.util.ServiceLoader;
+import javax.annotation.Nullable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,16 +17,17 @@ public final class ConfigService {
   private ConfigService() {
   }
 
+  // Null namespace will default to current namespace, may not be used by some ConfigProviders.
   // Loads top level configs and expands input fields as file-like properties
   // Ex:
   //  log.properties: |
   //    level=INFO
-  public static Properties config(String... expansionFields) {
+  public static Properties config(@Nullable String namespace, String... expansionFields) {
     ServiceLoader<ConfigProvider> loader = ServiceLoader.load(ConfigProvider.class);
     Properties properties = new Properties();
     for (ConfigProvider provider : loader) {
       try {
-        Properties loadedProperties = provider.loadConfig();
+        Properties loadedProperties = provider.loadConfig(namespace);
         log.debug("Loaded properties={} from provider={}", loadedProperties, provider);
         properties.putAll(loadedProperties);
         for (String expansionField : expansionFields) {

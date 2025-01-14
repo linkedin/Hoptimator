@@ -40,7 +40,7 @@ public class VeniceDriver extends Driver {
       return null;
     }
     // Connection string properties are given precedence over config properties
-    Properties properties = ConfigService.config(CONFIG_NAME);
+    Properties properties = ConfigService.config(null, CONFIG_NAME);
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     String cluster = properties.getProperty("cluster");
     if (cluster == null) {
