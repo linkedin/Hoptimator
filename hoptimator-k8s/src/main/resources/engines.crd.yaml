@@ -40,8 +40,7 @@ spec:
                   type: string
                   enum:
                   - ANSI
-                  - MySQL
-                  - Calcite
+                  - Flink
                 driver:
                   description: Fully qualified class name of JDBD driver.
                   type: string

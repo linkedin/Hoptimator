@@ -40,14 +40,17 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   }
   // CHECKSTYLE:ON
 
-  public K8sDatabaseTable(K8sContext context) {
+  private final K8sEngineTable engines;
+
+  public K8sDatabaseTable(K8sContext context, K8sEngineTable engines) {
     super(context, K8sApiEndpoints.DATABASES, Row.class);
+    this.engines = engines;
   }
 
   public void addDatabases(SchemaPlus parentSchema) {
     for (Row row : rows()) {
       parentSchema.add(schemaName(row),
-          HoptimatorJdbcSchema.create(row.NAME, row.SCHEMA, dataSource(row), parentSchema, dialect(row)));
+          HoptimatorJdbcSchema.create(row.NAME, row.SCHEMA, dataSource(row), parentSchema, dialect(row), engines.forDatabase(row.NAME)));
     }
   }
 
