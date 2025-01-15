@@ -1,2 +1,2 @@
-FROM flink:1.16
+FROM flink:1.18.1
 COPY ./build/libs/hoptimator-flink-runner-all.jar /opt/hoptimator-flink-runner.jar

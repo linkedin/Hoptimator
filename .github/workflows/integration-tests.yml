@@ -32,6 +32,7 @@ jobs:
       run: |
         kind load docker-image hoptimator
         kind load docker-image hoptimator-flink-runner
+        kind load docker-image hoptimator-flink-operator
     - name: Deploy Dev Environment
       run: make deploy-dev-environment
     - name: Deploy Hoptimator
@@ -64,4 +65,4 @@ jobs:
     - name: Capture Flink Job Logs
       if: always()
       run: kubectl logs $(kubectl get pods -l app.kubernetes.io/name=flink-kubernetes-operator -o name)
- 
+

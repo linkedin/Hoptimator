@@ -48,9 +48,9 @@ The below setup will install two local demo DBs, ads and profiles.
   > !intro
 ```
 
-## Set up Kafka & Flink clusters
+## Set up dev environment
 
-The below setup will install a Kafka and Flink cluster within Kubernetes.
+The below setup will create a dev environment with various resources within Kubernetes.
 
 ```
   $ make install                                                    # build and install SQL CLI
@@ -59,6 +59,26 @@ The below setup will install a Kafka and Flink cluster within Kubernetes.
   $ ./hoptimator                                                    # start the SQL CLI
   > !intro
 ```
+
+Commands `deploy-kafka`, `deploy-venice`, `deploy-flink`, etc. exist in isolation to deploy individual components.
+
+### Flink
+
+```
+  $ kubectl get pods
+  NAME                                              READY   STATUS    RESTARTS      AGE
+  basic-session-deployment-7b94b98b6b-d6jt5         1/1     Running   0             43s
+```
+
+Once the Flink deployment pod has STATUS 'Running', you can forward port 8081 and connect to http://localhost:8081/
+to access the Flink dashboard.
+
+```
+  $ kubectl port-forward basic-session-deployment-7b94b98b6b-d6jt5 8081 &
+```
+
+See the [Flink SQL Gateway Documentation](https://nightlies.apache.org/flink/flink-docs-release-1.18/docs/dev/table/sql-gateway/overview/)
+for sample adhoc queries through Flink.
 
 ## The SQL CLI
 

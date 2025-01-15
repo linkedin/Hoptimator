@@ -78,7 +78,7 @@ services:
     hostname: venice-client
     tty: true
     volumes:
-      - ./venice:/opt/venice/schemas
+      - ./schemas:/opt/venice/schemas
     depends_on:
       venice-router:
         condition: service_healthy

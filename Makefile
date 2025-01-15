@@ -8,7 +8,8 @@ test:
 build:
 	./gradlew build
 	docker build . -t hoptimator
-	docker build hoptimator-flink-runner -t hoptimator-flink-runner
+	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-runner -t hoptimator-flink-runner
+	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-operator -t hoptimator-flink-operator
 
 bounce: build undeploy deploy deploy-samples deploy-config deploy-demo
 
@@ -47,19 +48,24 @@ deploy-samples: deploy
 undeploy-samples: undeploy
 	kubectl delete -f ./deploy/samples || echo "skipping"
 
-deploy-flink:
+deploy-flink: deploy
+	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.9.0/
-	helm upgrade --install --atomic --set webhook.create=false flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
+	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
+	kubectl apply -f deploy/samples/flinkDeployment.yaml
+	kubectl apply -f deploy/samples/flinkSessionJob.yaml
+	docker compose -f ./deploy/docker/flink/docker-compose-sql-gateway.yaml up -d --wait
 
 undeploy-flink:
-	kubectl delete flinkdeployments.flink.apache.org --all || echo "skipping"
+	docker compose -f ./deploy/docker/flink/docker-compose-sql-gateway.yaml down
 	kubectl delete flinksessionjobs.flink.apache.org --all || echo "skipping"
-	kubectl delete crd flinkdeployments.flink.apache.org || echo "skipping"
+	kubectl delete flinkdeployments.flink.apache.org --all || echo "skipping"
 	kubectl delete crd flinksessionjobs.flink.apache.org || echo "skipping"
+	kubectl delete crd flinkdeployments.flink.apache.org || echo "skipping"
 	helm uninstall flink-kubernetes-operator || echo "skipping"
+	helm repo remove flink-operator-repo || echo "skipping"
 
 deploy-kafka: deploy deploy-flink
-	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 	kubectl create namespace kafka || echo "skipping"
 	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
@@ -67,6 +73,7 @@ deploy-kafka: deploy deploy-flink
 	kubectl apply -f ./deploy/dev
 	kubectl apply -f ./deploy/samples/demodb.yaml
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
+	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 
 undeploy-kafka:
 	kubectl delete kafkatopic.kafka.strimzi.io -n kafka --all || echo "skipping"
@@ -78,18 +85,17 @@ undeploy-kafka:
 	kubectl delete -f ./deploy/dev || echo "skipping"
 	kubectl delete -f ./hoptimator-k8s/src/main/resources/ || echo "skipping"
 	kubectl delete namespace kafka || echo "skipping"
-	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 
 # Deploys Venice cluster in docker and creates two stores in Venice. Stores are not managed via K8s for now.
 deploy-venice: deploy deploy-flink
-	docker compose -f ./deploy/docker/docker-compose-single-dc-setup.yaml up -d --wait
+	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml up -d --wait
 	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store schemas/keySchema.avsc schemas/valueSchema.avsc
 	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store-1 schemas/keySchema.avsc schemas/valueSchema.avsc
 	kubectl apply -f ./deploy/samples/venicedb.yaml
 
 undeploy-venice:
 	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
-	docker compose -f ./deploy/docker/docker-compose-single-dc-setup.yaml down
+	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml down
 
 deploy-dev-environment: deploy deploy-flink deploy-kafka deploy-venice
 
