@@ -64,6 +64,7 @@ undeploy-flink:
 	kubectl delete crd flinkdeployments.flink.apache.org || echo "skipping"
 	helm uninstall flink-kubernetes-operator || echo "skipping"
 	helm repo remove flink-operator-repo || echo "skipping"
+	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 
 deploy-kafka: deploy deploy-flink
 	kubectl create namespace kafka || echo "skipping"
@@ -73,7 +74,6 @@ deploy-kafka: deploy deploy-flink
 	kubectl apply -f ./deploy/dev
 	kubectl apply -f ./deploy/samples/demodb.yaml
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
-	kubectl delete -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 
 undeploy-kafka:
 	kubectl delete kafkatopic.kafka.strimzi.io -n kafka --all || echo "skipping"
@@ -107,8 +107,7 @@ integration-tests: deploy-dev-environment deploy-samples
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
 	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
-	./gradlew intTest || kill `cat port-forward.pid`
-	kill `cat port-forward.pid`
+	./gradlew intTest; status=$$?; kill `cat port-forward.pid`; exit $$status
 
 generate-models:
 	./generate-models.sh

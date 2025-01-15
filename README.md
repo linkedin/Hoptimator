@@ -62,6 +62,15 @@ The below setup will create a dev environment with various resources within Kube
 
 Commands `deploy-kafka`, `deploy-venice`, `deploy-flink`, etc. exist in isolation to deploy individual components.
 
+### Kafka
+
+To produce/consume Kafka data, use the following commands:
+
+```
+  $ kubectl run kafka-producer -ti --image=quay.io/strimzi/kafka:0.45.0-kafka-3.9.0 --rm=true --restart=Never -- bin/kafka-console-producer.sh --bootstrap-server one-kafka-bootstrap.kafka.svc.cluster.local:9094 --topic existing-topic-1
+  $ kubectl run kafka-consumer -ti --image=quay.io/strimzi/kafka:0.45.0-kafka-3.9.0 --rm=true --restart=Never -- bin/kafka-console-consumer.sh --bootstrap-server one-kafka-bootstrap.kafka.svc.cluster.local:9094 --topic existing-topic-1 --from-beginning
+```
+
 ### Flink
 
 ```
@@ -79,6 +88,26 @@ to access the Flink dashboard.
 
 See the [Flink SQL Gateway Documentation](https://nightlies.apache.org/flink/flink-docs-release-1.18/docs/dev/table/sql-gateway/overview/)
 for sample adhoc queries through Flink.
+
+To push a Flink job directly to the Flink deployment created above, `kubectl apply` the following yaml:
+```
+    apiVersion: flink.apache.org/v1beta1
+    kind: FlinkSessionJob
+    metadata:
+      name: test-flink-session-job
+    spec:
+      deploymentName: basic-session-deployment
+      job:
+        entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+        args:
+          - CREATE TABLE IF NOT EXISTS `datagen-table` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='datagen', 'number-of-rows'='10');
+          - CREATE TABLE IF NOT EXISTS `existing-topic-1` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'properties.bootstrap.servers'='one-kafka-bootstrap.kafka.svc.cluster.local:9094', 'topic'='existing-topic-1', 'value.format'='json');
+          - INSERT INTO `existing-topic-1` (`KEY`, `VALUE`) SELECT * FROM `datagen-table`;
+        jarURI: file:///opt/hoptimator-flink-runner.jar
+        parallelism: 1
+        upgradeMode: stateless
+        state: running
+```
 
 ## The SQL CLI
 

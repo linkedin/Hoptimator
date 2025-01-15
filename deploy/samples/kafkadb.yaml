@@ -34,7 +34,9 @@ spec:
   connector: |
     connector = kafka
     topic = {{table}}
-    properties.bootstrap.servers = localhost:9092
+    properties.bootstrap.servers = one-kafka-bootstrap.kafka.svc.cluster.local:9094
+    value.format = json
+    scan.startup.mode = earliest-offset
 
 ---
 

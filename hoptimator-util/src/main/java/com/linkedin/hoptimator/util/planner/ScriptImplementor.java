@@ -157,9 +157,15 @@ public interface ScriptImplementor {
   /** Implements an arbitrary RelNode as a query */
   class QueryImplementor implements ScriptImplementor {
     private final RelNode relNode;
+    private final boolean dropDatabaseName;
 
     public QueryImplementor(RelNode relNode) {
+      this(relNode, true);
+    }
+
+    public QueryImplementor(RelNode relNode, boolean dropDatabaseName) {
       this.relNode = relNode;
+      this.dropDatabaseName = dropDatabaseName;
     }
 
     @Override
@@ -192,24 +198,32 @@ public interface ScriptImplementor {
 
     private static class UnflattenMemberAccess extends SqlShuttle {
       private final Set<String> sinkFieldList;
+      private final boolean dropDatabaseName;
 
       UnflattenMemberAccess(QueryImplementor outer) {
         this.sinkFieldList = outer.relNode.getRowType().getFieldList()
             .stream()
             .map(RelDataTypeField::getName)
             .collect(Collectors.toSet());
+        this.dropDatabaseName = outer.dropDatabaseName;
       }
 
       // SqlShuttle gets called for every field in SELECT and every table name in FROM alike
       // For fields in SELECT, we want to unflatten them as `FOO_BAR`, for tables `FOO.BAR`
+      // or just `BAR` if we need to drop the database name (For Flink)
       @Override
       public SqlNode visit(SqlIdentifier id) {
         if (id.names.size() == 1 && sinkFieldList.contains(id.names.get(0))) {
           id.assignNamesFrom(new SqlIdentifier(id.names.get(0).replaceAll("\\$", "_"), SqlParserPos.ZERO));
         } else {
-          SqlIdentifier replacement = new SqlIdentifier(id.names.stream()
-              .flatMap(x -> Stream.of(x.split("\\$")))
-              .collect(Collectors.toList()), SqlParserPos.ZERO);
+          SqlIdentifier replacement;
+          if (id.names.size() == 2 && this.dropDatabaseName) {
+            replacement = new SqlIdentifier(id.names.subList(1, id.names.size()), SqlParserPos.ZERO);
+          } else {
+            replacement = new SqlIdentifier(id.names.stream()
+                .flatMap(x -> Stream.of(x.split("\\$")))
+                .collect(Collectors.toList()), SqlParserPos.ZERO);
+          }
           id.assignNamesFrom(replacement);
         }
         return id;
