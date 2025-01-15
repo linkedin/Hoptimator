@@ -6,7 +6,7 @@ metadata:
 spec:
   image: docker.io/library/hoptimator-flink-runner
   imagePullPolicy: Never
-  flinkVersion: v1_16
+  flinkVersion: v1_18
   flinkConfiguration:
     taskmanager.numberOfTaskSlots: "1"
   serviceAccount: flink

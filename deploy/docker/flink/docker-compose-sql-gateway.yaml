@@ -1,0 +1,12 @@
+services:
+  flink-sql-gateway:
+    image: flink:1.18.1
+    restart: unless-stopped
+    entrypoint: >
+      /bin/sh -c "./bin/sql-gateway.sh start-foreground -Dsql-gateway.endpoint.rest.address=localhost"
+    ports:
+      - 8083:8083
+    deploy:
+      resources:
+        limits:
+          memory: 1024M

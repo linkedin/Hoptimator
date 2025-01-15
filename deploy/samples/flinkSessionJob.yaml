@@ -1,0 +1,22 @@
+## This template adds Flink support.
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: JobTemplate
+metadata:
+  name: flink-template
+spec:
+  yaml: |
+    apiVersion: flink.apache.org/v1beta1
+    kind: FlinkSessionJob
+    metadata:
+      name: {{name}}
+    spec:
+      deploymentName: basic-session-deployment
+      job:
+        entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+        args:
+        - {{flinksql}}
+        jarURI: file:///opt/hoptimator-flink-runner.jar
+        parallelism: 1
+        upgradeMode: stateless
+        state: running
