@@ -25,8 +25,10 @@ undeploy-config:
 deploy: deploy-config
 	kubectl apply -f ./hoptimator-k8s/src/main/resources/
 	kubectl apply -f ./deploy
+	kubectl apply -f ./deploy/dev/rbac.yaml
 
 undeploy: undeploy-config
+	kubectl delete -f ./deploy/dev/rbac.yaml || echo "skipping"
 	kubectl delete -f ./deploy || echo "skipping"
 	kubectl delete -f ./hoptimator-k8s/src/main/resources/ || echo "skipping"
 
@@ -70,7 +72,6 @@ deploy-kafka: deploy deploy-flink
 	kubectl create namespace kafka || echo "skipping"
 	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
-	kubectl apply -f ./hoptimator-k8s/src/main/resources/
 	kubectl apply -f ./deploy/dev
 	kubectl apply -f ./deploy/samples/demodb.yaml
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
@@ -83,7 +84,6 @@ undeploy-kafka:
 	kubectl delete -f ./deploy/samples/kafkadb.yaml || echo "skipping"
 	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"
 	kubectl delete -f ./deploy/dev || echo "skipping"
-	kubectl delete -f ./hoptimator-k8s/src/main/resources/ || echo "skipping"
 	kubectl delete namespace kafka || echo "skipping"
 
 # Deploys Venice cluster in docker and creates two stores in Venice. Stores are not managed via K8s for now.
@@ -101,13 +101,21 @@ deploy-dev-environment: deploy deploy-flink deploy-kafka deploy-venice
 
 undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy
 
-# Integration tests expect K8s, Kafka, and Venice to be running
+# Integration test setup intended to be run locally
 integration-tests: deploy-dev-environment deploy-samples
 	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
-	kubectl port-forward -n kafka svc/one-kafka-external-0 9092 & echo $$! > port-forward.pid
-	./gradlew intTest; status=$$?; kill `cat port-forward.pid`; exit $$status
+	kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 & echo $$! > port-forward.pid
+	./gradlew intTest || kill `cat port-forward.pid`
+	kill `cat port-forward.pid`
+
+# kind cluster used in github workflow needs to have different routing set up, avoiding the need to forward kafka ports
+integration-tests-kind: deploy-dev-environment deploy-samples
+	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
+	./gradlew intTest
 
 generate-models:
 	./generate-models.sh
@@ -117,4 +125,4 @@ release:
 	test -n "$(VERSION)"  # MISSING ARG: $$VERSION
 	./gradlew publish
 
-.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice integration-tests deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release

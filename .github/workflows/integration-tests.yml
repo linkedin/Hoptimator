@@ -34,15 +34,27 @@ jobs:
         kind load docker-image hoptimator-flink-runner
         kind load docker-image hoptimator-flink-operator
     - name: Run Integration Tests
-      run: make integration-tests
+      run: make integration-tests-kind
+    - name: Capture Integration Reports
+      if: failure()
+      uses: actions/upload-artifact@v4.6.0
+      with:
+        name: reports
+        path: |
+          **/build/reports/tests/intTest/
     - name: Capture Cluster State
       if: always()
       run: |
-        kubectl describe pods
-        kubectl describe deployments
-        kubectl describe kafkas -n kafka
-        kubectl describe flinkdeployments
-        kubectl describe subscriptions
+        kubectl get pods
+        kubectl get svc
+        kubectl get deployments
+        kubectl get pods -n kafka
+        kubectl get svc -n kafka
+        kubectl get deployments -n kafka
+        kubectl get kafkas -n kafka
+        kubectl get flinkdeployments
+        kubectl get subscriptions
+        kubectl get pipelines
     - name: Capture Flink Job Logs
       if: always()
       run: |

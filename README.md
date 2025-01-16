@@ -55,7 +55,7 @@ The below setup will create a dev environment with various resources within Kube
 ```
   $ make install                                                    # build and install SQL CLI
   $ make deploy-dev-environment                                     # start all local dev setups
-  $ kubectl port-forward -n kafka svc/one-kafka-external-0 9092 &   # forward external Kafka port for use by SQL CLI
+  $ kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 &   # forward external Kafka port for use by SQL CLI
   $ ./hoptimator                                                    # start the SQL CLI
   > !intro
 ```

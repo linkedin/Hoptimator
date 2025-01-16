@@ -16,6 +16,8 @@ services:
     hostname: kafka
     environment:
       - ZOOKEEPER_ADDRESS=zookeeper:2181
+    ports:
+      - 9095:9092
     depends_on:
       zookeeper:
         condition: service_healthy
