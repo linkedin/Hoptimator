@@ -27,6 +27,6 @@ public class K8sConfigProvider implements ConfigProvider {
     if (namespace == null || namespace.isEmpty()) {
       return configMapApi.get(configMapName).getData();
     }
-    return configMapApi.get(configMapName, namespace).getData();
+    return configMapApi.get(namespace, configMapName).getData();
   }
 }

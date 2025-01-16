@@ -11,7 +11,7 @@
  */
 
 
-package com.linkedin.hoptimator.models;
+package com.linkedin.hoptimator.k8s.models;
 
 import java.util.Objects;
 import java.util.Arrays;
@@ -24,14 +24,20 @@ import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * SQL job spec
  */
 @ApiModel(description = "SQL job spec")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-09T16:55:33.927Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-20T21:16:25.561Z[Etc/UTC]")
 public class V1alpha1SqlJobSpec {
+  public static final String SERIALIZED_NAME_CONFIGS = "configs";
+  @SerializedName(SERIALIZED_NAME_CONFIGS)
+  private Map<String, String> configs = null;
+
   /**
    * Flink, etc.
    */
@@ -137,6 +143,37 @@ public class V1alpha1SqlJobSpec {
   private List<String> sql = new ArrayList<>();
 
 
+  public V1alpha1SqlJobSpec configs(Map<String, String> configs) {
+    
+    this.configs = configs;
+    return this;
+  }
+
+  public V1alpha1SqlJobSpec putConfigsItem(String key, String configsItem) {
+    if (this.configs == null) {
+      this.configs = new HashMap<>();
+    }
+    this.configs.put(key, configsItem);
+    return this;
+  }
+
+   /**
+   * SQL Job configurations.
+   * @return configs
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "SQL Job configurations.")
+
+  public Map<String, String> getConfigs() {
+    return configs;
+  }
+
+
+  public void setConfigs(Map<String, String> configs) {
+    this.configs = configs;
+  }
+
+
   public V1alpha1SqlJobSpec dialect(DialectEnum dialect) {
     
     this.dialect = dialect;
@@ -219,14 +256,15 @@ public class V1alpha1SqlJobSpec {
       return false;
     }
     V1alpha1SqlJobSpec v1alpha1SqlJobSpec = (V1alpha1SqlJobSpec) o;
-    return Objects.equals(this.dialect, v1alpha1SqlJobSpec.dialect) &&
+    return Objects.equals(this.configs, v1alpha1SqlJobSpec.configs) &&
+        Objects.equals(this.dialect, v1alpha1SqlJobSpec.dialect) &&
         Objects.equals(this.executionMode, v1alpha1SqlJobSpec.executionMode) &&
         Objects.equals(this.sql, v1alpha1SqlJobSpec.sql);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(dialect, executionMode, sql);
+    return Objects.hash(configs, dialect, executionMode, sql);
   }
 
 
@@ -234,6 +272,7 @@ public class V1alpha1SqlJobSpec {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1SqlJobSpec {\n");
+    sb.append("    configs: ").append(toIndentedString(configs)).append("\n");
     sb.append("    dialect: ").append(toIndentedString(dialect)).append("\n");
     sb.append("    executionMode: ").append(toIndentedString(executionMode)).append("\n");
     sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
