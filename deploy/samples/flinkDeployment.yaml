@@ -3,10 +3,11 @@ kind: FlinkDeployment
 metadata:
   name: basic-session-deployment
 spec:
-  image: flink:1.18
+  image: docker.io/library/hoptimator-flink-runner
+  imagePullPolicy: Never
   flinkVersion: v1_18
   flinkConfiguration:
-    taskmanager.numberOfTaskSlots: "1"
+    taskmanager.numberOfTaskSlots: "3"
   serviceAccount: flink
   jobManager:
     resource:

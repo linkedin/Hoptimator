@@ -2,5 +2,17 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 # Additional worker nodes will not add any real resource capacity. However,
 # it should mean that there are more CPU reservations to hand out.
+networking:
+  ipFamily: ipv4
+  apiServerAddress: 127.0.0.1
 nodes:
 - role: control-plane
+  extraPortMappings:
+    - containerPort: 31092
+      hostPort: 9092
+      listenAddress: "127.0.0.1"
+      protocol: TCP
+    - containerPort: 31234
+      hostPort: 31234
+      listenAddress: "127.0.0.1"
+      protocol: TCP

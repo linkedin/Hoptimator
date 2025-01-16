@@ -1,16 +1,16 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   namespace: default
   name: hoptimator-operator
 rules:
 - apiGroups: ["hoptimator.linkedin.com"]
-  resources: ["acls", "kafkatopics", "subscriptions", "sqljobs"]
+  resources: ["acls", "kafkatopics", "subscriptions", "sqljobs", "pipelines"]
   verbs: ["get", "watch", "list", "update", "create"]
 - apiGroups: ["hoptimator.linkedin.com"]
-  resources: ["kafkatopics/status", "subscriptions/status", "acls/status", "sqljobs/status"]
+  resources: ["kafkatopics/status", "subscriptions/status", "acls/status", "sqljobs/status", "pipelines/status"]
   verbs: ["get", "patch"]
 - apiGroups: ["flink.apache.org"]
-  resources: ["flinkdeployments"]
+  resources: ["flinkdeployments", "flinksessionjobs"]
   verbs: ["get", "update", "create"]
 
