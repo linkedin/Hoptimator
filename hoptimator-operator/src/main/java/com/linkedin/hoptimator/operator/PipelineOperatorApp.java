@@ -16,7 +16,7 @@ import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
 
 
 public class PipelineOperatorApp {
-  private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
+  private static final Logger log = LoggerFactory.getLogger(PipelineOperatorApp.class);
 
   public static void main(String[] args) throws Exception {
     new PipelineOperatorApp().run();
