@@ -19,10 +19,12 @@ import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.KubeConfig;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
+import org.apache.commons.lang3.StringUtils;
 
 
 public class K8sContext {
 
+  private static final String ENV_OVERRIDE_BASEPATH = "KUBECONFIG_BASEPATH";
   private static K8sContext currentContext = null;
 
   private final String name;
@@ -109,7 +111,7 @@ public class K8sContext {
       try (Reader r = Files.newBufferedReader(file.toPath())) {
         KubeConfig kubeConfig = KubeConfig.loadKubeConfig(r);
         kubeConfig.setFile(file);
-        ApiClient apiClient = ClientBuilder.kubeconfig(kubeConfig).build();
+        ApiClient apiClient = addEnvOverrides(kubeConfig).build();
         String namespace = Optional.ofNullable(kubeConfig.getNamespace()).orElse("default");
         return new K8sContext(kubeConfig.getCurrentContext(), namespace, apiClient);
       }
@@ -124,5 +126,16 @@ public class K8sContext {
       }
       return new K8sContext("default", namespace, apiClient);
     }
+  }
+
+  private static ClientBuilder addEnvOverrides(KubeConfig kubeConfig) throws IOException {
+    ClientBuilder builder = ClientBuilder.kubeconfig(kubeConfig);
+
+    String basePath = System.getenv(ENV_OVERRIDE_BASEPATH);
+    if (StringUtils.isNotBlank(basePath)) {
+      builder.setBasePath(basePath);
+    }
+
+    return builder;
   }
 }
