@@ -1,0 +1,601 @@
+{
+  "interpreterSettings": {
+    "jdbc": {
+      "id": "jdbc",
+      "name": "jdbc",
+      "group": "jdbc",
+      "properties": {
+        "default.url": {
+          "name": "default.url",
+          "value": "jdbc:postgresql://localhost:5432/",
+          "type": "string",
+          "description": "The URL for JDBC."
+        },
+        "default.user": {
+          "name": "default.user",
+          "value": "gpadmin",
+          "type": "string",
+          "description": "The JDBC user name"
+        },
+        "default.password": {
+          "name": "default.password",
+          "value": "",
+          "type": "password",
+          "description": "The JDBC user password"
+        },
+        "default.driver": {
+          "name": "default.driver",
+          "value": "org.postgresql.Driver",
+          "type": "string",
+          "description": "JDBC Driver Name"
+        },
+        "default.completer.ttlInSeconds": {
+          "name": "default.completer.ttlInSeconds",
+          "value": "120",
+          "type": "number",
+          "description": "Time to live sql completer in seconds (-1 to update everytime, 0 to disable update)"
+        },
+        "default.completer.schemaFilters": {
+          "name": "default.completer.schemaFilters",
+          "value": "",
+          "type": "textarea",
+          "description": "Сomma separated schema (schema \u003d catalog \u003d database) filters to get metadata for completions. Supports \u0027%\u0027 symbol is equivalent to any set of characters. (ex. prod_v_%,public%,info)"
+        },
+        "default.precode": {
+          "name": "default.precode",
+          "value": "",
+          "type": "textarea",
+          "description": "SQL which executes while opening connection"
+        },
+        "default.statementPrecode": {
+          "name": "default.statementPrecode",
+          "value": "",
+          "type": "textarea",
+          "description": "Runs before each run of the paragraph, in the same connection"
+        },
+        "common.max_count": {
+          "name": "common.max_count",
+          "value": "1000",
+          "type": "number",
+          "description": "Max number of SQL result to display."
+        },
+        "zeppelin.jdbc.auth.type": {
+          "name": "zeppelin.jdbc.auth.type",
+          "value": "",
+          "type": "string",
+          "description": "If auth type is needed, Example: KERBEROS"
+        },
+        "zeppelin.jdbc.auth.kerberos.proxy.enable": {
+          "name": "zeppelin.jdbc.auth.kerberos.proxy.enable",
+          "value": true,
+          "type": "checkbox",
+          "description": "When auth type is Kerberos, enable/disable Kerberos proxy with the login user to get the connection. Default value is true."
+        },
+        "zeppelin.jdbc.concurrent.use": {
+          "name": "zeppelin.jdbc.concurrent.use",
+          "value": true,
+          "type": "checkbox",
+          "description": "Use parallel scheduler"
+        },
+        "zeppelin.jdbc.concurrent.max_connection": {
+          "name": "zeppelin.jdbc.concurrent.max_connection",
+          "value": "10",
+          "type": "number",
+          "description": "Number of concurrent execution"
+        },
+        "zeppelin.jdbc.keytab.location": {
+          "name": "zeppelin.jdbc.keytab.location",
+          "value": "",
+          "type": "string",
+          "description": "Kerberos keytab location"
+        },
+        "zeppelin.jdbc.principal": {
+          "name": "zeppelin.jdbc.principal",
+          "value": "",
+          "type": "string",
+          "description": "Kerberos principal"
+        },
+        "zeppelin.jdbc.interpolation": {
+          "name": "zeppelin.jdbc.interpolation",
+          "value": false,
+          "type": "checkbox",
+          "description": "Enable ZeppelinContext variable interpolation into paragraph text"
+        },
+        "zeppelin.jdbc.maxConnLifetime": {
+          "name": "zeppelin.jdbc.maxConnLifetime",
+          "value": "-1",
+          "type": "number",
+          "description": "Maximum of connection lifetime in milliseconds. A value of zero or less means the connection has an infinite lifetime."
+        },
+        "zeppelin.jdbc.maxRows": {
+          "name": "zeppelin.jdbc.maxRows",
+          "value": "1000",
+          "type": "number",
+          "description": "Maximum number of rows fetched from the query."
+        },
+        "zeppelin.jdbc.hive.timeout.threshold": {
+          "name": "zeppelin.jdbc.hive.timeout.threshold",
+          "value": "60000",
+          "type": "number",
+          "description": "Timeout for hive job timeout"
+        },
+        "zeppelin.jdbc.hive.monitor.query_interval": {
+          "name": "zeppelin.jdbc.hive.monitor.query_interval",
+          "value": "1000",
+          "type": "number",
+          "description": "Query interval for hive statement"
+        },
+        "zeppelin.jdbc.hive.engines.tag.enable": {
+          "name": "zeppelin.jdbc.hive.engines.tag.enable",
+          "value": true,
+          "type": "checkbox",
+          "description": "Set application tag for applications started by hive engines"
+        }
+      },
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "sql",
+          "class": "org.apache.zeppelin.jdbc.JDBCInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "sql",
+            "editOnDblClick": false,
+            "completionSupport": true
+          }
+        }
+      ],
+      "dependencies": [],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    },
+    "java": {
+      "id": "java",
+      "name": "java",
+      "group": "java",
+      "properties": {},
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "java",
+          "class": "org.apache.zeppelin.java.JavaInterpreter",
+          "defaultInterpreter": true,
+          "editor": {
+            "language": "java",
+            "editOnDblClick": false
+          }
+        }
+      ],
+      "dependencies": [],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    },
+    "md": {
+      "id": "md",
+      "name": "md",
+      "group": "md",
+      "properties": {
+        "markdown.parser.type": {
+          "name": "markdown.parser.type",
+          "value": "flexmark",
+          "type": "string",
+          "description": "Markdown Parser Type. Available values: markdown4j, flexmark. Default \u003d flexmark"
+        }
+      },
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "md",
+          "class": "org.apache.zeppelin.markdown.Markdown",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "markdown",
+            "editOnDblClick": true,
+            "completionSupport": false
+          }
+        }
+      ],
+      "dependencies": [],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    },
+    "flink-cmd": {
+      "id": "flink-cmd",
+      "name": "flink-cmd",
+      "group": "flink-cmd",
+      "properties": {
+        "FLINK_HOME": {
+          "name": "FLINK_HOME",
+          "value": "",
+          "type": "string",
+          "description": "Location of flink distribution"
+        }
+      },
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "cmd",
+          "class": "org.apache.zeppelin.flink.cmd.FlinkCmdInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "sh",
+            "editOnDblClick": false,
+            "completionSupport": false
+          }
+        }
+      ],
+      "dependencies": [],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    },
+    "flink": {
+      "id": "flink",
+      "name": "flink",
+      "group": "flink",
+      "properties": {
+        "FLINK_HOME": {
+          "name": "FLINK_HOME",
+          "value": "",
+          "type": "string",
+          "description": "Location of flink distribution"
+        },
+        "HADOOP_CONF_DIR": {
+          "name": "HADOOP_CONF_DIR",
+          "value": "",
+          "type": "string",
+          "description": "Location of hadoop conf (core-site.xml, hdfs-site.xml and etc.)"
+        },
+        "HIVE_CONF_DIR": {
+          "name": "HIVE_CONF_DIR",
+          "value": "",
+          "type": "string",
+          "description": "Location of hive conf (hive-site.xml)"
+        },
+        "flink.execution.mode": {
+          "name": "flink.execution.mode",
+          "value": "local",
+          "type": "string",
+          "description": "Execution mode, it could be local|remote|yarn"
+        },
+        "flink.execution.remote.host": {
+          "name": "flink.execution.remote.host",
+          "value": "",
+          "type": "string",
+          "description": "Host name of running JobManager. Only used for remote mode"
+        },
+        "flink.execution.remote.port": {
+          "name": "flink.execution.remote.port",
+          "value": "",
+          "type": "number",
+          "description": "Port of running JobManager. Only used for remote mode"
+        },
+        "jobmanager.memory.process.size": {
+          "name": "jobmanager.memory.process.size",
+          "value": "1024m",
+          "type": "text",
+          "description": "Memory for JobManager, e.g. 1024m"
+        },
+        "taskmanager.memory.process.size": {
+          "name": "taskmanager.memory.process.size",
+          "value": "1024m",
+          "type": "text",
+          "description": "Memory for TaskManager, e.g. 1024m"
+        },
+        "taskmanager.numberOfTaskSlots": {
+          "name": "taskmanager.numberOfTaskSlots",
+          "value": "1",
+          "type": "number",
+          "description": "Number of slot per TaskManager"
+        },
+        "local.number-taskmanager": {
+          "name": "local.number-taskmanager",
+          "value": "4",
+          "type": "number",
+          "description": "Number of TaskManager in local mode"
+        },
+        "yarn.application.name": {
+          "name": "yarn.application.name",
+          "value": "Zeppelin Flink Session",
+          "type": "string",
+          "description": "Yarn app name"
+        },
+        "yarn.application.queue": {
+          "name": "yarn.application.queue",
+          "value": "default",
+          "type": "string",
+          "description": "Yarn queue name"
+        },
+        "zeppelin.flink.uiWebUrl": {
+          "name": "zeppelin.flink.uiWebUrl",
+          "value": "",
+          "type": "string",
+          "description": "User specified Flink JobManager url, it could be used in remote mode where Flink cluster is already started, or could be used as url template, e.g. https://knox-server:8443/gateway/cluster-topo/yarn/proxy/{{applicationId}}/ where {{applicationId}} would be replaced with yarn app id"
+        },
+        "zeppelin.flink.run.asLoginUser": {
+          "name": "zeppelin.flink.run.asLoginUser",
+          "value": true,
+          "type": "checkbox",
+          "description": "Whether run flink job as the zeppelin login user, it is only applied when running flink job in hadoop yarn cluster and shiro is enabled"
+        },
+        "flink.udf.jars": {
+          "name": "flink.udf.jars",
+          "value": "",
+          "type": "string",
+          "description": "Flink udf jars (comma separated), Zeppelin will register udfs in this jar for user automatically, these udf jars could be either local files or hdfs files if you have hadoop installed, the udf name is the class name"
+        },
+        "flink.udf.jars.packages": {
+          "name": "flink.udf.jars.packages",
+          "value": "",
+          "type": "string",
+          "description": "Packages (comma separated) that would be searched for the udf defined in `flink.udf.jars`"
+        },
+        "flink.execution.jars": {
+          "name": "flink.execution.jars",
+          "value": "",
+          "type": "string",
+          "description": "Additional user jars (comma separated), these jars could be either local files or hdfs files if you have hadoop installed"
+        },
+        "flink.execution.packages": {
+          "name": "flink.execution.packages",
+          "value": "",
+          "type": "string",
+          "description": "Additional user packages (comma separated), e.g. flink connector packages"
+        },
+        "zeppelin.flink.scala.color": {
+          "name": "zeppelin.flink.scala.color",
+          "value": true,
+          "type": "checkbox",
+          "description": "Whether display scala shell output in colorful format"
+        },
+        "zeppelin.flink.scala.shell.tmp_dir": {
+          "name": "zeppelin.flink.scala.shell.tmp_dir",
+          "value": "",
+          "type": "string",
+          "description": "Temp folder for storing scala shell compiled jar"
+        },
+        "zeppelin.flink.enableHive": {
+          "name": "zeppelin.flink.enableHive",
+          "value": false,
+          "type": "checkbox",
+          "description": "Whether enable hive"
+        },
+        "zeppelin.flink.hive.version": {
+          "name": "zeppelin.flink.hive.version",
+          "value": "2.3.4",
+          "type": "string",
+          "description": "Hive version that you would like to connect"
+        },
+        "zeppelin.flink.module.enableHive": {
+          "name": "zeppelin.flink.module.enableHive",
+          "value": false,
+          "type": "checkbox",
+          "description": "Whether enable hive module, hive udf take precedence over flink udf if hive module is enabled."
+        },
+        "zeppelin.flink.printREPLOutput": {
+          "name": "zeppelin.flink.printREPLOutput",
+          "value": true,
+          "type": "checkbox",
+          "description": "Print REPL output"
+        },
+        "zeppelin.flink.maxResult": {
+          "name": "zeppelin.flink.maxResult",
+          "value": "1000",
+          "type": "number",
+          "description": "Max number of rows returned by sql interpreter."
+        },
+        "zeppelin.pyflink.python": {
+          "name": "zeppelin.pyflink.python",
+          "value": "python",
+          "type": "string",
+          "description": "Python executable for pyflink"
+        },
+        "flink.interpreter.close.shutdown_cluster": {
+          "name": "flink.interpreter.close.shutdown_cluster",
+          "value": true,
+          "type": "checkbox",
+          "description": "Whether shutdown flink cluster when close interpreter"
+        },
+        "zeppelin.interpreter.close.cancel_job": {
+          "name": "zeppelin.interpreter.close.cancel_job",
+          "value": true,
+          "type": "checkbox",
+          "description": "Whether cancel flink job when closing interpreter"
+        },
+        "zeppelin.flink.job.check_interval": {
+          "name": "zeppelin.flink.job.check_interval",
+          "value": "1000",
+          "type": "number",
+          "description": "Check interval (in milliseconds) to check flink job progress"
+        },
+        "zeppelin.flink.concurrentBatchSql.max": {
+          "name": "zeppelin.flink.concurrentBatchSql.max",
+          "value": "10",
+          "type": "number",
+          "description": "Max concurrent sql of Batch Sql"
+        },
+        "zeppelin.flink.concurrentStreamSql.max": {
+          "name": "zeppelin.flink.concurrentStreamSql.max",
+          "value": "10",
+          "type": "number",
+          "description": "Max concurrent sql of Stream Sql"
+        }
+      },
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "flink",
+          "class": "org.apache.zeppelin.flink.FlinkInterpreter",
+          "defaultInterpreter": true,
+          "editor": {
+            "language": "scala",
+            "editOnDblClick": false,
+            "completionKey": "TAB",
+            "completionSupport": true
+          }
+        },
+        {
+          "name": "bsql",
+          "class": "org.apache.zeppelin.flink.FlinkBatchSqlInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "sql",
+            "editOnDblClick": false
+          }
+        },
+        {
+          "name": "ssql",
+          "class": "org.apache.zeppelin.flink.FlinkStreamSqlInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "sql",
+            "editOnDblClick": false
+          }
+        },
+        {
+          "name": "pyflink",
+          "class": "org.apache.zeppelin.flink.PyFlinkInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "python",
+            "editOnDblClick": false,
+            "completionKey": "TAB",
+            "completionSupport": true
+          }
+        },
+        {
+          "name": "ipyflink",
+          "class": "org.apache.zeppelin.flink.IPyFlinkInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "python",
+            "editOnDblClick": false,
+            "completionKey": "TAB",
+            "completionSupport": true
+          }
+        }
+      ],
+      "dependencies": [],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    },
+    "hoptimator": {
+      "id": "hoptimator",
+      "name": "hoptimator",
+      "group": "jdbc",
+      "properties": {
+        "default.url": {
+          "name": "default.url",
+          "value": "jdbc:hoptimator://",
+          "type": "string",
+          "description": "The URL for JDBC."
+        },
+        "default.driver": {
+          "name": "default.driver",
+          "value": "com.linkedin.hoptimator.jdbc.HoptimatorDriver",
+          "type": "string",
+          "description": "JDBC Driver Name"
+        }
+      },
+      "status": "READY",
+      "interpreterGroup": [
+        {
+          "name": "sql",
+          "class": "org.apache.zeppelin.jdbc.JDBCInterpreter",
+          "defaultInterpreter": false,
+          "editor": {
+            "language": "sql",
+            "editOnDblClick": false,
+            "completionSupport": true
+          }
+        }
+      ],
+      "dependencies": [
+        {
+          "groupArtifactVersion": "/opt/zeppelin/interpreter/jdbc/hoptimator-jdbc-driver-all.jar",
+          "local": false
+        }
+      ],
+      "option": {
+        "remote": true,
+        "port": -1,
+        "perNote": "shared",
+        "perUser": "shared",
+        "isExistingProcess": false,
+        "setPermission": false,
+        "owners": [],
+        "isUserImpersonate": false
+      }
+    }
+  },
+  "interpreterRepositories": [
+    {
+      "id": "central",
+      "type": "default",
+      "url": "https://repo1.maven.org/maven2/",
+      "host": "repo1.maven.org",
+      "protocol": "https",
+      "releasePolicy": {
+        "enabled": true,
+        "updatePolicy": "daily",
+        "checksumPolicy": "warn"
+      },
+      "snapshotPolicy": {
+        "enabled": true,
+        "updatePolicy": "daily",
+        "checksumPolicy": "warn"
+      },
+      "mirroredRepositories": [],
+      "repositoryManager": false
+    },
+    {
+      "id": "local",
+      "type": "default",
+      "url": "file:///opt/zeppelin/.m2/repository",
+      "host": "",
+      "protocol": "file",
+      "releasePolicy": {
+        "enabled": true,
+        "updatePolicy": "daily",
+        "checksumPolicy": "warn"
+      },
+      "snapshotPolicy": {
+        "enabled": true,
+        "updatePolicy": "daily",
+        "checksumPolicy": "warn"
+      },
+      "mirroredRepositories": [],
+      "repositoryManager": false
+    }
+  ]
+}
+

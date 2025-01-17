@@ -1,6 +1,6 @@
 
 install:
-	./gradlew compileJava installDist
+	./gradlew compileJava installDist shadowJar
 
 test:
 	./gradlew test -x spotbugsMain -x spotbugsTest -x spotbugsTestFixtures
@@ -125,4 +125,15 @@ release:
 	test -n "$(VERSION)"  # MISSING ARG: $$VERSION
 	./gradlew publish
 
-.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+build-zeppelin:
+	docker build -t hoptimator-zeppelin -t hoptimator-zeppelin:0.11.2 -f ./deploy/docker/zeppelin/Dockerfile-zeppelin .
+
+# attaches to terminal (not run as daemon)
+run-zeppelin:
+	docker run --rm -p 8080:8080 \
+	  --volume=${HOME}/.kube/config:/opt/zeppelin/.kube/config \
+	  --add-host=docker-for-desktop:host-gateway \
+	  --name hoptimator-zeppelin \
+	  hoptimator-zeppelin
+
+.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release

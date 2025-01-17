@@ -1,0 +1,31 @@
+# upstream - https://zeppelin.apache.org/docs/0.11.2/
+FROM apache/zeppelin:0.11.2
+
+# Add hoptimator fat jar to jdbc interpreter directory
+ADD ./hoptimator-jdbc-driver/build/libs/hoptimator-jdbc-driver-all.jar /opt/zeppelin/interpreter/jdbc/hoptimator-jdbc-driver-all.jar
+
+# local copy of hoptimator-cli (for debugging)
+ADD ./hoptimator-cli/build/install/hoptimator-cli /opt/hoptimator/hoptimator-cli/build/install/hoptimator-cli/
+ADD ./hoptimator /opt/hoptimator/
+
+# zeppelin server configuration (initialized on start)
+ADD ./deploy/docker/zeppelin/zeppelin-site.xml /opt/zeppelin/conf/zeppelin-site.xml
+# hoptimator specific driver configuration
+ADD ./deploy/docker/zeppelin/interpreter.json /opt/zeppelin/conf/interpreter.json
+
+# must be writeable ([re-]written on start + reloads)
+USER root
+RUN chmod 660 /opt/zeppelin/conf/interpreter.json \
+    /opt/zeppelin/conf/zeppelin-site.xml
+
+# Add overrides for K8s (see: com.linkedin.hoptimator.k8s.K8sConfig)
+# host must match docker argument --add-host=<host>:host-gateway
+ENV KUBECONFIG_BASEPATH="https://docker-for-desktop:6443" \
+    ZEPPELIN_HOME="/opt/zeppelin"
+
+# restore settings from upstream Dockerfile
+USER 1000
+EXPOSE 8080
+ENTRYPOINT [ "/usr/bin/tini", "--" ]
+WORKDIR ${ZEPPELIN_HOME}
+CMD ["bin/zeppelin.sh"]

@@ -1,0 +1,123 @@
+<?xml version="1.0"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<!--
+   Licensed to the Apache Software Foundation (ASF) under one or more
+   contributor license agreements.  See the NOTICE file distributed with
+   this work for additional information regarding copyright ownership.
+   The ASF licenses this file to You under the Apache License, Version 2.0
+   (the "License"); you may not use this file except in compliance with
+   the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+<!--
+  Hoptimator specific settings, modified from /opt/zeppelin/conf/zeppelin-site.xml.template.
+-->
+<configuration>
+  <!-- All values here are intended for override or are overrides that have been preserved from the upstream project -->
+
+  <!-- include and exclude are comma separated lists.
+       see: https://github.com/apache/zeppelin/blob/master/zeppelin-zengine/src/main/java/org/apache/zeppelin/interpreter/InterpreterSettingManager.java#L363 -->
+  <property>
+    <name>zeppelin.interpreter.include</name>
+    <value>jdbc</value>
+    <description>All the interpreters that you would like to include. You can only specify either
+      'zeppelin.interpreter.include' or 'zeppelin.interpreter.exclude'. Specifying them together is not allowed.
+    </description>
+  </property>
+
+  <!--
+  <property>
+    <name>zeppelin.interpreter.exclude</name>
+    <value></value>
+    <description>All the inteprreters that you would like to exclude. You can only specify either 'zeppelin.interpreter.include' or 'zeppelin.interpreter.exclude'. Specifying them together is not allowed.</description>
+  </property>
+  -->
+
+  <!--
+  <property>
+    <name>zeppelin.interpreter.dir</name>
+    <value>interpreter</value>
+    <description>Interpreter implementation base directory</description>
+  </property>
+
+  <property>
+    <name>zeppelin.interpreter.localRepo</name>
+    <value>local-repo</value>
+    <description>Local repository for interpreter's additional dependency loading</description>
+  </property>
+
+  <property>
+    <name>zeppelin.interpreter.dep.mvnRepo</name>
+    <value>https://repo1.maven.org/maven2/</value>
+    <description>Remote principal repository for interpreter's additional dependency loading</description>
+  </property>
+
+  <property>
+    <name>zeppelin.dep.localrepo</name>
+    <value>local-repo</value>
+    <description>Local repository for dependency loader</description>
+  </property>
+  -->
+
+  <!--
+  <property>
+    <name>zeppelin.helium.registry</name>
+    <value>helium,https://zeppelin.apache.org/helium.json</value>
+    <description>Location of external Helium Registry</description>
+  </property>
+  -->
+
+  <property>
+    <name>zeppelin.interpreter.group.default</name>
+    <value>hoptimator</value>
+    <description/>
+  </property>
+
+  <property>
+    <name>zeppelin.server.jetty.name</name>
+    <value> </value> <!-- intentionally blank -->
+    <description>Hardcoding Application Server name to Prevent Fingerprinting</description>
+  </property>
+
+  <!--
+  <property>
+    <name>zeppelin.server.jetty.request.header.size</name>
+    <value>8192</value>
+    <description>Http Request Header Size Limit (to prevent HTTP 413)</description>
+  </property>
+  -->
+
+  <property>
+    <name>zeppelin.server.xframe.options</name>
+    <value>SAMEORIGIN</value>
+    <description>The X-Frame-Options HTTP response header can be used to indicate whether or not a browser should be
+      allowed to render a page in a frame/iframe/object.
+    </description>
+  </property>
+
+  <property>
+    <name>zeppelin.server.xxss.protection</name>
+    <value>1; mode=block</value>
+    <description>The HTTP X-XSS-Protection response header is a feature of Internet Explorer, Chrome and Safari that
+      stops pages from loading when they detect reflected cross-site scripting (XSS) attacks. When value is set to 1 and
+      a cross-site scripting attack is detected, the browser will sanitize the page (remove the unsafe parts).
+    </description>
+  </property>
+
+  <property>
+    <name>zeppelin.server.xcontent.type.options</name>
+    <value>nosniff</value>
+    <description>The HTTP X-Content-Type-Options response header helps to prevent MIME type sniffing attacks. It directs
+      the browser to honor the type specified in the Content-Type header, rather than trying to determine the type from
+      the content itself. The default value "nosniff" is really the only meaningful value. This header is supported on
+      all browsers except Safari and Safari on iOS.
+    </description>
+  </property>
+</configuration>
