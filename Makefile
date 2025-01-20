@@ -11,7 +11,7 @@ build:
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-runner -t hoptimator-flink-runner
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-operator -t hoptimator-flink-operator
 
-bounce: build undeploy deploy deploy-samples deploy-config deploy-demo
+bounce: build undeploy deploy deploy-samples deploy-config
 
 clean:
 	./gradlew clean
@@ -33,12 +33,6 @@ undeploy: undeploy-config
 	kubectl delete -f ./hoptimator-k8s/src/main/resources/ || echo "skipping"
 
 quickstart: build deploy
-
-deploy-demo: deploy
-	kubectl apply -f ./deploy/samples/demodb.yaml
-
-undeploy-demo: undeploy
-	kubectl delete -f ./deploy/samples/demodb.yaml
 
 deploy-samples: deploy
 	kubectl wait --for=condition=Established=True	\
@@ -72,8 +66,6 @@ deploy-kafka: deploy deploy-flink
 	kubectl create namespace kafka || echo "skipping"
 	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
-	kubectl apply -f ./deploy/dev
-	kubectl apply -f ./deploy/samples/demodb.yaml
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
 
 undeploy-kafka:
@@ -83,7 +75,6 @@ undeploy-kafka:
 	kubectl delete -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka || echo "skipping"
 	kubectl delete -f ./deploy/samples/kafkadb.yaml || echo "skipping"
 	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"
-	kubectl delete -f ./deploy/dev || echo "skipping"
 	kubectl delete namespace kafka || echo "skipping"
 
 # Deploys Venice cluster in docker and creates two stores in Venice. Stores are not managed via K8s for now.
@@ -98,11 +89,19 @@ undeploy-venice:
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml down
 
 deploy-dev-environment: deploy deploy-flink deploy-kafka deploy-venice
+	kubectl wait --for=condition=Established=True	\
+	  crds/subscriptions.hoptimator.linkedin.com \
+	  crds/kafkatopics.hoptimator.linkedin.com \
+	  crds/sqljobs.hoptimator.linkedin.com
+	kubectl apply -f ./deploy/dev/
+	kubectl apply -f ./deploy/samples/demodb.yaml
 
 undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy
+	kubectl delete -f ./deploy/dev || echo "skipping"
+	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"
 
 # Integration test setup intended to be run locally
-integration-tests: deploy-dev-environment deploy-samples
+integration-tests: deploy-dev-environment
 	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
@@ -111,7 +110,7 @@ integration-tests: deploy-dev-environment deploy-samples
 	kill `cat port-forward.pid`
 
 # kind cluster used in github workflow needs to have different routing set up, avoiding the need to forward kafka ports
-integration-tests-kind: deploy-dev-environment deploy-samples
+integration-tests-kind: deploy-dev-environment
 	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
@@ -136,4 +135,4 @@ run-zeppelin: build-zeppelin
 	  --name hoptimator-zeppelin \
 	  hoptimator-zeppelin
 
-.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
