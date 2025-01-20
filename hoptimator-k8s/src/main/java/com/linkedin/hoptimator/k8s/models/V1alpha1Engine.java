@@ -20,18 +20,18 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1EngineSpec;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * A SQL view.
+ * Engine metadata.
  */
-@ApiModel(description = "A SQL view.")
+@ApiModel(description = "Engine metadata.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-14T23:39:16.570Z[Etc/UTC]")
-public class V1alpha1View implements io.kubernetes.client.common.KubernetesObject {
+public class V1alpha1Engine implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
@@ -46,14 +46,14 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
 
   public static final String SERIALIZED_NAME_SPEC = "spec";
   @SerializedName(SERIALIZED_NAME_SPEC)
-  private V1alpha1ViewSpec spec;
+  private V1alpha1EngineSpec spec;
 
   public static final String SERIALIZED_NAME_STATUS = "status";
   @SerializedName(SERIALIZED_NAME_STATUS)
   private Object status;
 
 
-  public V1alpha1View apiVersion(String apiVersion) {
+  public V1alpha1Engine apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -76,7 +76,7 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
   }
 
 
-  public V1alpha1View kind(String kind) {
+  public V1alpha1Engine kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -99,7 +99,7 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
   }
 
 
-  public V1alpha1View metadata(V1ObjectMeta metadata) {
+  public V1alpha1Engine metadata(V1ObjectMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -122,7 +122,7 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
   }
 
 
-  public V1alpha1View spec(V1alpha1ViewSpec spec) {
+  public V1alpha1Engine spec(V1alpha1EngineSpec spec) {
     
     this.spec = spec;
     return this;
@@ -135,17 +135,17 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1alpha1ViewSpec getSpec() {
+  public V1alpha1EngineSpec getSpec() {
     return spec;
   }
 
 
-  public void setSpec(V1alpha1ViewSpec spec) {
+  public void setSpec(V1alpha1EngineSpec spec) {
     this.spec = spec;
   }
 
 
-  public V1alpha1View status(Object status) {
+  public V1alpha1Engine status(Object status) {
     
     this.status = status;
     return this;
@@ -176,12 +176,12 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1View v1alpha1View = (V1alpha1View) o;
-    return Objects.equals(this.apiVersion, v1alpha1View.apiVersion) &&
-        Objects.equals(this.kind, v1alpha1View.kind) &&
-        Objects.equals(this.metadata, v1alpha1View.metadata) &&
-        Objects.equals(this.spec, v1alpha1View.spec) &&
-        Objects.equals(this.status, v1alpha1View.status);
+    V1alpha1Engine v1alpha1Engine = (V1alpha1Engine) o;
+    return Objects.equals(this.apiVersion, v1alpha1Engine.apiVersion) &&
+        Objects.equals(this.kind, v1alpha1Engine.kind) &&
+        Objects.equals(this.metadata, v1alpha1Engine.metadata) &&
+        Objects.equals(this.spec, v1alpha1Engine.spec) &&
+        Objects.equals(this.status, v1alpha1Engine.status);
   }
 
   @Override
@@ -193,7 +193,7 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1View {\n");
+    sb.append("class V1alpha1Engine {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    metadata: ").append(toIndentedString(metadata)).append("\n");

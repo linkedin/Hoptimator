@@ -28,7 +28,7 @@ import java.io.IOException;
  * View spec.
  */
 @ApiModel(description = "View spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-09T16:52:51.758Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-14T23:39:16.570Z[Etc/UTC]")
 public class V1alpha1ViewSpec {
   public static final String SERIALIZED_NAME_MATERIALIZED = "materialized";
   @SerializedName(SERIALIZED_NAME_MATERIALIZED)

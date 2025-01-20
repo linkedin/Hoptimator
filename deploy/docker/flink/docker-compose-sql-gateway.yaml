@@ -3,10 +3,12 @@ services:
     image: flink:1.18.1
     restart: unless-stopped
     entrypoint: >
-      /bin/sh -c "./bin/sql-gateway.sh start-foreground -Dsql-gateway.endpoint.rest.address=localhost"
+      /bin/sh -c "./bin/sql-gateway.sh start-foreground -Dsql-gateway.endpoint.rest.address=localhost -Drest.address=host.docker.internal"
     ports:
       - 8083:8083
     deploy:
       resources:
         limits:
           memory: 1024M
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

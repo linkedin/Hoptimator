@@ -2,7 +2,7 @@
 FROM apache/zeppelin:0.11.2
 
 # Add hoptimator fat jar to jdbc interpreter directory
-ADD ./hoptimator-jdbc-driver/build/libs/hoptimator-jdbc-driver-all.jar /opt/zeppelin/interpreter/jdbc/hoptimator-jdbc-driver-all.jar
+ADD ./hoptimator-jdbc-driver-int/build/libs/hoptimator-jdbc-driver-int-all.jar /opt/zeppelin/interpreter/jdbc/hoptimator-jdbc-driver-int-all.jar
 
 # local copy of hoptimator-cli (for debugging)
 ADD ./hoptimator-cli/build/install/hoptimator-cli /opt/hoptimator/hoptimator-cli/build/install/hoptimator-cli/

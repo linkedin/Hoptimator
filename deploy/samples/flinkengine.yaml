@@ -1,0 +1,8 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Engine
+metadata:
+  name: flink-engine
+spec:
+  url: jdbc:flink://localhost:8083
+  dialect: Flink
+

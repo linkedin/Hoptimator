@@ -83,7 +83,7 @@ Once the Flink deployment pod has STATUS 'Running', you can forward port 8081 an
 to access the Flink dashboard.
 
 ```
-  $ kubectl port-forward basic-session-deployment-7b94b98b6b-d6jt5 8081 &
+  $ kubectl port-forward svc/basic-session-deployment-rest 8081 &
 ```
 
 See the [Flink SQL Gateway Documentation](https://nightlies.apache.org/flink/flink-docs-release-1.18/docs/dev/table/sql-gateway/overview/)

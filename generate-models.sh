@@ -16,4 +16,5 @@ docker run \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/tabletemplates.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/views.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/subscriptions.crd.yaml" \
+  -u "$(pwd)/hoptimator-k8s/src/main/resources/engines.crd.yaml" \
   && echo "done."

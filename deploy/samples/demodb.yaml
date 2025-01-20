@@ -23,13 +23,29 @@ spec:
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: TableTemplate
 metadata:
-  name: demodb-template
+  name: demodb-read-template
 spec:
   databases:
   - profile-database
   - ads-database
+  methods:
+  - Scan
   connector: |
-    connector = demo
-    database = {{database}}
-    table = {{table}}
+    connector = datagen
+    number-of-rows = 10
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTemplate
+metadata:
+  name: demodb-write-template
+spec:
+  databases:
+  - profile-database
+  - ads-database
+  methods:
+  - Modify
+  connector: |
+    connector = blackhole
 

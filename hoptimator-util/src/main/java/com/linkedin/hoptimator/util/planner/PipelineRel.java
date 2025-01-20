@@ -145,12 +145,18 @@ public interface PipelineRel extends RelNode {
       return new Pipeline(deployables);
     }
 
-    public Function<SqlDialect, String> sql() throws SQLException {
+    private ScriptImplementor script() throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
       for (Map.Entry<Source, RelDataType> source : sources.entrySet()) {
         Map<String, String> configs = ConnectionService.configure(source.getKey(), Source.class);
         script = script.connector(source.getKey().table(), source.getValue(), configs);
       }
+      return script;
+    }
+
+    /** SQL script ending in an INSERT INTO */
+    public Function<SqlDialect, String> sql() throws SQLException {
+      ScriptImplementor script = script();
       RelDataType targetRowType = sinkRowType;
       if (targetRowType == null) {
         targetRowType = query.getRowType();
@@ -161,6 +167,11 @@ public interface PipelineRel extends RelNode {
       script = script.insert(sink.table(), query, targetFields);
       RelOptUtil.equal(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       return script.seal();
+    }
+
+    /** SQL script ending in a SELECT */
+    public Function<SqlDialect, String> query() throws SQLException {
+      return script().query(query).seal();
     }
   }
 }

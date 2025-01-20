@@ -2,7 +2,10 @@
 
 BASEDIR="$( cd "$( dirname "$0" )" && pwd )"
 
-$BASEDIR/hoptimator-cli/build/install/hoptimator-cli/bin/hoptimator-cli sqlline.SqlLine \
+$BASEDIR/hoptimator-cli/build/install/hoptimator-cli/bin/hoptimator-cli \
+  -Dorg.slf4j.simpleLogger.showThreadName=false \
+  -Dorg.slf4j.simpleLogger.showLogName=false \
+  sqlline.SqlLine \
   -ac sqlline.HoptimatorAppConfig \
   -u jdbc:hoptimator:// -n "" -p "" -nn "Hoptimator" $@
 

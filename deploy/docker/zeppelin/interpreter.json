@@ -541,7 +541,7 @@
       ],
       "dependencies": [
         {
-          "groupArtifactVersion": "/opt/zeppelin/interpreter/jdbc/hoptimator-jdbc-driver-all.jar",
+          "groupArtifactVersion": "/opt/zeppelin/interpreter/jdbc/hoptimator-jdbc-driver-int-all.jar",
           "local": false
         }
       ],

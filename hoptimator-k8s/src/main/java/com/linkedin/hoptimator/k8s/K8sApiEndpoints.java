@@ -9,6 +9,8 @@ import io.kubernetes.client.openapi.models.V1SecretList;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Engine;
+import com.linkedin.hoptimator.k8s.models.V1alpha1EngineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
@@ -34,6 +36,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1Database, V1alpha1DatabaseList> DATABASES =
       new K8sApiEndpoint<>("Database", "hoptimator.linkedin.com", "v1alpha1", "databases", false,
           V1alpha1Database.class, V1alpha1DatabaseList.class);
+  public static final K8sApiEndpoint<V1alpha1Engine, V1alpha1EngineList> ENGINES =
+      new K8sApiEndpoint<>("Engine", "hoptimator.linkedin.com", "v1alpha1", "engines", false,
+          V1alpha1Engine.class, V1alpha1EngineList.class);
   public static final K8sApiEndpoint<V1alpha1Pipeline, V1alpha1PipelineList> PIPELINES =
       new K8sApiEndpoint<>("Pipeline", "hoptimator.linkedin.com", "v1alpha1", "pipelines", false,
           V1alpha1Pipeline.class, V1alpha1PipelineList.class);
