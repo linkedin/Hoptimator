@@ -215,7 +215,6 @@ public class RemoteToEnumerableConverter
           builder0.append("enumerable",
               Expressions.call(
                   BuiltInMethod.RESULT_SET_ENUMERABLE_OF_PREPARED.method,
-//                  Schemas.unwrap(convention.expression(), DataSource.class),
                   dataSource,
                   sql_,
                   rowBuilderFactory_,
@@ -225,7 +224,6 @@ public class RemoteToEnumerableConverter
           builder0.append("enumerable",
               Expressions.call(
                   BuiltInMethod.RESULT_SET_ENUMERABLE_OF.method,
-//                  Schemas.unwrap(convention.expression(), DataSource.class),
                   dataSource,
                   sql_,
                   rowBuilderFactory_));
