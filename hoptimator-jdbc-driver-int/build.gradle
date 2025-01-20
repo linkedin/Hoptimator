@@ -1,0 +1,24 @@
+/**  fat jar for integration tests */
+
+plugins {
+  id 'com.gradleup.shadow' version '8.3.5'
+  id 'java'
+}
+
+dependencies {
+  // include various plugins
+  implementation project(':hoptimator-avro')
+  implementation project(':hoptimator-demodb')
+  implementation project(":hoptimator-kafka")
+  implementation project(":hoptimator-venice")
+  implementation libs.flink.jdbc
+
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-util')
+  implementation project(':hoptimator-k8s')
+}
+
+shadowJar {
+  zip64 true
+  mergeServiceFiles()
+}

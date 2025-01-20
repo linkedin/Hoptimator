@@ -1,12 +1,12 @@
 
 install:
-	./gradlew compileJava installDist shadowJar
+	./gradlew compileJava installDist
 
 test:
 	./gradlew test -x spotbugsMain -x spotbugsTest -x spotbugsTestFixtures
 
 build:
-	./gradlew build
+	./gradlew build shadowJar
 	docker build . -t hoptimator
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-runner -t hoptimator-flink-runner
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-operator -t hoptimator-flink-operator
@@ -125,11 +125,11 @@ release:
 	test -n "$(VERSION)"  # MISSING ARG: $$VERSION
 	./gradlew publish
 
-build-zeppelin:
+build-zeppelin: build
 	docker build -t hoptimator-zeppelin -t hoptimator-zeppelin:0.11.2 -f ./deploy/docker/zeppelin/Dockerfile-zeppelin .
 
 # attaches to terminal (not run as daemon)
-run-zeppelin:
+run-zeppelin: build-zeppelin
 	docker run --rm -p 8080:8080 \
 	  --volume=${HOME}/.kube/config:/opt/zeppelin/.kube/config \
 	  --add-host=docker-for-desktop:host-gateway \
