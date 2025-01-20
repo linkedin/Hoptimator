@@ -66,8 +66,7 @@ public final class EngineRules {
   }
 
   public void register(HoptimatorJdbcConvention inTrait, RelOptPlanner planner) {
-    String name = engine.engineName() + "-" +  inTrait.database();
-    RemoteConvention remote = new RemoteConvention(name, engine);
+    RemoteConvention remote = inTrait.remoteConventionForEngine(engine); 
     planner.addRule(RemoteToEnumerableConverterRule.create(remote));
     planner.addRule(RemoteJoinRule.Config.INSTANCE
         .withConversion(PipelineRules.PipelineJoin.class, PipelineRel.CONVENTION, remote, "RemoteJoinRule")

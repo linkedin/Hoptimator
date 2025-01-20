@@ -1,6 +1,8 @@
 package com.linkedin.hoptimator.util.planner;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
 import org.apache.calcite.linq4j.tree.Expression;
@@ -14,6 +16,7 @@ public class HoptimatorJdbcConvention extends JdbcConvention {
 
   private final String database;
   private final List<Engine> engines;
+  private final Map<String, RemoteConvention> remoteConventions = new HashMap<>();
 
   public HoptimatorJdbcConvention(SqlDialect dialect, Expression expression, String name,
       List<Engine> engines) {
@@ -28,6 +31,11 @@ public class HoptimatorJdbcConvention extends JdbcConvention {
 
   public List<Engine> engines() {
     return engines;
+  }
+
+  public RemoteConvention remoteConventionForEngine(Engine engine) {
+    return remoteConventions.computeIfAbsent(engine.engineName(), x -> new RemoteConvention(
+        x + "-" + database, engine));
   }
 
   @Override
