@@ -2,11 +2,11 @@ package com.linkedin.hoptimator.operator.flink;
 
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.catalog.flink.FlinkStreamingSqlJob;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJob;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJobSpec.DialectEnum;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJobSpec.ExecutionModeEnum;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJobStatus;
 import com.linkedin.hoptimator.operator.Operator;
-import com.linkedin.hoptimator.models.V1alpha1SqlJob;
-import com.linkedin.hoptimator.models.V1alpha1SqlJobSpec.DialectEnum;
-import com.linkedin.hoptimator.models.V1alpha1SqlJobSpec.ExecutionModeEnum;
-import com.linkedin.hoptimator.models.V1alpha1SqlJobStatus;
 
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
 import io.kubernetes.client.extended.controller.reconciler.Request;

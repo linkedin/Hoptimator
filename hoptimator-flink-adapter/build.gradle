@@ -6,7 +6,7 @@ plugins {
 
 dependencies {
   implementation project(':hoptimator-catalog')
-  implementation project(':hoptimator-models')
+  implementation project(':hoptimator-k8s')
   implementation project(':hoptimator-operator')
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient

@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.operator.flink;
 
-import com.linkedin.hoptimator.models.V1alpha1SqlJob;
-import com.linkedin.hoptimator.models.V1alpha1SqlJobList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJob;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJobList;
 import com.linkedin.hoptimator.operator.ControllerProvider;
 import com.linkedin.hoptimator.operator.Operator;
 
