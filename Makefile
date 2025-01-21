@@ -45,15 +45,14 @@ undeploy-samples: undeploy
 	kubectl delete -f ./deploy/samples || echo "skipping"
 
 deploy-flink: deploy
+	kubectl create namespace flink || echo "skipping"
 	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.9.0/
-	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
-	kubectl apply -f deploy/samples/flinkDeployment.yaml
-	kubectl apply -f deploy/samples/flinkSessionJob.yaml
-	docker compose -f ./deploy/docker/flink/docker-compose-sql-gateway.yaml up -d --wait
+	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest --set-json='watchNamespaces=["default","flink"]' flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
+	kubectl apply -f deploy/dev/flink-session-cluster.yaml
+	kubectl apply -f deploy/samples/flink-template.yaml
 
 undeploy-flink:
-	docker compose -f ./deploy/docker/flink/docker-compose-sql-gateway.yaml down
 	kubectl delete flinksessionjobs.flink.apache.org --all || echo "skipping"
 	kubectl delete flinkdeployments.flink.apache.org --all || echo "skipping"
 	kubectl delete crd flinksessionjobs.flink.apache.org || echo "skipping"
@@ -106,15 +105,19 @@ integration-tests: deploy-dev-environment
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
 	kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 & echo $$! > port-forward.pid
-	./gradlew intTest || kill `cat port-forward.pid`
+	kubectl port-forward -n flink svc/flink-sql-gateway 8083 & echo $$! > port-forward-2.pid
+	kubectl port-forward -n flink svc/basic-session-deployment-rest 8081 & echo $$! > port-forward-3.pid
+	./gradlew intTest || kill `cat port-forward.pid port-forward-2.pid, port-forward-3.pid`
 	kill `cat port-forward.pid`
+	kill `cat port-forward-2.pid`
+	kill `cat port-forward-3.pid`
 
 # kind cluster used in github workflow needs to have different routing set up, avoiding the need to forward kafka ports
 integration-tests-kind: deploy-dev-environment
 	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
-	./gradlew intTest
+	./gradlew intTest -i
 
 generate-models:
 	./generate-models.sh

@@ -6,6 +6,7 @@ apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
   name: pipeline-sink
+  namespace: flink
 spec:
   deploymentName: basic-session-deployment
   job:

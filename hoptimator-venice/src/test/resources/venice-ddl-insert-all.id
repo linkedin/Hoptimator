@@ -6,6 +6,7 @@ apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
   name: venice-cluster0-test-store-1
+  namespace: flink
 spec:
   deploymentName: basic-session-deployment
   job:

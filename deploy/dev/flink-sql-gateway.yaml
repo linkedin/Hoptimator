@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flink-sql-gateway
+  namespace: flink
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flink-sql-gateway
+  template:
+    metadata:
+      labels:
+        app: flink-sql-gateway
+    spec:
+      containers:
+      - name: flink-sql-gateway
+        image: flink:1.18.1
+        ports:
+        - containerPort: 8083
+        command: ["./bin/sql-gateway.sh"]
+        args:
+        - "start-foreground"
+        - "-Dsql-gateway.endpoint.rest.address=localhost"
+        - "-Drest.address=basic-session-deployment-rest.flink.svc.cluster.local"
+
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: flink-sql-gateway
+  namespace: flink
+spec:
+  type: NodePort
+  ports:
+  - name: rest
+    port: 8083
+    protocol: TCP
+    targetPort: 8083
+    nodePort: 30083
+  selector:
+    app: flink-sql-gateway
+
+
