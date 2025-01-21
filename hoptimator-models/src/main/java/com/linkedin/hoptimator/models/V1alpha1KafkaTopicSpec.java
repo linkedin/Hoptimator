@@ -33,7 +33,7 @@ import java.util.Map;
  * Desired Kafka topic configuration.
  */
 @ApiModel(description = "Desired Kafka topic configuration.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-20T21:19:48.284Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-21T21:15:02.597Z[Etc/UTC]")
 public class V1alpha1KafkaTopicSpec {
   public static final String SERIALIZED_NAME_CLIENT_CONFIGS = "clientConfigs";
   @SerializedName(SERIALIZED_NAME_CLIENT_CONFIGS)

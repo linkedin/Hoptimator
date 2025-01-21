@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.util;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Properties;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -65,6 +66,18 @@ public interface Template {
       }};
     }
 
+    public SimpleEnvironment with(String key, Map<String, String> values) {
+      return new SimpleEnvironment(vars) {{
+        export(key, formatMapAsString(values));
+      }};
+    }
+
+    public SimpleEnvironment with(String key, Properties values) {
+      return new SimpleEnvironment(vars) {{
+        export(key, formatPropertiesAsString(values));
+      }};
+    }
+
     public SimpleEnvironment with(String key, Supplier<String> supplier) {
       return new SimpleEnvironment(vars) {{
         export(key, supplier);
@@ -81,6 +94,22 @@ public interface Template {
         }
       }
       return vars.get(key).get();
+    }
+
+    private String formatMapAsString(Map<String, String> configMap) {
+      StringBuilder stringBuilder = new StringBuilder();
+      for (Map.Entry<String, String> entry : configMap.entrySet()) {
+        stringBuilder.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
+      }
+      return stringBuilder.toString();
+    }
+
+    private String formatPropertiesAsString(Properties props) {
+      StringBuilder stringBuilder = new StringBuilder();
+      for (String key : props.stringPropertyNames()) {
+        stringBuilder.append(key).append(": ").append(props.getProperty(key)).append("\n");
+      }
+      return stringBuilder.toString();
     }
   }
 

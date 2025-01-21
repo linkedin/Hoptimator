@@ -28,7 +28,7 @@ import java.io.IOException;
 /**
  * V1alpha1KafkaTopicSpecClientConfigs
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-20T21:19:48.284Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-21T21:15:02.597Z[Etc/UTC]")
 public class V1alpha1KafkaTopicSpecClientConfigs {
   public static final String SERIALIZED_NAME_CONFIG_MAP_REF = "configMapRef";
   @SerializedName(SERIALIZED_NAME_CONFIG_MAP_REF)
