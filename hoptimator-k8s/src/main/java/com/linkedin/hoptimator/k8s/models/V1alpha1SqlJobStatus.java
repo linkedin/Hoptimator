@@ -11,7 +11,7 @@
  */
 
 
-package com.linkedin.hoptimator.models;
+package com.linkedin.hoptimator.k8s.models;
 
 import java.util.Objects;
 import java.util.Arrays;
@@ -28,7 +28,7 @@ import java.io.IOException;
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-09T16:55:33.927Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-20T21:16:25.561Z[Etc/UTC]")
 public class V1alpha1SqlJobStatus {
   public static final String SERIALIZED_NAME_FAILED = "failed";
   @SerializedName(SERIALIZED_NAME_FAILED)

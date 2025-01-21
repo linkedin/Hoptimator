@@ -42,7 +42,7 @@ spec:
                   description: Flink, etc.
                   type: string
                   enum:
-                  - Flink 
+                  - Flink
                   default: Flink
                 executionMode:
                   description: Streaming or Batch.
@@ -51,6 +51,11 @@ spec:
                   - Streaming
                   - Batch
                   default: Streaming
+                configs:
+                  description: SQL Job configurations.
+                  type: object
+                  additionalProperties:
+                    type: string
               required:
               - sql
             status:
@@ -65,6 +70,9 @@ spec:
                   type: boolean
                 message:
                   description: Error or success message, for information only.
+                  type: string
+                sql:
+                  description: The SQL being implemented by this SqlJob.
                   type: string
       subresources:
         status: {}
@@ -81,4 +89,4 @@ spec:
         type: string
         description: Job status.
         jsonPath: .status.message
- 
+

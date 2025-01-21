@@ -37,7 +37,7 @@ public class KafkaDriver extends Driver {
       return null;
     }
     // Connection string properties are given precedence over config properties
-    Properties properties = ConfigService.config();
+    Properties properties = ConfigService.config(null);
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     try {
       Connection connection = super.connect(url, props);

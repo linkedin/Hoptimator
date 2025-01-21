@@ -11,7 +11,7 @@
  */
 
 
-package com.linkedin.hoptimator.models;
+package com.linkedin.hoptimator.k8s.models;
 
 import java.util.Objects;
 import java.util.Arrays;
@@ -20,7 +20,7 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.models.V1alpha1SqlJob;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJob;
 import io.kubernetes.client.openapi.models.V1ListMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
@@ -32,7 +32,7 @@ import java.util.List;
  * SqlJobList is a list of SqlJob
  */
 @ApiModel(description = "SqlJobList is a list of SqlJob")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-09T16:55:33.927Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-20T21:16:25.561Z[Etc/UTC]")
 public class V1alpha1SqlJobList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

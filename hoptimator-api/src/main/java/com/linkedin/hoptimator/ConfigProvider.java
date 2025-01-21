@@ -4,5 +4,5 @@ import java.util.Properties;
 
 public interface ConfigProvider {
 
-  Properties loadConfig() throws Exception;
+  Properties loadConfig(String namespace) throws Exception;
 }

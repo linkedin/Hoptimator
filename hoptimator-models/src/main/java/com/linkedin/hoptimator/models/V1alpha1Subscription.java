@@ -31,7 +31,7 @@ import java.io.IOException;
  * Hoptimator Subscription
  */
 @ApiModel(description = "Hoptimator Subscription")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2024-12-09T16:55:33.927Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-20T21:19:48.284Z[Etc/UTC]")
 public class V1alpha1Subscription implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

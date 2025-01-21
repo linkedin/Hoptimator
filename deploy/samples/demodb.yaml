@@ -48,4 +48,3 @@ spec:
   - Modify
   connector: |
     connector = blackhole
-
