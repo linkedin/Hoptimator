@@ -2,6 +2,7 @@ apiVersion: flink.apache.org/v1beta1
 kind: FlinkDeployment
 metadata:
   name: basic-session-deployment
+  namespace: flink
 spec:
   image: docker.io/library/hoptimator-flink-runner
   imagePullPolicy: Never
