@@ -39,8 +39,7 @@ public final class DataTypeUtils {
 
   private static void flattenInto(RelDataTypeFactory typeFactory, RelDataType dataType,
       RelDataTypeFactory.Builder builder, List<String> path) {
-    if (dataType.getComponentType() != null && (dataType.getComponentType().isStruct()
-        || dataType.getComponentType().getComponentType() != null)) {
+    if (dataType.getComponentType() != null && dataType.getComponentType().isStruct()) {
       // demote complex arrays to just `ANY ARRAY`
       builder.add(path.stream().collect(Collectors.joining("$")), typeFactory.createArrayType(
           typeFactory.createSqlType(SqlTypeName.ANY), -1));

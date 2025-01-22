@@ -63,18 +63,20 @@ public class TestDataTypeUtils {
     RelDataTypeFactory.Builder builder3 = new RelDataTypeFactory.Builder(typeFactory);
     builder3.add("FOO", typeFactory.createArrayType(builder1.build(), -1));
     builder3.add("BAR", typeFactory.createArrayType(builder2.build(), -1));
+    builder3.add("CAR", typeFactory.createArrayType(
+        typeFactory.createSqlType(SqlTypeName.FLOAT), -1));
     RelDataType rowType = builder3.build();
-    Assertions.assertEquals(2, rowType.getFieldList().size());
+    Assertions.assertEquals(3, rowType.getFieldList().size());
     RelDataType flattenedType = DataTypeUtils.flatten(rowType, typeFactory);
-    Assertions.assertEquals(2, flattenedType.getFieldList().size());
+    Assertions.assertEquals(3, flattenedType.getFieldList().size());
     List<String> flattenedNames = flattenedType.getFieldList().stream().map(x -> x.getName())
         .collect(Collectors.toList());
-    Assertions.assertIterableEquals(Arrays.asList(new String[]{"FOO", "BAR"}),
+    Assertions.assertIterableEquals(Arrays.asList(new String[]{"FOO", "BAR", "CAR"}),
         flattenedNames);
     String flattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
         flattenedType, Collections.emptyMap()).sql();
     Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` (`FOO` ANY ARRAY, "
-        + "`BAR` ANY ARRAY) WITH ();", flattenedConnector,
+        + "`BAR` ANY ARRAY, `CAR` FLOAT ARRAY) WITH ();", flattenedConnector,
         "Flattened connector should have simplified arrays");
   }
 }
