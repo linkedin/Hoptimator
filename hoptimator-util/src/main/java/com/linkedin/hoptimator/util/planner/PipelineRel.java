@@ -148,8 +148,9 @@ public interface PipelineRel extends RelNode {
     private ScriptImplementor script() throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
       for (Map.Entry<Source, RelDataType> source : sources.entrySet()) {
+        script = script.database(source.getKey().schema());
         Map<String, String> configs = ConnectionService.configure(source.getKey(), Source.class);
-        script = script.connector(source.getKey().table(), source.getValue(), configs);
+        script = script.connector(source.getKey().schema(), source.getKey().table(), source.getValue(), configs);
       }
       return script;
     }
@@ -163,8 +164,9 @@ public interface PipelineRel extends RelNode {
       }
       Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
       Map<String, String> sinkConfigs = ConnectionService.configure(sink, Sink.class);
-      script = script.connector(sink.table(), targetRowType, sinkConfigs);
-      script = script.insert(sink.table(), query, targetFields);
+      script = script.database(sink.schema());
+      script = script.connector(sink.schema(), sink.table(), targetRowType, sinkConfigs);
+      script = script.insert(sink.schema(), sink.table(), query, targetFields);
       RelOptUtil.equal(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       return script.seal();
     }
