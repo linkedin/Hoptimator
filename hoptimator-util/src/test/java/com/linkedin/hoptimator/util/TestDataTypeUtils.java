@@ -41,13 +41,13 @@ public class TestDataTypeUtils {
         flattenedNames);
     RelDataType unflattenedType = DataTypeUtils.unflatten(flattenedType, typeFactory);
     RelOptUtil.eq("original", rowType, "flattened-unflattened", unflattenedType, Litmus.THROW);
-    String originalConnector = new ScriptImplementor.ConnectorImplementor("T1",
+    String originalConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
         rowType, Collections.emptyMap()).sql();
-    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor("T1",
+    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
         unflattenedType, Collections.emptyMap()).sql();
     Assertions.assertEquals(originalConnector, unflattenedConnector,
         "Flattening and unflattening data types should have no impact on connector");
-    Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `T1` (`FOO` ROW(`QUX` VARCHAR, "
+    Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` (`FOO` ROW(`QUX` VARCHAR, "
         + "`QIZ` VARCHAR), `BAR` ROW(`BAZ` VARCHAR)) WITH ();", unflattenedConnector,
         "Flattened-unflattened connector should be correct");
   }
@@ -73,9 +73,9 @@ public class TestDataTypeUtils {
         .collect(Collectors.toList());
     Assertions.assertIterableEquals(Arrays.asList(new String[]{"FOO", "BAR", "CAR"}),
         flattenedNames);
-    String flattenedConnector = new ScriptImplementor.ConnectorImplementor("T1",
+    String flattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
         flattenedType, Collections.emptyMap()).sql();
-    Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `T1` (`FOO` ANY ARRAY, "
+    Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` (`FOO` ANY ARRAY, "
         + "`BAR` ANY ARRAY, `CAR` FLOAT ARRAY) WITH ();", flattenedConnector,
         "Flattened connector should have simplified arrays");
   }

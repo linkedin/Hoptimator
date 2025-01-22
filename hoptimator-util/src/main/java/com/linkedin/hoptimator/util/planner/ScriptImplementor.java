@@ -93,8 +93,8 @@ public interface ScriptImplementor {
   }
 
   /** Append a connector definition, e.g. `CREATE TABLE ... WITH (...)` */
-  default ScriptImplementor connector(String name, RelDataType rowType, Map<String, String> connectorConfig) {
-    return with(new ConnectorImplementor(name, rowType, connectorConfig));
+  default ScriptImplementor connector(String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
+    return with(new ConnectorImplementor(schema, table, rowType, connectorConfig));
   }
 
   /** Append a database definition, e.g. `CREATE DATABASE ...` */
@@ -103,8 +103,8 @@ public interface ScriptImplementor {
   }
 
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
-  default ScriptImplementor insert(String name, RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
-    return with(new InsertImplementor(name, relNode, targetFields));
+  default ScriptImplementor insert(String schema, String table, RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
+    return with(new InsertImplementor(schema, table, relNode, targetFields));
   }
 
   /** Render the script as DDL/SQL in the default dialect */
@@ -157,15 +157,9 @@ public interface ScriptImplementor {
   /** Implements an arbitrary RelNode as a query */
   class QueryImplementor implements ScriptImplementor {
     private final RelNode relNode;
-    private final boolean dropDatabaseName;
 
     public QueryImplementor(RelNode relNode) {
-      this(relNode, true);
-    }
-
-    public QueryImplementor(RelNode relNode, boolean dropDatabaseName) {
       this.relNode = relNode;
-      this.dropDatabaseName = dropDatabaseName;
     }
 
     @Override
@@ -198,32 +192,24 @@ public interface ScriptImplementor {
 
     private static class UnflattenMemberAccess extends SqlShuttle {
       private final Set<String> sinkFieldList;
-      private final boolean dropDatabaseName;
 
       UnflattenMemberAccess(QueryImplementor outer) {
         this.sinkFieldList = outer.relNode.getRowType().getFieldList()
             .stream()
             .map(RelDataTypeField::getName)
             .collect(Collectors.toSet());
-        this.dropDatabaseName = outer.dropDatabaseName;
       }
 
       // SqlShuttle gets called for every field in SELECT and every table name in FROM alike
       // For fields in SELECT, we want to unflatten them as `FOO_BAR`, for tables `FOO.BAR`
-      // or just `BAR` if we need to drop the database name (For Flink)
       @Override
       public SqlNode visit(SqlIdentifier id) {
         if (id.names.size() == 1 && sinkFieldList.contains(id.names.get(0))) {
           id.assignNamesFrom(new SqlIdentifier(id.names.get(0).replaceAll("\\$", "_"), SqlParserPos.ZERO));
         } else {
-          SqlIdentifier replacement;
-          if (id.names.size() == 2 && this.dropDatabaseName) {
-            replacement = new SqlIdentifier(id.names.subList(1, id.names.size()), SqlParserPos.ZERO);
-          } else {
-            replacement = new SqlIdentifier(id.names.stream()
-                .flatMap(x -> Stream.of(x.split("\\$")))
-                .collect(Collectors.toList()), SqlParserPos.ZERO);
-          }
+          SqlIdentifier replacement = new SqlIdentifier(id.names.stream()
+              .flatMap(x -> Stream.of(x.split("\\$")))
+              .collect(Collectors.toList()), SqlParserPos.ZERO);
           id.assignNamesFrom(replacement);
         }
         return id;
@@ -239,12 +225,14 @@ public interface ScriptImplementor {
    *  - NULL fields are promoted to BYTES
    */
   class ConnectorImplementor implements ScriptImplementor {
-    private final String name;
+    private final String schema;
+    private final String table;
     private final RelDataType rowType;
     private final Map<String, String> connectorConfig;
 
-    public ConnectorImplementor(String name, RelDataType rowType, Map<String, String> connectorConfig) {
-      this.name = name;
+    public ConnectorImplementor(String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
+      this.schema = schema;
+      this.table = table;
       this.rowType = rowType;
       this.connectorConfig = connectorConfig;
     }
@@ -252,7 +240,7 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       w.keyword("CREATE TABLE IF NOT EXISTS");
-      (new IdentifierImplementor(name)).implement(w);
+      (new CompoundIdentifierImplementor(schema, table)).implement(w);
       SqlWriter.Frame frame1 = w.startList("(", ")");
       (new RowTypeSpecImplementor(rowType)).implement(w);
       if (rowType.getField("PRIMARY_KEY", true, false) != null) {
@@ -296,12 +284,14 @@ public interface ScriptImplementor {
    *
    * */
   class InsertImplementor implements ScriptImplementor {
-    private final String name;
+    private final String schema;
+    private final String table;
     private final RelNode relNode;
     private final ImmutableList<Pair<Integer, String>> targetFields;
 
-    public InsertImplementor(String name, RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
-      this.name = name;
+    public InsertImplementor(String schema, String table, RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
+      this.schema = schema;
+      this.table = table;
       this.relNode = relNode;
       this.targetFields = targetFields;
     }
@@ -309,7 +299,7 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       w.keyword("INSERT INTO");
-      (new IdentifierImplementor(name)).implement(w);
+      (new CompoundIdentifierImplementor(schema, table)).implement(w);
       RelNode project = dropFields(relNode, targetFields);
       (new ColumnListImplementor(project.getRowType())).implement(w);
       (new QueryImplementor(project)).implement(w);
@@ -394,17 +384,17 @@ public interface ScriptImplementor {
 
   /** Implements an identifier like TRACKING.'PageViewEvent' */
   class CompoundIdentifierImplementor implements ScriptImplementor {
-    private final String database;
-    private final String name;
+    private final String schema;
+    private final String table;
 
-    public CompoundIdentifierImplementor(String database, String name) {
-      this.database = database;
-      this.name = name;
+    public CompoundIdentifierImplementor(String schema, String table) {
+      this.schema = schema;
+      this.table = table;
     }
 
     @Override
     public void implement(SqlWriter w) {
-      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(new String[]{database, name}), SqlParserPos.ZERO);
+      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(new String[]{schema, table}), SqlParserPos.ZERO);
       identifier.unparse(w, 0, 0);
     }
   }
