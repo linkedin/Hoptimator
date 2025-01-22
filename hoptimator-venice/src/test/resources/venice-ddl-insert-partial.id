@@ -21,4 +21,4 @@ spec:
     parallelism: 1
     upgradeMode: stateless
     state: running
-!specify
+!specify test-store-1

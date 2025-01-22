@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.Collection;
 import java.util.Locale;
+import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 import io.kubernetes.client.common.KubernetesType;
@@ -22,7 +23,12 @@ public final class K8sUtils {
 
   // TODO: Robust and reversible canonicalization
   public static String canonicalizeName(String name) {
-    return name.toLowerCase(Locale.ROOT).replace("_", "");
+    return name.toLowerCase(Locale.ROOT).replace("_", "").replace("$", "-");
+  }
+
+  public static String canonicalizeName(String database, String name) {
+    return Stream.of(database, name).filter(x -> x != null).map(x -> canonicalizeName(x))
+        .collect(Collectors.joining("-"));
   }
 
   // see:

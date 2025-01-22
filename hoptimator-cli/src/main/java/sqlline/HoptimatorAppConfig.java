@@ -157,7 +157,7 @@ public class HoptimatorAppConfig extends Application {
       CalciteConnection conn = (CalciteConnection) sqlline.getConnection();
       RelRoot root = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root;
       try {
-        List<String> specs = DeploymentService.plan(root).pipeline().specify();
+        List<String> specs = DeploymentService.plan(root).pipeline("sink").specify();
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
       } catch (SQLException e) {
         sqlline.error(e);

@@ -126,7 +126,7 @@ public interface PipelineRel extends RelNode {
     }
 
     /** Combine Deployables into a Pipeline */
-    public Pipeline pipeline() throws SQLException {
+    public Pipeline pipeline(String name) throws SQLException {
       List<Deployable> deployables = new ArrayList<>();
       for (Source source : sources.keySet()) {
         deployables.addAll(DeploymentService.deployables(source, Source.class));
@@ -138,7 +138,7 @@ public interface PipelineRel extends RelNode {
       }
       Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
       ConnectionService.configure(sink, Sink.class);
-      Job job = new Job(sink, sql());
+      Job job = new Job(name, sink, sql());
       RelOptUtil.equal(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       deployables.addAll(DeploymentService.deployables(sink, Sink.class));
       deployables.addAll(DeploymentService.deployables(job, Job.class));
