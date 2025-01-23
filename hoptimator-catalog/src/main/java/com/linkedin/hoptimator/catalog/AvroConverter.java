@@ -79,45 +79,55 @@ public final class AvroConverter {
   }
 
   public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory) {
+    return rel(schema, typeFactory, false);
+  }
+
+  /** Converts Avro Schema to RelDataType.
+   * Nullability is preserved except for array types, JDBC is incapable of interpreting e.g. "FLOAT NOT NULL ARRAY"
+   * causing "NOT NULL" arrays to get demoted to "ANY ARRAY" which is not desired.
+   */
+  public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory, boolean nullable) {
     RelDataType unknown = typeFactory.createUnknownType();
     switch (schema.getType()) {
       case RECORD:
         return typeFactory.createStructType(schema.getFields()
             .stream()
-            .map(x -> new AbstractMap.SimpleEntry<>(x.name(), rel(x.schema(), typeFactory)))
+            .map(x -> new AbstractMap.SimpleEntry<>(x.name(), rel(x.schema(), typeFactory, nullable)))
             .filter(x -> x.getValue().getSqlTypeName() != SqlTypeName.NULL)
             .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
             .collect(Collectors.toList()));
       case INT:
-        return createRelType(typeFactory, SqlTypeName.INTEGER);
+        return createRelType(typeFactory, SqlTypeName.INTEGER, nullable);
       case LONG:
-        return createRelType(typeFactory, SqlTypeName.BIGINT);
+        return createRelType(typeFactory, SqlTypeName.BIGINT, nullable);
       case ENUM:
       case FIXED:
       case STRING:
-        return createRelType(typeFactory, SqlTypeName.VARCHAR);
+        return createRelType(typeFactory, SqlTypeName.VARCHAR, nullable);
+      case BYTES:
+        return createRelType(typeFactory, SqlTypeName.VARBINARY, nullable);
       case FLOAT:
-        return createRelType(typeFactory, SqlTypeName.FLOAT);
+        return createRelType(typeFactory, SqlTypeName.FLOAT, nullable);
       case DOUBLE:
-        return createRelType(typeFactory, SqlTypeName.DOUBLE);
+        return createRelType(typeFactory, SqlTypeName.DOUBLE, nullable);
       case BOOLEAN:
-        return createRelType(typeFactory, SqlTypeName.BOOLEAN);
+        return createRelType(typeFactory, SqlTypeName.BOOLEAN, nullable);
       case ARRAY:
-        return typeFactory.createArrayType(rel(schema.getElementType(), typeFactory), -1);
+        return typeFactory.createArrayType(rel(schema.getElementType(), typeFactory, true), -1);
 //  TODO support map types
 //  Appears to require a Calcite version bump
 //    case MAP:
-//      return typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory));
+//      return typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory, nullable))
       case UNION:
         if (schema.isNullable() && schema.getTypes().size() == 2) {
           Schema innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst().get();
-          return typeFactory.createTypeWithNullability(rel(innerType, typeFactory), true);
+          return typeFactory.createTypeWithNullability(rel(innerType, typeFactory, true), true);
         } else {
           // TODO support more elaborate union types
           return typeFactory.createTypeWithNullability(typeFactory.createUnknownType(), true);
         }
       default:
-        return typeFactory.createUnknownType();
+        return typeFactory.createTypeWithNullability(typeFactory.createUnknownType(), nullable);
     }
   }
 
@@ -125,9 +135,9 @@ public final class AvroConverter {
     return rel(schema, DataType.DEFAULT_TYPE_FACTORY);
   }
 
-  private static RelDataType createRelType(RelDataTypeFactory typeFactory, SqlTypeName typeName) {
+  private static RelDataType createRelType(RelDataTypeFactory typeFactory, SqlTypeName typeName, boolean nullable) {
     RelDataType rawType = typeFactory.createSqlType(typeName);
-    return typeFactory.createTypeWithNullability(rawType, false);
+    return typeFactory.createTypeWithNullability(rawType, nullable);
   }
 
   public static RelProtoDataType proto(Schema schema) {

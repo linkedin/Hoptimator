@@ -14,8 +14,7 @@ import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
-import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 
@@ -29,7 +28,6 @@ import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.ConnectionService;
-import com.linkedin.hoptimator.util.DataTypeUtils;
 import com.linkedin.hoptimator.util.DeploymentService;
 
 
@@ -102,15 +100,13 @@ public interface PipelineRel extends RelNode {
     static Map<String, String> addKeysAsOption(Map<String, String> options, RelDataType rowType) {
       Map<String, String> newOptions = new LinkedHashMap<>(options);
 
-      RelDataType flattened = DataTypeUtils.flatten(rowType, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
-
       // If the keys are already set, don't overwrite them
       if (newOptions.containsKey(KEY_OPTION)) {
         return newOptions;
       }
 
-      String keyString = flattened.getFieldList().stream()
-          .map(x -> x.getName().replaceAll("\\$", "_"))
+      String keyString = rowType.getFieldList().stream()
+          .map(RelDataTypeField::getName)
           .filter(name -> name.startsWith(KEY_PREFIX))
           .collect(Collectors.joining(";"));
       if (!keyString.isEmpty()) {

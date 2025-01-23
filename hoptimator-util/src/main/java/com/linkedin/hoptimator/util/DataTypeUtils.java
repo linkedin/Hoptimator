@@ -24,9 +24,9 @@ public final class DataTypeUtils {
    * Nested structs like `FOO Row(BAR Row(QUX VARCHAR))` are promoted to
    * top-level fields like `FOO$BAR$QUX VARCHAR`.
    *
-   * Complex arrays are demoted to just `ANY ARRAY`. Primitive arrays are
-   * unchanged.
-   *
+   * Complex arrays like `FOO Row(BAR Row(QUX VARCHAR)) ARRAY` are promoted to
+   * top-level fields like `FOO ANY ARRAY` and `FOO$BAR$QUX VARCHAR`.
+   * Primitive arrays are unchanged.
    */
   public static RelDataType flatten(RelDataType dataType, RelDataTypeFactory typeFactory) {
     if (!dataType.isStruct()) {
@@ -40,11 +40,14 @@ public final class DataTypeUtils {
   private static void flattenInto(RelDataTypeFactory typeFactory, RelDataType dataType,
       RelDataTypeFactory.Builder builder, List<String> path) {
     if (dataType.getComponentType() != null && dataType.getComponentType().isStruct()) {
-      // demote complex arrays to just `ANY ARRAY`
-      builder.add(path.stream().collect(Collectors.joining("$")), typeFactory.createArrayType(
+      builder.add(String.join("$", path), typeFactory.createArrayType(
           typeFactory.createSqlType(SqlTypeName.ANY), -1));
+      for (RelDataTypeField field : dataType.getComponentType().getFieldList()) {
+        flattenInto(typeFactory, field.getType(), builder, Stream.concat(path.stream(),
+            Stream.of(field.getName())).collect(Collectors.toList()));
+      }
     } else if (!dataType.isStruct()) {
-      builder.add(path.stream().collect(Collectors.joining("$")), dataType);
+      builder.add(String.join("$", path), dataType);
     } else {
       for (RelDataTypeField field : dataType.getFieldList()) {
         flattenInto(typeFactory, field.getType(), builder, Stream.concat(path.stream(),
@@ -53,7 +56,10 @@ public final class DataTypeUtils {
     }
   }
 
-  /** Restructures flattened types, from `FOO$BAR VARCHAR` to `FOO Row(BAR VARCHAR...)` */
+  /** Restructures flattened types, from `FOO$BAR VARCHAR` to `FOO Row(BAR VARCHAR...)`
+   * The combination of fields `FOO ANY ARRAY` and `FOO$BAR$QUX VARCHAR` is reconstructed
+   * into `FOO Row(BAR Row(QUX VARCHAR)) ARRAY`
+   */
   public static RelDataType unflatten(RelDataType dataType, RelDataTypeFactory typeFactory) {
     if (!dataType.isStruct()) {
       throw new IllegalArgumentException("Can only unflatten a struct type.");
@@ -76,14 +82,23 @@ public final class DataTypeUtils {
   }
 
   private static RelDataType buildRecord(Node node, RelDataTypeFactory typeFactory) {
-    if (node.dataType != null) {
+    if (node.dataType != null && !isComplexArray(node.dataType)) {
       return node.dataType;
     }
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     for (Map.Entry<String, Node> child : node.children.entrySet()) {
       builder.add(child.getKey(), buildRecord(child.getValue(), typeFactory));
     }
+    if (isComplexArray(node.dataType)) {
+      return typeFactory.createArrayType(builder.build(), -1);
+    }
     return builder.build();
+  }
+
+
+  private static boolean isComplexArray(RelDataType dataType) {
+    return dataType != null && dataType.getComponentType() != null
+        && (dataType.getComponentType().getSqlTypeName().equals(SqlTypeName.ANY));
   }
 
   private static class Node {
