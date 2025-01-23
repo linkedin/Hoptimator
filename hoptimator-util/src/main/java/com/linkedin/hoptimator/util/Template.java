@@ -147,7 +147,7 @@ public interface Template {
   /**
    * Replaces `{{var}}` in a template file with the corresponding variable.
    *
-   * Default values can supplied with `{{var:default}}`.
+   * Default values can be supplied with `{{var:default}}`.
    *
    * Built-in transformations can be applied to variables, including:
    *

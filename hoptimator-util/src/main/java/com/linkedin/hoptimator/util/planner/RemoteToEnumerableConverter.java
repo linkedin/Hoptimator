@@ -18,8 +18,15 @@
  */
 package com.linkedin.hoptimator.util.planner;
 
-import com.linkedin.hoptimator.util.DelegatingDataSource;
-import com.linkedin.hoptimator.util.DeploymentService;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.List;
+import java.util.TimeZone;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
@@ -28,9 +35,6 @@ import org.apache.calcite.adapter.enumerable.JavaRowFormat;
 import org.apache.calcite.adapter.enumerable.PhysType;
 import org.apache.calcite.adapter.enumerable.PhysTypeImpl;
 import org.apache.calcite.adapter.enumerable.RexImpTable;
-import org.apache.calcite.adapter.java.JavaTypeFactory;
-import org.apache.calcite.adapter.jdbc.JdbcConvention;
-import org.apache.calcite.adapter.jdbc.JdbcRel;
 import org.apache.calcite.config.CalciteSystemProperty;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
 import org.apache.calcite.linq4j.tree.ConstantExpression;
@@ -51,31 +55,19 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.SqlFunctions;
-import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlString;
 import org.apache.calcite.util.BuiltInMethod;
-
 import org.checkerframework.checker.nullness.qual.Nullable;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.List;
-import java.util.TimeZone;
-import java.util.stream.Collectors;
-import javax.sql.DataSource;
-
-import static org.apache.calcite.linq4j.Nullness.castNonNull;
+import com.linkedin.hoptimator.util.DelegatingDataSource;
+import com.linkedin.hoptimator.util.DeploymentService;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.linq4j.Nullness.castNonNull;
 
 /**
  * Relational expression representing a scan of a table in a JDBC data source.
@@ -199,7 +191,7 @@ public class RemoteToEnumerableConverter
     builder0.add(
         Expressions.statement(
             Expressions.call(dataSource, "setUrl", Expressions.constant(dataSourceUrl))));
- 
+
     final Expression enumerable;
 
     if (sqlString.getDynamicParameters() != null
@@ -320,6 +312,7 @@ public class RemoteToEnumerableConverter
       source =
           Expressions.call(resultSet_, jdbcGetMethod(primitive),
               Expressions.constant(i + 1));
+      break;
     }
     builder.add(
         Expressions.statement(

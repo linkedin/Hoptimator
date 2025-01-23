@@ -1,9 +1,8 @@
 package com.linkedin.hoptimator.util.planner;
 
-import com.linkedin.hoptimator.Engine;
-
-import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.Convention;
+
+import com.linkedin.hoptimator.Engine;
 
 
 class RemoteConvention extends Convention.Impl {

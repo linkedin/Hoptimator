@@ -1,13 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.util.Objects;
 import javax.sql.DataSource;
+
+import org.apache.calcite.adapter.jdbc.JdbcSchema;
 
 import com.linkedin.hoptimator.Engine;
 import com.linkedin.hoptimator.SqlDialect;
-
-import java.util.Objects;
-
-import org.apache.calcite.adapter.jdbc.JdbcSchema;
 
 
 public class K8sEngine implements Engine {

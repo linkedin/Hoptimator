@@ -2,11 +2,9 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.schema.Schema;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -16,7 +14,6 @@ import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Engine;
 import com.linkedin.hoptimator.k8s.models.V1alpha1EngineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1EngineSpec;
-import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 
 
 public class K8sEngineTable extends K8sTable<V1alpha1Engine, V1alpha1EngineList, K8sEngineTable.Row> {
@@ -56,8 +53,8 @@ public class K8sEngineTable extends K8sTable<V1alpha1Engine, V1alpha1EngineList,
   public Row toRow(V1alpha1Engine obj) {
     return new Row(obj.getMetadata().getName(), obj.getSpec().getUrl(),
         Optional.ofNullable(obj.getSpec().getDialect()).map(x -> x.toString()).orElseGet(() -> null),
-        obj.getSpec().getDriver(), obj.getSpec().getDatabases() != null ?
-        obj.getSpec().getDatabases().toArray(new String[0]) : null);
+        obj.getSpec().getDriver(), obj.getSpec().getDatabases() != null
+        ? obj.getSpec().getDatabases().toArray(new String[0]) : null);
   }
 
   @Override
