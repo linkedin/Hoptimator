@@ -74,8 +74,10 @@ public abstract class QuidemTestBase {
                 String sql = context.previousSqlCommand().sql;
                 CalciteConnection conn = (CalciteConnection) connection;
                 RelRoot root = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root;
+                String []parts = line.split(" ", 2);
+                String pipelineName = parts.length == 2 ? parts[1] : "test";
                 String specs =
-                    DeploymentService.plan(root).pipeline().specify().stream().sorted()
+                    DeploymentService.plan(root).pipeline(pipelineName).specify().stream().sorted()
                         .collect(Collectors.joining("---\n"));
                 String[] lines = specs.replaceAll(";\n", "\n").split("\n");
                 context.echo(Arrays.asList(lines));

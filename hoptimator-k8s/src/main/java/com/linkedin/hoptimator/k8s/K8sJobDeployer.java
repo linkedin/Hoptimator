@@ -26,8 +26,9 @@ class K8sJobDeployer extends K8sYamlDeployer<Job> {
   @Override
   public List<String> specify(Job job) throws SQLException {
     Function<SqlDialect, String> sql = job.sql();
-    Template.Environment env = new Template.SimpleEnvironment().with("name",
-            job.sink().database() + "-" + job.sink().table().toLowerCase(Locale.ROOT))
+    String name = K8sUtils.canonicalizeName(job.sink().database(), job.name());
+    Template.Environment env = new Template.SimpleEnvironment()
+        .with("name", name)
         .with("database", job.sink().database())
         .with("schema", job.sink().schema())
         .with("table", job.sink().table())

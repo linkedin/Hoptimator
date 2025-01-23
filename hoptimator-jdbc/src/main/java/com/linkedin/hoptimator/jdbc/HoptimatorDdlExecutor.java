@@ -164,13 +164,20 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTableMacro);
       RelDataType rowType = materializedViewTable.getRowType(new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
 
+      // Suport "partial views", i.e. CREATE VIEW FOO$BAR, where the view name
+      // is "foo-bar" and the sink is just FOO.
+      String sinkName = viewName.split("\\$", 2)[0];
+      List<String> sinkPath = new ArrayList<>();
+      sinkPath.addAll(schemaPath);
+      sinkPath.add(sinkName); 
+
       // Plan a pipeline to materialize the view.
       RelRoot root = HoptimatorDriver.convert(context, sql).root;
       PipelineRel.Implementor plan = DeploymentService.plan(root);
-      plan.setSink(database, viewPath, rowType, Collections.emptyMap());
-      Pipeline pipeline = plan.pipeline();
+      plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
+      Pipeline pipeline = plan.pipeline(viewName);
 
-      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(), plan.pipeline());
+      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(), plan.pipeline(viewName));
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook, MaterializedView.class);
       pipeline.update();
