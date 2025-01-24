@@ -135,7 +135,6 @@ public interface PipelineRel extends RelNode {
       Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
       ConnectionService.configure(sink, Sink.class);
       Job job = new Job(name, sink, sql());
-      RelOptUtil.equal(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       deployables.addAll(DeploymentService.deployables(sink, Sink.class));
       deployables.addAll(DeploymentService.deployables(job, Job.class));
       return new Pipeline(deployables);
@@ -163,7 +162,6 @@ public interface PipelineRel extends RelNode {
       script = script.database(sink.schema());
       script = script.connector(sink.schema(), sink.table(), targetRowType, sinkConfigs);
       script = script.insert(sink.schema(), sink.table(), query, targetFields);
-      RelOptUtil.equal(sink.table(), targetRowType, "pipeline", query.getRowType(), Litmus.THROW);
       return script.seal();
     }
 
