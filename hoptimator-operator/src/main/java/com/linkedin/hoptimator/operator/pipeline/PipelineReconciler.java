@@ -117,8 +117,7 @@ public final class PipelineReconciler implements Reconciler {
     String kind = obj.getKind();
     try {
       KubernetesApiResponse<DynamicKubernetesObject> existing =
-          context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
-              .get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+          context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(namespace, name);
       existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));
       if (!existing.isSuccess()) {
         return false;

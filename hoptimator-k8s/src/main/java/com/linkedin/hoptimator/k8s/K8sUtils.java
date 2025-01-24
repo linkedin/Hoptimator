@@ -2,8 +2,8 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.Collection;
 import java.util.Locale;
-import java.util.stream.Stream;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.kubernetes.client.common.KubernetesType;
 

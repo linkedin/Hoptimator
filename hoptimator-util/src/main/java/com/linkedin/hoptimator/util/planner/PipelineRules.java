@@ -39,6 +39,8 @@ import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 
+import com.google.common.collect.ImmutableSet;
+
 import com.linkedin.hoptimator.util.DataTypeUtils;
 
 
@@ -216,7 +218,7 @@ public final class PipelineRules {
 
     PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, List<? extends RexNode> projects,
         RelDataType rowType) {
-      super(cluster, traitSet, Collections.emptyList(), input, projects, rowType);
+      super(cluster, traitSet, Collections.emptyList(), input, projects, rowType, ImmutableSet.of());
       assert getConvention() == PipelineRel.CONVENTION;
       assert input.getConvention() == PipelineRel.CONVENTION;
     }

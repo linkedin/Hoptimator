@@ -7,6 +7,8 @@ import org.apache.calcite.util.Litmus;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 
@@ -22,18 +24,18 @@ public class AvroConverterTest {
     Schema avroSchema1 = (new Schema.Parser()).parse(schemaString);
     RelDataType rel1 = AvroConverter.rel(avroSchema1);
     assertEquals(rel1.toString(), rel1.getFieldCount(), avroSchema1.getFields().size());
-    assertTrue(rel1.toString(), rel1.getField("h", false, false) != null);
+    assertNotNull(rel1.toString(), rel1.getField("h", false, false));
     RelDataType rel2 = rel1.getField("h", false, false).getType();
     assertTrue(rel2.toString(), rel2.isNullable());
     Schema avroSchema2 = avroSchema1.getField("h").schema().getTypes().get(1);
     assertEquals(rel2.toString(), rel2.getFieldCount(), avroSchema2.getFields().size());
-    assertTrue(rel2.toString(), rel2.getField("A", false, false) != null);
+    assertNotNull(rel2.toString(), rel2.getField("A", false, false));
     RelDataType rel3 = rel2.getField("A", false, false).getType();
     assertTrue(rel3.toString(), rel3.isNullable());
     Schema avroSchema3 = avroSchema2.getField("A").schema().getTypes().get(1);
     assertEquals(rel3.toString(), rel3.getFieldCount(), avroSchema3.getFields().size());
     Schema avroSchema4 = AvroConverter.avro("NS", "R", rel1);
-    assertTrue("!avroSchema4.isNullable()", !avroSchema4.isNullable());
+    assertFalse("!avroSchema4.isNullable()", avroSchema4.isNullable());
     assertEquals(avroSchema4.toString(), avroSchema4.getFields().size(), rel1.getFieldCount());
     Schema avroSchema5 = AvroConverter.avro("NS", "R", rel2);
     assertTrue("avroSchema5.isNullable()", avroSchema5.isNullable());

@@ -52,7 +52,11 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
 
   @Override
   public Table getTable(String name) {
-    return new HoptimatorJdbcTable((JdbcTable) super.getTable(name), convention);
+    JdbcTable table = (JdbcTable) super.getTable(name);
+    if (table == null) {
+      throw new RuntimeException("Could not find table " + name + " in database " + database);
+    }
+    return new HoptimatorJdbcTable(table, convention);
   }
 
   @Override

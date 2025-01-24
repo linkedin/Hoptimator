@@ -74,6 +74,11 @@ spec:
                 sql:
                   description: The SQL being implemented by this SqlJob.
                   type: string
+                configs:
+                  description: The SQL configurations used by this SqlJob.
+                  type: object
+                  additionalProperties:
+                    type: string
       subresources:
         status: {}
       additionalPrinterColumns:

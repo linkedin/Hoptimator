@@ -173,7 +173,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       List<String> sinkPath = new ArrayList<>();
       sinkPath.addAll(schemaPath);
       sinkPath.add(sinkName);
-      Table sink = pair.left.schema.getTable(sinkName);
+      Table sink = pair.left.plus().getTable(sinkName);
 
       final RelDataType rowType;
       if (sink != null) {
