@@ -89,8 +89,7 @@ public final class PipelineRules {
     @Override
     public void implement(Implementor implementor) throws SQLException {
       RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-      implementor.addSource(database, table.getQualifiedName(),
-          DataTypeUtils.unflatten(table.getRowType(), typeFactory),
+      implementor.addSource(database, table.getQualifiedName(), table.getRowType(),
           Collections.emptyMap()); // TODO pass in table scan hints
     }
   }

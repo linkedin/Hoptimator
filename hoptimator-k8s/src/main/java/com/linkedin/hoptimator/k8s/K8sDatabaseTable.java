@@ -17,7 +17,7 @@ import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
-import com.linkedin.hoptimator.util.HoptimatorJdbcSchema;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 
 
 public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1DatabaseList, K8sDatabaseTable.Row> {

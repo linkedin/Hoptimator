@@ -166,11 +166,12 @@ public interface ScriptImplementor {
     public void implement(SqlWriter w) {
       RelToSqlConverter converter = new RelToSqlConverter(w.getDialect());
       SqlImplementor.Result result = converter.visitRoot(relNode);
-      SqlSelect select = result.asSelect();
-      if (select.getSelectList() != null) {
+      SqlNode node = result.asStatement();
+      if (node instanceof SqlSelect && ((SqlSelect) node).getSelectList() != null) {
+        SqlSelect select = (SqlSelect) node;
         select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
       }
-      select.accept(new UnflattenMemberAccess(this)).unparse(w, 0, 0);
+      node.unparse(w, 0, 0);
     }
 
     // A `ROW(...)` operator which will unparse as just `(...)`.
@@ -189,32 +190,6 @@ public interface ScriptImplementor {
         }
       }
     };
-
-    private static class UnflattenMemberAccess extends SqlShuttle {
-      private final Set<String> sinkFieldList;
-
-      UnflattenMemberAccess(QueryImplementor outer) {
-        this.sinkFieldList = outer.relNode.getRowType().getFieldList()
-            .stream()
-            .map(RelDataTypeField::getName)
-            .collect(Collectors.toSet());
-      }
-
-      // SqlShuttle gets called for every field in SELECT and every table name in FROM alike
-      // For fields in SELECT, we want to unflatten them as `FOO_BAR`, for tables `FOO.BAR`
-      @Override
-      public SqlNode visit(SqlIdentifier id) {
-        if (id.names.size() == 1 && sinkFieldList.contains(id.names.get(0))) {
-          id.assignNamesFrom(new SqlIdentifier(id.names.get(0).replaceAll("\\$", "_"), SqlParserPos.ZERO));
-        } else {
-          SqlIdentifier replacement = new SqlIdentifier(id.names.stream()
-              .flatMap(x -> Stream.of(x.split("\\$")))
-              .collect(Collectors.toList()), SqlParserPos.ZERO);
-          id.assignNamesFrom(replacement);
-        }
-        return id;
-      }
-    }
   }
 
   /**
