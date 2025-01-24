@@ -29,9 +29,11 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
@@ -160,16 +162,27 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       String database = ((Database) pair.left.schema).databaseName();
 
       // Table does not exist. Create it.
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
       ViewTableMacro viewTableMacro = ViewTable.viewMacro(schemaPlus, sql, schemaPath, viewPath, false);
       MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTableMacro);
-      RelDataType rowType = materializedViewTable.getRowType(new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
+      RelDataType viewRowType = materializedViewTable.getRowType(typeFactory);
 
       // Suport "partial views", i.e. CREATE VIEW FOO$BAR, where the view name
       // is "foo-bar" and the sink is just FOO.
       String sinkName = viewName.split("\\$", 2)[0];
       List<String> sinkPath = new ArrayList<>();
       sinkPath.addAll(schemaPath);
-      sinkPath.add(sinkName); 
+      sinkPath.add(sinkName);
+      Table sink = pair.left.schema.getTable(sinkName);
+
+      final RelDataType rowType;
+      if (sink != null) {
+        // For "partial views", the sink may already exist. Use the existing row type.
+        rowType = sink.getRowType(typeFactory);
+      } else {
+        // For normal views, we create the sink based on the view row type.
+        rowType = viewRowType;
+      }
 
       // Plan a pipeline to materialize the view.
       RelRoot root = HoptimatorDriver.convert(context, sql).root;
