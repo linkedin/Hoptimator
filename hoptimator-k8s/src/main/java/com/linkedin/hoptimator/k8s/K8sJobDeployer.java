@@ -2,7 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Locale;
+import java.util.Properties;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -10,11 +10,14 @@ import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
+import com.linkedin.hoptimator.util.ConfigService;
 import com.linkedin.hoptimator.util.Template;
 
 
 /** Specifies an abstract Job with concrete YAML by applying JobTemplates. */
 class K8sJobDeployer extends K8sYamlDeployer<Job> {
+
+  private static final String FLINK_CONFIG = "flink.config";
 
   private final K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> jobTemplateApi;
 
@@ -25,6 +28,8 @@ class K8sJobDeployer extends K8sYamlDeployer<Job> {
 
   @Override
   public List<String> specify(Job job) throws SQLException {
+    Properties properties = ConfigService.config(null, false, FLINK_CONFIG);
+    properties.putAll(job.sink().options());
     Function<SqlDialect, String> sql = job.sql();
     String name = K8sUtils.canonicalizeName(job.sink().database(), job.name());
     Template.Environment env = new Template.SimpleEnvironment()
@@ -34,6 +39,7 @@ class K8sJobDeployer extends K8sYamlDeployer<Job> {
         .with("table", job.sink().table())
         .with("sql", sql.apply(SqlDialect.ANSI))
         .with("flinksql", sql.apply(SqlDialect.FLINK))
+        .with("flinkconfigs", properties)
         .with(job.sink().options());
     return jobTemplateApi.list()
         .stream()

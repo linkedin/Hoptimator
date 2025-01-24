@@ -18,18 +18,21 @@ public final class ConfigService {
   }
 
   // Null namespace will default to current namespace, may not be used by some ConfigProviders.
-  // Loads top level configs and expands input fields as file-like properties
+  // loadTopLevelConfigs=true loads top level configs and expands input fields as file-like properties
+  // loadTopLevelConfigs=false will only expand input fields as file-like properties
   // Ex:
   //  log.properties: |
   //    level=INFO
-  public static Properties config(@Nullable String namespace, String... expansionFields) {
+  public static Properties config(@Nullable String namespace, boolean loadTopLevelConfigs, String... expansionFields) {
     ServiceLoader<ConfigProvider> loader = ServiceLoader.load(ConfigProvider.class);
     Properties properties = new Properties();
     for (ConfigProvider provider : loader) {
       try {
         Properties loadedProperties = provider.loadConfig(namespace);
-        log.debug("Loaded properties={} from provider={}", loadedProperties, provider);
-        properties.putAll(loadedProperties);
+        if (loadTopLevelConfigs) {
+          log.debug("Loaded properties={} from provider={}", loadedProperties, provider);
+          properties.putAll(loadedProperties);
+        }
         for (String expansionField : expansionFields) {
           if (loadedProperties == null || !loadedProperties.containsKey(expansionField)) {
             log.warn("provider={} does not contain field={}", provider, expansionField);
@@ -42,5 +45,9 @@ public final class ConfigService {
       }
     }
     return properties;
+  }
+
+  public static Properties config(@Nullable String namespace, String... expansionFields) {
+    return config(namespace, true, expansionFields);
   }
 }

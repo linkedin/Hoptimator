@@ -23,13 +23,20 @@ import com.google.gson.stream.JsonWriter;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-20T21:16:25.561Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-21T21:11:41.897Z[Etc/UTC]")
 public class V1alpha1SqlJobStatus {
+  public static final String SERIALIZED_NAME_CONFIGS = "configs";
+  @SerializedName(SERIALIZED_NAME_CONFIGS)
+  private Map<String, String> configs = null;
+
   public static final String SERIALIZED_NAME_FAILED = "failed";
   @SerializedName(SERIALIZED_NAME_FAILED)
   private Boolean failed;
@@ -45,6 +52,37 @@ public class V1alpha1SqlJobStatus {
   public static final String SERIALIZED_NAME_SQL = "sql";
   @SerializedName(SERIALIZED_NAME_SQL)
   private String sql;
+
+
+  public V1alpha1SqlJobStatus configs(Map<String, String> configs) {
+    
+    this.configs = configs;
+    return this;
+  }
+
+  public V1alpha1SqlJobStatus putConfigsItem(String key, String configsItem) {
+    if (this.configs == null) {
+      this.configs = new HashMap<>();
+    }
+    this.configs.put(key, configsItem);
+    return this;
+  }
+
+   /**
+   * The SQL configurations used by this SqlJob.
+   * @return configs
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The SQL configurations used by this SqlJob.")
+
+  public Map<String, String> getConfigs() {
+    return configs;
+  }
+
+
+  public void setConfigs(Map<String, String> configs) {
+    this.configs = configs;
+  }
 
 
   public V1alpha1SqlJobStatus failed(Boolean failed) {
@@ -148,7 +186,8 @@ public class V1alpha1SqlJobStatus {
       return false;
     }
     V1alpha1SqlJobStatus v1alpha1SqlJobStatus = (V1alpha1SqlJobStatus) o;
-    return Objects.equals(this.failed, v1alpha1SqlJobStatus.failed) &&
+    return Objects.equals(this.configs, v1alpha1SqlJobStatus.configs) &&
+        Objects.equals(this.failed, v1alpha1SqlJobStatus.failed) &&
         Objects.equals(this.message, v1alpha1SqlJobStatus.message) &&
         Objects.equals(this.ready, v1alpha1SqlJobStatus.ready) &&
         Objects.equals(this.sql, v1alpha1SqlJobStatus.sql);
@@ -156,7 +195,7 @@ public class V1alpha1SqlJobStatus {
 
   @Override
   public int hashCode() {
-    return Objects.hash(failed, message, ready, sql);
+    return Objects.hash(configs, failed, message, ready, sql);
   }
 
 
@@ -164,6 +203,7 @@ public class V1alpha1SqlJobStatus {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1SqlJobStatus {\n");
+    sb.append("    configs: ").append(toIndentedString(configs)).append("\n");
     sb.append("    failed: ").append(toIndentedString(failed)).append("\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");

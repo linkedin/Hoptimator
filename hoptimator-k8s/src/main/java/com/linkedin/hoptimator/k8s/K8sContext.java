@@ -9,6 +9,8 @@ import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Optional;
 
+import org.apache.commons.lang3.StringUtils;
+
 import io.kubernetes.client.apimachinery.GroupVersion;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
@@ -19,7 +21,6 @@ import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.KubeConfig;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
-import org.apache.commons.lang3.StringUtils;
 
 
 public class K8sContext {

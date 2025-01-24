@@ -429,17 +429,38 @@ public interface ScriptImplementor {
       if (dataType.isStruct()) {
         List<SqlIdentifier> fieldNames = dataType.getFieldList()
             .stream()
-            .map(x -> x.getName())
+            .map(RelDataTypeField::getName)
             .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
             .collect(Collectors.toList());
-        List<SqlDataTypeSpec> fieldTypes =
-            dataType.getFieldList().stream().map(x -> x.getType()).map(x -> toSpec(x)).collect(Collectors.toList());
+        List<SqlDataTypeSpec> fieldTypes = dataType.getFieldList()
+            .stream()
+            .map(RelDataTypeField::getType)
+            .map(RowTypeSpecImplementor::toSpec)
+            .collect(Collectors.toList());
         return maybeNullable(dataType,
             new SqlDataTypeSpec(new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes), SqlParserPos.ZERO));
       } else if (dataType.getComponentType() != null) {
+        // To handle ROW ARRAY types
+        if (dataType.getComponentType().isStruct()) {
+          List<SqlIdentifier> fieldNames = dataType.getComponentType().getFieldList()
+              .stream()
+              .map(RelDataTypeField::getName)
+              .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
+              .collect(Collectors.toList());
+          List<SqlDataTypeSpec> fieldTypes = dataType.getComponentType().getFieldList()
+              .stream()
+              .map(RelDataTypeField::getType)
+              .map(RowTypeSpecImplementor::toSpec)
+              .collect(Collectors.toList());
+          return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(
+              new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes),
+              dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
+        }
+
+        // To handle primitive ARRAY types, e.g. `FLOAT ARRAY`.
         return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(new SqlBasicTypeNameSpec(
             Optional.ofNullable(dataType.getComponentType())
-                .map(x -> x.getSqlTypeName())
+                .map(RelDataType::getSqlTypeName)
                 .orElseThrow(() -> new IllegalArgumentException("not a collection?")), SqlParserPos.ZERO),
             dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
       } else {
