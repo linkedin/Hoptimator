@@ -16,7 +16,7 @@ import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Engine;
 import com.linkedin.hoptimator.k8s.models.V1alpha1EngineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1EngineSpec;
-import com.linkedin.hoptimator.util.HoptimatorJdbcSchema;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 
 
 public class K8sEngineTable extends K8sTable<V1alpha1Engine, V1alpha1EngineList, K8sEngineTable.Row> {
