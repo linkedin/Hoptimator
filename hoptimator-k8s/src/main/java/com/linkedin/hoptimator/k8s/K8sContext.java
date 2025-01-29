@@ -116,10 +116,6 @@ public class K8sContext {
     currentContext = context;
   }
 
-
-  // If $HOME/.kube/config is defined, use that config file.
-  // If POD_NAMESPACE_FILEPATH is defined, use that config file.
-  // Use Config.defaultClient() and defaultNamespace if no config file is found.
   static K8sContext defaultContext() throws IOException {
     Path path = Paths.get(System.getProperty("user.home"), ".kube", "config");
     if (Files.exists(path)) {
