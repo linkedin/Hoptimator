@@ -33,7 +33,6 @@ public class VeniceStore extends AbstractTable {
     RelDataType key = rel(keySchema, typeFactory);
     RelDataType value = rel(valueSchema, typeFactory);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-    builder.addAll(value.getFieldList());
     if (key.isStruct()) {
       for (RelDataTypeField field: key.getFieldList()) {
         builder.add(KEY_PREFIX + field.getName(), field.getType());
@@ -41,6 +40,7 @@ public class VeniceStore extends AbstractTable {
     } else {
       builder.add("KEY", key);
     }
+    builder.addAll(value.getFieldList());
     RelDataType combinedSchema = builder.build();
     return DataTypeUtils.flatten(combinedSchema, typeFactory);
   }

@@ -10,6 +10,8 @@ import java.time.Duration;
 import java.util.Optional;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import io.kubernetes.client.apimachinery.GroupVersion;
 import io.kubernetes.client.common.KubernetesListObject;
@@ -25,15 +27,18 @@ import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
 
 public class K8sContext {
 
+  private final static Logger LOG = LoggerFactory.getLogger(K8sContext.class);
+  public static final String DEFAULT_NAMESPACE = "default";
   private static final String ENV_OVERRIDE_BASEPATH = "KUBECONFIG_BASEPATH";
   private static K8sContext currentContext = null;
 
   private final String name;
   private final String namespace;
-  private final ApiClient apiClient;
+  private ApiClient apiClient;
   private final SharedInformerFactory informerFactory;
 
   public K8sContext(String name, String namespace, ApiClient apiClient) {
+    LOG.info("K8sContext created for namespace: {}", namespace);
     this.name = name;
     this.namespace = namespace;
     this.apiClient = apiClient;
@@ -42,6 +47,12 @@ public class K8sContext {
 
   public ApiClient apiClient() {
     return apiClient;
+  }
+
+  // Assigning a new api client should only happen once right after context creation.
+  // Re-assigning a new api client can have unexpected consequences.
+  public void apiClient(ApiClient apiClient) {
+    this.apiClient = apiClient;
   }
 
   public String name() {
@@ -57,8 +68,8 @@ public class K8sContext {
   }
 
   public <T extends KubernetesObject, U extends KubernetesListObject> void registerInformer(
-      K8sApiEndpoint<T, U> endpoint, Duration resyncPeriod) {
-    informerFactory.sharedIndexInformerFor(generic(endpoint), endpoint.elementType(), resyncPeriod.toMillis());
+      K8sApiEndpoint<T, U> endpoint, Duration resyncPeriod, String watchNamespace) {
+    informerFactory.sharedIndexInformerFor(generic(endpoint), endpoint.elementType(), resyncPeriod.toMillis(), watchNamespace);
   }
 
   public DynamicKubernetesApi dynamic(String apiVersion, String plural) {
@@ -105,6 +116,10 @@ public class K8sContext {
     currentContext = context;
   }
 
+
+  // If $HOME/.kube/config is defined, use that config file.
+  // If POD_NAMESPACE_FILEPATH is defined, use that config file.
+  // Use Config.defaultClient() and defaultNamespace if no config file is found.
   static K8sContext defaultContext() throws IOException {
     Path path = Paths.get(System.getProperty("user.home"), ".kube", "config");
     if (Files.exists(path)) {
@@ -113,19 +128,13 @@ public class K8sContext {
         KubeConfig kubeConfig = KubeConfig.loadKubeConfig(r);
         kubeConfig.setFile(file);
         ApiClient apiClient = addEnvOverrides(kubeConfig).build();
-        String namespace = Optional.ofNullable(kubeConfig.getNamespace()).orElse("default");
+        String namespace = Optional.ofNullable(kubeConfig.getNamespace()).orElse(DEFAULT_NAMESPACE);
         return new K8sContext(kubeConfig.getCurrentContext(), namespace, apiClient);
       }
     } else {
       ApiClient apiClient = Config.defaultClient();
-      String filePath = System.getenv("POD_NAMESPACE_FILEPATH");
-      String namespace;
-      if (filePath == null) {
-        namespace = "default";
-      } else {
-        namespace = new String(Files.readAllBytes(Paths.get(filePath)));
-      }
-      return new K8sContext("default", namespace, apiClient);
+      String namespace = getNamespace();
+      return new K8sContext(namespace, namespace, apiClient);
     }
   }
 
@@ -138,5 +147,17 @@ public class K8sContext {
     }
 
     return builder;
+  }
+
+  private static String getNamespace() throws IOException {
+    String filePath = System.getenv("POD_NAMESPACE_FILEPATH");
+    if (filePath != null) {
+      return new String(Files.readAllBytes(Paths.get(filePath)));
+    }
+    String namespace = System.getProperty("SELF_POD_NAMESPACE");
+    if (namespace != null) {
+      return namespace;
+    }
+    return DEFAULT_NAMESPACE;
   }
 }
