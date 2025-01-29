@@ -3,12 +3,8 @@ package com.linkedin.hoptimator.util.planner;
 import java.util.Collection;
 import java.util.List;
 
-import com.linkedin.hoptimator.util.DataTypeUtils;
-
 import org.apache.calcite.adapter.java.AbstractQueryableTable;
-import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
-import org.apache.calcite.adapter.jdbc.JdbcTableScan;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.linq4j.Queryable;
 import org.apache.calcite.plan.RelOptCluster;
@@ -20,10 +16,10 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ModifiableTable;
-import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.TranslatableTable;
-import org.apache.calcite.schema.impl.AbstractTableQueryable;
+
+import com.linkedin.hoptimator.util.DataTypeUtils;
 
 
 public class HoptimatorJdbcTable extends AbstractQueryableTable implements TranslatableTable,

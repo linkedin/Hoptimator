@@ -7,17 +7,14 @@ import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.SchemaVersion;
+import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.SqlDialectFactory;
-import org.apache.calcite.sql.SqlDialectFactoryImpl;
 
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Engine;
-import com.linkedin.hoptimator.util.planner.HoptimatorJdbcConvention;
 
 
 public class HoptimatorJdbcSchema extends JdbcSchema implements Database {

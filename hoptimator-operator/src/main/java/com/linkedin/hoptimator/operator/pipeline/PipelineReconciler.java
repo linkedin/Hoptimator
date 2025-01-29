@@ -97,10 +97,6 @@ public final class PipelineReconciler implements Reconciler {
   }
 
   public static Controller controller(K8sContext context) {
-    // Duplicate call, only needed while still using HoptimatorOperatorApp,
-    // when removed in favor of PipelineOperatorApp this call is redundant
-    context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5));
-
     Reconciler reconciler = new PipelineReconciler(context);
     return ControllerBuilder.defaultBuilder(context.informerFactory())
         .withReconciler(reconciler)

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -23,6 +24,7 @@ import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.util.Config;
 
 import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.models.V1alpha1Subscription;
 import com.linkedin.hoptimator.models.V1alpha1SubscriptionList;
@@ -35,17 +37,17 @@ public class HoptimatorOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(HoptimatorOperatorApp.class);
 
   final String url;
-  final String namespace;
+  final String watchNamespace;
   final ApiClient apiClient;
   final Predicate<V1alpha1Subscription> subscriptionFilter;
   final Properties properties;
   final Resource.Environment environment;
 
   /** This constructor is likely to evolve and break. */
-  public HoptimatorOperatorApp(String url, String namespace, ApiClient apiClient,
+  public HoptimatorOperatorApp(String url, String watchNamespace, ApiClient apiClient,
       Predicate<V1alpha1Subscription> subscriptionFilter, Properties properties) {
     this.url = url;
-    this.namespace = namespace;
+    this.watchNamespace = watchNamespace;
     this.apiClient = apiClient;
     this.subscriptionFilter = subscriptionFilter;
     this.properties = properties;
@@ -59,9 +61,10 @@ public class HoptimatorOperatorApp {
 
     Options options = new Options();
 
-    Option namespace = new Option("n", "namespace", true, "specified namespace");
-    namespace.setRequired(false);
-    options.addOption(namespace);
+    Option watchNamespace = new Option("w", "watch", true,
+        "namespace to watch for resource operations, empty string indicates all namespaces");
+    watchNamespace.setRequired(false);
+    options.addOption(watchNamespace);
 
     CommandLineParser parser = new DefaultParser();
     HelpFormatter formatter = new HelpFormatter();
@@ -78,9 +81,10 @@ public class HoptimatorOperatorApp {
     }
 
     String urlInput = cmd.getArgs()[0];
-    String namespaceInput = cmd.getOptionValue("namespace", "default");
+    String watchNamespaceInput = cmd.getOptionValue("watch", "");
 
-    new HoptimatorOperatorApp(urlInput, namespaceInput, Config.defaultClient(), null, new Properties()).run();
+    new HoptimatorOperatorApp(urlInput, watchNamespaceInput,
+        Config.defaultClient(), null, new Properties()).run();
   }
 
   public void run() throws Exception {
@@ -91,8 +95,9 @@ public class HoptimatorOperatorApp {
 
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder().readTimeout(0, TimeUnit.SECONDS).build());
     SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
-    Operator operator = new Operator(namespace, apiClient, informerFactory, properties);
+    Operator operator = new Operator(watchNamespace, apiClient, informerFactory, properties);
     K8sContext context = K8sContext.currentContext();
+    context.apiClient(apiClient);
 
     operator.registerApi("Subscription", "subscription", "subscriptions", "hoptimator.linkedin.com", "v1alpha1",
         V1alpha1Subscription.class, V1alpha1SubscriptionList.class);
@@ -100,6 +105,8 @@ public class HoptimatorOperatorApp {
     List<Controller> controllers = new ArrayList<>();
     controllers.addAll(ControllerService.controllers(operator));
     controllers.add(SubscriptionReconciler.controller(operator, plannerFactory, environment, subscriptionFilter));
+
+    context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), watchNamespace);
     controllers.add(PipelineReconciler.controller(context));
 
     ControllerManager controllerManager =
