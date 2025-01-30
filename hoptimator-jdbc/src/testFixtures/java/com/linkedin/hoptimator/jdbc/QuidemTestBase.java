@@ -14,6 +14,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -76,7 +77,7 @@ public abstract class QuidemTestBase {
                 String []parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
                 String specs =
-                    DeploymentService.plan(root, conn.connectionProperties())
+                    DeploymentService.plan(root, conn.connectionProperties(), new HashMap<>())
                         .pipeline(pipelineName).specify().stream().sorted()
                         .collect(Collectors.joining("---\n"));
                 String[] lines = specs.replaceAll(";\n", "\n").split("\n");

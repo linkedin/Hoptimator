@@ -3,6 +3,9 @@ package com.linkedin.hoptimator.jdbc;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.function.Supplier;
 
@@ -12,10 +15,18 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
+import org.apache.calcite.rel.hint.HintPredicates;
+import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.util.WrappedSchemaPlus;
@@ -23,6 +34,7 @@ import com.linkedin.hoptimator.util.WrappedSchemaPlus;
 
 /** Driver for :jdbc:hoptimator:// connections. */
 public class HoptimatorDriver extends Driver {
+  private final static Logger LOG = LoggerFactory.getLogger(HoptimatorDriver.class);
 
   public HoptimatorDriver() {
     super();
@@ -104,7 +116,37 @@ public class HoptimatorDriver extends Driver {
 
   @Override
   public Driver withPrepareFactory(Supplier<CalcitePrepare> prepareFactory) {
-      return new HoptimatorDriver(prepareFactory); 
+      return new HoptimatorDriver(prepareFactory);
+  }
+
+  public static HintStrategyTable hintStrategyTable() {
+    return HintStrategyTable.builder()
+        .hintStrategy("OPTIONS", HintPredicates.TABLE_SCAN)
+        .build();
+  }
+
+  public static Map<String, Map<String, String>> assembleTableHints(SqlNode sqlNode) {
+    Map<String, Map<String, String>> tableHints = new LinkedHashMap<>();
+    if (sqlNode instanceof SqlSelect) {
+      if (!((SqlSelect) sqlNode).hasHints()) {
+        return tableHints;
+      }
+      List<RelHint> hints = SqlUtil.getRelHint(hintStrategyTable(), ((SqlSelect) sqlNode).getHints());
+      for (RelHint hint : hints) {
+        for (Map.Entry<String, String> entry : hint.kvOptions.entrySet()) {
+          String[] keyPath = entry.getKey().split("\\$", 2);
+          if (keyPath.length == 2) {
+            String tableName = keyPath[0];
+            String hintName = keyPath[1];
+            Map<String, String> tableHint = tableHints.computeIfAbsent(tableName, k -> new LinkedHashMap<>());
+            tableHint.put(hintName, entry.getValue());
+          } else {
+            LOG.warn("Hint key '{}' does not contain table name, format as 'tableName$hintName'", entry.getKey());
+          }
+        }
+      }
+    }
+    return tableHints;
   }
 
   public static class Prepare extends CalcitePrepareImpl {

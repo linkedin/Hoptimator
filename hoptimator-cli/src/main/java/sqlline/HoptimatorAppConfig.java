@@ -5,9 +5,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
-import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.jdbc.CalcitePrepare;
 import org.jline.reader.Completer;
 
 import com.linkedin.hoptimator.SqlDialect;
@@ -87,8 +88,9 @@ public class HoptimatorAppConfig extends Application {
       String sql = split[1];
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
-        RelRoot root = HoptimatorDriver.convert(conn, sql).root;
-        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.connectionProperties());
+        CalcitePrepare.ConvertResult convert = HoptimatorDriver.convert(conn, sql);
+        Map<String, Map<String, String>> tableHints = HoptimatorDriver.assembleTableHints(convert.sqlNode);
+        PipelineRel.Implementor plan = DeploymentService.plan(convert.root, conn.connectionProperties(), tableHints);
         sqlline.output(plan.sql().apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
@@ -155,9 +157,10 @@ public class HoptimatorAppConfig extends Application {
       }
       String sql = split[1];
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
-      RelRoot root = HoptimatorDriver.convert(conn, sql).root;
+      CalcitePrepare.ConvertResult convert = HoptimatorDriver.convert(conn, sql);
+      Map<String, Map<String, String>> tableHints = HoptimatorDriver.assembleTableHints(convert.sqlNode);
       try {
-        List<String> specs = DeploymentService.plan(root, conn.connectionProperties())
+        List<String> specs = DeploymentService.plan(convert.root, conn.connectionProperties(), tableHints)
             .pipeline("sink").specify();
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
       } catch (SQLException e) {

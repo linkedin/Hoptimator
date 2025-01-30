@@ -51,6 +51,7 @@ public interface PipelineRel extends RelNode {
   class Implementor {
     private final Properties connectionProperties;
     private final ImmutablePairList<Integer, String> targetFields;
+    private final Map<String, Map<String, String>> tableHints;
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private RelNode query;
     private String sinkDatabase = "pipeline";
@@ -58,9 +59,10 @@ public interface PipelineRel extends RelNode {
     private RelDataType sinkRowType = null;
     private Map<String, String> sinkOptions = Collections.emptyMap();
 
-    public Implementor(Properties connectionProperties, ImmutablePairList<Integer, String> targetFields) {
+    public Implementor(Properties connectionProperties, ImmutablePairList<Integer, String> targetFields, Map<String, Map<String, String>> tableHints) {
       this.connectionProperties = connectionProperties;
       this.targetFields = targetFields;
+      this.tableHints = tableHints;
     }
 
     public void visit(RelNode node) throws SQLException {
@@ -80,7 +82,13 @@ public interface PipelineRel extends RelNode {
      * a connector. The connector is configured via `CREATE TABLE...WITH(...)`.
      */
     public void addSource(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
-      sources.put(new Source(database, path, addKeysAsOption(options, rowType)), rowType);
+      Map<String, String> newOptions = new LinkedHashMap<>(options);
+      addKeysAsOption(newOptions, rowType);
+      String tableName = path.get(path.size() - 1);
+      if (tableHints.containsKey(tableName)) {
+        newOptions.putAll(tableHints.get(tableName));
+      }
+      sources.put(new Source(database, path, newOptions), rowType);
     }
 
     /**
@@ -93,16 +101,21 @@ public interface PipelineRel extends RelNode {
       this.sinkDatabase = database;
       this.sinkPath = path;
       this.sinkRowType = rowType;
-      this.sinkOptions = addKeysAsOption(options, rowType);
+
+      Map<String, String> newOptions = new LinkedHashMap<>(options);
+      addKeysAsOption(newOptions, rowType);
+      String tableName = path.get(path.size() - 1);
+      if (tableHints.containsKey(tableName)) {
+        newOptions.putAll(tableHints.get(tableName));
+      }
+      this.sinkOptions = newOptions;
     }
 
     @VisibleForTesting
-    static Map<String, String> addKeysAsOption(Map<String, String> options, RelDataType rowType) {
-      Map<String, String> newOptions = new LinkedHashMap<>(options);
-
+    static void addKeysAsOption(Map<String, String> options, RelDataType rowType) {
       // If the keys are already set, don't overwrite them
-      if (newOptions.containsKey(KEY_OPTION)) {
-        return newOptions;
+      if (options.containsKey(KEY_OPTION)) {
+        return;
       }
 
       String keyString = rowType.getFieldList().stream()
@@ -110,11 +123,10 @@ public interface PipelineRel extends RelNode {
           .filter(name -> name.startsWith(KEY_PREFIX))
           .collect(Collectors.joining(";"));
       if (!keyString.isEmpty()) {
-        newOptions.put(KEY_OPTION, keyString);
-        newOptions.put(KEY_PREFIX_OPTION, KEY_PREFIX);
-        newOptions.put(KEY_TYPE_OPTION, "RECORD");
+        options.put(KEY_OPTION, keyString);
+        options.put(KEY_PREFIX_OPTION, KEY_PREFIX);
+        options.put(KEY_TYPE_OPTION, "RECORD");
       }
-      return newOptions;
     }
 
     public void setQuery(RelNode query) {

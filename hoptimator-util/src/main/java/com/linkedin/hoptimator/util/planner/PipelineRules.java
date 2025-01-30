@@ -5,9 +5,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Convention;
@@ -26,6 +28,7 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalCalc;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
@@ -74,7 +77,7 @@ public final class PipelineRules {
       TableScan scan = (TableScan) rel;
       RelOptTable table = scan.getTable();
       RelTraitSet traitSet = scan.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineTableScan(rel.getCluster(), traitSet, database, table);
+      return new PipelineTableScan(rel.getCluster(), traitSet, scan.getHints(), database, table);
     }
   }
 
@@ -82,8 +85,8 @@ public final class PipelineRules {
 
     private final String database;
 
-    PipelineTableScan(RelOptCluster cluster, RelTraitSet traitSet, String database, RelOptTable table) {
-      super(cluster, traitSet, Collections.emptyList(), table);
+    PipelineTableScan(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, String database, RelOptTable table) {
+      super(cluster, traitSet, hints, table);
       assert getConvention() == PipelineRel.CONVENTION;
       this.database = database;
     }
@@ -91,8 +94,11 @@ public final class PipelineRules {
     @Override
     public void implement(Implementor implementor) throws SQLException {
       RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-      implementor.addSource(database, table.getQualifiedName(), table.getRowType(),
-          Collections.emptyMap()); // TODO pass in table scan hints
+      Map<String, String> hintMap = hints.stream()
+          .map(hint -> hint.kvOptions)
+          .flatMap(map -> map.entrySet().stream())
+          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+      implementor.addSource(database, table.getQualifiedName(), table.getRowType(), hintMap);
     }
   }
 
@@ -209,23 +215,23 @@ public final class PipelineRules {
     public RelNode convert(RelNode rel) {
       Project project = (Project) rel;
       RelTraitSet traitSet = project.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineProject(rel.getCluster(), traitSet, convert(project.getInput(), PipelineRel.CONVENTION),
-          project.getProjects(), project.getRowType());
+      return new PipelineProject(rel.getCluster(), traitSet, project.getHints(),
+          convert(project.getInput(), PipelineRel.CONVENTION), project.getProjects(), project.getRowType());
     }
   }
 
   static class PipelineProject extends Project implements PipelineRel {
 
-    PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, List<? extends RexNode> projects,
+    PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, RelNode input, List<? extends RexNode> projects,
         RelDataType rowType) {
-      super(cluster, traitSet, Collections.emptyList(), input, projects, rowType, ImmutableSet.of());
+      super(cluster, traitSet, hints, input, projects, rowType, ImmutableSet.of());
       assert getConvention() == PipelineRel.CONVENTION;
       assert input.getConvention() == PipelineRel.CONVENTION;
     }
 
     @Override
     public PipelineProject copy(RelTraitSet traitSet, RelNode input, List<RexNode> projects, RelDataType rowType) {
-      return new PipelineProject(getCluster(), traitSet, input, projects, rowType);
+      return new PipelineProject(getCluster(), traitSet, getHints(), input, projects, rowType);
     }
 
     @Override

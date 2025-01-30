@@ -24,6 +24,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Properties;
 import java.util.TimeZone;
@@ -92,7 +93,7 @@ public class RemoteToEnumerableConverter
   private SqlString generateSql(SqlDialect dialect) {
     RelRoot root = RelRoot.of(getInput(), SqlKind.SELECT);
     try {
-      PipelineRel.Implementor plan = DeploymentService.plan(root, connectionProperties);
+      PipelineRel.Implementor plan = DeploymentService.plan(root, connectionProperties, new HashMap<>());
       return new SqlString(MysqlSqlDialect.DEFAULT, plan.query().apply(com.linkedin.hoptimator.SqlDialect.FLINK));  // TODO dialect
     } catch (SQLException e) {
       throw new RuntimeException(e);

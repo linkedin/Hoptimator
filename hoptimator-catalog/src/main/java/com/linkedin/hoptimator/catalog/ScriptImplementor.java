@@ -24,6 +24,7 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlRowTypeNameSpec;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlWriter;
+import org.apache.calcite.sql.SqlWriterConfig;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -102,10 +103,7 @@ public interface ScriptImplementor {
 
   /** Render the script as DDL/SQL in the given dialect */
   default String sql(SqlDialect dialect) {
-    SqlWriter w = new SqlPrettyWriter(dialect);
-// TODO: fix in next Calcite version
-//  above is deprecated; replace with:
-//    SqlWriter w = new SqlPrettyWriter(SqlWriterConfig.of().withDialect(dialect));
+    SqlWriter w = new SqlPrettyWriter(SqlWriterConfig.of().withDialect(dialect));
     implement(w);
     return w.toSqlString().getSql().replaceAll("\\n", " ").replaceAll(";", ";\n").trim();
   }

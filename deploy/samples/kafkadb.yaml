@@ -26,7 +26,7 @@ spec:
         strimzi.io/cluster: one
     spec:
       topicName: {{table}}
-      partitions: 1
+      partitions: {{partitions:1}}
       replicas: 1
       config:
         retention.ms: 7200000

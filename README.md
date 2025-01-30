@@ -129,3 +129,12 @@ Hoptimator can be extended via `TableTemplates`:
  $ kubectl apply -f my-table-template.yaml
 ```
 
+## Hints
+
+Users may want to provide additional information that will be used during Job or Sink creation.
+This can be done by adding hints to the SQL query.
+
+For example, to specify the number of kafka partitions, you could add the following hint to the query:
+```
+ > CREATE MATERIALIZED VIEW KAFKA."existing-topic-1$myview" as select * /*+ OPTIONS('existing-topic-1$partitions'='4') */ from ads.page_views;
+```

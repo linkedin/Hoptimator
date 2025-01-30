@@ -24,11 +24,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -191,9 +191,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
 
       // Plan a pipeline to materialize the view.
-      RelRoot root = new HoptimatorDriver.Prepare(connectionProperties)
-          .convert(context, sql).root;
-      PipelineRel.Implementor plan = DeploymentService.plan(root, connectionProperties);
+      CalcitePrepare.ConvertResult convert = new HoptimatorDriver.Prepare(connectionProperties)
+          .convert(context, sql);
+      Map<String, Map<String, String>> tableHints = HoptimatorDriver.assembleTableHints(convert.sqlNode);
+      PipelineRel.Implementor plan = DeploymentService.plan(convert.root, connectionProperties, tableHints);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline(viewName);
 

@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -96,15 +97,15 @@ public final class DeploymentService {
   }
 
   /** Plans a deployable Pipeline which implements the query. */
-  public static PipelineRel.Implementor plan(RelRoot root, Properties connectionProperties) throws SQLException {
+  public static PipelineRel.Implementor plan(RelRoot root, Properties connectionProperties, Map<String, Map<String, String>> tableHints) throws SQLException {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
-    PipelineRules.rules().forEach(x -> planner.addRule(x));
+    PipelineRules.rules().forEach(planner::addRule);
     // TODO add materializations here (currently empty list)
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, Collections.emptyList(),
         Collections.emptyList());
-    PipelineRel.Implementor implementor = new PipelineRel.Implementor(connectionProperties, root.fields);
+    PipelineRel.Implementor implementor = new PipelineRel.Implementor(connectionProperties, root.fields, tableHints);
     implementor.visit(plan);
     return implementor;
   }

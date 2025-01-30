@@ -21,14 +21,16 @@ public class TestPipelineRel {
     RelDataTypeFactory.Builder primitiveKeyBuilder = new RelDataTypeFactory.Builder(typeFactory);
     primitiveKeyBuilder.add("KEY", SqlTypeName.VARCHAR);
     primitiveKeyBuilder.add("intField", SqlTypeName.INTEGER);
-    Map<String, String> keyOptions = addKeysAsOption(new HashMap<>(), primitiveKeyBuilder.build());
+    Map<String, String> keyOptions = new HashMap<>();
+    addKeysAsOption(keyOptions, primitiveKeyBuilder.build());
     assertTrue(keyOptions.isEmpty());
 
     RelDataTypeFactory.Builder recordBuilder = new RelDataTypeFactory.Builder(typeFactory);
     recordBuilder.add("KEY_int", SqlTypeName.INTEGER);
     recordBuilder.add("KEY_string", SqlTypeName.VARCHAR);
     recordBuilder.add("intField", SqlTypeName.INTEGER);
-    keyOptions = addKeysAsOption(new HashMap<>(), recordBuilder.build());
+    keyOptions = new HashMap<>();
+    addKeysAsOption(keyOptions, recordBuilder.build());
     assertEquals(3, keyOptions.size());
     assertEquals("KEY_int;KEY_string", keyOptions.get("keys"));
     assertEquals("KEY_", keyOptions.get("keyPrefix"));
