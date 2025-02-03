@@ -9,7 +9,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.RelFactories;
@@ -20,6 +19,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
@@ -27,6 +27,7 @@ import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlMapTypeNameSpec;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlRowTypeNameSpec;
@@ -42,10 +43,7 @@ import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.tools.RelBuilder;
-import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
-
-import com.google.common.collect.ImmutableList;
 
 
 /**
@@ -103,7 +101,7 @@ public interface ScriptImplementor {
   }
 
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
-  default ScriptImplementor insert(String schema, String table, RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
+  default ScriptImplementor insert(String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
     return with(new InsertImplementor(schema, table, relNode, targetFields));
   }
 
@@ -262,9 +260,9 @@ public interface ScriptImplementor {
     private final String schema;
     private final String table;
     private final RelNode relNode;
-    private final ImmutableList<Pair<Integer, String>> targetFields;
+    private final ImmutablePairList<Integer, String> targetFields;
 
-    public InsertImplementor(String schema, String table, RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
+    public InsertImplementor(String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
       this.schema = schema;
       this.table = table;
       this.relNode = relNode;
@@ -283,10 +281,10 @@ public interface ScriptImplementor {
 
     // Drops NULL fields
     // Drops non-target columns, for use case: INSERT INTO (col1, col2) SELECT * FROM ...
-    private static RelNode dropFields(RelNode relNode, ImmutableList<Pair<Integer, String>> targetFields) {
+    private static RelNode dropFields(RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
       List<Integer> cols = new ArrayList<>();
       int i = 0;
-      Set<String> targetFieldNames = targetFields.stream().map(x -> x.right).collect(Collectors.toSet());
+      Set<String> targetFieldNames = targetFields.stream().map(Map.Entry::getValue).collect(Collectors.toSet());
       for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
         if (targetFieldNames.contains(field.getName())
             && !field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
@@ -463,6 +461,9 @@ public interface ScriptImplementor {
                 .map(RelDataType::getSqlTypeName)
                 .orElseThrow(() -> new IllegalArgumentException("not a collection?")), SqlParserPos.ZERO),
             dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
+      } else if (dataType.getKeyType() != null && dataType.getValueType() != null) {
+        return maybeNullable(dataType, new SqlDataTypeSpec(new SqlMapTypeNameSpec(
+            toSpec(dataType.getKeyType()), toSpec(dataType.getValueType()), SqlParserPos.ZERO), SqlParserPos.ZERO));
       } else {
         return maybeNullable(dataType,
             new SqlDataTypeSpec(new SqlBasicTypeNameSpec(dataType.getSqlTypeName(), SqlParserPos.ZERO),

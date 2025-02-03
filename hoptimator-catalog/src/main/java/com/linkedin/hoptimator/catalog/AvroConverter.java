@@ -33,6 +33,8 @@ public final class AvroConverter {
       switch (dataType.getSqlTypeName()) {
         case INTEGER:
           return createAvroTypeWithNullability(Schema.Type.INT, dataType.isNullable());
+        case SMALLINT:
+          return createAvroTypeWithNullability(Schema.Type.INT, dataType.isNullable());
         case BIGINT:
           return createAvroTypeWithNullability(Schema.Type.LONG, dataType.isNullable());
         case VARCHAR:
@@ -48,10 +50,9 @@ public final class AvroConverter {
         case ARRAY:
           return createAvroSchemaWithNullability(Schema.createArray(avro(null, null, dataType.getComponentType())),
               dataType.isNullable());
-        // TODO support map types
-        // Appears to require a Calcite version bump
-        //    case MAP:
-        //      return createAvroSchemaWithNullability(Schema.createMap(avroPrimitive(dataType.getValueType())), dataType.isNullable());
+        case MAP:
+          return createAvroSchemaWithNullability(Schema.createMap(avro(null, null, dataType.getValueType())),
+              dataType.isNullable());
         case UNKNOWN:
         case NULL:
           return Schema.createUnion(Schema.create(Schema.Type.NULL));
@@ -90,12 +91,11 @@ public final class AvroConverter {
     RelDataType unknown = typeFactory.createUnknownType();
     switch (schema.getType()) {
       case RECORD:
-        return typeFactory.createStructType(schema.getFields()
-            .stream()
+        return typeFactory.createTypeWithNullability(typeFactory.createStructType(schema.getFields().stream()
             .map(x -> new AbstractMap.SimpleEntry<>(x.name(), rel(x.schema(), typeFactory, nullable)))
             .filter(x -> x.getValue().getSqlTypeName() != SqlTypeName.NULL)
             .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
-            .collect(Collectors.toList()));
+            .collect(Collectors.toList())), nullable);
       case INT:
         return createRelType(typeFactory, SqlTypeName.INTEGER, nullable);
       case LONG:
@@ -113,21 +113,25 @@ public final class AvroConverter {
       case BOOLEAN:
         return createRelType(typeFactory, SqlTypeName.BOOLEAN, nullable);
       case ARRAY:
-        return typeFactory.createArrayType(rel(schema.getElementType(), typeFactory, true), -1);
-//  TODO support map types
-//  Appears to require a Calcite version bump
-//    case MAP:
-//      return typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory, nullable))
+        return typeFactory.createTypeWithNullability(
+            typeFactory.createArrayType(rel(schema.getElementType(), typeFactory, true), -1), nullable);
+      case MAP:
+        return typeFactory.createTypeWithNullability(
+            typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory, nullable)), nullable);
       case UNION:
+        boolean isNullable = schema.isNullable();
         if (schema.isNullable() && schema.getTypes().size() == 2) {
           Schema innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst().get();
           return typeFactory.createTypeWithNullability(rel(innerType, typeFactory, true), true);
-        } else {
-          // TODO support more elaborate union types
-          return typeFactory.createTypeWithNullability(typeFactory.createUnknownType(), true);
         }
+        return typeFactory.createTypeWithNullability(typeFactory.createStructType(schema.getTypes().stream()
+            .filter(x -> x.getType() != Schema.Type.NULL)
+            .map(x -> new AbstractMap.SimpleEntry<>(x.getName(), rel(x, typeFactory, isNullable)))
+            .filter(x -> x.getValue().getSqlTypeName() != SqlTypeName.NULL)
+            .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
+            .collect(Collectors.toList())), isNullable);
       default:
-        return typeFactory.createTypeWithNullability(typeFactory.createUnknownType(), nullable);
+        return typeFactory.createTypeWithNullability(typeFactory.createUnknownType(), true);
     }
   }
 

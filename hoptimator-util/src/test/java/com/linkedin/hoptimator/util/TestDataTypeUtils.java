@@ -97,4 +97,46 @@ public class TestDataTypeUtils {
             + "`CAR` FLOAT ARRAY) WITH ();", unflattenedConnector,
         "Flattened-unflattened connector should be correct");
   }
+
+  @Test
+  public void flattenUnflattenComplexMap() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory.Builder mapValue = new RelDataTypeFactory.Builder(typeFactory);
+    mapValue.add("BAR", SqlTypeName.VARCHAR);
+    mapValue.add("CAR", SqlTypeName.INTEGER);
+
+    RelDataTypeFactory.Builder keyBuilder = new RelDataTypeFactory.Builder(typeFactory);
+    RelDataTypeFactory.Builder valueBuilder = new RelDataTypeFactory.Builder(typeFactory);
+    keyBuilder.add("QUX", SqlTypeName.VARCHAR);
+    valueBuilder.add("QIZ", mapValue.build());
+
+    RelDataTypeFactory.Builder mapBuilder = new RelDataTypeFactory.Builder(typeFactory);
+    mapBuilder.add("FOO", typeFactory.createMapType(keyBuilder.build(), valueBuilder.build()));
+    RelDataType rowType = mapBuilder.build();
+    Assertions.assertEquals(1, rowType.getFieldList().size());
+    RelDataType flattenedType = DataTypeUtils.flatten(rowType, typeFactory);
+    Assertions.assertEquals(3, flattenedType.getFieldList().size());
+    List<String> flattenedNames = flattenedType.getFieldList().stream().map(RelDataTypeField::getName)
+        .collect(Collectors.toList());
+    Assertions.assertIterableEquals(Arrays.asList("FOO$keyType", "FOO$valueType$QIZ$BAR", "FOO$valueType$QIZ$CAR"), flattenedNames);
+    String flattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+        flattenedType, Collections.emptyMap()).sql();
+    Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` ("
+            + "`FOO_keyType` ROW(`QUX` VARCHAR), "
+            + "`FOO_valueType_QIZ_BAR` VARCHAR, "
+            + "`FOO_valueType_QIZ_CAR` INTEGER) WITH ();", flattenedConnector,
+        "Flattened connector should have simplified map");
+
+    RelDataType unflattenedType = DataTypeUtils.unflatten(flattenedType, typeFactory);
+    RelOptUtil.eq("original", rowType, "flattened-unflattened", unflattenedType, Litmus.THROW);
+    String originalConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+        rowType, Collections.emptyMap()).sql();
+    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+        unflattenedType, Collections.emptyMap()).sql();
+    Assertions.assertEquals(originalConnector, unflattenedConnector,
+        "Flattening and unflattening data types should have no impact on connector");
+    Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` ("
+            + "`FOO` MAP< ROW(`QUX` VARCHAR), ROW(`QIZ` ROW(`BAR` VARCHAR, `CAR` INTEGER)) >) WITH ();", unflattenedConnector,
+        "Flattened-unflattened connector should be correct");
+  }
 }
