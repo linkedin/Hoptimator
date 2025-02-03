@@ -15,6 +15,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 
 public final class DataTypeUtils {
 
+  private static final String MAP_KEY_TYPE = "keyType";
+  private static final String MAP_VALUE_TYPE = "valueType";
+
   private DataTypeUtils() {
   }
 
@@ -46,13 +49,17 @@ public final class DataTypeUtils {
         flattenInto(typeFactory, field.getType(), builder, Stream.concat(path.stream(),
             Stream.of(field.getName())).collect(Collectors.toList()));
       }
-    } else if (!dataType.isStruct()) {
-      builder.add(String.join("$", path), dataType);
-    } else {
+    } else if (dataType.isStruct()) {
       for (RelDataTypeField field : dataType.getFieldList()) {
         flattenInto(typeFactory, field.getType(), builder, Stream.concat(path.stream(),
             Stream.of(field.getName())).collect(Collectors.toList()));
       }
+    } else if (dataType.getKeyType() != null && dataType.getValueType() != null) {
+      builder.add(String.join("$", path) + "$" + MAP_KEY_TYPE, dataType.getKeyType());
+      flattenInto(typeFactory, dataType.getValueType(), builder, Stream.concat(path.stream(),
+          Stream.of(MAP_VALUE_TYPE)).collect(Collectors.toList()));
+    } else {
+      builder.add(String.join("$", path), dataType);
     }
   }
 
@@ -86,6 +93,13 @@ public final class DataTypeUtils {
       return node.dataType;
     }
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
+    // Placeholders to handle MAP type
+    if (node.children.size() == 2
+        && node.children.containsKey(MAP_KEY_TYPE) && node.children.containsKey(MAP_VALUE_TYPE)) {
+      RelDataType keyType = buildRecord(node.children.get(MAP_KEY_TYPE), typeFactory);
+      RelDataType valueType = buildRecord(node.children.get(MAP_VALUE_TYPE), typeFactory);
+      return typeFactory.createMapType(keyType, valueType);
+    }
     for (Map.Entry<String, Node> child : node.children.entrySet()) {
       builder.add(child.getKey(), buildRecord(child.getValue(), typeFactory));
     }

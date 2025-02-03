@@ -14,10 +14,9 @@ import org.apache.calcite.plan.Convention;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.util.Pair;
+import org.apache.calcite.runtime.ImmutablePairList;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Job;
@@ -49,7 +48,7 @@ public interface PipelineRel extends RelNode {
 
   /** Implements a deployable Pipeline. */
   class Implementor {
-    private final ImmutableList<Pair<Integer, String>> targetFields;
+    private final ImmutablePairList<Integer, String> targetFields;
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private RelNode query;
     private String sinkDatabase = "pipeline";
@@ -57,7 +56,7 @@ public interface PipelineRel extends RelNode {
     private RelDataType sinkRowType = null;
     private Map<String, String> sinkOptions = Collections.emptyMap();
 
-    public Implementor(ImmutableList<Pair<Integer, String>> targetFields) {
+    public Implementor(ImmutablePairList<Integer, String> targetFields) {
       this.targetFields = targetFields;
     }
 
