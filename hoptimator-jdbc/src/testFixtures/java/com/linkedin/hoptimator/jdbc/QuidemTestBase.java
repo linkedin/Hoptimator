@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.RelRoot;
 import org.junit.jupiter.api.Assertions;
 
@@ -68,16 +67,17 @@ public abstract class QuidemTestBase {
           public void execute(Context context, boolean execute) throws Exception {
             if (execute) {
               try (Connection connection = context.connection()) {
-                if (!(connection instanceof CalciteConnection)) {
+                if (!(connection instanceof HoptimatorConnection)) {
                   throw new IllegalArgumentException("This connection doesn't support `!specify`.");
                 }
                 String sql = context.previousSqlCommand().sql;
-                CalciteConnection conn = (CalciteConnection) connection;
-                RelRoot root = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root;
+                HoptimatorConnection conn = (HoptimatorConnection) connection;
+                RelRoot root = HoptimatorDriver.convert(conn, sql).root;
                 String []parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
                 String specs =
-                    DeploymentService.plan(root).pipeline(pipelineName).specify().stream().sorted()
+                    DeploymentService.plan(root, conn.connectionProperties())
+                        .pipeline(pipelineName).specify().stream().sorted()
                         .collect(Collectors.joining("---\n"));
                 String[] lines = specs.replaceAll(";\n", "\n").split("\n");
                 context.echo(Arrays.asList(lines));

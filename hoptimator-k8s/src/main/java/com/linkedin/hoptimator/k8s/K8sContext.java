@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.io.File;
+import java.io.InputStream;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Files;
@@ -8,8 +9,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Optional;
+import java.util.Properties;
 
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,37 +27,69 @@ import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
 
 
 public class K8sContext {
-
-  private final static Logger LOG = LoggerFactory.getLogger(K8sContext.class);
   public static final String DEFAULT_NAMESPACE = "default";
-  private static final String ENV_OVERRIDE_BASEPATH = "KUBECONFIG_BASEPATH";
-  private static K8sContext currentContext = null;
+  public static final String NAMESPACE_KEY = "k8s.namespace";
+  public static final String SERVER_KEY = "k8s.server";
+  public static final String USER_KEY = "k8s.user";
+  public static final String PASSWORD_KEY = "k8s.password";
+  public static final String TOKEN_KEY = "k8s.token";
+  public static final String SSL_TRUSTSTORE_LOCATION_KEY = "k8s.ssl.truststore.location";
 
-  private final String name;
   private final String namespace;
+  private final String clientInfo;
   private ApiClient apiClient;
   private final SharedInformerFactory informerFactory;
 
-  public K8sContext(String name, String namespace, ApiClient apiClient) {
-    LOG.info("K8sContext created for namespace: {}", namespace);
-    this.name = name;
-    this.namespace = namespace;
-    this.apiClient = apiClient;
+  public K8sContext(Properties connectionProperties) {
+    if (connectionProperties.getProperty(NAMESPACE_KEY) != null) {
+      this.namespace = connectionProperties.getProperty(NAMESPACE_KEY);
+    } else {
+      this.namespace = getPodNamespace();
+    }
+    String server = connectionProperties.getProperty(SERVER_KEY);
+    String user = connectionProperties.getProperty(USER_KEY);
+    String password = connectionProperties.getProperty(PASSWORD_KEY);
+    String token = connectionProperties.getProperty(TOKEN_KEY);
+    String truststore = connectionProperties.getProperty(SSL_TRUSTSTORE_LOCATION_KEY);
+
+    if (server != null && user != null && password != null) {
+      this.clientInfo = "User " + user + " accessing " + server + " via password authentication";
+      this.apiClient = Config.fromUserPassword(server, user, password);
+    } else if (server != null && token != null) {
+      this.clientInfo = "Accessing " + server + " via token authentication";
+      this.apiClient = Config.fromToken(server, token);
+      this.apiClient.setApiKeyPrefix("Bearer");
+    } else if (server != null) {
+      this.clientInfo = "Using default configuration from ./kube/config to access " + server;
+      try {
+        this.apiClient = Config.defaultClient();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      this.apiClient.setBasePath(server);
+    } else {
+      this.clientInfo = "Using default configuration from ./kube/config";
+      try {
+        this.apiClient = Config.defaultClient();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    if (truststore != null) {
+      try {
+        InputStream in = Files.newInputStream(Paths.get(truststore));
+        apiClient.setSslCaCert(in);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
     this.informerFactory = new SharedInformerFactory(apiClient);
   }
 
   public ApiClient apiClient() {
     return apiClient;
-  }
-
-  // Assigning a new api client should only happen once right after context creation.
-  // Re-assigning a new api client can have unexpected consequences.
-  public void apiClient(ApiClient apiClient) {
-    this.apiClient = apiClient;
-  }
-
-  public String name() {
-    return name;
   }
 
   public String namespace() {
@@ -98,57 +131,17 @@ public class K8sContext {
 
   @Override
   public String toString() {
-    return name + "/" + namespace;
+    return clientInfo;
   }
 
-  public static K8sContext currentContext() {
-    if (currentContext == null) {
-      try {
-        currentContext = defaultContext();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
-    }
-    return currentContext;
-  }
-
-  public static void useContext(K8sContext context) {
-    currentContext = context;
-  }
-
-  static K8sContext defaultContext() throws IOException {
-    Path path = Paths.get(System.getProperty("user.home"), ".kube", "config");
-    if (Files.exists(path)) {
-      File file = path.toFile();
-      try (Reader r = Files.newBufferedReader(file.toPath())) {
-        KubeConfig kubeConfig = KubeConfig.loadKubeConfig(r);
-        kubeConfig.setFile(file);
-        ApiClient apiClient = addEnvOverrides(kubeConfig).build();
-        String namespace = Optional.ofNullable(kubeConfig.getNamespace()).orElse(DEFAULT_NAMESPACE);
-        return new K8sContext(kubeConfig.getCurrentContext(), namespace, apiClient);
-      }
-    } else {
-      ApiClient apiClient = Config.defaultClient();
-      String namespace = getNamespace();
-      return new K8sContext(namespace, namespace, apiClient);
-    }
-  }
-
-  private static ClientBuilder addEnvOverrides(KubeConfig kubeConfig) throws IOException {
-    ClientBuilder builder = ClientBuilder.kubeconfig(kubeConfig);
-
-    String basePath = System.getenv(ENV_OVERRIDE_BASEPATH);
-    if (StringUtils.isNotBlank(basePath)) {
-      builder.setBasePath(basePath);
-    }
-
-    return builder;
-  }
-
-  private static String getNamespace() throws IOException {
+  private static String getPodNamespace() {
     String filePath = System.getenv("POD_NAMESPACE_FILEPATH");
     if (filePath != null) {
-      return new String(Files.readAllBytes(Paths.get(filePath)));
+      try {
+        return new String(Files.readAllBytes(Paths.get(filePath)));
+      } catch (IOException e) {
+        // swallow
+      }
     }
     String namespace = System.getProperty("SELF_POD_NAMESPACE");
     if (namespace != null) {

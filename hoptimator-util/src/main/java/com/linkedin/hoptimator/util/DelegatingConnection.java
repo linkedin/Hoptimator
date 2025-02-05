@@ -20,11 +20,11 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
 
-class DelegatingConnection implements Connection {
+public class DelegatingConnection implements Connection {
 
   private final Connection connection;
 
-  DelegatingConnection(Connection connection) {
+  public DelegatingConnection(Connection connection) {
     this.connection = connection;
   }
 
@@ -125,17 +125,17 @@ class DelegatingConnection implements Connection {
 
   @Override
   public void commit() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    // nop
   }
 
   @Override
   public void rollback() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    // nop
   }
 
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    // nop
   }
 
   @Override

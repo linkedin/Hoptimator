@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
+import java.util.function.Supplier;
 
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -23,19 +24,20 @@ import com.linkedin.hoptimator.util.WrappedSchemaPlus;
 public class HoptimatorDriver extends Driver {
 
   public HoptimatorDriver() {
-    super(Prepare::new);
+    super();
+  }
+
+  private HoptimatorDriver(Supplier<CalcitePrepare> prepareFactory) {
+    super(prepareFactory);
   }
 
   static {
     new HoptimatorDriver().register();
   }
 
-  public static CalcitePrepare.ConvertResult convert(CalcitePrepare.Context context, String sql) {
-    return new Prepare().convert(context, sql);
-  }
-
-  public static CalcitePrepare.ConvertResult convert(CalciteConnection connection, String sql) {
-    return convert(connection.createPrepareContext(), sql);
+  public static CalcitePrepare.ConvertResult convert(HoptimatorConnection conn, String sql) {
+    CalcitePrepare.Context context = conn.createPrepareContext();
+    return new Prepare(conn.connectionProperties()).convert(context, sql);
   }
 
   @Override
@@ -54,6 +56,11 @@ public class HoptimatorDriver extends Driver {
       return null;
     }
     try {
+      if (prepareFactory == null) {
+        // funky way of extending Driver with a custom Prepare:
+        return withPrepareFactory(() -> new Prepare(props))
+          .connect(url, props);
+      }
       Connection connection = super.connect(url, props);
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
@@ -74,22 +81,33 @@ public class HoptimatorDriver extends Driver {
       if (catalogs.length == 0 || catalogs[0].length() == 0) {
         // load all catalogs (typical usage)
         for (Catalog catalog : CatalogService.catalogs()) {
-          catalog.register(wrappedRootSchema);
+          catalog.register(wrappedRootSchema, props);
         }
       } else {
         // load specific catalogs when loaded as `jdbc:hoptimator://foo,bar`
         for (String catalog : catalogs) {
-          CatalogService.catalog(catalog).register(wrappedRootSchema);
+          CatalogService.catalog(catalog).register(wrappedRootSchema, props);
         }
       }
 
-      return connection;
+      return new HoptimatorConnection(calciteConnection, props);
     } catch (Exception e) {
       throw new SQLException("Problem loading " + url, e);
     }
   }
 
+  @Override
+  public Driver withPrepareFactory(Supplier<CalcitePrepare> prepareFactory) {
+      return new HoptimatorDriver(prepareFactory); 
+  }
+
   public static class Prepare extends CalcitePrepareImpl {
+
+    private final Properties connectionProperties;
+
+    Prepare(Properties connectionProperties) {
+      this.connectionProperties = connectionProperties;
+    }
 
     @Override
     protected SqlParser.Config parserConfig() {
@@ -98,7 +116,7 @@ public class HoptimatorDriver extends Driver {
 
     @Override
     public void executeDdl(Context context, SqlNode node) {
-      new HoptimatorDdlExecutor().executeDdl(context, node);
+      new HoptimatorDdlExecutor(connectionProperties).executeDdl(context, node);
     }
   }
 }

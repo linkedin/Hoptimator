@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.operator;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -25,10 +26,10 @@ import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
 public class PipelineOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(PipelineOperatorApp.class);
 
-  final String watchNamespace;
+  final Properties connectionProperties;
 
-  public PipelineOperatorApp(String watchNamespace) {
-    this.watchNamespace = watchNamespace;
+  public PipelineOperatorApp(Properties connectionProperties) {
+    this.connectionProperties = connectionProperties;
   }
 
   public static void main(String[] args) throws Exception {
@@ -55,14 +56,17 @@ public class PipelineOperatorApp {
 
     String watchNamespaceInput = cmd.getOptionValue("watch", "");
 
-    new PipelineOperatorApp(watchNamespaceInput).run();
+    Properties props = new Properties();
+    props.put("k8s.namespace", watchNamespaceInput);
+
+    new PipelineOperatorApp(props).run();
   }
 
   public void run() throws Exception {
-    K8sContext context = K8sContext.currentContext();
+    K8sContext context = new K8sContext(connectionProperties);
 
     // register informers
-    context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), watchNamespace);
+    context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), context.namespace());
 
     List<Controller> controllers = new ArrayList<>();
     // TODO: add additional controllers from ControllerProvider SPI

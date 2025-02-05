@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
@@ -26,27 +27,31 @@ public final class DeploymentService {
   private DeploymentService() {
   }
 
-  public static <T> void create(T object, Class<T> clazz) throws SQLException {
-    for (Deployer<T> deployer : deployers(clazz)) {
+  public static <T> void create(T object, Class<T> clazz, Properties connectionProperties)
+      throws SQLException {
+    for (Deployer<T> deployer : deployers(clazz, connectionProperties)) {
       deployer.create(object);
     }
   }
 
-  public static <T> void delete(T object, Class<T> clazz) throws SQLException {
-    for (Deployer<T> deployer : deployers(clazz)) {
+  public static <T> void delete(T object, Class<T> clazz, Properties connectionProperties)
+      throws SQLException {
+    for (Deployer<T> deployer : deployers(clazz, connectionProperties)) {
       deployer.delete(object);
     }
   }
 
-  public static <T> void update(T object, Class<T> clazz) throws SQLException {
-    for (Deployer<T> deployer : deployers(clazz)) {
+  public static <T> void update(T object, Class<T> clazz, Properties connectionProperties)
+      throws SQLException {
+    for (Deployer<T> deployer : deployers(clazz, connectionProperties)) {
       deployer.update(object);
     }
   }
 
-  public static <T> List<String> specify(T object, Class<T> clazz) throws SQLException {
+  public static <T> List<String> specify(T object, Class<T> clazz, Properties connectionProperties)
+      throws SQLException {
     List<String> specs = new ArrayList<>();
-    for (Deployer<T> deployer : deployers(clazz)) {
+    for (Deployer<T> deployer : deployers(clazz, connectionProperties)) {
       specs.addAll(deployer.specify(object));
     }
     return specs;
@@ -59,12 +64,14 @@ public final class DeploymentService {
     return providers;
   }
 
-  public static <T> Collection<Deployer<T>> deployers(Class<T> clazz) {
-    return providers().stream().flatMap(x -> x.deployers(clazz).stream()).collect(Collectors.toList());
+  public static <T> Collection<Deployer<T>> deployers(Class<T> clazz, Properties connectionProperties) {
+    return providers().stream()
+        .flatMap(x -> x.deployers(clazz, connectionProperties).stream())
+        .collect(Collectors.toList());
   }
 
-  public static <T> List<Deployable> deployables(T object, Class<T> clazz) {
-    return deployers(clazz).stream().map(x -> new Deployable() {
+  public static <T> List<Deployable> deployables(T object, Class<T> clazz, Properties connectionProperties) {
+    return deployers(clazz, connectionProperties).stream().map(x -> new Deployable() {
 
       @Override
       public void create() throws SQLException {
@@ -89,7 +96,7 @@ public final class DeploymentService {
   }
 
   /** Plans a deployable Pipeline which implements the query. */
-  public static PipelineRel.Implementor plan(RelRoot root) throws SQLException {
+  public static PipelineRel.Implementor plan(RelRoot root, Properties connectionProperties) throws SQLException {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
@@ -97,7 +104,7 @@ public final class DeploymentService {
     // TODO add materializations here (currently empty list)
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, Collections.emptyList(),
         Collections.emptyList());
-    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields);
+    PipelineRel.Implementor implementor = new PipelineRel.Implementor(connectionProperties, root.fields);
     implementor.visit(plan);
     return implementor;
   }

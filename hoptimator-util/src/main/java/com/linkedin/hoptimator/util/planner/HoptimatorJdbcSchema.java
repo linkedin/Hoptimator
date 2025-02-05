@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
 import java.util.List;
+import java.util.Properties;
 import javax.sql.DataSource;
 
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
@@ -24,9 +25,9 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   private final HoptimatorJdbcConvention convention;
 
   public static HoptimatorJdbcSchema create(String database, String schema, DataSource dataSource,
-      SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines) {
+      SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Properties connectionProperties) {
     Expression expression = Schemas.subSchemaExpression(parentSchema, schema, HoptimatorJdbcSchema.class);
-    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(dialect, expression, database, engines);
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(dialect, expression, database, engines, connectionProperties);
     return new HoptimatorJdbcSchema(database, schema, dataSource, dialect, convention, engines);
   }
 

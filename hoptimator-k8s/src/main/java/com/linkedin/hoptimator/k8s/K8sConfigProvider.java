@@ -14,16 +14,18 @@ public class K8sConfigProvider implements ConfigProvider {
 
   public static final String HOPTIMATOR_CONFIG_MAP = "hoptimator-configmap";
 
-  public Properties loadConfig(String namespace) throws SQLException {
-    Map<String, String> topLevelConfigs = loadTopLevelConfig(HOPTIMATOR_CONFIG_MAP, namespace);
+  public Properties loadConfig(Properties connectionProperties) throws SQLException {
+    Map<String, String> topLevelConfigs = loadTopLevelConfig(HOPTIMATOR_CONFIG_MAP, connectionProperties);
     Properties p = new Properties();
     p.putAll(topLevelConfigs);
     return p;
   }
 
   // Load top-level config map properties
-  private Map<String, String> loadTopLevelConfig(String configMapName, String namespace) throws SQLException {
-    K8sApi<V1ConfigMap, V1ConfigMapList> configMapApi = new K8sApi<>(K8sContext.currentContext(), K8sApiEndpoints.CONFIG_MAPS);
+  private Map<String, String> loadTopLevelConfig(String configMapName, Properties connectionProperties) throws SQLException {
+    K8sContext context = new K8sContext(connectionProperties);
+    K8sApi<V1ConfigMap, V1ConfigMapList> configMapApi = new K8sApi<>(context, K8sApiEndpoints.CONFIG_MAPS);
+    String namespace = context.namespace();
     if (namespace == null || namespace.isEmpty()) {
       return configMapApi.get(configMapName).getData();
     }

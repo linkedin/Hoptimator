@@ -23,12 +23,12 @@ public final class ConfigService {
   // Ex:
   //  log.properties: |
   //    level=INFO
-  public static Properties config(@Nullable String namespace, boolean loadTopLevelConfigs, String... expansionFields) {
+  public static Properties config(Properties connectionProperties, boolean loadTopLevelConfigs, String... expansionFields) {
     ServiceLoader<ConfigProvider> loader = ServiceLoader.load(ConfigProvider.class);
     Properties properties = new Properties();
     for (ConfigProvider provider : loader) {
       try {
-        Properties loadedProperties = provider.loadConfig(namespace);
+        Properties loadedProperties = provider.loadConfig(connectionProperties);
         if (loadTopLevelConfigs) {
           log.debug("Loaded properties={} from provider={}", loadedProperties, provider);
           properties.putAll(loadedProperties);
@@ -47,7 +47,7 @@ public final class ConfigService {
     return properties;
   }
 
-  public static Properties config(@Nullable String namespace, String... expansionFields) {
-    return config(namespace, true, expansionFields);
+  public static Properties config(Properties connectionProperties, String... expansionFields) {
+    return config(connectionProperties, true, expansionFields);
   }
 }

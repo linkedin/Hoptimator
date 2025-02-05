@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Properties;
 import javax.sql.DataSource;
 
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
@@ -47,10 +48,10 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     this.engines = engines;
   }
 
-  public void addDatabases(SchemaPlus parentSchema) {
+  public void addDatabases(SchemaPlus parentSchema, Properties connectionProperties) {
     for (Row row : rows()) {
       parentSchema.add(schemaName(row),
-          HoptimatorJdbcSchema.create(row.NAME, row.SCHEMA, dataSource(row), parentSchema, dialect(row), engines.forDatabase(row.NAME)));
+          HoptimatorJdbcSchema.create(row.NAME, row.SCHEMA, dataSource(row), parentSchema, dialect(row), engines.forDatabase(row.NAME), connectionProperties));
     }
   }
 

@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -68,7 +69,12 @@ import static org.apache.calcite.util.Static.RESOURCE;
 
 
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
-  public static final HoptimatorDdlExecutor INSTANCE = new HoptimatorDdlExecutor();
+
+  private final Properties connectionProperties;
+
+  public HoptimatorDdlExecutor(Properties connectionProperties) {
+    this.connectionProperties = connectionProperties;
+  }
 
   @SuppressWarnings("unused") // used via reflection
   public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
@@ -112,9 +118,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       ValidationService.validateOrThrow(viewTable, TranslatableTable.class);
       if (create.getReplace()) {
-        DeploymentService.update(viewTable, ViewTable.class);
+        DeploymentService.update(viewTable, ViewTable.class, connectionProperties);
       } else {
-        DeploymentService.create(viewTable, ViewTable.class);
+        DeploymentService.create(viewTable, ViewTable.class, connectionProperties);
       }
       schemaPlus.add(viewName, viewTable);
     } catch (Exception e) {
@@ -185,8 +191,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
 
       // Plan a pipeline to materialize the view.
-      RelRoot root = HoptimatorDriver.convert(context, sql).root;
-      PipelineRel.Implementor plan = DeploymentService.plan(root);
+      RelRoot root = new HoptimatorDriver.Prepare(connectionProperties)
+          .convert(context, sql).root;
+      PipelineRel.Implementor plan = DeploymentService.plan(root, connectionProperties);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline(viewName);
 
@@ -195,9 +202,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       ValidationService.validateOrThrow(hook, MaterializedView.class);
       pipeline.update();
       if (create.getReplace()) {
-        DeploymentService.update(hook, MaterializedView.class);
+        DeploymentService.update(hook, MaterializedView.class, connectionProperties);
       } else {
-        DeploymentService.create(hook, MaterializedView.class);
+        DeploymentService.create(hook, MaterializedView.class, connectionProperties);
       }
       schemaPlus.add(viewName, materializedViewTable);
     } catch (Exception e) {

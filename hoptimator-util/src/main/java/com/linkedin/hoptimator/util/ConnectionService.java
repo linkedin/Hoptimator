@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
@@ -18,9 +19,10 @@ public final class ConnectionService {
   private ConnectionService() {
   }
 
-  public static <T> Map<String, String> configure(T object, Class<T> clazz) throws SQLException {
+  public static <T> Map<String, String> configure(T object, Class<T> clazz, Properties connectionProperties)
+        throws SQLException {
     Map<String, String> configs = new LinkedHashMap<>();
-    for (Connector<T> connector : connectors(clazz)) {
+    for (Connector<T> connector : connectors(clazz, connectionProperties)) {
       configs.putAll(connector.configure(object));
     }
     return configs;
@@ -33,7 +35,9 @@ public final class ConnectionService {
     return providers;
   }
 
-  public static <T> Collection<Connector<T>> connectors(Class<T> clazz) {
-    return providers().stream().flatMap(x -> x.connectors(clazz).stream()).collect(Collectors.toList());
+  public static <T> Collection<Connector<T>> connectors(Class<T> clazz, Properties connectionProperties) {
+    return providers().stream()
+        .flatMap(x -> x.connectors(clazz, connectionProperties).stream())
+        .collect(Collectors.toList());
   }
 }

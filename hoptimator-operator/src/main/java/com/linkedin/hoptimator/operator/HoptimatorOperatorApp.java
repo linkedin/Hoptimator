@@ -38,17 +38,15 @@ public class HoptimatorOperatorApp {
 
   final String url;
   final String watchNamespace;
-  final ApiClient apiClient;
   final Predicate<V1alpha1Subscription> subscriptionFilter;
   final Properties properties;
   final Resource.Environment environment;
 
   /** This constructor is likely to evolve and break. */
-  public HoptimatorOperatorApp(String url, String watchNamespace, ApiClient apiClient,
+  public HoptimatorOperatorApp(String url, String watchNamespace,
       Predicate<V1alpha1Subscription> subscriptionFilter, Properties properties) {
     this.url = url;
     this.watchNamespace = watchNamespace;
-    this.apiClient = apiClient;
     this.subscriptionFilter = subscriptionFilter;
     this.properties = properties;
     this.environment = new Resource.SimpleEnvironment(properties);
@@ -84,7 +82,7 @@ public class HoptimatorOperatorApp {
     String watchNamespaceInput = cmd.getOptionValue("watch", "");
 
     new HoptimatorOperatorApp(urlInput, watchNamespaceInput,
-        Config.defaultClient(), null, new Properties()).run();
+        null, new Properties()).run();
   }
 
   public void run() throws Exception {
@@ -93,12 +91,15 @@ public class HoptimatorOperatorApp {
     // ensure JDBC connection works, and that static classes are initialized in the main thread
     HoptimatorPlanner planner = plannerFactory.makePlanner();
 
-    apiClient.setHttpClient(apiClient.getHttpClient().newBuilder().readTimeout(0, TimeUnit.SECONDS).build());
-    SharedInformerFactory informerFactory = new SharedInformerFactory(apiClient);
-    Operator operator = new Operator(watchNamespace, apiClient, informerFactory, properties);
-    K8sContext context = K8sContext.currentContext();
-    context.apiClient(apiClient);
+    Properties connectionProperties = new Properties();
+    connectionProperties.putAll(properties);
+    connectionProperties.put("k8s.namespace", watchNamespace);
+    K8sContext context = new K8sContext(connectionProperties);
 
+    ApiClient apiClient = context.apiClient();
+    apiClient.setHttpClient(apiClient.getHttpClient().newBuilder().readTimeout(0, TimeUnit.SECONDS).build());
+    SharedInformerFactory informerFactory = context.informerFactory();
+    Operator operator = new Operator(watchNamespace, apiClient, informerFactory, properties);
     operator.registerApi("Subscription", "subscription", "subscriptions", "hoptimator.linkedin.com", "v1alpha1",
         V1alpha1Subscription.class, V1alpha1SubscriptionList.class);
 
