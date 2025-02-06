@@ -31,6 +31,10 @@ public class K8sContext {
   public static final String NAMESPACE_KEY = "k8s.namespace";
   public static final String SERVER_KEY = "k8s.server";
   public static final String USER_KEY = "k8s.user";
+  public static final String KUBECONFIG_KEY = "k8s.kubeconfig";
+  public static final String IMPERSONATE_USER_KEY = "k8s.impersonate.user";
+  public static final String IMPERSONATE_GROUP_KEY = "k8s.impersonate.group";
+  public static final String IMPERSONATE_GROUPS_KEY = "k8s.impersonate.groups";
   public static final String PASSWORD_KEY = "k8s.password";
   public static final String TOKEN_KEY = "k8s.token";
   public static final String SSL_TRUSTSTORE_LOCATION_KEY = "k8s.ssl.truststore.location";
@@ -46,36 +50,48 @@ public class K8sContext {
     } else {
       this.namespace = getPodNamespace();
     }
+    String kubeconfig = connectionProperties.getProperty(KUBECONFIG_KEY);
     String server = connectionProperties.getProperty(SERVER_KEY);
     String user = connectionProperties.getProperty(USER_KEY);
+    String impersonateUser = connectionProperties.getProperty(IMPERSONATE_USER_KEY);
+    String impersonateGroup = connectionProperties.getProperty(IMPERSONATE_GROUP_KEY);
+    String impersonateGroups = connectionProperties.getProperty(IMPERSONATE_GROUPS_KEY);
     String password = connectionProperties.getProperty(PASSWORD_KEY);
     String token = connectionProperties.getProperty(TOKEN_KEY);
     String truststore = connectionProperties.getProperty(SSL_TRUSTSTORE_LOCATION_KEY);
 
+    String info = "";
+
     if (server != null && user != null && password != null) {
-      this.clientInfo = "User " + user + " accessing " + server + " via password authentication";
+      info = "User " + user + " using password authentication.";
       this.apiClient = Config.fromUserPassword(server, user, password);
     } else if (server != null && token != null) {
-      this.clientInfo = "Accessing " + server + " via token authentication";
+      info = "Using token authentication.";
       this.apiClient = Config.fromToken(server, token);
       this.apiClient.setApiKeyPrefix("Bearer");
-    } else if (server != null) {
-      this.clientInfo = "Using default configuration from ./kube/config to access " + server;
+    } else if (kubeconfig == null) {
+      info = "Using default configuration from ./kube/config.";
       try {
         this.apiClient = Config.defaultClient();
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
-      this.apiClient.setBasePath(server);
     } else {
-      this.clientInfo = "Using default configuration from ./kube/config";
-      try {
-        this.apiClient = Config.defaultClient();
+      info = "Using kubeconfig from " + kubeconfig + ".";
+      try (Reader r = Files.newBufferedReader(Paths.get(kubeconfig))) {
+        KubeConfig kubeConfig = KubeConfig.loadKubeConfig(r);
+        kubeConfig.setFile(new File(kubeconfig));
+        this.apiClient = ClientBuilder.kubeconfig(kubeConfig).build();
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }
-
+ 
+    if (server != null) {
+      info += " Accessing " + server + ".";
+      this.apiClient.setBasePath(server);
+    }
+ 
     if (truststore != null) {
       try {
         InputStream in = Files.newInputStream(Paths.get(truststore));
@@ -85,7 +101,26 @@ public class K8sContext {
       }
     }
 
+    if (impersonateUser != null) {
+      info = "User is " + impersonateUser + ". " + info;
+      apiClient.addDefaultHeader("Impersonate-User", impersonateUser);
+    }
+
+    if (impersonateGroup != null) {
+      info = "Group is " + impersonateGroup + ". " + info;
+      apiClient.addDefaultHeader("Impersonate-Group", impersonateGroup);
+    }
+
+    // Impersonate-Group header can be applied repeatedly
+    if (impersonateGroups != null) {
+      info = info + " Impersonating groups " + impersonateGroups + ".";
+      for (String x : impersonateGroups.split(",")) {
+        apiClient.addDefaultHeader("Impersonate-Group", x);
+      }
+    }
+
     this.informerFactory = new SharedInformerFactory(apiClient);
+    this.clientInfo = info;
   }
 
   public ApiClient apiClient() {
