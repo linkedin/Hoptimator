@@ -54,7 +54,7 @@ java {
   targetCompatibility = JavaVersion.VERSION_11
 }
 
-// Work-around for gradle text fixtures bug, which sponteously started publishing
+// Work-around for gradle test fixtures bug, which spontaneously started publishing
 // junit-bom to maven, for some reason.
 components.java.withVariantsFromConfiguration(configurations.testFixturesApiElements) {
   skip()
