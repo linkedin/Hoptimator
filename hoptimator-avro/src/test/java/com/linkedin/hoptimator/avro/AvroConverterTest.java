@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator.catalog;
+package com.linkedin.hoptimator.avro;
 
 import org.apache.avro.Schema;
 import org.apache.calcite.plan.RelOptUtil;

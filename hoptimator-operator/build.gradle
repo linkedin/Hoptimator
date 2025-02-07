@@ -5,19 +5,20 @@ plugins {
 }
 
 dependencies {
+  implementation project(':hoptimator-avro')
   implementation project(':hoptimator-planner')
   implementation project(':hoptimator-catalog') // <-- marked for deletion
   implementation project(':hoptimator-util')
   implementation project(':hoptimator-k8s')
   implementation project(':hoptimator-models')  // <-- marked for deletion
- 
+
   implementation libs.calcite.core
   implementation libs.kubernetes.client
   implementation libs.kubernetes.extended.client
   implementation libs.slf4j.api
   implementation libs.commons.cli
   implementation libs.avro
-  
+
   testImplementation libs.junit
   testImplementation libs.assertj
 }

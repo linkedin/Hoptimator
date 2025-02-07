@@ -6,6 +6,8 @@ import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.junit.Test;
 
+import com.linkedin.hoptimator.avro.AvroConverter;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
