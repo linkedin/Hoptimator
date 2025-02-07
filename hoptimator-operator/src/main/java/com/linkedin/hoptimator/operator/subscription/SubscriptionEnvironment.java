@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.operator.subscription;
 
-import com.linkedin.hoptimator.catalog.AvroConverter;
+import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.planner.Pipeline;
 

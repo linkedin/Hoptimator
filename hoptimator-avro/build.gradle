@@ -7,6 +7,9 @@ dependencies {
   implementation project(':hoptimator-api')
   implementation libs.avro
   implementation libs.calcite.core
+
+  testImplementation libs.junit
+  testImplementation libs.assertj
 }
 
 publishing {
