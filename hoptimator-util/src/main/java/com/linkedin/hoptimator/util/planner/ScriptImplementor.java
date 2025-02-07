@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -179,7 +180,7 @@ public interface ScriptImplementor {
     private static final SqlShuttle REMOVE_ROW_CONSTRUCTOR = new SqlShuttle() {
       @Override
       public SqlNode visit(SqlCall call) {
-        List<SqlNode> operands = call.getOperandList().stream().map(x -> x.accept(this)).collect(Collectors.toList());
+        List<SqlNode> operands = call.getOperandList().stream().map(x -> x == null ? x : x.accept(this)).collect(Collectors.toList());
         if ((call.getKind() == SqlKind.ROW || call.getKind() == SqlKind.COLUMN_LIST
             || call.getOperator() instanceof SqlRowOperator) && operands.size() > 1) {
           return IMPLIED_ROW_OPERATOR.createCall(call.getParserPosition(), operands);
