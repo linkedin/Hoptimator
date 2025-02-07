@@ -37,6 +37,8 @@ spec:
     properties.bootstrap.servers = one-kafka-bootstrap.kafka.svc.cluster.local:9094
     value.format = json
     scan.startup.mode = earliest-offset
+    key.fields = KEY
+    value.fields-include = EXCEPT_KEY
 
 ---
 

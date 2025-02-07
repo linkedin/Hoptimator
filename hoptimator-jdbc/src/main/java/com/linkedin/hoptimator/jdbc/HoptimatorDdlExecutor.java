@@ -173,7 +173,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTableMacro);
       RelDataType viewRowType = materializedViewTable.getRowType(typeFactory);
 
-      // Suport "partial views", i.e. CREATE VIEW FOO$BAR, where the view name
+      // Support "partial views", i.e. CREATE VIEW FOO$BAR, where the view name
       // is "foo-bar" and the sink is just FOO.
       String sinkName = viewName.split("\\$", 2)[0];
       List<String> sinkPath = new ArrayList<>();

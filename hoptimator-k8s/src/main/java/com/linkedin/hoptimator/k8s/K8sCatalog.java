@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.Properties;
 import java.sql.SQLException;
 import java.sql.Wrapper;
+import java.util.Properties;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.slf4j.Logger;

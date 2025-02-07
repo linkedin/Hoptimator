@@ -23,4 +23,4 @@ spec:
     key.fields-prefix = {{keyPrefix:}}
     key.fields = {{keys:KEY}}
     key.type = {{keyType:PRIMITIVE}}
-    value.fields-include: EXCEPT_KEY
+    value.fields-include = EXCEPT_KEY
