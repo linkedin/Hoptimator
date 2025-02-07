@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.sql.Wrapper;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Properties;
 
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
@@ -32,7 +33,7 @@ public class UtilityCatalog extends AbstractSchema implements Catalog {
   }
 
   @Override
-  public void register(Wrapper parentSchema) throws SQLException {
+  public void register(Wrapper parentSchema, Properties connectionProperties) throws SQLException {
     parentSchema.unwrap(SchemaPlus.class).add("UTIL", this);
   }
 

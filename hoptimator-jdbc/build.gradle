@@ -54,6 +54,16 @@ java {
   targetCompatibility = JavaVersion.VERSION_11
 }
 
+// Work-around for gradle test fixtures bug, which spontaneously started publishing
+// junit-bom to maven, for some reason.
+components.java.withVariantsFromConfiguration(configurations.testFixturesApiElements) {
+  skip()
+}
+
+components.java.withVariantsFromConfiguration(configurations.testFixturesRuntimeElements) {
+  skip()
+}
+
 publishing {
   repositories {
     maven {

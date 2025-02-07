@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Properties;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
@@ -75,18 +76,23 @@ import static org.apache.calcite.linq4j.Nullness.castNonNull;
 public class RemoteToEnumerableConverter
     extends ConverterImpl
     implements EnumerableRel {
+
+  private final Properties connectionProperties;
+
   protected RemoteToEnumerableConverter(
       RelOptCluster cluster,
       RelTraitSet traits,
-      RelNode input) {
+      RelNode input,
+      Properties connectionProperties) {
     super(cluster, ConventionTraitDef.INSTANCE, traits, input);
+    this.connectionProperties = connectionProperties;
   }
 
   /** This method modified from upstream */
   private SqlString generateSql(SqlDialect dialect) {
     RelRoot root = RelRoot.of(getInput(), SqlKind.SELECT);
     try {
-      PipelineRel.Implementor plan = DeploymentService.plan(root);
+      PipelineRel.Implementor plan = DeploymentService.plan(root, connectionProperties);
       return new SqlString(MysqlSqlDialect.DEFAULT, plan.query().apply(com.linkedin.hoptimator.SqlDialect.FLINK));  // TODO dialect
     } catch (SQLException e) {
       throw new RuntimeException(e);
@@ -95,7 +101,7 @@ public class RemoteToEnumerableConverter
 
   @Override public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     return new RemoteToEnumerableConverter(
-        getCluster(), traitSet, sole(inputs));
+        getCluster(), traitSet, sole(inputs), connectionProperties);
   }
 
   @Override public @Nullable RelOptCost computeSelfCost(RelOptPlanner planner,

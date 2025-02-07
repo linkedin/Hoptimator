@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.util.Properties;
 import java.sql.SQLException;
 import java.sql.Wrapper;
 
@@ -26,13 +27,13 @@ class K8sCatalog implements Catalog {
   }
 
   @Override
-  public void register(Wrapper parentSchema) throws SQLException {
+  public void register(Wrapper parentSchema, Properties connectionProperties) throws SQLException {
     SchemaPlus schemaPlus = parentSchema.unwrap(SchemaPlus.class);
-    K8sContext context = K8sContext.currentContext();
+    K8sContext context = new K8sContext(connectionProperties);
     log.info("Using K8s context " + context.toString());
     K8sMetadata metadata = new K8sMetadata(context);
     schemaPlus.add("k8s", metadata);
-    metadata.databaseTable().addDatabases(schemaPlus);
+    metadata.databaseTable().addDatabases(schemaPlus, connectionProperties);
     metadata.viewTable().addViews(schemaPlus);
   }
 }

@@ -6,7 +6,7 @@ import com.linkedin.hoptimator.ConfigProvider;
 
 public class SystemPropertiesConfigProvider implements ConfigProvider {
 
-  public Properties loadConfig(String namespace) {
+  public Properties loadConfig(Properties connectionProperties) {
     return System.getProperties();
   }
 }

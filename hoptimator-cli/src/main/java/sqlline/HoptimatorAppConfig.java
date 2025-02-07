@@ -7,11 +7,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Scanner;
 
-import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.RelRoot;
 import org.jline.reader.Completer;
 
 import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -73,7 +73,7 @@ public class HoptimatorAppConfig extends Application {
 
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
-      if (!(sqlline.getConnection() instanceof CalciteConnection)) {
+      if (!(sqlline.getConnection() instanceof HoptimatorConnection)) {
         sqlline.error("This connection doesn't support `!pipeline`.");
         dispatchCallback.setToFailure();
         return;
@@ -85,10 +85,10 @@ public class HoptimatorAppConfig extends Application {
         return;
       }
       String sql = split[1];
-      CalciteConnection conn = (CalciteConnection) sqlline.getConnection();
+      HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
-        RelRoot root = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root;
-        PipelineRel.Implementor plan = DeploymentService.plan(root);
+        RelRoot root = HoptimatorDriver.convert(conn, sql).root;
+        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.connectionProperties());
         sqlline.output(plan.sql().apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
@@ -142,7 +142,7 @@ public class HoptimatorAppConfig extends Application {
 
     @Override
     public void execute(String line, DispatchCallback dispatchCallback) {
-      if (!(sqlline.getConnection() instanceof CalciteConnection)) {
+      if (!(sqlline.getConnection() instanceof HoptimatorConnection)) {
         sqlline.error("This connection doesn't support `!specify`.");
         dispatchCallback.setToFailure();
         return;
@@ -154,10 +154,11 @@ public class HoptimatorAppConfig extends Application {
         return;
       }
       String sql = split[1];
-      CalciteConnection conn = (CalciteConnection) sqlline.getConnection();
-      RelRoot root = HoptimatorDriver.convert(conn.createPrepareContext(), sql).root;
+      HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
+      RelRoot root = HoptimatorDriver.convert(conn, sql).root;
       try {
-        List<String> specs = DeploymentService.plan(root).pipeline("sink").specify();
+        List<String> specs = DeploymentService.plan(root, conn.connectionProperties())
+            .pipeline("sink").specify();
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
       } catch (SQLException e) {
         sqlline.error(e);

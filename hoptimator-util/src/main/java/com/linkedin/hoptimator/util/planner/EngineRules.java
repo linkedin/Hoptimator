@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
 import java.util.Collections;
+import java.util.Properties;
 
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
@@ -31,9 +32,10 @@ public final class EngineRules {
     this.engine = engine;
   }
 
-  public void register(HoptimatorJdbcConvention inTrait, RelOptPlanner planner) {
+  public void register(HoptimatorJdbcConvention inTrait, RelOptPlanner planner,
+      Properties connectionProperties) {
     RemoteConvention remote = inTrait.remoteConventionForEngine(engine);
-    planner.addRule(RemoteToEnumerableConverterRule.create(remote));
+    planner.addRule(RemoteToEnumerableConverterRule.create(remote, connectionProperties));
     planner.addRule(RemoteJoinRule.Config.INSTANCE
         .withConversion(PipelineRules.PipelineJoin.class, PipelineRel.CONVENTION, remote, "RemoteJoinRule")
         .withRuleFactory(RemoteJoinRule::new)
