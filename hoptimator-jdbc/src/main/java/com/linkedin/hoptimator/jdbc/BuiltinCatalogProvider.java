@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.jdbc;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Properties;
 
 import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.CatalogProvider;

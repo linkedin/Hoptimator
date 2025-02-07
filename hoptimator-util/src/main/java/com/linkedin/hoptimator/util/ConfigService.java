@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.util;
 import java.io.StringReader;
 import java.util.Properties;
 import java.util.ServiceLoader;
-import javax.annotation.Nullable;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

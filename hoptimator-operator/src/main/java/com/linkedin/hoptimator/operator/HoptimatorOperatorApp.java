@@ -21,7 +21,6 @@ import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.ControllerManager;
 import io.kubernetes.client.informer.SharedInformerFactory;
 import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.util.Config;
 
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;

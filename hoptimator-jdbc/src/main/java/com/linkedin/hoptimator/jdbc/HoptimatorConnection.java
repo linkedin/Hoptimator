@@ -1,8 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.sql.Connection;
-import java.sql.Statement;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Properties;
 
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -24,7 +23,7 @@ public class HoptimatorConnection extends DelegatingConnection {
 
   @Override
   public Statement createStatement() throws SQLException {
-    return connection.createStatement(); 
+    return connection.createStatement();
   }
 
   public Properties connectionProperties() {
@@ -32,7 +31,7 @@ public class HoptimatorConnection extends DelegatingConnection {
   }
 
   public CalcitePrepare.Context createPrepareContext() {
-    return connection.createPrepareContext(); 
+    return connection.createPrepareContext();
   }
 
   public CalciteConnection calciteConnection() {
