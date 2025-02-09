@@ -12,8 +12,6 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
 
-import com.linkedin.hoptimator.util.ConfigService;
-
 
 /** JDBC driver for Venice stores. */
 public class VeniceDriver extends Driver {
@@ -40,8 +38,9 @@ public class VeniceDriver extends Driver {
       return null;
     }
     // Connection string properties are given precedence over config properties
-    Properties properties = ConfigService.config(null, CONFIG_NAME);
+    Properties properties = new Properties();
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
+    properties.putAll(props); // in case the driver is loaded via getConnection()
     String cluster = properties.getProperty("cluster");
     if (cluster == null) {
       throw new IllegalArgumentException("Missing required cluster property. Need: jdbc:venice://cluster=...");

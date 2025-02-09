@@ -16,7 +16,6 @@ public final class ConfigService {
   private ConfigService() {
   }
 
-  // Null namespace will default to current namespace, may not be used by some ConfigProviders.
   // loadTopLevelConfigs=true loads top level configs and expands input fields as file-like properties
   // loadTopLevelConfigs=false will only expand input fields as file-like properties
   // Ex:
