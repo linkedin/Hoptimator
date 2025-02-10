@@ -39,8 +39,8 @@ public class VeniceDriver extends Driver {
     }
     // Connection string properties are given precedence over config properties
     Properties properties = new Properties();
-    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     properties.putAll(props); // in case the driver is loaded via getConnection()
+    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     String cluster = properties.getProperty("cluster");
     if (cluster == null) {
       throw new IllegalArgumentException("Missing required cluster property. Need: jdbc:venice://cluster=...");

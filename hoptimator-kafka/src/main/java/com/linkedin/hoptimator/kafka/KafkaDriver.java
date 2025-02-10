@@ -35,8 +35,8 @@ public class KafkaDriver extends Driver {
       return null;
     }
     Properties properties = new Properties();
-    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     properties.putAll(props); // in case the driver is loaded via getConnection()
+    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     try {
       Connection connection = super.connect(url, props);
       if (connection == null) {

@@ -77,7 +77,8 @@ public class HoptimatorDriver extends Driver {
 
       WrappedSchemaPlus wrappedRootSchema = new WrappedSchemaPlus(rootSchema);
 
-      // Load properties from url and from getConnection()
+      // Load properties from the URL and from getConnection()'s properties.
+      // URL properties take precedence.
       Properties properties = new Properties();
       properties.putAll(props); // via getConnection()
       properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
