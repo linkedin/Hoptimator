@@ -42,7 +42,7 @@ public abstract class QuidemTestBase {
       Quidem.Config config = Quidem.configBuilder()
           .withReader(r)
           .withWriter(w)
-          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://" + x))
+          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://catalogs=" + x))
           .withCommandHandler(new CustomCommandHandler())
           .build();
       new Quidem(config).execute();

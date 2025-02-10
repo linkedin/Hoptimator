@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.function.Supplier;
 
+import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -69,28 +70,32 @@ public class HoptimatorDriver extends Driver {
       CalciteConnection calciteConnection = (CalciteConnection) connection;
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
 
-      String remaining = url.substring(getConnectStringPrefix().length()).trim();
-      String[] catalogs = remaining.split(",");
-
       // built-in schemas
       rootSchema.add("DEFAULT", new AbstractSchema());
 
       calciteConnection.setSchema("DEFAULT");
 
       WrappedSchemaPlus wrappedRootSchema = new WrappedSchemaPlus(rootSchema);
+
+      // Load properties from url and from getConnection()
+      Properties properties = new Properties();
+      properties.putAll(props); // via getConnection()
+      properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
+      String[] catalogs = properties.getProperty("catalogs", "").split(",");
+
       if (catalogs.length == 0 || catalogs[0].length() == 0) {
         // load all catalogs (typical usage)
         for (Catalog catalog : CatalogService.catalogs()) {
-          catalog.register(wrappedRootSchema, props);
+          catalog.register(wrappedRootSchema, properties);
         }
       } else {
-        // load specific catalogs when loaded as `jdbc:hoptimator://foo,bar`
+        // load specific catalogs when loaded as `jdbc:hoptimator://catalogs=foo,bar`
         for (String catalog : catalogs) {
           CatalogService.catalog(catalog).register(wrappedRootSchema, props);
         }
       }
 
-      return new HoptimatorConnection(calciteConnection, props);
+      return new HoptimatorConnection(calciteConnection, properties);
     } catch (Exception e) {
       throw new SQLException("Problem loading " + url, e);
     }
