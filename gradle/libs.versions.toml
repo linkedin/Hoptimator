@@ -1,6 +1,6 @@
 [libraries]
 assertj = "org.assertj:assertj-core:3.12.0"
-avro = "org.apache.avro:avro:1.10.2"
+avro = "org.apache.avro:avro:1.11.4"
 calcite-avatica = "org.apache.calcite.avatica:avatica:1.25.0"
 calcite-core = "org.apache.calcite:calcite-core:1.38.0"
 calcite-server = "org.apache.calcite:calcite-server:1.38.0"
