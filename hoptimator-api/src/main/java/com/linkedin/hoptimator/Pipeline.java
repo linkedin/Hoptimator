@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator;
 
-import java.sql.SQLException;
 import java.util.Collection;
 
 
@@ -9,9 +8,9 @@ import java.util.Collection;
  */
 public class Pipeline {
 
-  private Collection<Source> sources;
-  private Sink sink;
-  private Job job;
+  private final Collection<Source> sources;
+  private final Sink sink;
+  private final Job job;
 
   public Pipeline(Collection<Source> sources, Sink sink, Job job) {
     this.sources = sources;

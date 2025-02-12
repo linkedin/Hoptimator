@@ -205,10 +205,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       // Plan a pipeline to materialize the view.
       RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
-      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations());
+      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), connectionProperties);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
- 
+
       MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(connectionProperties), pipeline);
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook);
@@ -217,8 +217,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         DeploymentService.update(hook, connectionProperties);
       } else {
         DeploymentService.create(hook, connectionProperties);
-      } 
-      
+      }
+
       schemaPlus.add(viewName, materializedViewTable);
     } catch (Exception e) {
       throw new RuntimeException("Cannot CREATE MATERIALIZED VIEW in " + schemaName + ": " + e.getMessage(), e);

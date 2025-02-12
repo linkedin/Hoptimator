@@ -6,7 +6,6 @@ import java.util.stream.Collectors;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
-import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;

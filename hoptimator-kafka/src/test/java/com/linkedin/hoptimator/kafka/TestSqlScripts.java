@@ -11,6 +11,6 @@ public class TestSqlScripts extends QuidemTestBase {
   @Test
   @Tag("integration")
   public void kafkaDdlScript() throws Exception {
-    run("kafka-ddl.id");
+    run("kafka-ddl.id", "hints=kafka.partitions=4,flink.parallelism=2");
   }
 }
