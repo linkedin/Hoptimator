@@ -129,3 +129,15 @@ Hoptimator can be extended via `TableTemplates`:
  $ kubectl apply -f my-table-template.yaml
 ```
 
+## Hints
+
+Users may want to provide additional information that will be used during Job or Sink creation.
+This can be done by adding hints as a JDBC property.
+
+Hints are key-value pairs separated by a colon. Multiple hints are separated by a comma.
+For example, to specify the number of kafka partitions and the flink parallelism, you could add the following hints to the query:
+```
+jdbc:hoptimator://hints=kafka.partitions:4,flink.parallelism:2
+```
+
+Note that hints are simply recommendations, if the planner plans a different pipeline, they can be ignored.

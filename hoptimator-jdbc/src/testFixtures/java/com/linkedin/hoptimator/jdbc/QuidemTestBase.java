@@ -32,17 +32,28 @@ import com.linkedin.hoptimator.util.DeploymentService;
 public abstract class QuidemTestBase {
 
   protected void run(String resourceName) throws IOException, URISyntaxException {
-    run(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(resourceName)).toURI());
+    run(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(resourceName)).toURI(), "");
   }
 
-  protected void run(URI resource) throws IOException {
+  protected void run(String resourceName, String hints) throws IOException, URISyntaxException {
+    run(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(resourceName)).toURI(), hints);
+  }
+
+  protected void run(URI resource, String hints) throws IOException {
     File in = new File(resource);
     File out = File.createTempFile(in.getName(), ".out");
+
+    String connectionString = "jdbc:hoptimator://";
+    if (hints != null && !hints.isEmpty()) {
+      connectionString += "hints=" + hints + ";";
+    }
+
     try (Reader r = new FileReader(in); Writer w = new PrintWriter(out)) {
+      String finalConnectionString = connectionString;
       Quidem.Config config = Quidem.configBuilder()
           .withReader(r)
           .withWriter(w)
-          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://catalogs=" + x))
+          .withConnectionFactory((x, y) -> DriverManager.getConnection(finalConnectionString + "catalogs=" + x))
           .withCommandHandler(new CustomCommandHandler())
           .build();
       new Quidem(config).execute();

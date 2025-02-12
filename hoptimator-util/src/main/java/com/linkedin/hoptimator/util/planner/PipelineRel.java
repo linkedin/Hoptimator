@@ -18,6 +18,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.ImmutablePairList;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Job;
@@ -44,12 +45,14 @@ public interface PipelineRel extends RelNode {
   String KEY_PREFIX_OPTION = "keyPrefix";
   String KEY_TYPE_OPTION = "keyType";
   String KEY_PREFIX = "KEY_";
+  String HINT_OPTION = "hints";
 
   void implement(Implementor implementor) throws SQLException;
 
   /** Implements a deployable Pipeline. */
   class Implementor {
     private final Properties connectionProperties;
+    private final Map<String, String> hints;
     private final ImmutablePairList<Integer, String> targetFields;
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private RelNode query;
@@ -60,6 +63,11 @@ public interface PipelineRel extends RelNode {
 
     public Implementor(Properties connectionProperties, ImmutablePairList<Integer, String> targetFields) {
       this.connectionProperties = connectionProperties;
+      if (connectionProperties.containsKey(HINT_OPTION)) {
+        this.hints = Splitter.on(',').withKeyValueSeparator(':').split(connectionProperties.getProperty(HINT_OPTION));
+      } else {
+        this.hints = new LinkedHashMap<>();
+      }
       this.targetFields = targetFields;
     }
 
@@ -93,7 +101,10 @@ public interface PipelineRel extends RelNode {
       this.sinkDatabase = database;
       this.sinkPath = path;
       this.sinkRowType = rowType;
-      this.sinkOptions = addKeysAsOption(options, rowType);
+
+      Map<String, String> newOptions = addKeysAsOption(options, rowType);
+      newOptions.putAll(this.hints);
+      this.sinkOptions = newOptions;
     }
 
     @VisibleForTesting
