@@ -5,15 +5,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+import io.kubernetes.client.openapi.models.V1OwnerReference;
+
 import com.linkedin.hoptimator.Deployer;
-import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.MaterializedView;
-import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.DeploymentService;
-
-import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 
 /** Deploys View and Pipeline objects, along with all the pipeline elements. */

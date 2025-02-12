@@ -14,8 +14,10 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.stream.Collectors;
 
 import org.apache.calcite.rel.RelRoot;
@@ -48,7 +50,7 @@ public abstract class QuidemTestBase {
       Quidem.Config config = Quidem.configBuilder()
           .withReader(r)
           .withWriter(w)
-          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://catalogs=" + x + jdbcProperties))
+          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://catalogs=" + x + ";" + jdbcProperties))
           .withCommandHandler(new CustomCommandHandler())
           .build();
       new Quidem(config).execute();
@@ -81,7 +83,7 @@ public abstract class QuidemTestBase {
                 RelRoot root = HoptimatorDriver.convert(conn, sql).root;
                 String []parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
-                Pipeline pipeline = DeploymentService.plan(root).pipeline(pipelineName, conn.connectionProperties());
+                Pipeline pipeline = DeploymentService.plan(root, new Properties()).pipeline(pipelineName, conn.connectionProperties());
                 List<String> specs = new ArrayList<>();
                 for (Source source : pipeline.sources()) {
                   specs.addAll(DeploymentService.specify(source, conn.connectionProperties()));

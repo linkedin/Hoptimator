@@ -111,7 +111,8 @@ To push a Flink job directly to the Flink deployment created above, `kubectl app
 
 ## The SQL CLI
 
-The `./hoptimator` script launches the [sqlline](https://github.com/julianhyde/sqlline) SQL CLI pre-configured to connect to `jdbc:hoptimator://`. The CLI includes some additional commands. See `!intro`.
+The `./hoptimator` script launches the [sqlline](https://github.com/julianhyde/sqlline) SQL CLI pre-configured to connect to `jdbc:hoptimator://`.
+The CLI includes some additional commands. See `!intro`.
 
 ## The JDBC Driver
 
@@ -119,13 +120,70 @@ To use Hoptimator from Java code, or from anything that supports JDBC, use the `
 
 ## The Operator
 
-`hoptimator-operator` turns materialized views into real data pipelines.
+`hoptimator-operator` turns materialized views into real data pipelines. The name operator comes from the Kubernetes Operator pattern.
+`PipelineOperatorApp` is intended to be an entry point for a running application that can listen to and reconcile the resources created in Kubernetes by the K8s Deployers.
+See [hoptimator-operator-deployment.yaml](deploy/hoptimator-operator-deployment.yaml) for K8s pod deployment of the operator.
 
 ## Extending Hoptimator
 
-Hoptimator can be extended via `TableTemplates`:
+Hoptimator is extensible via `hoptimator-api`, which provides hooks for deploying, validating, and configuring the elements of a pipeline,
+including external objects (e.g. Kafka topics) and data plane connectors (e.g. Flink connectors).
+To deploy a source or sink, implement `Deployer<Source>`.
+To deploy a job, implement `Deployer<Job>`.
 
-```
- $ kubectl apply -f my-table-template.yaml
-```
+In addition, the `k8s` catalog is itself highly extensible via `TableTemplates` and `JobTemplates`.
+Generally, you can get Hoptimator to do what you want without writing any new code.
 
+### Table Templates
+
+`TableTemplates` let you specify how sources and sinks should be included in a pipeline. For example see [kafkadb.yaml](deploy/samples/kafkadb.yaml).
+
+In this case, any tables within `kafka-database` will get deployed as `KafkaTopics` and use `kafka` connectors.
+
+### Job Templates
+
+`JobTemplates` are similar, but can embed SQL. For example see [flink-template.yaml](deploy/samples/flink-template.yaml).
+
+In this case, any jobs created with this template will get deployed as `FlinkSessionJobs` within the `flink` namespace.
+
+### Configuration
+
+The ``{{ }}`` sections you see in the templates are variable placeholders that will be filled in by the Deployer.
+See [Template.java](hoptimator-util/src/main/java/com/linkedin/hoptimator/util/Template.java) for how to specify templates.
+
+While Deployers are extensible, today the primary deployer is to Kubernetes. These deployers 
+[K8sSourceDeployer](hoptimator-k8s/src/main/java/com/linkedin/hoptimator/k8s/K8sSourceDeployer.java) (for table-templates)
+and [K8sJobDeployer](hoptimator-k8s/src/main/java/com/linkedin/hoptimator/k8s/K8sJobDeployer.java) (for job-templates)
+provide a few template defaults that you can choose to include in your templates:
+
+K8sSourceDeployer: `name, database, schema, table`
+
+K8sJobDeployer: `name, database, schema, table, sql, flinksql, flinkconfigs`
+
+However, it is often a case where you want to add additional information to the templates that will be passed through during Source or Job creation.
+There are two mechanisms to achieve this:
+
+#### ConfigProvider
+
+The ConfigProvider interface allows you to load additional configuration information that will be used during Source or Job creation.
+
+The [K8sConfigProvider](hoptimator-k8s/src/main/java/com/linkedin/hoptimator/k8s/K8sConfigProvider.java) is the default one used in the K8s deployers.
+K8sConfigProvider contains the ability to read configuration information via a Kubernetes configmap, `hoptimator-configmap`.
+See [hoptimator-configmap.yaml](deploy/config/hoptimator-configmap.yaml) for information on how to use configmaps.
+
+Configmaps are meant to be used for static configuration information applicable to the namespace `hoptimator-configmap` belongs to.
+
+#### Hints
+
+Users may want to provide additional information for their Job or Sink creation at runtime.
+This can be done by adding hints as JDBC properties.
+
+Hints are key-value pairs separated by an equals sign. Multiple hints are separated by a comma.
+
+For example, to specify the number of kafka partitions and the flink parallelism, you could add the following hints to the query:
+```
+jdbc:hoptimator://hints=kafka.partitions=4,flink.parallelism=2
+```
+These fields can then be added to templates as `{{kafka.partitions}}` or `{{flink.parallelism}}` where applicable.
+
+Note that hints are simply recommendations, if the planner plans a different pipeline, they will be ignored.

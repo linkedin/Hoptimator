@@ -18,6 +18,7 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.ImmutablePairList;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Splitter;
 
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
@@ -49,12 +50,14 @@ public interface PipelineRel extends RelNode {
   class Implementor {
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private final ImmutablePairList<Integer, String> targetFields;
+    private final Map<String, String> hints;
     private RelNode query;
-    private Sink sink = new Sink("PIPELINE", Arrays.asList(new String[]{"PIPELINE", "SINK"}), Collections.emptyMap());
+    private Sink sink = new Sink("PIPELINE", Arrays.asList("PIPELINE", "SINK"), Collections.emptyMap());
     private RelDataType sinkRowType = null;
 
-    public Implementor(ImmutablePairList<Integer, String> targetFields) {
+    public Implementor(ImmutablePairList<Integer, String> targetFields, Map<String, String> hints) {
       this.targetFields = targetFields;
+      this.hints = hints;
     }
 
     public void visit(RelNode node) throws SQLException {
@@ -84,8 +87,11 @@ public interface PipelineRel extends RelNode {
      * for validation purposes.
      */
     public void setSink(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
-      this.sink = new Sink(database, path, addKeysAsOption(options, rowType));
       this.sinkRowType = rowType;
+
+      Map<String, String> newOptions = addKeysAsOption(options, rowType);
+      newOptions.putAll(this.hints);
+      this.sink = new Sink(database, path, newOptions);
     }
 
     @VisibleForTesting
