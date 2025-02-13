@@ -92,7 +92,6 @@ public class HoptimatorOperatorApp {
 
     Properties connectionProperties = new Properties();
     connectionProperties.putAll(properties);
-    connectionProperties.put("k8s.namespace", watchNamespace);
     K8sContext context = new K8sContext(connectionProperties);
 
     ApiClient apiClient = context.apiClient();
