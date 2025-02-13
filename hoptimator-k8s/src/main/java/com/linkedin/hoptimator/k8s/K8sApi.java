@@ -108,7 +108,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
   }
 
   public void updateStatus(T obj, Object status) throws SQLException {
-    if (!endpoint.clusterScoped()) {
+    if (obj.getMetadata().getNamespace() == null && !endpoint.clusterScoped()) {
       obj.getMetadata().namespace(context.namespace());
     }
     KubernetesApiResponse<T> resp = context.<T, U>generic(endpoint).updateStatus(obj, x -> status);
