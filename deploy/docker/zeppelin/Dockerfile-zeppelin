@@ -18,10 +18,7 @@ USER root
 RUN chmod 660 /opt/zeppelin/conf/interpreter.json \
     /opt/zeppelin/conf/zeppelin-site.xml
 
-# Add overrides for K8s (see: com.linkedin.hoptimator.k8s.K8sConfig)
-# host must match docker argument --add-host=<host>:host-gateway
-ENV KUBECONFIG_BASEPATH="https://docker-for-desktop:6443" \
-    ZEPPELIN_HOME="/opt/zeppelin"
+ENV ZEPPELIN_HOME="/opt/zeppelin"
 
 # restore settings from upstream Dockerfile
 USER 1000

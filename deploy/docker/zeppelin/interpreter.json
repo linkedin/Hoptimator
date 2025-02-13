@@ -515,7 +515,7 @@
       "properties": {
         "default.url": {
           "name": "default.url",
-          "value": "jdbc:hoptimator://",
+          "value": "jdbc:hoptimator://k8s.server=https://docker-for-desktop:6443",
           "type": "string",
           "description": "The URL for JDBC."
         },
