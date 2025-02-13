@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.operator.pipeline;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Properties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,10 +43,11 @@ public final class PipelineReconciler implements Reconciler {
   public Result reconcile(Request request) {
     log.info("Reconciling request {}", request);
     String name = request.getName();
+    String namespace = request.getNamespace();
 
     Result result = new Result(true, pendingRetryDuration());
     try {
-      V1alpha1Pipeline object = pipelineApi.get(name);
+      V1alpha1Pipeline object = pipelineApi.get(namespace, name);
 
       if (object == null) {
         log.info("Object {} deleted. Skipping.", name);

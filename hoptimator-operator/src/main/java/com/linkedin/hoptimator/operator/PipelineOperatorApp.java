@@ -26,9 +26,11 @@ import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
 public class PipelineOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(PipelineOperatorApp.class);
 
+  final String watchNamespace;
   final Properties connectionProperties;
 
-  public PipelineOperatorApp(Properties connectionProperties) {
+  public PipelineOperatorApp(String watchNamespace, Properties connectionProperties) {
+    this.watchNamespace = watchNamespace;
     this.connectionProperties = connectionProperties;
   }
 
@@ -55,18 +57,14 @@ public class PipelineOperatorApp {
     }
 
     String watchNamespaceInput = cmd.getOptionValue("watch", "");
-
-    Properties props = new Properties();
-    props.put("k8s.namespace", watchNamespaceInput);
-
-    new PipelineOperatorApp(props).run();
+    new PipelineOperatorApp(watchNamespaceInput, new Properties()).run();
   }
 
   public void run() throws Exception {
     K8sContext context = new K8sContext(connectionProperties);
 
     // register informers
-    context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), context.namespace());
+    context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), watchNamespace);
 
     List<Controller> controllers = new ArrayList<>();
     // TODO: add additional controllers from ControllerProvider SPI
