@@ -1,0 +1,10 @@
+# This is required as long as zeppelin is run via docker
+# If started via k8s we can remove this in favor of the standard flink-engine.yaml
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Engine
+metadata:
+  name: flink-engine
+spec:
+  url: jdbc:flink://host.docker.internal:8083
+  dialect: Flink
+

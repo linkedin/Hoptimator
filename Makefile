@@ -50,6 +50,7 @@ deploy-flink: deploy
 	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.9.0/
 	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest --set-json='watchNamespaces=["default","flink"]' flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
 	kubectl apply -f deploy/dev/flink-session-cluster.yaml
+	kubectl apply -f deploy/dev/flink-sql-gateway.yaml
 	kubectl apply -f deploy/samples/flink-template.yaml
 
 undeploy-flink:
@@ -132,6 +133,7 @@ build-zeppelin: build
 
 # attaches to terminal (not run as daemon)
 run-zeppelin: build-zeppelin
+	kubectl apply -f deploy/docker/zeppelin/zeppelin-flink-engine.yaml
 	docker run --rm -p 8080:8080 \
 	  --volume=${HOME}/.kube/config:/opt/zeppelin/.kube/config \
 	  --add-host=docker-for-desktop:host-gateway \
