@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.venice;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.Locale;
 import java.util.Properties;
 
 import org.apache.calcite.avatica.ConnectStringParser;
@@ -16,7 +15,6 @@ import org.apache.calcite.schema.SchemaPlus;
 /** JDBC driver for Venice stores. */
 public class VeniceDriver extends Driver {
   public static final String CATALOG_NAME = "VENICE";
-  public static final String CONFIG_NAME = "venice.config";
 
   static {
     new VeniceDriver().register();
@@ -41,14 +39,7 @@ public class VeniceDriver extends Driver {
     Properties properties = new Properties();
     properties.putAll(props); // in case the driver is loaded via getConnection()
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
-    String cluster = properties.getProperty("cluster");
-    if (cluster == null) {
-      throw new IllegalArgumentException("Missing required cluster property. Need: jdbc:venice://cluster=...");
-    }
-    cluster = cluster.toUpperCase(Locale.ROOT);
-    if (!cluster.startsWith(CATALOG_NAME)) {
-      cluster = CATALOG_NAME + "-" + cluster;
-    }
+
     try {
       Connection connection = super.connect(url, props);
       if (connection == null) {
@@ -60,7 +51,7 @@ public class VeniceDriver extends Driver {
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
       ClusterSchema schema = createClusterSchema(properties);
       schema.populate();
-      rootSchema.add(cluster.toUpperCase(Locale.ROOT), schema);
+      rootSchema.add(CATALOG_NAME, schema);
       return connection;
     } catch (Exception e) {
       throw new SQLException("Problem loading " + url, e);
