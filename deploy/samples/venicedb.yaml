@@ -1,10 +1,10 @@
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: Database
 metadata:
-  name: venice-cluster0
+  name: venice
 spec:
-  schema: VENICE-CLUSTER0
-  url: jdbc:venice://cluster=venice-cluster0;router.url=http://localhost:7777
+  schema: VENICE
+  url: jdbc:venice://clusters=venice-cluster0;router.url=http://localhost:7777
   dialect: Calcite
 
 ---
@@ -12,10 +12,10 @@ spec:
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: TableTemplate
 metadata:
-  name: venice-template-cluster0
+  name: venice-template
 spec:
   databases:
-    - venice-cluster0
+    - venice
   connector: |
     connector = venice
     storeName = {{table}}

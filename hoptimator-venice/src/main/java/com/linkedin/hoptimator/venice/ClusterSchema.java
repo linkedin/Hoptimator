@@ -1,7 +1,9 @@
 package com.linkedin.hoptimator.venice;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -35,8 +37,10 @@ public class ClusterSchema extends AbstractSchema {
 
   public void populate() throws InterruptedException, ExecutionException, IOException {
     tableMap.clear();
-    String cluster = properties.getProperty("cluster");
-    log.info("Loading Venice stores for cluster {}", cluster);
+    String clusterStr = properties.getProperty("clusters");
+    List<String> clusters = Arrays.asList(clusterStr.split(","));
+
+    log.info("Loading Venice stores for cluster {}", clusters);
 
     String sslConfigPath = properties.getProperty("ssl-config-path");
     Optional<SSLFactory> sslFactory = Optional.empty();
@@ -47,12 +51,14 @@ public class ClusterSchema extends AbstractSchema {
       sslFactory = Optional.of(SslUtils.getSSLFactory(sslProperties, sslFactoryClassName));
     }
 
-    try (ControllerClient controllerClient = createControllerClient(cluster, sslFactory)) {
-      String[] stores = controllerClient.queryStoreList(false).getStores();
-      log.info("Loaded {} Venice stores.", stores.length);
-      for (String store : stores) {
-        StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(store);
-        tableMap.put(store, createVeniceStore(storeSchemaFetcher));
+    for (String cluster : clusters) {
+      try (ControllerClient controllerClient = createControllerClient(cluster, sslFactory)) {
+        String[] stores = controllerClient.queryStoreList(false).getStores();
+        log.info("Loaded {} Venice stores.", stores.length);
+        for (String store : stores) {
+          StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(store);
+          tableMap.put(store, createVeniceStore(storeSchemaFetcher));
+        }
       }
     }
   }
