@@ -134,6 +134,7 @@ build-zeppelin: build
 # attaches to terminal (not run as daemon)
 run-zeppelin: build-zeppelin
 	kubectl apply -f deploy/docker/zeppelin/zeppelin-flink-engine.yaml
+	kubectl apply -f deploy/docker/zeppelin/zeppelin-kafkadb.yaml
 	docker run --rm -p 8080:8080 \
 	  --volume=${HOME}/.kube/config:/opt/zeppelin/.kube/config \
 	  --add-host=docker-for-desktop:host-gateway \

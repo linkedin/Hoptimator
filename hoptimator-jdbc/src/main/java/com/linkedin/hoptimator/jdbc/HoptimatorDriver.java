@@ -57,12 +57,18 @@ public class HoptimatorDriver extends Driver {
       return null;
     }
     try {
+      // Load properties from the URL and from getConnection()'s properties.
+      // URL properties take precedence.
+      Properties properties = new Properties();
+      properties.putAll(props); // via getConnection()
+      properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
+
       if (prepareFactory == null) {
         // funky way of extending Driver with a custom Prepare:
-        return withPrepareFactory(() -> new Prepare(props))
-          .connect(url, props);
+        return withPrepareFactory(() -> new Prepare(properties))
+          .connect(url, properties);
       }
-      Connection connection = super.connect(url, props);
+      Connection connection = super.connect(url, properties);
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
@@ -76,12 +82,6 @@ public class HoptimatorDriver extends Driver {
       calciteConnection.setSchema("DEFAULT");
 
       WrappedSchemaPlus wrappedRootSchema = new WrappedSchemaPlus(rootSchema);
-
-      // Load properties from the URL and from getConnection()'s properties.
-      // URL properties take precedence.
-      Properties properties = new Properties();
-      properties.putAll(props); // via getConnection()
-      properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
       String[] catalogs = properties.getProperty("catalogs", "").split(",");
 
       if (catalogs.length == 0 || catalogs[0].length() == 0) {
@@ -92,7 +92,7 @@ public class HoptimatorDriver extends Driver {
       } else {
         // load specific catalogs when loaded as `jdbc:hoptimator://catalogs=foo,bar`
         for (String catalog : catalogs) {
-          CatalogService.catalog(catalog).register(wrappedRootSchema, props);
+          CatalogService.catalog(catalog).register(wrappedRootSchema, properties);
         }
       }
 
@@ -104,7 +104,7 @@ public class HoptimatorDriver extends Driver {
 
   @Override
   public Driver withPrepareFactory(Supplier<CalcitePrepare> prepareFactory) {
-      return new HoptimatorDriver(prepareFactory); 
+      return new HoptimatorDriver(prepareFactory);
   }
 
   public static class Prepare extends CalcitePrepareImpl {

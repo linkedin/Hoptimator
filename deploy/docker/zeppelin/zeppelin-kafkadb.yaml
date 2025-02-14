@@ -1,0 +1,8 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: kafka-database
+spec:
+  schema: KAFKA
+  url: jdbc:kafka://bootstrap.servers=host.docker.internal:9092
+  dialect: Calcite

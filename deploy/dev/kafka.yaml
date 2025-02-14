@@ -45,6 +45,7 @@ spec:
             nodePort: 31092
           brokers:
           - broker: 0
+#            advertisedHost: host.docker.internal # swap these lines to enable Zeppelin, TODO: figure out a way around this
             advertisedHost: 127.0.0.1
             nodePort: 31234
     config:
