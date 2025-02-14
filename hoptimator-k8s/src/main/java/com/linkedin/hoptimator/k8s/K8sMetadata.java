@@ -13,14 +13,17 @@ public class K8sMetadata extends AbstractSchema {
   private final Map<String, Table> tableMap = new HashMap<>();
   private final K8sDatabaseTable databaseTable;
   private final K8sEngineTable engineTable;
+  private final K8sPipelineTable pipelineTable;
   private final K8sViewTable viewTable;
 
   public K8sMetadata(K8sContext context) {
     this.engineTable = new K8sEngineTable(context);
     this.databaseTable = new K8sDatabaseTable(context, engineTable);
+    this.pipelineTable = new K8sPipelineTable(context);
     this.viewTable = new K8sViewTable(context);
     tableMap.put("DATABASES", databaseTable);
     tableMap.put("ENGINES", engineTable);
+    tableMap.put("PIPELINES", pipelineTable);
     tableMap.put("VIEWS", viewTable);
   }
 
@@ -34,6 +37,10 @@ public class K8sMetadata extends AbstractSchema {
 
   public K8sViewTable viewTable() {
     return viewTable;
+  }
+
+  public K8sPipelineTable pipelineTable() {
+    return pipelineTable;
   }
 
   @Override
