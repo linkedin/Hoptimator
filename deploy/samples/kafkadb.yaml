@@ -38,6 +38,7 @@ spec:
     value.format = json
     scan.startup.mode = earliest-offset
     key.fields = KEY
+    key.format = raw
     value.fields-include = EXCEPT_KEY
 
 ---
