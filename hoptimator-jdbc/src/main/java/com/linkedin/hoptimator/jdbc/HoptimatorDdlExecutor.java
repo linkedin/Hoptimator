@@ -217,6 +217,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
   }
 
+  // N.B. largely copy-pasted from Apache Calcite
+
+  /** Executes {@code DROP FUNCTION}, {@code DROP TABLE}, {@code DROP MATERIALIZED VIEW}, {@code DROP TYPE},
+   * {@code DROP VIEW} commands. */
   @Override
   public void execute(SqlDropObject drop, CalcitePrepare.Context context) {
     // The logic below is only applicable for DROP VIEW and DROP MATERIALIZED VIEW.
