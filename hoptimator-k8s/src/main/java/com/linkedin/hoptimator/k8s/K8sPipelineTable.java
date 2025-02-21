@@ -4,7 +4,6 @@ import org.apache.calcite.schema.Schema;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
 
 
 public class K8sPipelineTable extends K8sTable<V1alpha1Pipeline, V1alpha1PipelineList, K8sPipelineTable.Row> {

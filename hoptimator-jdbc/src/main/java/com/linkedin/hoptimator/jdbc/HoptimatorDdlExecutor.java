@@ -20,6 +20,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import java.io.Reader;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -42,12 +43,14 @@ import org.apache.calcite.server.DdlExecutor;
 import org.apache.calcite.server.ServerDdlExecutor;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.ddl.SqlCreateMaterializedView;
 import org.apache.calcite.sql.ddl.SqlCreateView;
+import org.apache.calcite.sql.ddl.SqlDropObject;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
@@ -94,6 +97,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   // N.B. copy-pasted from Apache Calcite
 
   /** Executes a {@code CREATE VIEW} command. */
+  @Override
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
     final SchemaPlus schemaPlus = pair.left.plus();
@@ -131,6 +135,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   // N.B. copy-pasted from Apache Calcite
 
   /** Executes a {@code CREATE MATERIALIZED VIEW} command. */
+  @Override
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
     if (pair.left == null) {
@@ -210,6 +215,56 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     } catch (Exception e) {
       throw new RuntimeException("Cannot CREATE MATERIALIZED VIEW in " + schemaName + ": " + e.getMessage(), e);
     }
+  }
+
+  // N.B. largely copy-pasted from Apache Calcite
+
+  /** Executes {@code DROP FUNCTION}, {@code DROP TABLE}, {@code DROP MATERIALIZED VIEW}, {@code DROP TYPE},
+   * {@code DROP VIEW} commands. */
+  @Override
+  public void execute(SqlDropObject drop, CalcitePrepare.Context context) {
+    // The logic below is only applicable for DROP VIEW and DROP MATERIALIZED VIEW.
+    if (!drop.getKind().equals(SqlKind.DROP_MATERIALIZED_VIEW) && !drop.getKind().equals(SqlKind.DROP_VIEW)) {
+      super.execute(drop, context);
+      return;
+    }
+
+    final Pair<CalciteSchema, String> pair = schema(context, false, drop.name);
+    String viewName = pair.right;
+
+    SchemaPlus schemaPlus = pair.left.plus();
+    String schemaName = schemaPlus.getName();
+    Table table = schemaPlus.getTable(viewName);
+    if (table == null) {
+      if (drop.ifExists) {
+        return;
+      }
+      throw SqlUtil.newContextException(drop.name.getParserPosition(), RESOURCE.tableNotFound(viewName));
+    }
+
+    final List<String> schemaPath = pair.left.path(null);
+    List<String> viewPath = new ArrayList<>();
+    viewPath.addAll(schemaPath);
+    viewPath.add(viewName);
+
+    if (table instanceof MaterializedViewTable) {
+      MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
+      try {
+        DeploymentService.delete(materializedViewTable.viewTable(), ViewTable.class, connectionProperties);
+      } catch (SQLException e) {
+        throw new RuntimeException("Cannot DROP MATERIALIZED VIEW in " + schemaName + ": " + e.getMessage(), e);
+      }
+    } else if (table instanceof ViewTable) {
+      ViewTable viewTable = (ViewTable) table;
+      try {
+        DeploymentService.delete(viewTable, ViewTable.class, connectionProperties);
+      } catch (SQLException e) {
+        throw new RuntimeException("Cannot DROP VIEW in " + schemaName + ": " + e.getMessage(), e);
+      }
+    } else {
+      throw new RuntimeException("Cannot DROP in " + schemaName + ": " + viewName + " is not a view.");
+    }
+    schemaPlus.removeTable(viewName);
   }
 
   // N.B. copy-pasted from Apache Calcite

@@ -88,3 +88,22 @@ select * from ads.target2;
 
 !ok
 
+drop materialized view ads.target2;
+(0 rows modified)
+
+!update
+
+drop view ads.target;
+(0 rows modified)
+
+!update
+
+drop materialized view ads.audience2;
+(0 rows modified)
+
+!update
+
+drop view ads.audience;
+(0 rows modified)
+
+!update
