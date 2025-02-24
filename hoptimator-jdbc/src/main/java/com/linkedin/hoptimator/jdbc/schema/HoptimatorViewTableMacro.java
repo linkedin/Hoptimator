@@ -13,6 +13,10 @@ import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.ViewTableMacro;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+/**
+ * This file is copy-pasted from {@link ViewTableMacro} with the only modification being
+ * how the connection is instantiated.
+ */
 public class HoptimatorViewTableMacro extends ViewTableMacro {
 
   private final Boolean modifiable;
