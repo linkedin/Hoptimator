@@ -119,7 +119,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     viewPath.add(viewName);
     HoptimatorViewTableMacro viewTableMacro = new HoptimatorViewTableMacro(CalciteSchema.from(schemaPlus),
         sql, schemaPath, viewPath, false);
-    ViewTable viewTable = (ViewTable) viewTableMacro.apply(connectionProperties);
+    ViewTable viewTable = (ViewTable) viewTableMacro.apply(Collections.singletonList(connectionProperties));
     try {
       ValidationService.validateOrThrow(viewTable, TranslatableTable.class);
       if (create.getReplace()) {

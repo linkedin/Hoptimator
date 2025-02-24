@@ -27,7 +27,12 @@ public class HoptimatorViewTableMacro extends ViewTableMacro {
     this.modifiable = modifiable;
   }
 
-  public TranslatableTable apply(Properties properties) {
+  @Override
+  public TranslatableTable apply(List<? extends @Nullable Object> arguments) {
+    Properties properties = new Properties();
+    if (!arguments.isEmpty()) {
+      properties = (Properties) arguments.get(0);
+    }
     CalciteConnection connection;
     try {
       connection = DriverManager.getConnection("jdbc:calcite:", properties)

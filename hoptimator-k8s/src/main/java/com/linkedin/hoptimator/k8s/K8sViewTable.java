@@ -114,7 +114,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     if (row.MATERIALIZED) {
       return new MaterializedViewTable(viewTableMacro, connectionProperties);
     } else {
-      return viewTableMacro.apply(connectionProperties);
+      return viewTableMacro.apply(Collections.singletonList(connectionProperties));
     }
   }
 
