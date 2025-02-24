@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
@@ -11,7 +11,8 @@ import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.schema.impl.ViewTable;
-import org.apache.calcite.schema.impl.ViewTableMacro;
+
+import com.linkedin.hoptimator.jdbc.schema.HoptimatorViewTableMacro;
 
 
 public class MaterializedViewTable extends AbstractTable implements TranslatableTable {
@@ -22,8 +23,8 @@ public class MaterializedViewTable extends AbstractTable implements Translatable
     this.viewTable = viewTable;
   }
 
-  public MaterializedViewTable(ViewTableMacro viewTableMacro) {
-    this((ViewTable) viewTableMacro.apply(Collections.emptyList()));
+  public MaterializedViewTable(HoptimatorViewTableMacro viewTableMacro, Properties connectionProperties) {
+    this((ViewTable) viewTableMacro.apply(connectionProperties));
   }
 
   public ViewTable viewTable() {

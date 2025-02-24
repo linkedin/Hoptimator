@@ -38,7 +38,6 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.ViewTable;
-import org.apache.calcite.schema.impl.ViewTableMacro;
 import org.apache.calcite.server.DdlExecutor;
 import org.apache.calcite.server.ServerDdlExecutor;
 import org.apache.calcite.sql.SqlCall;
@@ -65,6 +64,7 @@ import org.apache.calcite.util.Util;
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.jdbc.schema.HoptimatorViewTableMacro;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
@@ -117,8 +117,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     List<String> viewPath = new ArrayList<>();
     viewPath.addAll(schemaPath);
     viewPath.add(viewName);
-    ViewTableMacro viewTableMacro = ViewTable.viewMacro(schemaPlus, sql, schemaPath, viewPath, false);
-    ViewTable viewTable = (ViewTable) viewTableMacro.apply(Collections.emptyList());
+    HoptimatorViewTableMacro viewTableMacro = new HoptimatorViewTableMacro(CalciteSchema.from(schemaPlus),
+        sql, schemaPath, viewPath, false);
+    ViewTable viewTable = (ViewTable) viewTableMacro.apply(connectionProperties);
     try {
       ValidationService.validateOrThrow(viewTable, TranslatableTable.class);
       if (create.getReplace()) {
@@ -174,8 +175,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       // Table does not exist. Create it.
       RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-      ViewTableMacro viewTableMacro = ViewTable.viewMacro(schemaPlus, sql, schemaPath, viewPath, false);
-      MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTableMacro);
+      HoptimatorViewTableMacro viewTableMacro = new HoptimatorViewTableMacro(CalciteSchema.from(schemaPlus),
+          sql, schemaPath, viewPath, false);
+      MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTableMacro, connectionProperties);
       RelDataType viewRowType = materializedViewTable.getRowType(typeFactory);
 
       // Support "partial views", i.e. CREATE VIEW FOO$BAR, where the view name

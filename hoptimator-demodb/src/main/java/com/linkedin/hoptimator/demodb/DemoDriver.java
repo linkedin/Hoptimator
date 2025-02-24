@@ -9,6 +9,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.Driver;
@@ -37,15 +38,18 @@ public class DemoDriver extends Driver {
     if (!url.startsWith(getConnectStringPrefix())) {
       return null;
     }
-    String params = url.substring(getConnectStringPrefix().length());
-    Set<String> schemas = Arrays.asList(params.split(","))
+    Properties properties = new Properties();
+    properties.putAll(props);
+    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
+
+    Set<String> schemas = Arrays.asList(properties.getProperty("names").split(","))
         .stream()
         .map(x -> x.trim())
         .filter(x -> !x.isEmpty())
         .map(x -> x.toUpperCase(Locale.ROOT))
         .collect(Collectors.toSet());
     try {
-      Connection connection = super.connect(url, props);
+      Connection connection = super.connect(url, properties);
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }

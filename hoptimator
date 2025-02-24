@@ -7,5 +7,5 @@ $BASEDIR/hoptimator-cli/build/install/hoptimator-cli/bin/hoptimator-cli \
   -Dorg.slf4j.simpleLogger.showLogName=false \
   sqlline.SqlLine \
   -ac sqlline.HoptimatorAppConfig \
-  -u jdbc:hoptimator:// -n "" -p "" -nn "Hoptimator" $@
+  -u jdbc:hoptimator://fun=mysql -n "" -p "" -nn "Hoptimator" $@
 

@@ -1,0 +1,133 @@
+!set outputformat mysql
+!use k8s
+
+create or replace view ADS."case" AS SELECT CASE WHEN "FIRST_NAME" = 'Bob' THEN ARRAY['a'] ELSE ARRAY['b'] END || CASE WHEN "FIRST_NAME" = 'Alice' THEN ARRAY['c'] ELSE ARRAY['d'] END AS arr from profile.members;
+(0 rows modified)
+
+!update
+
+select * from ADS."case";
++--------+
+| ARR    |
++--------+
+| [b, c] |
+| [a, d] |
+| [b, d] |
++--------+
+(3 rows)
+
+!ok
+
+create or replace view ADS."json" AS SELECT JSON_VALUE('{"a": 1}', '$.a') AS json from profile.members;
+(0 rows modified)
+
+!update
+
+select * from ADS."json";
++------+
+| JSON |
++------+
+| 1    |
+| 1    |
+| 1    |
++------+
+(3 rows)
+
+!ok
+
+create or replace view ADS."regex" AS SELECT REGEXP_REPLACE("FIRST_NAME", '(B)ob', '$1ill') AS name from profile.members;
+(0 rows modified)
+
+!update
+
+select * from ads."regex";
++---------+
+| NAME    |
++---------+
+| Alice   |
+| Bill    |
+| Charlie |
++---------+
+(3 rows)
+
+!ok
+
+create or replace view ADS."concat" AS SELECT CONCAT('_', "FIRST_NAME", '_') AS name from profile.members;
+(0 rows modified)
+
+!update
+
+select * from ads."concat";
++-----------+
+| NAME      |
++-----------+
+| _Alice_   |
+| _Bob_     |
+| _Charlie_ |
++-----------+
+(3 rows)
+
+!ok
+
+
+create or replace view ADS."listagg" AS SELECT LISTAGG("FIRST_NAME") AS agg FROM profile.members;
+(0 rows modified)
+
+!update
+
+select * from ads."listagg";
++-------------------+
+| AGG               |
++-------------------+
+| Alice,Bob,Charlie |
++-------------------+
+(1 row)
+
+!ok
+
+create or replace view ADS."unnested" AS SELECT * FROM UNNEST(ARRAY(SELECT "FIRST_NAME" FROM profile.members)) AS name;
+(0 rows modified)
+
+!update
+
+select * from ADS."unnested";
++---------+
+| NAME    |
++---------+
+| Alice   |
+| Bob     |
+| Charlie |
++---------+
+(3 rows)
+
+!ok
+
+drop view ads."case";
+(0 rows modified)
+
+!update
+
+drop view ads."json";
+(0 rows modified)
+
+!update
+
+drop view ads."regex";
+(0 rows modified)
+
+!update
+
+drop view ads."concat";
+(0 rows modified)
+
+!update
+
+drop view ads."listagg";
+(0 rows modified)
+
+!update
+
+drop view ads."unnested";
+(0 rows modified)
+
+!update
