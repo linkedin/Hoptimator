@@ -4,7 +4,7 @@ metadata:
   name: ads-database
 spec:
   schema: ADS
-  url: jdbc:demodb://ads
+  url: jdbc:demodb://names=ads
   dialect: Calcite
 
 ---
@@ -15,7 +15,7 @@ metadata:
   name: profile-database
 spec:
   schema: PROFILE
-  url: jdbc:demodb://profile
+  url: jdbc:demodb://names=profile
   dialect: Calcite
 
 ---

@@ -13,4 +13,10 @@ public class TestSqlScripts extends QuidemTestBase {
   public void k8sDdlScript() throws Exception {
     run("k8s-ddl.id");
   }
+
+  @Test
+  @Tag("integration")
+  public void k8sDdlScriptFunction() throws Exception {
+    run("k8s-ddl-function.id", ";fun=mysql");
+  }
 }

@@ -3,19 +3,20 @@ package com.linkedin.hoptimator.k8s;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 
+import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
-import org.apache.calcite.schema.impl.ViewTable;
-import org.apache.calcite.schema.impl.ViewTableMacro;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.MaterializedViewTable;
+import com.linkedin.hoptimator.jdbc.schema.HoptimatorViewTableMacro;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
@@ -75,7 +76,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     super(context, K8sApiEndpoints.VIEWS, Row.class);
   }
 
-  public void addViews(SchemaPlus parentSchema) {
+  public void addViews(SchemaPlus parentSchema, Properties connectionProperties) {
     for (Row row : rows()) {
 
       // build schema path, filling in any missing schemas
@@ -88,7 +89,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
         }
         schema = next;
       }
-      schema.add(row.viewName(), makeView(schema, row));
+      schema.add(row.viewName(), makeView(schema, row, connectionProperties));
     }
   }
 
@@ -107,12 +108,13 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     rows().remove(find(name));
   }
 
-  private Table makeView(SchemaPlus parentSchema, Row row) {
-    ViewTableMacro viewTableMacro = ViewTable.viewMacro(parentSchema, row.SQL, row.schemaPath(), row.viewPath(), false);
+  private Table makeView(SchemaPlus parentSchema, Row row, Properties connectionProperties) {
+    HoptimatorViewTableMacro viewTableMacro = new HoptimatorViewTableMacro(CalciteSchema.from(parentSchema), row.SQL,
+        row.schemaPath(), row.viewPath(), false);
     if (row.MATERIALIZED) {
-      return new MaterializedViewTable(viewTableMacro);
+      return new MaterializedViewTable(viewTableMacro, connectionProperties);
     } else {
-      return viewTableMacro.apply(Collections.emptyList());
+      return viewTableMacro.apply(connectionProperties);
     }
   }
 

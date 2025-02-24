@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.k8s;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.StringJoiner;
 import javax.sql.DataSource;
 
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
@@ -51,7 +52,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   public void addDatabases(SchemaPlus parentSchema, Properties connectionProperties) {
     for (Row row : rows()) {
       parentSchema.add(schemaName(row),
-          HoptimatorJdbcSchema.create(row.NAME, row.SCHEMA, dataSource(row), parentSchema, dialect(row), engines.forDatabase(row.NAME), connectionProperties));
+          HoptimatorJdbcSchema.create(row.NAME, row.SCHEMA, dataSource(row, connectionProperties), parentSchema, dialect(row), engines.forDatabase(row.NAME), connectionProperties));
     }
   }
 
@@ -82,9 +83,28 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     }
   }
 
-  private static DataSource dataSource(Row row) {
-    // TODO fetch username/password from Secret
-    return JdbcSchema.dataSource(row.URL, row.DRIVER, "nouser", "nopass");
+  private static DataSource dataSource(Row row, Properties connectionProperties) {
+    String user = "nouser";
+    String pass = "nopass";
+    StringJoiner joiner = new StringJoiner(";");
+    for (String key : connectionProperties.stringPropertyNames()) {
+      if ("user".equals(key)) {
+        user = connectionProperties.getProperty(key);
+      } else if ("password".equals(key)) {
+        pass = connectionProperties.getProperty(key);
+      } else {
+        String value = connectionProperties.getProperty(key);
+        joiner.add(key + "=" + value);
+      }
+    }
+    String joinedUrl = row.URL;
+    // Handles case where there are no properties already in the URL
+    if (row.URL.endsWith("//")) {
+      joinedUrl = joinedUrl + joiner;
+    } else {
+      joinedUrl = joinedUrl + ";" + joiner;
+    }
+    return JdbcSchema.dataSource(joinedUrl, row.DRIVER, user, pass);
   }
 
   private static SqlDialect dialect(Row row) {

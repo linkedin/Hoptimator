@@ -34,6 +34,6 @@ class K8sCatalog implements Catalog {
     K8sMetadata metadata = new K8sMetadata(context);
     schemaPlus.add("k8s", metadata);
     metadata.databaseTable().addDatabases(schemaPlus, connectionProperties);
-    metadata.viewTable().addViews(schemaPlus);
+    metadata.viewTable().addViews(schemaPlus, connectionProperties);
   }
 }

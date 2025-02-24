@@ -32,17 +32,21 @@ import com.linkedin.hoptimator.util.DeploymentService;
 public abstract class QuidemTestBase {
 
   protected void run(String resourceName) throws IOException, URISyntaxException {
-    run(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(resourceName)).toURI());
+    run(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(resourceName)).toURI(), "");
   }
 
-  protected void run(URI resource) throws IOException {
+  protected void run(String resourceName, String jdbcProperties) throws IOException, URISyntaxException {
+    run(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(resourceName)).toURI(), jdbcProperties);
+  }
+
+  protected void run(URI resource, String jdbcProperties) throws IOException {
     File in = new File(resource);
     File out = File.createTempFile(in.getName(), ".out");
     try (Reader r = new FileReader(in); Writer w = new PrintWriter(out)) {
       Quidem.Config config = Quidem.configBuilder()
           .withReader(r)
           .withWriter(w)
-          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://catalogs=" + x))
+          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://catalogs=" + x + jdbcProperties))
           .withCommandHandler(new CustomCommandHandler())
           .build();
       new Quidem(config).execute();
