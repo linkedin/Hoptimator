@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -24,7 +25,7 @@ public class MaterializedViewTable extends AbstractTable implements Translatable
   }
 
   public MaterializedViewTable(HoptimatorViewTableMacro viewTableMacro, Properties connectionProperties) {
-    this((ViewTable) viewTableMacro.apply(connectionProperties));
+    this((ViewTable) viewTableMacro.apply(Collections.singletonList(connectionProperties)));
   }
 
   public ViewTable viewTable() {
