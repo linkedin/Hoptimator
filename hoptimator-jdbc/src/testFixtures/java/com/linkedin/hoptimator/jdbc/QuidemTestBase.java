@@ -81,14 +81,14 @@ public abstract class QuidemTestBase {
                 RelRoot root = HoptimatorDriver.convert(conn, sql).root;
                 String []parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
-                Pipeline pipeline = DeploymentService.plan(root).pipeline("sink", conn.connectionProperties());
+                Pipeline pipeline = DeploymentService.plan(root).pipeline(pipelineName, conn.connectionProperties());
                 List<String> specs = new ArrayList<>();
                 for (Source source : pipeline.sources()) {
                   specs.addAll(DeploymentService.specify(source, conn.connectionProperties()));
                 }
                 specs.addAll(DeploymentService.specify(pipeline.sink(), conn.connectionProperties()));
                 specs.addAll(DeploymentService.specify(pipeline.job(), conn.connectionProperties()));
-                String joined = specs.stream().collect(Collectors.joining("---\n"));
+                String joined = specs.stream().sorted().collect(Collectors.joining("---\n"));
                 String[] lines = joined.replaceAll(";\n", "\n").split("\n");
                 context.echo(Arrays.asList(lines));
               }
