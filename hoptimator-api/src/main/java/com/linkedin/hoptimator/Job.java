@@ -3,7 +3,7 @@ package com.linkedin.hoptimator;
 import java.util.function.Function;
 
 
-public class Job {
+public class Job implements Deployable {
 
   private final String name;
   private final Sink sink;

@@ -20,10 +20,16 @@ import com.linkedin.hoptimator.Validator;
 
 
 /** Validates that tables follow Avro schema evolution rules.  */
-class AvroTableValidator implements Validator<SchemaPlus> {
+class AvroTableValidator implements Validator {
+
+  private final SchemaPlus schema;
+
+  public AvroTableValidator(SchemaPlus schema) {
+    this.schema = schema;
+  }
 
   @Override
-  public void validate(SchemaPlus schema, Issues issues) {
+  public void validate(Issues issues) {
     try {
       CalciteSchema originalSchema = schema.unwrap(CalciteSchema.class);
       if (originalSchema == null || originalSchema.schema == null) {

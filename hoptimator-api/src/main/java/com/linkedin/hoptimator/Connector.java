@@ -4,7 +4,7 @@ import java.sql.SQLException;
 import java.util.Map;
 
 
-public interface Connector<T> {
+public interface Connector {
 
-  Map<String, String> configure(T t) throws SQLException;
+  Map<String, String> configure() throws SQLException;
 }

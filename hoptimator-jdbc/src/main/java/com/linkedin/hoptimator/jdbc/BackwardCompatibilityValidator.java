@@ -4,12 +4,17 @@ import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 
 
 /** Validates that tables follow backwards-compatible schema evolution rules.  */
 class BackwardCompatibilityValidator extends CompatibilityValidatorBase {
+
+  BackwardCompatibilityValidator(SchemaPlus schema) {
+    super(schema);
+  }
 
   @Override
   protected void validate(Table table, Table originalTable, Issues issues) {

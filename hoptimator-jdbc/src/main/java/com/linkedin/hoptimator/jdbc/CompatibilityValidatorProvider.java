@@ -15,10 +15,10 @@ public class CompatibilityValidatorProvider implements ValidatorProvider {
 
   @SuppressWarnings("unchecked")
   @Override
-  public <T> Collection<Validator<T>> validators(Class<T> clazz) {
-    if (SchemaPlus.class.isAssignableFrom(clazz)) {
-      return Arrays.asList(new Validator[]{(Validator<T>) new BackwardCompatibilityValidator(),
-          (Validator<T>) new ForwardCompatibilityValidator()});
+  public <T> Collection<Validator> validators(T obj) {
+    if (obj instanceof SchemaPlus) {
+      return Arrays.asList(new Validator[]{new BackwardCompatibilityValidator((SchemaPlus) obj),
+          new ForwardCompatibilityValidator((SchemaPlus) obj)});
     } else {
       return Collections.emptyList();
     }

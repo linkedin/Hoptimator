@@ -6,5 +6,6 @@ import java.util.Properties;
 
 public interface DeployerProvider {
 
-  <T> Collection<Deployer<T>> deployers(Class<T> clazz, Properties connectionProperties);
+  /** Find deployers capable of deploying the obj. */
+  <T extends Deployable> Collection<Deployer> deployers(T obj, Properties connectionProperties);
 }

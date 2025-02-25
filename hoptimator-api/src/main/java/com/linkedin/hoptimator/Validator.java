@@ -11,9 +11,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 
-public interface Validator<T> {
-
-  void validate(T t, Issues issues);
+public interface Validator extends Validated {
 
   static void validateSubdomainName(String s, Issues issues) {
     // N.B. we don't aim to be efficient here; rather, as verbose as possible.
@@ -44,15 +42,18 @@ public interface Validator<T> {
     issues.warn("Validation not implemented for this object");
   }
 
-  /** Validator that invokes `Validated.validate()`. */
-  class DefaultValidator<T> implements Validator<T> {
+  /** Validator that invokes `validate()` on the target object. */
+  class DefaultValidator<T extends Validated> implements Validator {
+
+    private final T t;
+
+    public DefaultValidator(T t) {
+      this.t = t;
+    }
 
     @Override
-    public void validate(T t, Issues issues) {
-      if (t instanceof Validated) {
-        Validated v = (Validated) t;
-        v.validate(issues.child(t.getClass().getSimpleName()));
-      }
+    public void validate(Issues issues) {
+      t.validate(issues.child(t.getClass().getSimpleName()));
     }
   }
 

@@ -7,6 +7,11 @@ import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import io.kubernetes.client.apimachinery.GroupVersion;
@@ -14,11 +19,13 @@ import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.informer.SharedInformerFactory;
 import io.kubernetes.client.openapi.ApiClient;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.ClientBuilder;
 import io.kubernetes.client.util.Config;
 import io.kubernetes.client.util.KubeConfig;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 
 
 public class K8sContext {
@@ -38,6 +45,8 @@ public class K8sContext {
   private final String clientInfo;
   private ApiClient apiClient;
   private final SharedInformerFactory informerFactory;
+  private final V1OwnerReference ownerReference;
+  private final Map<String, String> labels;
 
   public K8sContext(Properties connectionProperties) {
     if (connectionProperties.getProperty(NAMESPACE_KEY) != null) {
@@ -116,6 +125,32 @@ public class K8sContext {
 
     this.informerFactory = new SharedInformerFactory(apiClient);
     this.clientInfo = info;
+    this.ownerReference = null;
+    this.labels = Collections.emptyMap();
+  }
+
+  // copy constructor
+  private K8sContext(String namespace, String clientInfo, ApiClient apiClient,
+      SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels) {
+    this.namespace = namespace;
+    this.clientInfo = clientInfo;
+    this.apiClient = apiClient;
+    this.informerFactory = informerFactory;
+    this.ownerReference = ownerReference;
+    this.labels = labels;
+  }
+
+  public K8sContext withOwner(V1OwnerReference owner) {
+    return new K8sContext(namespace, clientInfo + " Owner is " + owner.getName() + ".", apiClient,
+        informerFactory, owner, labels);
+  }
+
+  public K8sContext withLabel(String key, String value) {
+    Map<String, String> newLabels = new HashMap<>();
+    newLabels.putAll(labels);
+    newLabels.put(key, value);
+    return new K8sContext(namespace, clientInfo + " Label " + key + "=" + value + ".", apiClient,
+        informerFactory, ownerReference, newLabels);
   }
 
   public ApiClient apiClient() {
@@ -158,6 +193,28 @@ public class K8sContext {
     return generic(endpoint.elementType(), endpoint.listType(), endpoint.group(), endpoint.version(),
         endpoint.plural());
   }
+
+  /** Take ownership of the object, if this context has an owner. */
+  public void own(KubernetesObject obj) {
+    if (ownerReference == null) {
+      return;
+    }
+    List<V1OwnerReference> owners = obj.getMetadata().getOwnerReferences();
+    if (owners == null) {
+      owners = new ArrayList<>();
+    }
+    if (owners.stream().noneMatch(x -> x.getUid().equals(ownerReference.getUid()))) {
+      if (obj instanceof DynamicKubernetesObject) {
+        ((DynamicKubernetesObject) obj).setMetadata(obj.getMetadata()
+            .namespace(namespace)
+            .addOwnerReferencesItem(ownerReference));
+      } else {
+        owners.add(ownerReference);
+        obj.getMetadata().namespace(namespace).ownerReferences(owners);
+      }
+    }
+  }
+
 
   @Override
   public String toString() {

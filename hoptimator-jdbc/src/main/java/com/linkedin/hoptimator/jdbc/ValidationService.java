@@ -12,6 +12,7 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 
+import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.ValidatorProvider;
 
@@ -32,7 +33,7 @@ public final class ValidationService {
   }
 
   private static void walk(SchemaPlus schema, Validator.Issues issues) {
-    validate(schema, SchemaPlus.class, issues);
+    validate(schema, issues);
     for (String x : schema.getSubSchemaNames()) {
       walk(schema.getSubSchema(x), issues.child(x));
     }
@@ -42,16 +43,16 @@ public final class ValidationService {
   }
 
   private static void walk(Table table, Validator.Issues issues) {
-    validate(table, Table.class, issues);
+    validate(table, issues);
   }
 
-  public static <T> void validate(T object, Class<? super T> clazz, Validator.Issues issues) {
-    validators(clazz).forEach(x -> x.validate(object, issues));
+  public static <T> void validate(T obj, Validator.Issues issues) {
+    validators(obj).forEach(x -> x.validate(issues));
   }
 
-  public static <T> void validateOrThrow(T object, Class<? super T> clazz) throws SQLException {
+  public static <T> void validateOrThrow(T obj) throws SQLException {
     Validator.Issues issues = new Validator.Issues("");
-    validate(object, clazz, issues);
+    validate(obj, issues);
     if (!issues.valid()) {
       throw new SQLException("Failed validation:\n" + issues.toString());
     }
@@ -64,7 +65,7 @@ public final class ValidationService {
     return providers;
   }
 
-  public static <T> Collection<Validator<? super T>> validators(Class<? super T> clazz) {
-    return providers().stream().flatMap(x -> x.validators(clazz).stream()).collect(Collectors.toList());
+  public static <T> Collection<Validator> validators(T obj) {
+    return providers().stream().flatMap(x -> x.validators(obj).stream()).collect(Collectors.toList());
   }
 }

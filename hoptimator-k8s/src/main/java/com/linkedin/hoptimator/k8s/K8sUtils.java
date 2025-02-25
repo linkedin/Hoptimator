@@ -61,7 +61,11 @@ public final class K8sUtils {
   }
 
   public static String guessPlural(KubernetesType obj) {
-    String lower = obj.getKind().toLowerCase(Locale.ROOT);
+    return guessPlural(obj.getKind());
+  }
+
+  public static String guessPlural(String kind) {
+    String lower = kind.toLowerCase(Locale.ROOT);
     if (lower.endsWith("y")) {
       return lower.substring(0, lower.length() - 1) + "ies";
     } else {

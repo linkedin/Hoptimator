@@ -17,16 +17,18 @@ import com.linkedin.hoptimator.util.Template;
 
 
 /** Configures an abstract Source/Sink by applying TableTemplates */
-class K8sConnector implements Connector<Source> {
+class K8sConnector implements Connector {
 
+  private final Source source;
   private final K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> tableTemplateApi;
 
-  K8sConnector(K8sContext context) {
+  K8sConnector(Source source, K8sContext context) {
+    this.source = source;
     this.tableTemplateApi = new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
   }
 
   @Override
-  public Map<String, String> configure(Source source) throws SQLException {
+  public Map<String, String> configure() throws SQLException {
     Template.Environment env =
         new Template.SimpleEnvironment().with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
             .with("database", source.database())

@@ -19,11 +19,11 @@ public final class ConnectionService {
   private ConnectionService() {
   }
 
-  public static <T> Map<String, String> configure(T object, Class<T> clazz, Properties connectionProperties)
+  public static <T> Map<String, String> configure(T obj, Properties connectionProperties)
         throws SQLException {
     Map<String, String> configs = new LinkedHashMap<>();
-    for (Connector<T> connector : connectors(clazz, connectionProperties)) {
-      configs.putAll(connector.configure(object));
+    for (Connector connector : connectors(obj, connectionProperties)) {
+      configs.putAll(connector.configure());
     }
     return configs;
   }
@@ -35,9 +35,9 @@ public final class ConnectionService {
     return providers;
   }
 
-  public static <T> Collection<Connector<T>> connectors(Class<T> clazz, Properties connectionProperties) {
+  public static <T> Collection<Connector> connectors(T obj, Properties connectionProperties) {
     return providers().stream()
-        .flatMap(x -> x.connectors(clazz, connectionProperties).stream())
+        .flatMap(x -> x.connectors(obj, connectionProperties).stream())
         .collect(Collectors.toList());
   }
 }

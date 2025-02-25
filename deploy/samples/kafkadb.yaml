@@ -21,7 +21,6 @@ spec:
     kind: KafkaTopic
     metadata:
       name: {{name}}
-      namespace: kafka
       labels:
         strimzi.io/cluster: one
     spec:
@@ -47,7 +46,6 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: existing-topic-1
-  namespace: kafka
   labels:
     strimzi.io/cluster: one
 spec:
@@ -63,7 +61,6 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: existing-topic-2
-  namespace: kafka
   labels:
     strimzi.io/cluster: one
 spec:

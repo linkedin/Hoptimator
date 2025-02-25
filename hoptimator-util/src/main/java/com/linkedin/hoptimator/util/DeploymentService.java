@@ -27,32 +27,32 @@ public final class DeploymentService {
   private DeploymentService() {
   }
 
-  public static <T> void create(T object, Class<T> clazz, Properties connectionProperties)
+  public static <T extends Deployable> void create(T obj, Properties connectionProperties)
       throws SQLException {
-    for (Deployer<T> deployer : deployers(clazz, connectionProperties)) {
-      deployer.create(object);
+    for (Deployer deployer : deployers(obj, connectionProperties)) {
+      deployer.create();
     }
   }
 
-  public static <T> void delete(T object, Class<T> clazz, Properties connectionProperties)
+  public static <T extends Deployable> void delete(T obj, Properties connectionProperties)
       throws SQLException {
-    for (Deployer<T> deployer : deployers(clazz, connectionProperties)) {
-      deployer.delete(object);
+    for (Deployer deployer : deployers(obj, connectionProperties)) {
+      deployer.delete();
     }
   }
 
-  public static <T> void update(T object, Class<T> clazz, Properties connectionProperties)
+  public static <T extends Deployable> void update(T obj, Properties connectionProperties)
       throws SQLException {
-    for (Deployer<T> deployer : deployers(clazz, connectionProperties)) {
-      deployer.update(object);
+    for (Deployer deployer : deployers(obj, connectionProperties)) {
+      deployer.update();
     }
   }
 
-  public static <T> List<String> specify(T object, Class<T> clazz, Properties connectionProperties)
+  public static <T extends Deployable> List<String> specify(T obj, Properties connectionProperties)
       throws SQLException {
     List<String> specs = new ArrayList<>();
-    for (Deployer<T> deployer : deployers(clazz, connectionProperties)) {
-      specs.addAll(deployer.specify(object));
+    for (Deployer deployer : deployers(obj, connectionProperties)) {
+      specs.addAll(deployer.specify());
     }
     return specs;
   }
@@ -64,39 +64,14 @@ public final class DeploymentService {
     return providers;
   }
 
-  public static <T> Collection<Deployer<T>> deployers(Class<T> clazz, Properties connectionProperties) {
+  public static <T extends Deployable> Collection<Deployer> deployers(T obj, Properties connectionProperties) {
     return providers().stream()
-        .flatMap(x -> x.deployers(clazz, connectionProperties).stream())
+        .flatMap(x -> x.deployers(obj, connectionProperties).stream())
         .collect(Collectors.toList());
   }
 
-  public static <T> List<Deployable> deployables(T object, Class<T> clazz, Properties connectionProperties) {
-    return deployers(clazz, connectionProperties).stream().map(x -> new Deployable() {
-
-      @Override
-      public void create() throws SQLException {
-        x.create(object);
-      }
-
-      @Override
-      public void update() throws SQLException {
-        x.update(object);
-      }
-
-      @Override
-      public void delete() throws SQLException {
-        x.delete(object);
-      }
-
-      @Override
-      public List<String> specify() throws SQLException {
-        return x.specify(object);
-      }
-    }).collect(Collectors.toList());
-  }
-
   /** Plans a deployable Pipeline which implements the query. */
-  public static PipelineRel.Implementor plan(RelRoot root, Properties connectionProperties) throws SQLException {
+  public static PipelineRel.Implementor plan(RelRoot root) throws SQLException {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
@@ -104,7 +79,7 @@ public final class DeploymentService {
     // TODO add materializations here (currently empty list)
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, Collections.emptyList(),
         Collections.emptyList());
-    PipelineRel.Implementor implementor = new PipelineRel.Implementor(connectionProperties, root.fields);
+    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields);
     implementor.visit(plan);
     return implementor;
   }

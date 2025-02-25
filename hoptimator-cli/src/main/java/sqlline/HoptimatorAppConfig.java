@@ -5,11 +5,16 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import java.util.Scanner;
 
 import org.apache.calcite.rel.RelRoot;
 import org.jline.reader.Completer;
 
+import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
@@ -88,8 +93,8 @@ public class HoptimatorAppConfig extends Application {
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
         RelRoot root = HoptimatorDriver.convert(conn, sql).root;
-        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.connectionProperties());
-        sqlline.output(plan.sql().apply(SqlDialect.ANSI));
+        PipelineRel.Implementor plan = DeploymentService.plan(root);
+        sqlline.output(plan.sql(conn.connectionProperties()).apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
@@ -157,8 +162,14 @@ public class HoptimatorAppConfig extends Application {
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       RelRoot root = HoptimatorDriver.convert(conn, sql).root;
       try {
-        List<String> specs = DeploymentService.plan(root, conn.connectionProperties())
-            .pipeline("sink").specify();
+        Properties connectionProperties = conn.connectionProperties();
+        Pipeline pipeline = DeploymentService.plan(root).pipeline("sink", connectionProperties);
+        List<String> specs = new ArrayList<>();
+        for (Source source : pipeline.sources()) {
+          specs.addAll(DeploymentService.specify(source, connectionProperties));
+        }
+        specs.addAll(DeploymentService.specify(pipeline.sink(), connectionProperties));
+        specs.addAll(DeploymentService.specify(pipeline.job(), connectionProperties));
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
       } catch (SQLException e) {
         sqlline.error(e);

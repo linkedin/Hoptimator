@@ -26,6 +26,8 @@ import net.hydromatic.quidem.Command;
 import net.hydromatic.quidem.CommandHandler;
 import net.hydromatic.quidem.Quidem;
 
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.DeploymentService;
 
 
@@ -79,11 +81,15 @@ public abstract class QuidemTestBase {
                 RelRoot root = HoptimatorDriver.convert(conn, sql).root;
                 String []parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
-                String specs =
-                    DeploymentService.plan(root, conn.connectionProperties())
-                        .pipeline(pipelineName).specify().stream().sorted()
-                        .collect(Collectors.joining("---\n"));
-                String[] lines = specs.replaceAll(";\n", "\n").split("\n");
+                Pipeline pipeline = DeploymentService.plan(root).pipeline("sink", conn.connectionProperties());
+                List<String> specs = new ArrayList<>();
+                for (Source source : pipeline.sources()) {
+                  specs.addAll(DeploymentService.specify(source, conn.connectionProperties()));
+                }
+                specs.addAll(DeploymentService.specify(pipeline.sink(), conn.connectionProperties()));
+                specs.addAll(DeploymentService.specify(pipeline.job(), conn.connectionProperties()));
+                String joined = specs.stream().collect(Collectors.joining("---\n"));
+                String[] lines = joined.replaceAll(";\n", "\n").split("\n");
                 context.echo(Arrays.asList(lines));
               }
             } else {

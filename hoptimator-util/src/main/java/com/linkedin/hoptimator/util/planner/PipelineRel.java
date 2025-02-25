@@ -19,14 +19,12 @@ import org.apache.calcite.runtime.ImmutablePairList;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.ConnectionService;
-import com.linkedin.hoptimator.util.DeploymentService;
 
 
 /**
@@ -49,17 +47,13 @@ public interface PipelineRel extends RelNode {
 
   /** Implements a deployable Pipeline. */
   class Implementor {
-    private final Properties connectionProperties;
-    private final ImmutablePairList<Integer, String> targetFields;
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
+    private final ImmutablePairList<Integer, String> targetFields;
     private RelNode query;
-    private String sinkDatabase = "pipeline";
-    private List<String> sinkPath = Arrays.asList(new String[]{"PIPELINE", "SINK"});
+    private Sink sink = new Sink("PIPELINE", Arrays.asList(new String[]{"PIPELINE", "SINK"}), Collections.emptyMap());
     private RelDataType sinkRowType = null;
-    private Map<String, String> sinkOptions = Collections.emptyMap();
 
-    public Implementor(Properties connectionProperties, ImmutablePairList<Integer, String> targetFields) {
-      this.connectionProperties = connectionProperties;
+    public Implementor(ImmutablePairList<Integer, String> targetFields) {
       this.targetFields = targetFields;
     }
 
@@ -90,10 +84,8 @@ public interface PipelineRel extends RelNode {
      * for validation purposes.
      */
     public void setSink(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
-      this.sinkDatabase = database;
-      this.sinkPath = path;
+      this.sink = new Sink(database, path, addKeysAsOption(options, rowType));
       this.sinkRowType = rowType;
-      this.sinkOptions = addKeysAsOption(options, rowType);
     }
 
     @VisibleForTesting
@@ -121,44 +113,30 @@ public interface PipelineRel extends RelNode {
       this.query = query;
     }
 
-    /** Combine Deployables into a Pipeline */
-    public Pipeline pipeline(String name) throws SQLException {
-      List<Deployable> deployables = new ArrayList<>();
-      for (Source source : sources.keySet()) {
-        deployables.addAll(DeploymentService.deployables(source, Source.class, connectionProperties));
-        ConnectionService.configure(source, Source.class, connectionProperties);
-      }
-      RelDataType targetRowType = sinkRowType;
-      if (targetRowType == null) {
-        targetRowType = query.getRowType();
-      }
-      Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
-      ConnectionService.configure(sink, Sink.class, connectionProperties);
-      Job job = new Job(name, sink, sql());
-      deployables.addAll(DeploymentService.deployables(sink, Sink.class, connectionProperties));
-      deployables.addAll(DeploymentService.deployables(job, Job.class, connectionProperties));
-      return new Pipeline(deployables);
+    /** Combine deployables into a Pipeline */
+    public Pipeline pipeline(String name, Properties connectionProperties) throws SQLException {
+      Job job = new Job(name, sink, sql(connectionProperties));
+      return new Pipeline(sources.keySet(), sink, job);
     }
 
-    private ScriptImplementor script() throws SQLException {
+    private ScriptImplementor script(Properties connectionProperties) throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
       for (Map.Entry<Source, RelDataType> source : sources.entrySet()) {
         script = script.database(source.getKey().schema());
-        Map<String, String> configs = ConnectionService.configure(source.getKey(), Source.class, connectionProperties);
+        Map<String, String> configs = ConnectionService.configure(source.getKey(), connectionProperties);
         script = script.connector(source.getKey().schema(), source.getKey().table(), source.getValue(), configs);
       }
       return script;
     }
 
     /** SQL script ending in an INSERT INTO */
-    public Function<SqlDialect, String> sql() throws SQLException {
-      ScriptImplementor script = script();
+    public Function<SqlDialect, String> sql(Properties connectionProperties) throws SQLException {
+      ScriptImplementor script = script(connectionProperties);
       RelDataType targetRowType = sinkRowType;
       if (targetRowType == null) {
         targetRowType = query.getRowType();
       }
-      Sink sink = new Sink(sinkDatabase, sinkPath, sinkOptions);
-      Map<String, String> sinkConfigs = ConnectionService.configure(sink, Sink.class, connectionProperties);
+      Map<String, String> sinkConfigs = ConnectionService.configure(sink, connectionProperties);
       script = script.database(sink.schema());
       script = script.connector(sink.schema(), sink.table(), targetRowType, sinkConfigs);
       script = script.insert(sink.schema(), sink.table(), query, targetFields);
@@ -166,8 +144,8 @@ public interface PipelineRel extends RelNode {
     }
 
     /** SQL script ending in a SELECT */
-    public Function<SqlDialect, String> query() throws SQLException {
-      return script().query(query).seal();
+    public Function<SqlDialect, String> query(Properties connectionProperties) throws SQLException {
+      return script(connectionProperties).query(query).seal();
     }
   }
 }

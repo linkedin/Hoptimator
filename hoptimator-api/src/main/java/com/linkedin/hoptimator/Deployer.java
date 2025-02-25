@@ -4,13 +4,15 @@ import java.sql.SQLException;
 import java.util.List;
 
 
-public interface Deployer<T> {
+/** Deploys something. */
+public interface Deployer {
 
-  void create(T t) throws SQLException;
+  void create() throws SQLException;
 
-  void update(T t) throws SQLException;
+  void delete() throws SQLException;
 
-  void delete(T t) throws SQLException;
+  void update() throws SQLException;
 
-  List<String> specify(T t) throws SQLException;
+  /** Render a list of specs, usually YAML. */
+  List<String> specify() throws SQLException;
 }

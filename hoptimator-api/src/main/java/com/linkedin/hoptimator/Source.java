@@ -5,7 +5,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 
-public class Source {
+public class Source implements Deployable {
 
   private final String database;
   private final List<String> path;

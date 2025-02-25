@@ -1,9 +1,14 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;
@@ -27,6 +32,7 @@ public class K8sYamlApi implements Api<String> {
   @Override
   public void create(String yaml) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
+    context.own(obj);
     KubernetesApiResponse<DynamicKubernetesObject> resp =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     checkResponse(yaml, resp);
@@ -49,9 +55,22 @@ public class K8sYamlApi implements Api<String> {
             .get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
     final KubernetesApiResponse<DynamicKubernetesObject> resp;
     if (existing.isSuccess()) {
+
+      // Ensure labels are additive. Existing values are kept.
+      Map<String, String> labels = new HashMap<>();
+      if (obj.getMetadata().getLabels() != null) {
+        labels.putAll(obj.getMetadata().getLabels());
+      }
+      if (existing.getObject().getMetadata().getLabels() != null) {
+        labels.putAll(existing.getObject().getMetadata().getLabels());
+      }
+      existing.getObject().getMetadata().setLabels(labels);
+
       obj.setMetadata(existing.getObject().getMetadata());
+      context.own(obj);
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).update(obj);
     } else {
+      context.own(obj);
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     }
     checkResponse(yaml, resp);
