@@ -14,9 +14,9 @@ public class AvroValidatorProvider implements ValidatorProvider {
 
   @SuppressWarnings("unchecked")
   @Override
-  public <T> Collection<Validator<T>> validators(Class<T> clazz) {
-    if (SchemaPlus.class.isAssignableFrom(clazz)) {
-      return Collections.singletonList((Validator<T>) new AvroTableValidator());
+  public <T> Collection<Validator> validators(T obj) {
+    if (obj instanceof SchemaPlus) {
+      return Collections.singletonList(new AvroTableValidator((SchemaPlus) obj));
     } else {
       return Collections.emptyList();
     }

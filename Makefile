@@ -69,7 +69,7 @@ deploy-kafka: deploy deploy-flink
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
 
 undeploy-kafka:
-	kubectl delete kafkatopic.kafka.strimzi.io -n kafka --all || echo "skipping"
+	kubectl delete kafkatopic.kafka.strimzi.io --all || echo "skipping"
 	kubectl delete strimzi -n kafka --all || echo "skipping"
 	kubectl delete pvc -l strimzi.io/name=one-kafka -n kafka || echo "skipping"
 	kubectl delete -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka || echo "skipping"
@@ -103,8 +103,8 @@ undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy
 # Integration test setup intended to be run locally
 integration-tests: deploy-dev-environment
 	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=10m
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=10m
 	kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 & echo $$! > port-forward.pid
 	kubectl port-forward -n flink svc/flink-sql-gateway 8083 & echo $$! > port-forward-2.pid
 	kubectl port-forward -n flink svc/basic-session-deployment-rest 8081 & echo $$! > port-forward-3.pid
@@ -116,8 +116,8 @@ integration-tests: deploy-dev-environment
 # kind cluster used in github workflow needs to have different routing set up, avoiding the need to forward kafka ports
 integration-tests-kind: deploy-dev-environment
 	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-1 --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/existing-topic-2 --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=10m 
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=10m 
 	./gradlew intTest -i
 
 generate-models:

@@ -6,5 +6,6 @@ import java.util.Properties;
 
 public interface ConnectorProvider {
 
-  <T> Collection<Connector<T>> connectors(Class<T> clazz, Properties connectionProperties);
+  /** Find connectors capable of configuring data plane connectors for the obj. */
+  <T> Collection<Connector> connectors(T obj, Properties connectionProperties);
 }

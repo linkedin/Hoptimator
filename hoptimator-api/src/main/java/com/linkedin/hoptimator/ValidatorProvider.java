@@ -5,5 +5,5 @@ import java.util.Collection;
 
 public interface ValidatorProvider {
 
-  <T> Collection<Validator<T>> validators(Class<T> clazz);
+  <T> Collection<Validator> validators(T obj);
 }

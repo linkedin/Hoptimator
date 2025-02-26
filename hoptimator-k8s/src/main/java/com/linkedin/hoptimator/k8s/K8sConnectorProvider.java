@@ -12,13 +12,12 @@ import com.linkedin.hoptimator.Source;
 
 public class K8sConnectorProvider implements ConnectorProvider {
 
-  @SuppressWarnings("unchecked")
   @Override
-  public <T> Collection<Connector<T>> connectors(Class<T> clazz, Properties connectionProperties) {
+  public <T> Collection<Connector> connectors(T obj, Properties connectionProperties) {
     K8sContext context = new K8sContext(connectionProperties);
-    List<Connector<T>> list = new ArrayList<>();
-    if (Source.class.isAssignableFrom(clazz)) {
-      list.add((Connector<T>) new K8sConnector(context));
+    List<Connector> list = new ArrayList<>();
+    if (obj instanceof Source) {
+      list.add(new K8sConnector((Source) obj, context));
     }
     return list;
   }

@@ -15,19 +15,21 @@ import com.linkedin.hoptimator.util.Template;
 
 
 /** Specifies an abstract Job with concrete YAML by applying JobTemplates. */
-class K8sJobDeployer extends K8sYamlDeployer<Job> {
+class K8sJobDeployer extends K8sYamlDeployer {
 
   private static final String FLINK_CONFIG = "flink.config";
 
+  private final Job job;
   private final K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> jobTemplateApi;
 
-  K8sJobDeployer(K8sContext context) {
+  K8sJobDeployer(Job job, K8sContext context) {
     super(context);
+    this.job = job;
     this.jobTemplateApi = new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
   }
 
   @Override
-  public List<String> specify(Job job) throws SQLException {
+  public List<String> specify() throws SQLException {
     Properties properties = ConfigService.config(null, false, FLINK_CONFIG);
     properties.putAll(job.sink().options());
     Function<SqlDialect, String> sql = job.sql();

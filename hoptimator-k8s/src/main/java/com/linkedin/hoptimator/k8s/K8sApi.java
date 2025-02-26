@@ -1,11 +1,16 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.options.ListOptions;
@@ -49,6 +54,29 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     return resp.getObject();
   }
 
+  public T get(T obj) throws SQLException {
+    if (obj.getMetadata().getNamespace() == null && !endpoint.clusterScoped()) {
+      obj.getMetadata().namespace(context.namespace());
+    }
+    final KubernetesApiResponse<T> resp;
+    if (endpoint.clusterScoped()) {
+      resp = context.<T, U>generic(endpoint).get(obj.getMetadata().getName());
+    } else {
+      resp  = context.<T, U>generic(endpoint).get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+    }
+    checkResponse(resp);
+    return resp.getObject();
+  }
+
+  public V1OwnerReference reference(T obj) throws SQLException {
+    T existing = get(obj);
+    return new V1OwnerReference()
+        .kind(existing.getKind())
+        .name(existing.getMetadata().getName())
+        .apiVersion(existing.getApiVersion())
+        .uid(existing.getMetadata().getUid());
+  }
+
   @SuppressWarnings("unchecked")
   public Collection<T> select(String labelSelector) throws SQLException {
     GenericKubernetesApi<T, U> generic = context.<T, U>generic(endpoint);
@@ -72,6 +100,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     if (obj.getMetadata().getNamespace() == null && !endpoint.clusterScoped()) {
       obj.getMetadata().namespace(context.namespace());
     }
+    context.own(obj);
     KubernetesApiResponse<T> resp = context.<T, U>generic(endpoint).create(obj);
     checkResponse(resp);
   }
@@ -99,9 +128,22 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     }
     final KubernetesApiResponse<T> resp;
     if (existing.isSuccess()) {
+
+      // Ensure labels are additive.
+      Map<String, String> labels = new HashMap<>();
+      if (existing.getObject().getMetadata().getLabels() != null) {
+        labels.putAll(existing.getObject().getMetadata().getLabels());
+      }
+      if (obj.getMetadata().getLabels() != null) {
+        labels.putAll(obj.getMetadata().getLabels());
+      }
+      existing.getObject().getMetadata().setLabels(labels);
+
       obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion());
+      context.own(obj);
       resp = context.<T, U>generic(endpoint).update(obj);
     } else {
+      context.own(obj);
       resp = context.<T, U>generic(endpoint).create(obj);
     }
     checkResponse(resp);

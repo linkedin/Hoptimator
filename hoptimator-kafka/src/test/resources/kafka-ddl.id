@@ -6,7 +6,6 @@ apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
   name: kafka-database-existing-topic-1
-  namespace: flink
 spec:
   deploymentName: basic-session-deployment
   job:
@@ -26,7 +25,6 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: kafka-database-existing-topic-1
-  namespace: kafka
   labels:
     strimzi.io/cluster: one
 spec:
@@ -41,7 +39,6 @@ apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: kafka-database-existing-topic-2
-  namespace: kafka
   labels:
     strimzi.io/cluster: one
 spec:

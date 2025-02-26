@@ -11,17 +11,19 @@ import com.linkedin.hoptimator.util.Template;
 
 
 /** Specifies an abstract Source with concrete YAML by applying TableTemplates. */
-class K8sSourceDeployer extends K8sYamlDeployer<Source> {
+class K8sSourceDeployer extends K8sYamlDeployer {
 
+  private final Source source;
   private final K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> tableTemplateApi;
 
-  K8sSourceDeployer(K8sContext context) {
+  K8sSourceDeployer(Source source, K8sContext context) {
     super(context);
+    this.source = source;
     this.tableTemplateApi = new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
   }
 
   @Override
-  public List<String> specify(Source source) throws SQLException {
+  public List<String> specify() throws SQLException {
     String name = K8sUtils.canonicalizeName(source.database(), source.table());
     Template.Environment env =
         new Template.SimpleEnvironment()

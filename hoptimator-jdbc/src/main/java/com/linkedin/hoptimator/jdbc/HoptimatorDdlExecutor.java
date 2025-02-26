@@ -64,6 +64,7 @@ import org.apache.calcite.util.Util;
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.jdbc.schema.HoptimatorViewTableMacro;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -120,12 +121,13 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     HoptimatorViewTableMacro viewTableMacro = new HoptimatorViewTableMacro(CalciteSchema.from(schemaPlus),
         sql, schemaPath, viewPath, false);
     ViewTable viewTable = (ViewTable) viewTableMacro.apply(Collections.singletonList(connectionProperties));
+    View view = new View(viewPath, sql);
     try {
-      ValidationService.validateOrThrow(viewTable, TranslatableTable.class);
+      ValidationService.validateOrThrow(viewTable);
       if (create.getReplace()) {
-        DeploymentService.update(viewTable, ViewTable.class, connectionProperties);
+        DeploymentService.update(view, connectionProperties);
       } else {
-        DeploymentService.create(viewTable, ViewTable.class, connectionProperties);
+        DeploymentService.create(view, connectionProperties);
       }
       schemaPlus.add(viewName, viewTable);
     } catch (Exception e) {
@@ -200,19 +202,20 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       // Plan a pipeline to materialize the view.
       RelRoot root = new HoptimatorDriver.Prepare(connectionProperties)
           .convert(context, sql).root;
-      PipelineRel.Implementor plan = DeploymentService.plan(root, connectionProperties);
+      PipelineRel.Implementor plan = DeploymentService.plan(root);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
-      Pipeline pipeline = plan.pipeline(viewName);
-
-      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(), plan.pipeline(viewName));
+      Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
+ 
+      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(connectionProperties), pipeline);
       // TODO support CREATE ... WITH (options...)
-      ValidationService.validateOrThrow(hook, MaterializedView.class);
-      pipeline.update();
+      ValidationService.validateOrThrow(hook);
+
       if (create.getReplace()) {
-        DeploymentService.update(hook, MaterializedView.class, connectionProperties);
+        DeploymentService.update(hook, connectionProperties);
       } else {
-        DeploymentService.create(hook, MaterializedView.class, connectionProperties);
-      }
+        DeploymentService.create(hook, connectionProperties);
+      } 
+      
       schemaPlus.add(viewName, materializedViewTable);
     } catch (Exception e) {
       throw new RuntimeException("Cannot CREATE MATERIALIZED VIEW in " + schemaName + ": " + e.getMessage(), e);
@@ -251,15 +254,17 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     if (table instanceof MaterializedViewTable) {
       MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
+      View view = new View(viewPath, materializedViewTable.viewSql());
       try {
-        DeploymentService.delete(materializedViewTable.viewTable(), ViewTable.class, connectionProperties);
+        DeploymentService.delete(view, connectionProperties);
       } catch (SQLException e) {
         throw new RuntimeException("Cannot DROP MATERIALIZED VIEW in " + schemaName + ": " + e.getMessage(), e);
       }
     } else if (table instanceof ViewTable) {
       ViewTable viewTable = (ViewTable) table;
+      View view = new View(viewPath, viewTable.getViewSql());
       try {
-        DeploymentService.delete(viewTable, ViewTable.class, connectionProperties);
+        DeploymentService.delete(view, connectionProperties);
       } catch (SQLException e) {
         throw new RuntimeException("Cannot DROP VIEW in " + schemaName + ": " + e.getMessage(), e);
       }

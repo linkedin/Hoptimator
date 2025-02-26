@@ -10,7 +10,6 @@ spec:
     kind: FlinkSessionJob
     metadata:
       name: {{name}}
-      namespace: flink
     spec:
       deploymentName: basic-session-deployment
       job:

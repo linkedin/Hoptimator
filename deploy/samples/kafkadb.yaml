@@ -21,7 +21,6 @@ spec:
     kind: KafkaTopic
     metadata:
       name: {{name}}
-      namespace: kafka
       labels:
         strimzi.io/cluster: one
     spec:
@@ -46,11 +45,11 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: existing-topic-1
-  namespace: kafka
+  name: kafka-database-existing-topic-1
   labels:
     strimzi.io/cluster: one
 spec:
+  topicName: existing-topic-1
   partitions: 1
   replicas: 1
   config:
@@ -62,11 +61,11 @@ spec:
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
-  name: existing-topic-2
-  namespace: kafka
+  name: kafka-database-existing-topic-2
   labels:
     strimzi.io/cluster: one
 spec:
+  topicName: existing-topic-2
   partitions: 1
   replicas: 1
   config:

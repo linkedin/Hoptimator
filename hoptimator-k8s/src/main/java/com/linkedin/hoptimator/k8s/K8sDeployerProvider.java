@@ -5,34 +5,31 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.calcite.schema.impl.ViewTable;
-
+import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.View;
 
 public class K8sDeployerProvider implements DeployerProvider {
 
-  @SuppressWarnings("unchecked")
   @Override
-  public <T> Collection<Deployer<T>> deployers(Class<T> clazz, Properties connectionProperties) {
+  public <T extends Deployable> Collection<Deployer> deployers(T obj, Properties connectionProperties) {
+    List<Deployer> list = new ArrayList<>();
     K8sContext context = new K8sContext(connectionProperties);
-    List<Deployer<T>> list = new ArrayList<>();
-    if (ViewTable.class.isAssignableFrom(clazz)) {
-      list.add((Deployer<T>) new K8sViewDeployer(context));
+    if (obj instanceof MaterializedView) {
+      // K8sMaterializedViewDeployer also deploys a View.
+      list.add(new K8sMaterializedViewDeployer((MaterializedView) obj, context, connectionProperties));
+    } else if (obj instanceof View) {
+      list.add(new K8sViewDeployer((View) obj, false, context));
+    } else if (obj instanceof Job) {
+      list.add(new K8sJobDeployer((Job) obj, context));
+    } else if (obj instanceof Source) {
+      list.add(new K8sSourceDeployer((Source) obj, context));
     }
-    if (MaterializedView.class.isAssignableFrom(clazz)) {
-      list.add((Deployer<T>) new K8sMaterializedViewDeployer(context));
-      list.add((Deployer<T>) new K8sPipelineDeployer(context));
-    }
-    if (Source.class.isAssignableFrom(clazz)) {
-      list.add((Deployer<T>) new K8sSourceDeployer(context));
-    }
-    if (Job.class.isAssignableFrom(clazz)) {
-      list.add((Deployer<T>) new K8sJobDeployer(context));
-    }
-    return list;
+
+   return list;
   }
 }

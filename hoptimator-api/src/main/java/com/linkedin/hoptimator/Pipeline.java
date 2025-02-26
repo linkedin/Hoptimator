@@ -1,48 +1,33 @@
 package com.linkedin.hoptimator;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collection;
 
 
 /**
- * A set of Deployable objects that work together to deliver data.
+ * A job, along with its sources and sink.
  */
-public class Pipeline implements Deployable {
+public class Pipeline {
 
-  private List<Deployable> deployables;
+  private Collection<Source> sources;
+  private Sink sink;
+  private Job job;
 
-  public Pipeline(List<Deployable> deployables) {
-    this.deployables = deployables;
+  public Pipeline(Collection<Source> sources, Sink sink, Job job) {
+    this.sources = sources;
+    this.sink = sink;
+    this.job = job;
   }
 
-  @Override
-  public void create() throws SQLException {
-    for (Deployable deployable : deployables) {
-      deployable.create();
-    }
+  public Collection<Source> sources() {
+    return sources;
   }
 
-  @Override
-  public void delete() throws SQLException {
-    for (Deployable deployable : deployables) {
-      deployable.delete();
-    }
+  public Sink sink() {
+    return sink;
   }
 
-  @Override
-  public void update() throws SQLException {
-    for (Deployable deployable : deployables) {
-      deployable.update();
-    }
-  }
-
-  @Override
-  public List<String> specify() throws SQLException {
-    List<String> specs = new ArrayList<>();
-    for (Deployable deployable : deployables) {
-      specs.addAll(deployable.specify());
-    }
-    return specs;
+  public Job job() {
+    return job;
   }
 }
