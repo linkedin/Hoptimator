@@ -158,7 +158,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
 
   private void checkResponse(KubernetesApiResponse<?> resp) throws SQLException {
     if (!resp.isSuccess()) {
-      throw new SQLException(resp.getStatus().getMessage() + ": " + context);
+      throw new SQLException(resp.getStatus().getMessage() + ": " + context, null, resp.getHttpStatusCode());
     }
   }
 }
