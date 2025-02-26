@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -30,7 +29,6 @@ import com.linkedin.hoptimator.util.planner.PipelineRules;
 public final class DeploymentService {
 
   public static final String HINT_OPTION = "hints";
-  public static final String VIEW_NAME_OPTION = "viewName";
 
   private DeploymentService() {
   }
@@ -80,28 +78,23 @@ public final class DeploymentService {
 
   /** Plans a deployable Pipeline which implements the query. */
   public static PipelineRel.Implementor plan(RelRoot root, List<RelOptMaterialization> materializations,
-      Properties connectionProperties) throws SQLException {
+      String partialViewName, Properties connectionProperties) throws SQLException {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
     PipelineRules.rules().forEach(x -> planner.addRule(x));
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, materializations,
         Collections.emptyList());
-    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields, parseHints(connectionProperties));
+    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields, partialViewName, parseHints(connectionProperties));
     implementor.visit(plan);
     return implementor;
   }
 
   // User provided hints will be passed through the "hints" field as KEY=VALUE pairs separated by commas.
-  // We can also configure additional properties to pass through as hints to the deployer.
   public static Map<String, String> parseHints(Properties connectionProperties) {
-    Map<String, String> hints = new LinkedHashMap<>();
     if (connectionProperties.containsKey(HINT_OPTION)) {
-      hints.putAll(Splitter.on(',').withKeyValueSeparator('=').split(connectionProperties.getProperty(HINT_OPTION)));
+      return Splitter.on(',').withKeyValueSeparator('=').split(connectionProperties.getProperty(HINT_OPTION));
     }
-    if (connectionProperties.containsKey(VIEW_NAME_OPTION)) {
-      hints.put(VIEW_NAME_OPTION, connectionProperties.getProperty(VIEW_NAME_OPTION));
-    }
-    return hints;
+    return Collections.emptyMap();
   }
 }

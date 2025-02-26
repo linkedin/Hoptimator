@@ -9,11 +9,13 @@ public class Source implements Deployable {
 
   private final String database;
   private final List<String> path;
+  private final String partialViewName;
   private final Map<String, String> options;
 
-  public Source(String database, List<String> path, Map<String, String> options) {
+  public Source(String database, List<String> path, String partialViewName, Map<String, String> options) {
     this.database = database;
     this.path = path;
+    this.partialViewName = partialViewName;
     this.options = options;
   }
 
@@ -36,6 +38,10 @@ public class Source implements Deployable {
 
   public List<String> path() {
     return path;
+  }
+
+  public String partialViewName() {
+    return partialViewName;
   }
 
   protected String pathString() {

@@ -91,7 +91,7 @@ public class HoptimatorAppConfig extends Application {
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
         RelRoot root = HoptimatorDriver.convert(conn, sql).root;
-        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), conn.connectionProperties());
+        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), "", conn.connectionProperties());
         sqlline.output(plan.sql(conn.connectionProperties()).apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
@@ -161,7 +161,7 @@ public class HoptimatorAppConfig extends Application {
       RelRoot root = HoptimatorDriver.convert(conn, sql).root;
       try {
         Properties connectionProperties = conn.connectionProperties();
-        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), conn.connectionProperties()).pipeline("sink", connectionProperties);
+        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), "", conn.connectionProperties()).pipeline("sink", connectionProperties);
         List<String> specs = new ArrayList<>();
         for (Source source : pipeline.sources()) {
           specs.addAll(DeploymentService.specify(source, connectionProperties));
