@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.util.planner;
 
 import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,12 +49,13 @@ public interface PipelineRel extends RelNode {
     private final ImmutablePairList<Integer, String> targetFields;
     private final Map<String, String> hints;
     private RelNode query;
-    private Sink sink = new Sink("PIPELINE", Arrays.asList("PIPELINE", "SINK"), Collections.emptyMap());
+    private Sink sink;
     private RelDataType sinkRowType = null;
 
     public Implementor(ImmutablePairList<Integer, String> targetFields, Map<String, String> hints) {
       this.targetFields = targetFields;
       this.hints = hints;
+      this.sink = new Sink("PIPELINE", Arrays.asList("PIPELINE", "SINK"), hints);
     }
 
     public void visit(RelNode node) throws SQLException {
@@ -75,7 +75,9 @@ public interface PipelineRel extends RelNode {
      * a connector. The connector is configured via `CREATE TABLE...WITH(...)`.
      */
     public void addSource(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
-      sources.put(new Source(database, path, addKeysAsOption(options, rowType)), rowType);
+      Map<String, String> newOptions = addKeysAsOption(options, rowType);
+      newOptions.putAll(this.hints);
+      sources.put(new Source(database, path, newOptions), rowType);
     }
 
     /**
