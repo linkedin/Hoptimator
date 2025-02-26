@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.util.Collections;
 import java.util.List;
 
 import org.apache.calcite.plan.RelOptTable;

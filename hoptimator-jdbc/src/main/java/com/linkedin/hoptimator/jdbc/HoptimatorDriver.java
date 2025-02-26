@@ -2,11 +2,11 @@ package com.linkedin.hoptimator.jdbc;
 
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.SQLException;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
+import java.sql.SQLException;
 import java.util.Properties;
-import java.util.function.Supplier;
+import java.util.logging.LogManager;
 
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -17,10 +17,8 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParser;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.logging.LogManager;
 
 import com.linkedin.hoptimator.Catalog;
 
@@ -32,13 +30,15 @@ public class HoptimatorDriver implements java.sql.Driver {
 
   public static final String CONNECTION_PREFIX = "jdbc:hoptimator://";
 
-  static {{
-    try {
-      DriverManager.registerDriver(INSTANCE);
-    } catch (SQLException e) {
-      throw new RuntimeException("Failed to register Hoptimator driver.", e);
+  static {
+    {
+      try {
+        DriverManager.registerDriver(INSTANCE);
+      } catch (SQLException e) {
+        throw new RuntimeException("Failed to register Hoptimator driver.", e);
+      }
     }
-  }}
+  }
 
   public static CalcitePrepare.ConvertResult convert(HoptimatorConnection conn, String sql) {
     CalcitePrepare.Context context = conn.createPrepareContext();
@@ -77,7 +77,7 @@ public class HoptimatorDriver implements java.sql.Driver {
 
   @Override
   public boolean jdbcCompliant() {
-    return false; 
+    return false;
   }
 
   @Override
@@ -109,7 +109,7 @@ public class HoptimatorDriver implements java.sql.Driver {
       rootSchema.add("DEFAULT", new AbstractSchema());
 
       calciteConnection.setSchema("DEFAULT");
-      
+
       HoptimatorConnection hoptimatorConnection = new HoptimatorConnection(calciteConnection, properties);
       holder.connection = hoptimatorConnection;
 
