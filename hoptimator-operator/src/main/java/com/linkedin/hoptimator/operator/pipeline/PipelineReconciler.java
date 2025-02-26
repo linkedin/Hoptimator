@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator.pipeline;
 
+import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Arrays;
 
@@ -81,6 +82,13 @@ public final class PipelineReconciler implements Reconciler {
 
       pipelineApi.updateStatus(object, status);
     } catch (Exception e) {
+      if (e instanceof SQLException) {
+        SQLException sqlException = (SQLException) e;
+        if (sqlException.getErrorCode() == 404) {
+          log.info("Object {} deleted. Skipping.", name);
+          return new Result(false);
+        }
+      }
       log.error("Encountered exception while reconciling Pipeline {}.", name, e);
       return new Result(true, failureRetryDuration());
     }
