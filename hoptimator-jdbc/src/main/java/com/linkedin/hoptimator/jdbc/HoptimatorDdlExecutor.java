@@ -189,9 +189,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       // is "foo-bar" and the sink is just FOO.
       String[] viewParts = viewName.split("\\$", 2);
       String sinkName = viewParts[0];
-      String partialViewName = "";
+      String pipelineName = database + "-" + sinkName;
       if (viewParts.length > 1) {
-        partialViewName = viewParts[1];
+        pipelineName = pipelineName + "-" + viewParts[1];
       }
       List<String> sinkPath = new ArrayList<>();
       sinkPath.addAll(schemaPath);
@@ -209,7 +209,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       // Plan a pipeline to materialize the view.
       RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
-      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), partialViewName, connectionProperties);
+      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), pipelineName, connectionProperties);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
 

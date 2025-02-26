@@ -77,14 +77,14 @@ public final class DeploymentService {
 
   /** Plans a deployable Pipeline which implements the query. */
   public static PipelineRel.Implementor plan(RelRoot root, List<RelOptMaterialization> materializations,
-      String partialViewName, Properties connectionProperties) throws SQLException {
+      String pipelineName, Properties connectionProperties) throws SQLException {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
     PipelineRules.rules().forEach(x -> planner.addRule(x));
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, materializations,
         Collections.emptyList());
-    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields, partialViewName, parseHints(connectionProperties));
+    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields, pipelineName, parseHints(connectionProperties));
     implementor.visit(plan);
     return implementor;
   }

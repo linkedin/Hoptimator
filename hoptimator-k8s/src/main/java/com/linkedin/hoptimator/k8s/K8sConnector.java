@@ -34,7 +34,7 @@ class K8sConnector implements Connector {
             .with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
             .with("database", source.database())
             .with("table", source.table())
-            .with("partialViewName", source.partialViewName())
+            .with("pipelineName", source.pipelineName())
             .with(source.options());
     String configs = tableTemplateApi.list()
         .stream()
