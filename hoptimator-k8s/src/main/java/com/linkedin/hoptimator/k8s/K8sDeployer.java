@@ -6,9 +6,8 @@ import java.util.List;
 
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
-import io.kubernetes.client.util.Yaml;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
-
+import io.kubernetes.client.util.Yaml;
 
 import com.linkedin.hoptimator.Deployer;
 

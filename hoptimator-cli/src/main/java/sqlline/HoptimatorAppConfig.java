@@ -11,9 +11,7 @@ import java.util.Scanner;
 import org.apache.calcite.rel.RelRoot;
 import org.jline.reader.Completer;
 
-import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
