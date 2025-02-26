@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -18,7 +17,6 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.ImmutablePairList;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Splitter;
 
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
