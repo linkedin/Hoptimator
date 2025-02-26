@@ -9,6 +9,7 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
+import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelRoot;
@@ -71,13 +72,13 @@ public final class DeploymentService {
   }
 
   /** Plans a deployable Pipeline which implements the query. */
-  public static PipelineRel.Implementor plan(RelRoot root) throws SQLException {
+  public static PipelineRel.Implementor plan(RelRoot root, List<RelOptMaterialization> materializations)
+      throws SQLException {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
     PipelineRules.rules().forEach(x -> planner.addRule(x));
-    // TODO add materializations here (currently empty list)
-    PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, Collections.emptyList(),
+    PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, materializations,
         Collections.emptyList());
     PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields);
     implementor.visit(plan);

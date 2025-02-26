@@ -3,20 +3,24 @@ package com.linkedin.hoptimator.k8s;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Properties;
 
+import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.rel.type.RelDataTypeImpl;
+import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.ViewTable;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.MaterializedViewTable;
-import com.linkedin.hoptimator.jdbc.schema.HoptimatorViewTableMacro;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
@@ -72,11 +76,14 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
   }
   // CHECKSTYLE:ON
 
-  public K8sViewTable(K8sContext context) {
+  private final HoptimatorConnection connection;
+
+  public K8sViewTable(HoptimatorConnection connection, K8sContext context) {
     super(context, K8sApiEndpoints.VIEWS, Row.class);
+    this.connection = connection;
   }
 
-  public void addViews(SchemaPlus parentSchema, Properties connectionProperties) {
+  public void addViews(SchemaPlus parentSchema) {
     for (Row row : rows()) {
 
       // build schema path, filling in any missing schemas
@@ -89,7 +96,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
         }
         schema = next;
       }
-      schema.add(row.viewName(), makeView(schema, row, connectionProperties));
+      schema.add(row.viewName(), makeView(schema, row));
     }
   }
 
@@ -108,13 +115,24 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     rows().remove(find(name));
   }
 
-  private Table makeView(SchemaPlus parentSchema, Row row, Properties connectionProperties) {
-    HoptimatorViewTableMacro viewTableMacro = new HoptimatorViewTableMacro(CalciteSchema.from(parentSchema), row.SQL,
-        row.schemaPath(), row.viewPath(), false);
+  public void registerMaterializations(HoptimatorConnection connection) {
+    for (Row row : rows()) {
+      if (row.MATERIALIZED) {
+        connection.registerMaterialization(row.viewPath(), row.SQL);
+      }
+    }
+  }
+
+  private Table makeView(SchemaPlus parentSchema, Row row) {
+    // We want to defer resolution of types until they are actually used,
+    // since otherwise the view may depend on other views that haven't
+    // been loaded yet.
+    RelProtoDataType protoType = x -> x.copyType(HoptimatorDriver.analyzeView(connection, row.SQL).rowType);
+    ViewTable viewTable = new ViewTable(Object.class, protoType, row.SQL, row.schemaPath(), row.viewPath());
     if (row.MATERIALIZED) {
-      return new MaterializedViewTable(viewTableMacro, connectionProperties);
+      return new MaterializedViewTable(viewTable);
     } else {
-      return viewTableMacro.apply(Collections.singletonList(connectionProperties));
+      return viewTable;
     }
   }
 

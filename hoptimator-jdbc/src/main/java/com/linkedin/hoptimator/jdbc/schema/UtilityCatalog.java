@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc.schema;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Wrapper;
 import java.util.LinkedHashMap;
@@ -33,8 +34,8 @@ public class UtilityCatalog extends AbstractSchema implements Catalog {
   }
 
   @Override
-  public void register(Wrapper parentSchema, Properties connectionProperties) throws SQLException {
-    parentSchema.unwrap(SchemaPlus.class).add("UTIL", this);
+  public void register(Wrapper wrapper) throws SQLException {
+    wrapper.unwrap(SchemaPlus.class).add("UTIL", this);
   }
 
   @Override
