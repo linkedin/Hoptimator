@@ -140,7 +140,6 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       existing.getObject().getMetadata().setLabels(labels);
 
       obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion());
-      context.own(obj);
       resp = context.<T, U>generic(endpoint).update(obj);
     } else {
       context.own(obj);

@@ -67,7 +67,6 @@ public class K8sYamlApi implements Api<String> {
       existing.getObject().getMetadata().setLabels(labels);
 
       obj.setMetadata(existing.getObject().getMetadata());
-      context.own(obj);
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).update(obj);
     } else {
       context.own(obj);

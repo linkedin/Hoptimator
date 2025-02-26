@@ -14,6 +14,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -81,7 +82,8 @@ public abstract class QuidemTestBase {
                 RelRoot root = HoptimatorDriver.convert(conn, sql).root;
                 String []parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
-                Pipeline pipeline = DeploymentService.plan(root).pipeline(pipelineName, conn.connectionProperties());
+                Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList())
+                    .pipeline(pipelineName, conn.connectionProperties());
                 List<String> specs = new ArrayList<>();
                 for (Source source : pipeline.sources()) {
                   specs.addAll(DeploymentService.specify(source, conn.connectionProperties()));

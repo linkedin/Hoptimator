@@ -31,8 +31,10 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
@@ -65,7 +67,6 @@ import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.View;
-import com.linkedin.hoptimator.jdbc.schema.HoptimatorViewTableMacro;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
@@ -74,10 +75,12 @@ import static org.apache.calcite.util.Static.RESOURCE;
 
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
+  private final HoptimatorConnection connection;
   private final Properties connectionProperties;
 
-  public HoptimatorDdlExecutor(Properties connectionProperties) {
-    this.connectionProperties = connectionProperties;
+  public HoptimatorDdlExecutor(HoptimatorConnection connection) {
+    this.connection = connection;
+    this.connectionProperties = connection.connectionProperties();
   }
 
   @SuppressWarnings("unused") // used via reflection
@@ -118,9 +121,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     List<String> viewPath = new ArrayList<>();
     viewPath.addAll(schemaPath);
     viewPath.add(viewName);
-    HoptimatorViewTableMacro viewTableMacro = new HoptimatorViewTableMacro(CalciteSchema.from(schemaPlus),
-        sql, schemaPath, viewPath, false);
-    ViewTable viewTable = (ViewTable) viewTableMacro.apply(Collections.singletonList(connectionProperties));
+    CalcitePrepare.AnalyzeViewResult analyzed = HoptimatorDriver.analyzeView(connection, sql);
+    RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
+    ViewTable viewTable = new ViewTable(Object.class, protoType, sql, schemaPath, viewPath);
     View view = new View(viewPath, sql);
     try {
       ValidationService.validateOrThrow(viewTable);
@@ -177,9 +180,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       // Table does not exist. Create it.
       RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-      HoptimatorViewTableMacro viewTableMacro = new HoptimatorViewTableMacro(CalciteSchema.from(schemaPlus),
-          sql, schemaPath, viewPath, false);
-      MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTableMacro, connectionProperties);
+      CalcitePrepare.AnalyzeViewResult analyzed = HoptimatorDriver.analyzeView(connection, sql);
+      RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
+      ViewTable viewTable = new ViewTable(Object.class, protoType, sql, schemaPath, viewPath);
+      MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTable);
       RelDataType viewRowType = materializedViewTable.getRowType(typeFactory);
 
       // Support "partial views", i.e. CREATE VIEW FOO$BAR, where the view name
@@ -200,9 +204,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
 
       // Plan a pipeline to materialize the view.
-      RelRoot root = new HoptimatorDriver.Prepare(connectionProperties)
-          .convert(context, sql).root;
-      PipelineRel.Implementor plan = DeploymentService.plan(root);
+      RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
+      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations());
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
  
