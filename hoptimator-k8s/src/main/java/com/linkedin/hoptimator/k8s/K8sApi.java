@@ -1,11 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import io.kubernetes.client.common.KubernetesListObject;
@@ -158,7 +156,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
 
   private void checkResponse(KubernetesApiResponse<?> resp) throws SQLException {
     if (!resp.isSuccess()) {
-      throw new SQLException(resp.getStatus().getMessage() + ": " + context);
+      throw new SQLException(resp.getStatus().getMessage() + ": " + context, null, resp.getHttpStatusCode());
     }
   }
 }

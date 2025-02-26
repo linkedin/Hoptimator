@@ -49,7 +49,7 @@ public abstract class QuidemTestBase {
       Quidem.Config config = Quidem.configBuilder()
           .withReader(r)
           .withWriter(w)
-          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://catalogs=" + x + jdbcProperties))
+          .withConnectionFactory((x, y) -> DriverManager.getConnection("jdbc:hoptimator://catalogs=" + x + ";" + jdbcProperties))
           .withCommandHandler(new CustomCommandHandler())
           .build();
       new Quidem(config).execute();
@@ -82,7 +82,7 @@ public abstract class QuidemTestBase {
                 RelRoot root = HoptimatorDriver.convert(conn, sql).root;
                 String []parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
-                Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList())
+                Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList(), conn.connectionProperties())
                     .pipeline(pipelineName, conn.connectionProperties());
                 List<String> specs = new ArrayList<>();
                 for (Source source : pipeline.sources()) {

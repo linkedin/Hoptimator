@@ -11,9 +11,7 @@ import java.util.Scanner;
 import org.apache.calcite.rel.RelRoot;
 import org.jline.reader.Completer;
 
-import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
@@ -93,7 +91,7 @@ public class HoptimatorAppConfig extends Application {
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
         RelRoot root = HoptimatorDriver.convert(conn, sql).root;
-        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations());
+        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), conn.connectionProperties());
         sqlline.output(plan.sql(conn.connectionProperties()).apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
@@ -163,7 +161,7 @@ public class HoptimatorAppConfig extends Application {
       RelRoot root = HoptimatorDriver.convert(conn, sql).root;
       try {
         Properties connectionProperties = conn.connectionProperties();
-        Pipeline pipeline = DeploymentService.plan(root, conn.materializations()).pipeline("sink", connectionProperties);
+        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), conn.connectionProperties()).pipeline("sink", connectionProperties);
         List<String> specs = new ArrayList<>();
         for (Source source : pipeline.sources()) {
           specs.addAll(DeploymentService.specify(source, connectionProperties));

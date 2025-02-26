@@ -31,14 +31,13 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.schema.Function;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.server.DdlExecutor;
 import org.apache.calcite.server.ServerDdlExecutor;
@@ -205,10 +204,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       // Plan a pipeline to materialize the view.
       RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
-      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations());
+      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), connectionProperties);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
- 
+
       MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(connectionProperties), pipeline);
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook);
@@ -217,8 +216,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         DeploymentService.update(hook, connectionProperties);
       } else {
         DeploymentService.create(hook, connectionProperties);
-      } 
-      
+      }
+
       schemaPlus.add(viewName, materializedViewTable);
     } catch (Exception e) {
       throw new RuntimeException("Cannot CREATE MATERIALIZED VIEW in " + schemaName + ": " + e.getMessage(), e);
