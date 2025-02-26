@@ -92,7 +92,7 @@ public class RemoteToEnumerableConverter
   private SqlString generateSql(SqlDialect dialect) {
     RelRoot root = RelRoot.of(getInput(), SqlKind.SELECT);
     try {
-      PipelineRel.Implementor plan = DeploymentService.plan(root);
+      PipelineRel.Implementor plan = DeploymentService.plan(root, new Properties());
       return new SqlString(MysqlSqlDialect.DEFAULT, plan.query(connectionProperties)
           .apply(com.linkedin.hoptimator.SqlDialect.FLINK));  // TODO dialect
     } catch (SQLException e) {

@@ -19,18 +19,20 @@ class K8sJobDeployer extends K8sYamlDeployer {
 
   private static final String FLINK_CONFIG = "flink.config";
 
+  private final Properties connectionProperties;
   private final Job job;
   private final K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> jobTemplateApi;
 
-  K8sJobDeployer(Job job, K8sContext context) {
+  K8sJobDeployer(Job job, K8sContext context, Properties connectionProperties) {
     super(context);
+    this.connectionProperties = connectionProperties;
     this.job = job;
     this.jobTemplateApi = new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
   }
 
   @Override
   public List<String> specify() throws SQLException {
-    Properties properties = ConfigService.config(null, false, FLINK_CONFIG);
+    Properties properties = ConfigService.config(this.connectionProperties, false, FLINK_CONFIG);
     properties.putAll(job.sink().options());
     Function<SqlDialect, String> sql = job.sql();
     String name = K8sUtils.canonicalizeName(job.sink().database(), job.name());

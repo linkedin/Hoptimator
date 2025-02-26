@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
@@ -15,6 +16,8 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.Programs;
 
+import com.google.common.base.Splitter;
+
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
@@ -24,6 +27,7 @@ import com.linkedin.hoptimator.util.planner.PipelineRules;
 
 public final class DeploymentService {
 
+  private static final String HINT_OPTION = "hints";
   private DeploymentService() {
   }
 
@@ -71,7 +75,7 @@ public final class DeploymentService {
   }
 
   /** Plans a deployable Pipeline which implements the query. */
-  public static PipelineRel.Implementor plan(RelRoot root) throws SQLException {
+  public static PipelineRel.Implementor plan(RelRoot root, Properties hints) throws SQLException {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
@@ -79,8 +83,15 @@ public final class DeploymentService {
     // TODO add materializations here (currently empty list)
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, Collections.emptyList(),
         Collections.emptyList());
-    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields);
+    PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields, parseHints(hints));
     implementor.visit(plan);
     return implementor;
+  }
+
+  public static Map<String, String> parseHints(Properties properties) {
+    if (properties.containsKey(HINT_OPTION)) {
+      return Splitter.on(',').withKeyValueSeparator('=').split(properties.getProperty(HINT_OPTION));
+    }
+    return Collections.emptyMap();
   }
 }
