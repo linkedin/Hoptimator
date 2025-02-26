@@ -90,8 +90,8 @@ public final class DeploymentService {
   }
 
   public static Map<String, String> parseHints(Properties connectionProperties) {
-    if (properties.containsKey(HINT_OPTION)) {
-      return Splitter.on(',').withKeyValueSeparator('=').split(properties.getProperty(HINT_OPTION));
+    if (connectionProperties.containsKey(HINT_OPTION)) {
+      return Splitter.on(',').withKeyValueSeparator('=').split(connectionProperties.getProperty(HINT_OPTION));
     }
     return Collections.emptyMap();
   }
