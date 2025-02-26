@@ -156,7 +156,7 @@ While Deployers are extensible, today the primary deployer is to Kubernetes. The
 and [K8sJobDeployer](hoptimator-k8s/src/main/java/com/linkedin/hoptimator/k8s/K8sJobDeployer.java) (for job-templates)
 provide a few template defaults that you can choose to include in your templates:
 
-K8sSourceDeployer: `name, database, schema, table, pipelineName`
+K8sSourceDeployer: `name, database, schema, table, pipeline`
 
 K8sJobDeployer: `name, database, schema, table, pipelineName, sql, flinksql, flinkconfigs`
 
