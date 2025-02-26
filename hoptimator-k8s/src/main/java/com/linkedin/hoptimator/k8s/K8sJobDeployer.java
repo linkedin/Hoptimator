@@ -41,7 +41,6 @@ class K8sJobDeployer extends K8sYamlDeployer {
         .with("database", job.sink().database())
         .with("schema", job.sink().schema())
         .with("table", job.sink().table())
-        .with("pipeline", job.sink().pipelineName())
         .with("sql", sql.apply(SqlDialect.ANSI))
         .with("flinksql", sql.apply(SqlDialect.FLINK))
         .with("flinkconfigs", properties)

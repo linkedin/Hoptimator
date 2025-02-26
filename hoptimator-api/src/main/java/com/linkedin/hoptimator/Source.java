@@ -9,13 +9,11 @@ public class Source implements Deployable {
 
   private final String database;
   private final List<String> path;
-  private final String pipelineName;
   private final Map<String, String> options;
 
-  public Source(String database, List<String> path, String pipelineName, Map<String, String> options) {
+  public Source(String database, List<String> path, Map<String, String> options) {
     this.database = database;
     this.path = path;
-    this.pipelineName = pipelineName;
     this.options = options;
   }
 
@@ -38,10 +36,6 @@ public class Source implements Deployable {
 
   public List<String> path() {
     return path;
-  }
-
-  public String pipelineName() {
-    return pipelineName;
   }
 
   protected String pathString() {

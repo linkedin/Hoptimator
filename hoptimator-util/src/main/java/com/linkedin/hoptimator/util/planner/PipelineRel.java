@@ -47,17 +47,15 @@ public interface PipelineRel extends RelNode {
   class Implementor {
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private final ImmutablePairList<Integer, String> targetFields;
-    private final String pipelineName;
     private final Map<String, String> hints;
     private RelNode query;
     private Sink sink;
     private RelDataType sinkRowType = null;
 
-    public Implementor(ImmutablePairList<Integer, String> targetFields, String pipelineName, Map<String, String> hints) {
+    public Implementor(ImmutablePairList<Integer, String> targetFields, Map<String, String> hints) {
       this.targetFields = targetFields;
       this.hints = hints;
-      this.pipelineName = pipelineName;
-      this.sink = new Sink("PIPELINE", Arrays.asList("PIPELINE", "SINK"), pipelineName, hints);
+      this.sink = new Sink("PIPELINE", Arrays.asList("PIPELINE", "SINK"), hints);
     }
 
     public void visit(RelNode node) throws SQLException {
@@ -79,7 +77,7 @@ public interface PipelineRel extends RelNode {
     public void addSource(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
       Map<String, String> newOptions = addKeysAsOption(options, rowType);
       newOptions.putAll(this.hints);
-      sources.put(new Source(database, path, pipelineName, newOptions), rowType);
+      sources.put(new Source(database, path, newOptions), rowType);
     }
 
     /**
@@ -93,7 +91,7 @@ public interface PipelineRel extends RelNode {
 
       Map<String, String> newOptions = addKeysAsOption(options, rowType);
       newOptions.putAll(this.hints);
-      this.sink = new Sink(database, path, pipelineName, newOptions);
+      this.sink = new Sink(database, path, newOptions);
     }
 
     @VisibleForTesting

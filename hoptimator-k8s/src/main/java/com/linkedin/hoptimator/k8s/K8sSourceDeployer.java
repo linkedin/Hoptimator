@@ -31,7 +31,6 @@ class K8sSourceDeployer extends K8sYamlDeployer {
             .with("database", source.database())
             .with("schema", source.schema())
             .with("table", source.table())
-            .with("pipeline", source.pipelineName())
             .with(source.options());
     return tableTemplateApi.list()
         .stream()

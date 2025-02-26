@@ -193,6 +193,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       if (viewParts.length > 1) {
         pipelineName = pipelineName + "-" + viewParts[1];
       }
+      connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
       List<String> sinkPath = new ArrayList<>();
       sinkPath.addAll(schemaPath);
       sinkPath.add(sinkName);
@@ -209,7 +210,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       // Plan a pipeline to materialize the view.
       RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
-      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), pipelineName, connectionProperties);
+      PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), connectionProperties);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
       Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
 
