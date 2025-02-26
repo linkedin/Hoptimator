@@ -28,8 +28,7 @@ import com.linkedin.hoptimator.util.planner.PipelineRules;
 
 public final class DeploymentService {
 
-  public static final String HINT_OPTION = "hints";
-
+  private static final String HINT_OPTION = "hints";
   private DeploymentService() {
   }
 
