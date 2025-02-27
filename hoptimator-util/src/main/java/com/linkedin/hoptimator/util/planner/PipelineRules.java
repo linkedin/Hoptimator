@@ -18,6 +18,8 @@ import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.prepare.Prepare;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
+import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Calc;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Filter;
@@ -26,6 +28,9 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.core.Uncollect;
+import org.apache.calcite.rel.hint.RelHint;
+import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalCalc;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
@@ -38,6 +43,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.util.ImmutableBitSet;
 
 import com.google.common.collect.ImmutableSet;
 
@@ -51,7 +57,7 @@ public final class PipelineRules {
 
   public static Collection<RelOptRule> rules() {
     return Arrays.asList(PipelineFilterRule.INSTANCE, PipelineProjectRule.INSTANCE, PipelineJoinRule.INSTANCE,
-        PipelineCalcRule.INSTANCE);
+        PipelineCalcRule.INSTANCE, PipelineAggregateRule.INSTANCE, PipelineUncollectRule.INSTANCE);
   }
 
   public static class PipelineTableScanRule extends ConverterRule {
@@ -72,9 +78,8 @@ public final class PipelineRules {
     @Override
     public RelNode convert(RelNode rel) {
       TableScan scan = (TableScan) rel;
-      RelOptTable table = scan.getTable();
       RelTraitSet traitSet = scan.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineTableScan(rel.getCluster(), traitSet, database, table);
+      return new PipelineTableScan(rel.getCluster(), traitSet, database, scan.getTable());
     }
   }
 
@@ -115,9 +120,8 @@ public final class PipelineRules {
     @Override
     public RelNode convert(RelNode rel) {
       TableModify mod = (TableModify) rel;
-      RelOptTable table = mod.getTable();
       RelTraitSet traitSet = mod.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineTableModify(database, rel.getCluster(), traitSet, table, mod.getCatalogReader(),
+      return new PipelineTableModify(database, rel.getCluster(), traitSet, mod.getTable(), mod.getCatalogReader(),
           convert(mod.getInput(), traitSet), mod.getOperation(), mod.getUpdateColumnList(),
           mod.getSourceExpressionList(), mod.isFlattened());
     }
@@ -300,6 +304,80 @@ public final class PipelineRules {
     @Override
     public PipelineCalc copy(RelTraitSet traitSet, RelNode child, RexProgram program) {
       return new PipelineCalc(getCluster(), traitSet, child, program);
+    }
+
+    @Override
+    public void implement(Implementor implementor) {
+    }
+  }
+
+  static class PipelineAggregateRule extends ConverterRule {
+    static final PipelineAggregateRule INSTANCE =
+        Config.INSTANCE.withConversion(LogicalAggregate.class, Convention.NONE, PipelineRel.CONVENTION, "PipelineAggregateRule")
+            .withRuleFactory(PipelineAggregateRule::new)
+            .as(Config.class)
+            .toRule(PipelineAggregateRule.class);
+
+    protected PipelineAggregateRule(Config config) {
+      super(config);
+    }
+
+    @Override
+    public RelNode convert(RelNode rel) {
+      Aggregate agg = (Aggregate) rel;
+      RelTraitSet traitSet = agg.getTraitSet().replace(PipelineRel.CONVENTION);
+      return new PipelineAggregate(rel.getCluster(), traitSet, agg.getHints(), convert(agg.getInput(), PipelineRel.CONVENTION),
+          agg.getGroupSet(), agg.getGroupSets(), agg.getAggCallList());
+    }
+  }
+
+  static class PipelineAggregate extends Aggregate implements PipelineRel {
+
+    PipelineAggregate(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, RelNode input,
+        ImmutableBitSet groupSet, List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
+      super(cluster, traitSet, hints, input, groupSet, groupSets, aggCalls);
+    }
+
+    @Override
+    public PipelineAggregate copy(RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
+        List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
+      return new PipelineAggregate(getCluster(), traitSet, Collections.emptyList(), input, groupSet, groupSets, aggCalls);
+    }
+
+    @Override
+    public void implement(Implementor implementor) {
+    }
+  }
+
+  static class PipelineUncollectRule extends ConverterRule {
+    static final PipelineUncollectRule INSTANCE =
+        Config.INSTANCE.withConversion(Uncollect.class, Convention.NONE, PipelineRel.CONVENTION, "PipelineUncollectRule")
+            .withRuleFactory(PipelineUncollectRule::new)
+            .as(Config.class)
+            .toRule(PipelineUncollectRule.class);
+
+    protected PipelineUncollectRule(Config config) {
+      super(config);
+    }
+
+    @Override
+    public RelNode convert(RelNode rel) {
+      Uncollect uncollect = (Uncollect) rel;
+      RelTraitSet traitSet = uncollect.getTraitSet().replace(PipelineRel.CONVENTION);
+      return new PipelineUncollect(rel.getCluster(), traitSet, convert(uncollect.getInput(), PipelineRel.CONVENTION),
+          uncollect.withOrdinality, Collections.emptyList());
+    }
+  }
+
+  static class PipelineUncollect extends Uncollect implements PipelineRel {
+    PipelineUncollect(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, boolean withOrdinality,
+        List<String> itemAliases) {
+      super(cluster, traitSet, input, withOrdinality, itemAliases);
+    }
+
+    @Override
+    public PipelineUncollect copy(RelTraitSet traitSet, RelNode input) {
+      return new PipelineUncollect(getCluster(), traitSet, input, withOrdinality, Collections.emptyList());
     }
 
     @Override
