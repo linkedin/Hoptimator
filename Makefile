@@ -108,7 +108,7 @@ integration-tests: deploy-dev-environment
 	kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 & echo $$! > port-forward.pid
 	kubectl port-forward -n flink svc/flink-sql-gateway 8083 & echo $$! > port-forward-2.pid
 	kubectl port-forward -n flink svc/basic-session-deployment-rest 8081 & echo $$! > port-forward-3.pid
-	./gradlew intTest || kill `cat port-forward.pid port-forward-2.pid, port-forward-3.pid`
+	./gradlew intTest --no-parallel || kill `cat port-forward.pid port-forward-2.pid, port-forward-3.pid`
 	kill `cat port-forward.pid`
 	kill `cat port-forward-2.pid`
 	kill `cat port-forward-3.pid`
@@ -116,9 +116,9 @@ integration-tests: deploy-dev-environment
 # kind cluster used in github workflow needs to have different routing set up, avoiding the need to forward kafka ports
 integration-tests-kind: deploy-dev-environment
 	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=10m 
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=10m 
-	./gradlew intTest -i
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=10m
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=10m
+	./gradlew intTest -i --no-parallel
 
 generate-models:
 	./generate-models.sh
