@@ -30,7 +30,8 @@ class K8sConnector implements Connector {
   @Override
   public Map<String, String> configure() throws SQLException {
     Template.Environment env =
-        new Template.SimpleEnvironment().with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
+        new Template.SimpleEnvironment()
+            .with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
             .with("database", source.database())
             .with("table", source.table())
             .with(source.options());

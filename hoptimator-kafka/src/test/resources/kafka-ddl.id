@@ -43,7 +43,7 @@ metadata:
     strimzi.io/cluster: one
 spec:
   topicName: existing-topic-2
-  partitions: 1
+  partitions: 4
   replicas: 1
   config:
     retention.ms: 7200000

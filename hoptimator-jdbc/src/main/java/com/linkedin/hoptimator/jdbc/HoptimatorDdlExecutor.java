@@ -187,7 +187,13 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       // Support "partial views", i.e. CREATE VIEW FOO$BAR, where the view name
       // is "foo-bar" and the sink is just FOO.
-      String sinkName = viewName.split("\\$", 2)[0];
+      String[] viewParts = viewName.split("\\$", 2);
+      String sinkName = viewParts[0];
+      String pipelineName = database + "-" + sinkName;
+      if (viewParts.length > 1) {
+        pipelineName = pipelineName + "-" + viewParts[1];
+      }
+      connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
       List<String> sinkPath = new ArrayList<>();
       sinkPath.addAll(schemaPath);
       sinkPath.add(sinkName);

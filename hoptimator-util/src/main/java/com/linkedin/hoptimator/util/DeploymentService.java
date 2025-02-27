@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -29,6 +30,8 @@ import com.linkedin.hoptimator.util.planner.PipelineRules;
 public final class DeploymentService {
 
   private static final String HINT_OPTION = "hints";
+  public static final String PIPELINE_OPTION = "pipeline";
+
   private DeploymentService() {
   }
 
@@ -89,10 +92,16 @@ public final class DeploymentService {
     return implementor;
   }
 
+  // User provided hints will be passed through the "hints" field as KEY=VALUE pairs separated by commas.
+  // We can also configure additional properties to pass through as hints to the deployer.
   public static Map<String, String> parseHints(Properties connectionProperties) {
+    Map<String, String> hints = new LinkedHashMap<>();
     if (connectionProperties.containsKey(HINT_OPTION)) {
-      return Splitter.on(',').withKeyValueSeparator('=').split(connectionProperties.getProperty(HINT_OPTION));
+      hints.putAll(Splitter.on(',').withKeyValueSeparator('=').split(connectionProperties.getProperty(HINT_OPTION)));
     }
-    return Collections.emptyMap();
+    if (connectionProperties.containsKey(PIPELINE_OPTION)) {
+      hints.put(PIPELINE_OPTION, connectionProperties.getProperty(PIPELINE_OPTION));
+    }
+    return hints;
   }
 }
