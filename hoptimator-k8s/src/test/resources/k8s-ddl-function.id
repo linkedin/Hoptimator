@@ -1,7 +1,7 @@
 !set outputformat mysql
 !use k8s
 
-create or replace view ADS."case" AS SELECT CASE WHEN "FIRST_NAME" = 'Bob' THEN ARRAY['a'] ELSE ARRAY['b'] END || CASE WHEN "FIRST_NAME" = 'Alice' THEN ARRAY['c'] ELSE ARRAY['d'] END AS arr from profile.members;
+create or replace materialized view ADS."case" AS SELECT CASE WHEN "FIRST_NAME" = 'Bob' THEN ARRAY['a'] ELSE ARRAY['b'] END || CASE WHEN "FIRST_NAME" = 'Alice' THEN ARRAY['c'] ELSE ARRAY['d'] END AS arr from profile.members;
 (0 rows modified)
 
 !update
@@ -18,24 +18,41 @@ select * from ADS."case";
 
 !ok
 
-create or replace view ADS."json" AS SELECT JSON_VALUE('{"a": 1}', '$.a') AS json from profile.members;
+create or replace materialized view ADS."createJson" AS SELECT JSON_OBJECT('name':"FIRST_NAME", 'type':4) AS json from profile.members;
 (0 rows modified)
 
 !update
 
-select * from ADS."json";
-+------+
-| JSON |
-+------+
-| 1    |
-| 1    |
-| 1    |
-+------+
+select * from ADS."createJson";
++-----------------------------+
+| JSON                        |
++-----------------------------+
+| {"name":"Alice","type":4}   |
+| {"name":"Bob","type":4}     |
+| {"name":"Charlie","type":4} |
++-----------------------------+
 (3 rows)
 
 !ok
 
-create or replace view ADS."regex" AS SELECT REGEXP_REPLACE("FIRST_NAME", '(B)ob', '$1ill') AS name from profile.members;
+create or replace materialized view ADS."extractJson" AS SELECT JSON_VALUE("JSON", '$.name') AS name from ads."createJson";
+(0 rows modified)
+
+!update
+
+select * from ADS."extractJson";
++---------+
+| NAME    |
++---------+
+| Alice   |
+| Bob     |
+| Charlie |
++---------+
+(3 rows)
+
+!ok
+
+create or replace materialized view ADS."regex" AS SELECT REGEXP_REPLACE("FIRST_NAME", '(B)ob', '$1ill') AS name from profile.members;
 (0 rows modified)
 
 !update
@@ -52,7 +69,7 @@ select * from ads."regex";
 
 !ok
 
-create or replace view ADS."concat" AS SELECT CONCAT('_', "FIRST_NAME", '_') AS name from profile.members;
+create or replace materialized view ADS."concat" AS SELECT CONCAT('_', "FIRST_NAME", '_') AS name from profile.members;
 (0 rows modified)
 
 !update
@@ -69,8 +86,7 @@ select * from ads."concat";
 
 !ok
 
-
-create or replace view ADS."listagg" AS SELECT LISTAGG("FIRST_NAME") AS agg FROM profile.members;
+create or replace materialized view ADS."listagg" AS SELECT LISTAGG("FIRST_NAME") AS agg FROM profile.members;
 (0 rows modified)
 
 !update
@@ -85,7 +101,24 @@ select * from ads."listagg";
 
 !ok
 
-create or replace view ADS."unnested" AS SELECT * FROM UNNEST(ARRAY(SELECT "FIRST_NAME" FROM profile.members)) AS name;
+create or replace materialized view ADS."arr" AS SELECT ARRAY["FIRST_NAME"] AS arr FROM profile.members;
+(0 rows modified)
+
+!update
+
+select * from ADS."arr";
++-----------+
+| ARR       |
++-----------+
+| [Alice]   |
+| [Bob]     |
+| [Charlie] |
++-----------+
+(3 rows)
+
+!ok
+
+create or replace materialized view ADS."unnested" AS SELECT * FROM UNNEST(SELECT ARR FROM ADS."arr") AS name;
 (0 rows modified)
 
 !update
@@ -102,32 +135,42 @@ select * from ADS."unnested";
 
 !ok
 
-drop view ads."case";
+drop materialized view ads."unnested";
 (0 rows modified)
 
 !update
 
-drop view ads."json";
+drop materialized view ads."arr";
 (0 rows modified)
 
 !update
 
-drop view ads."regex";
+drop materialized view ads."listagg";
 (0 rows modified)
 
 !update
 
-drop view ads."concat";
+drop materialized view ads."concat";
 (0 rows modified)
 
 !update
 
-drop view ads."listagg";
+drop materialized view ads."regex";
 (0 rows modified)
 
 !update
 
-drop view ads."unnested";
+drop materialized view ads."extractJson";
+(0 rows modified)
+
+!update
+
+drop materialized view ads."createJson";
+(0 rows modified)
+
+!update
+
+drop materialized view ads."case";
 (0 rows modified)
 
 !update
