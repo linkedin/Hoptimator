@@ -29,7 +29,7 @@ import com.linkedin.hoptimator.util.planner.PipelineRules;
 
 public final class DeploymentService {
 
-  private static final String HINT_OPTION = "hints";
+  static final String HINT_OPTION = "hints";
   public static final String PIPELINE_OPTION = "pipeline";
 
   private DeploymentService() {
@@ -97,11 +97,19 @@ public final class DeploymentService {
   public static Map<String, String> parseHints(Properties connectionProperties) {
     Map<String, String> hints = new LinkedHashMap<>();
     if (connectionProperties.containsKey(HINT_OPTION)) {
-      hints.putAll(Splitter.on(',').withKeyValueSeparator('=').split(connectionProperties.getProperty(HINT_OPTION)));
+      String property = connectionProperties.getProperty(HINT_OPTION);
+      if (property != null && !property.isEmpty()) {
+        hints.putAll(Splitter.on(',').withKeyValueSeparator('=').split(property));
+      }
     }
+
     if (connectionProperties.containsKey(PIPELINE_OPTION)) {
-      hints.put(PIPELINE_OPTION, connectionProperties.getProperty(PIPELINE_OPTION));
+      String property = connectionProperties.getProperty(PIPELINE_OPTION);
+      if (property != null && !property.isEmpty()) {
+        hints.put(PIPELINE_OPTION, property);
+      }
     }
+
     return hints;
   }
 }
