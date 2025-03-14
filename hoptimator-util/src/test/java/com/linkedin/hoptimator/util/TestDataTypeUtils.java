@@ -75,12 +75,10 @@ public class TestDataTypeUtils {
     Assertions.assertEquals(9, flattenedType.getFieldList().size());
     List<String> flattenedNames = flattenedType.getFieldList().stream().map(RelDataTypeField::getName)
         .collect(Collectors.toList());
-    System.out.println(flattenedNames);
     Assertions.assertIterableEquals(Arrays.asList("FOO", "FOO$QUX", "FOO$QIZ", "BAR", "BAR$BAZ", "CAR", "DAY",
             "DAY$__ARRTYPE__", "DAY$__ARRTYPE__$__ARRTYPE__"), flattenedNames);
     String flattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
         flattenedType, Collections.emptyMap()).sql();
-    System.out.println(flattenedConnector);
     Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` ("
             + "`FOO` ANY ARRAY, `FOO_QUX` VARCHAR, `FOO_QIZ` VARCHAR ARRAY, "
             + "`BAR` ANY ARRAY, `BAR_BAZ` VARCHAR, "
