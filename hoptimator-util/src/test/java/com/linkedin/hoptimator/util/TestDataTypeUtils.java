@@ -77,7 +77,7 @@ public class TestDataTypeUtils {
         .collect(Collectors.toList());
     System.out.println(flattenedNames);
     Assertions.assertIterableEquals(Arrays.asList("FOO", "FOO$QUX", "FOO$QIZ", "BAR", "BAR$BAZ", "CAR", "DAY",
-            "DAY$arrType", "DAY$arrType$arrType"), flattenedNames);
+            "DAY$__ARRTYPE__", "DAY$__ARRTYPE__$__ARRTYPE__"), flattenedNames);
     String flattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
         flattenedType, Collections.emptyMap()).sql();
     System.out.println(flattenedConnector);
@@ -85,7 +85,7 @@ public class TestDataTypeUtils {
             + "`FOO` ANY ARRAY, `FOO_QUX` VARCHAR, `FOO_QIZ` VARCHAR ARRAY, "
             + "`BAR` ANY ARRAY, `BAR_BAZ` VARCHAR, "
             + "`CAR` FLOAT ARRAY, "
-            + "`DAY` ANY ARRAY, `DAY_arrType` ANY ARRAY, `DAY_arrType_arrType` VARCHAR ARRAY) WITH ();",
+            + "`DAY` ANY ARRAY, `DAY___ARRTYPE__` ANY ARRAY, `DAY___ARRTYPE_____ARRTYPE__` VARCHAR ARRAY) WITH ();",
         flattenedConnector, "Flattened connector should have simplified arrays");
 
     RelDataType unflattenedType = DataTypeUtils.unflatten(flattenedType, typeFactory);
@@ -124,13 +124,13 @@ public class TestDataTypeUtils {
     Assertions.assertEquals(3, flattenedType.getFieldList().size());
     List<String> flattenedNames = flattenedType.getFieldList().stream().map(RelDataTypeField::getName)
         .collect(Collectors.toList());
-    Assertions.assertIterableEquals(Arrays.asList("FOO$keyType", "FOO$valueType$QIZ$BAR", "FOO$valueType$QIZ$CAR"), flattenedNames);
+    Assertions.assertIterableEquals(Arrays.asList("FOO$__MAPKEYTYPE__", "FOO$__MAPVALUETYPE__$QIZ$BAR", "FOO$__MAPVALUETYPE__$QIZ$CAR"), flattenedNames);
     String flattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
         flattenedType, Collections.emptyMap()).sql();
     Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` ("
-            + "`FOO_keyType` ROW(`QUX` VARCHAR), "
-            + "`FOO_valueType_QIZ_BAR` VARCHAR, "
-            + "`FOO_valueType_QIZ_CAR` INTEGER) WITH ();", flattenedConnector,
+            + "`FOO___MAPKEYTYPE__` ROW(`QUX` VARCHAR), "
+            + "`FOO___MAPVALUETYPE___QIZ_BAR` VARCHAR, "
+            + "`FOO___MAPVALUETYPE___QIZ_CAR` INTEGER) WITH ();", flattenedConnector,
         "Flattened connector should have simplified map");
 
     RelDataType unflattenedType = DataTypeUtils.unflatten(flattenedType, typeFactory);

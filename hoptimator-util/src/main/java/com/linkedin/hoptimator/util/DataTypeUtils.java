@@ -16,9 +16,9 @@ import org.apache.calcite.sql.type.SqlTypeName;
 
 public final class DataTypeUtils {
 
-  private static final String ARRAY_TYPE = "arrType";
-  private static final String MAP_KEY_TYPE = "keyType";
-  private static final String MAP_VALUE_TYPE = "valueType";
+  private static final String ARRAY_TYPE = "__ARRTYPE__";
+  private static final String MAP_KEY_TYPE = "__MAPKEYTYPE__";
+  private static final String MAP_VALUE_TYPE = "__MAPVALUETYPE__";
 
   private DataTypeUtils() {
   }
