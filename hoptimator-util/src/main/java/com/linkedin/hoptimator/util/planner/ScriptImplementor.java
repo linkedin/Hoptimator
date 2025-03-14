@@ -39,6 +39,7 @@ import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
@@ -453,14 +454,19 @@ public interface ScriptImplementor {
           return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(
               new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes),
               dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
+        } else if (dataType.getComponentType() instanceof BasicSqlType) {
+          // To handle primitive ARRAY types, e.g. `FLOAT ARRAY`.
+          return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(new SqlBasicTypeNameSpec(
+              Optional.ofNullable(dataType.getComponentType())
+                  .map(RelDataType::getSqlTypeName)
+                  .orElseThrow(() -> new IllegalArgumentException("not a collection?")), SqlParserPos.ZERO),
+              dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
+        } else {
+          // To handle nested arrays
+          return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(
+              toSpec(dataType.getComponentType()).getTypeNameSpec(),
+              dataType.getComponentType().getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
         }
-
-        // To handle primitive ARRAY types, e.g. `FLOAT ARRAY`.
-        return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(new SqlBasicTypeNameSpec(
-            Optional.ofNullable(dataType.getComponentType())
-                .map(RelDataType::getSqlTypeName)
-                .orElseThrow(() -> new IllegalArgumentException("not a collection?")), SqlParserPos.ZERO),
-            dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
       } else if (dataType.getKeyType() != null && dataType.getValueType() != null) {
         return maybeNullable(dataType, new SqlDataTypeSpec(new SqlMapTypeNameSpec(
             toSpec(dataType.getKeyType()), toSpec(dataType.getValueType()), SqlParserPos.ZERO), SqlParserPos.ZERO));

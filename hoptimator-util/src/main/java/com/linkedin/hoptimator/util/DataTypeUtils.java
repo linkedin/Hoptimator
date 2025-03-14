@@ -10,11 +10,13 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 
 public final class DataTypeUtils {
 
+  private static final String ARRAY_TYPE = "arrType";
   private static final String MAP_KEY_TYPE = "keyType";
   private static final String MAP_VALUE_TYPE = "valueType";
 
@@ -42,23 +44,39 @@ public final class DataTypeUtils {
 
   private static void flattenInto(RelDataTypeFactory typeFactory, RelDataType dataType,
       RelDataTypeFactory.Builder builder, List<String> path) {
-    if (dataType.getComponentType() != null && dataType.getComponentType().isStruct()) {
-      builder.add(String.join("$", path), typeFactory.createArrayType(
-          typeFactory.createSqlType(SqlTypeName.ANY), -1));
-      for (RelDataTypeField field : dataType.getComponentType().getFieldList()) {
-        flattenInto(typeFactory, field.getType(), builder, Stream.concat(path.stream(),
-            Stream.of(field.getName())).collect(Collectors.toList()));
+    if (dataType.getComponentType() != null) {
+      // Handles ARRAY types
+      if (dataType.getComponentType().isStruct()) {
+        // Handles arrays of record types
+        builder.add(String.join("$", path), typeFactory.createArrayType(
+            typeFactory.createSqlType(SqlTypeName.ANY), -1));
+        for (RelDataTypeField field : dataType.getComponentType().getFieldList()) {
+          flattenInto(typeFactory, field.getType(), builder, Stream.concat(path.stream(),
+              Stream.of(field.getName())).collect(Collectors.toList()));
+        }
+      } else if (dataType.getComponentType() instanceof BasicSqlType) {
+        // Handles primitive arrays
+        builder.add(String.join("$", path), dataType);
+      } else {
+        // Handles nested arrays
+        builder.add(String.join("$", path), typeFactory.createArrayType(
+            typeFactory.createSqlType(SqlTypeName.ANY), -1));
+        flattenInto(typeFactory, dataType.getComponentType(), builder, Stream.concat(path.stream(),
+            Stream.of(ARRAY_TYPE)).collect(Collectors.toList()));
       }
     } else if (dataType.isStruct()) {
+      // Handles Record types
       for (RelDataTypeField field : dataType.getFieldList()) {
         flattenInto(typeFactory, field.getType(), builder, Stream.concat(path.stream(),
             Stream.of(field.getName())).collect(Collectors.toList()));
       }
     } else if (dataType.getKeyType() != null && dataType.getValueType() != null) {
+      // Handles map types
       builder.add(String.join("$", path) + "$" + MAP_KEY_TYPE, dataType.getKeyType());
       flattenInto(typeFactory, dataType.getValueType(), builder, Stream.concat(path.stream(),
           Stream.of(MAP_VALUE_TYPE)).collect(Collectors.toList()));
     } else {
+      // Handles primitive types
       builder.add(String.join("$", path), dataType);
     }
   }
@@ -93,6 +111,12 @@ public final class DataTypeUtils {
       return node.dataType;
     }
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
+
+    // Placeholder to handle nested arrays
+    if (node.children.size() == 1 && node.children.containsKey(ARRAY_TYPE)) {
+      RelDataType nestedArrayType = buildRecord(node.children.get(ARRAY_TYPE), typeFactory);
+      return typeFactory.createArrayType(nestedArrayType, -1);
+    }
     // Placeholders to handle MAP type
     if (node.children.size() == 2
         && node.children.containsKey(MAP_KEY_TYPE) && node.children.containsKey(MAP_VALUE_TYPE)) {

@@ -1,9 +1,6 @@
 package com.linkedin.hoptimator.util;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -13,7 +10,6 @@ import static com.linkedin.hoptimator.util.DeploymentService.HINT_OPTION;
 import static com.linkedin.hoptimator.util.DeploymentService.PIPELINE_OPTION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 
 
 class DeploymentServiceTest {
