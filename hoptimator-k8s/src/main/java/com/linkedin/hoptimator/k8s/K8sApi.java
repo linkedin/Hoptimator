@@ -137,7 +137,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       if (obj.getMetadata().getLabels() != null) {
         labels.putAll(obj.getMetadata().getLabels());
       }
-      existing.getObject().getMetadata().setLabels(labels);
+      obj.getMetadata().setLabels(labels);
 
       List<V1OwnerReference> owners = new LinkedList<>();
       if (existing.getObject().getMetadata().getOwnerReferences() != null) {
@@ -146,7 +146,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       if (obj.getMetadata().getOwnerReferences() != null) {
         owners.addAll(obj.getMetadata().getOwnerReferences());
       }
-      existing.getObject().getMetadata().setOwnerReferences(owners);
+      obj.getMetadata().setOwnerReferences(owners);
 
       obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion());
       context.own(obj);
