@@ -4,6 +4,8 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 
 import io.kubernetes.client.common.KubernetesListObject;
@@ -137,7 +139,17 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       }
       existing.getObject().getMetadata().setLabels(labels);
 
+      List<V1OwnerReference> owners = new LinkedList<>();
+      if (existing.getObject().getMetadata().getOwnerReferences() != null) {
+        owners.addAll(existing.getObject().getMetadata().getOwnerReferences());
+      }
+      if (obj.getMetadata().getOwnerReferences() != null) {
+        owners.addAll(obj.getMetadata().getOwnerReferences());
+      }
+      existing.getObject().getMetadata().setOwnerReferences(owners);
+
       obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion());
+      context.own(obj);
       resp = context.<T, U>generic(endpoint).update(obj);
     } else {
       context.own(obj);
