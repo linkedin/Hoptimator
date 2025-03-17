@@ -141,6 +141,13 @@ public interface PipelineRel extends RelNode {
       RelDataType targetRowType = sinkRowType;
       if (targetRowType == null) {
         targetRowType = query.getRowType();
+      } else {
+        // Assert target fields exist in the sink schema when the sink schema is known (partial view use case)
+        for (String fieldName : targetFields.rightList()) {
+          if (!targetRowType.getFieldNames().contains(fieldName)) {
+            throw new IllegalArgumentException("Field " + fieldName + " not found in sink schema");
+          }
+        }
       }
       Map<String, String> sinkConfigs = ConnectionService.configure(sink, connectionProperties);
       script = script.database(sink.schema());
