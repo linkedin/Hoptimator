@@ -5,6 +5,9 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
@@ -14,6 +17,7 @@ import com.linkedin.hoptimator.util.Api;
 
 
 public class K8sYamlApi implements Api<String> {
+  private final static Logger log = LoggerFactory.getLogger(K8sYamlApi.class);
 
   private final K8sContext context;
 
@@ -33,6 +37,7 @@ public class K8sYamlApi implements Api<String> {
     KubernetesApiResponse<DynamicKubernetesObject> resp =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     checkResponse(yaml, resp);
+    log.info("Created K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
   @Override
@@ -42,6 +47,7 @@ public class K8sYamlApi implements Api<String> {
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
             .delete(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
     checkResponse(yaml, resp);
+    log.info("Deleted K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
   @Override
@@ -70,6 +76,7 @@ public class K8sYamlApi implements Api<String> {
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     }
     checkResponse(yaml, resp);
+    log.info("Updated K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
   private DynamicKubernetesObject objFromYaml(String yaml) {

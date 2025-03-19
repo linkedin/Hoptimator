@@ -8,6 +8,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
@@ -19,6 +22,7 @@ import com.linkedin.hoptimator.util.Api;
 
 
 public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> implements Api<T> {
+  private final static Logger log = LoggerFactory.getLogger(K8sApi.class);
 
   private final K8sContext context;
   private final K8sApiEndpoint<T, U> endpoint;
@@ -103,6 +107,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     context.own(obj);
     KubernetesApiResponse<T> resp = context.<T, U>generic(endpoint).create(obj);
     checkResponse(resp);
+    log.info("Created K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
   @Override
@@ -113,6 +118,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     KubernetesApiResponse<T> resp =
         context.<T, U>generic(endpoint).delete(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
     checkResponse(resp);
+    log.info("Deleted K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
   @Override
@@ -156,6 +162,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       resp = context.<T, U>generic(endpoint).create(obj);
     }
     checkResponse(resp);
+    log.info("Updated K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
   public void updateStatus(T obj, Object status) throws SQLException {
@@ -164,6 +171,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     }
     KubernetesApiResponse<T> resp = context.<T, U>generic(endpoint).updateStatus(obj, x -> status);
     checkResponse(resp);
+    log.info("Updated K8s obj status: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
   private void checkResponse(KubernetesApiResponse<?> resp) throws SQLException {
