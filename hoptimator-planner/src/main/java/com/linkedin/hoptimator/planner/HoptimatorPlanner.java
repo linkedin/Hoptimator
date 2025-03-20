@@ -1,6 +1,9 @@
 package com.linkedin.hoptimator.planner;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,6 +36,8 @@ import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
+
+import com.google.common.io.Resources;
 
 import com.linkedin.hoptimator.catalog.Database;
 import com.linkedin.hoptimator.catalog.DatabaseSchema;
@@ -148,7 +153,15 @@ public class HoptimatorPlanner {
     CalciteConnectionConfig connectionConfig = new CalciteConnectionConfigImpl(properties);
     CalciteConnection connection = (CalciteConnection) driver.connect("jdbc:calcite:", properties);
     SchemaPlus schema = connection.getRootSchema();
-    ModelHandler modelHandler = new ModelHandler(connection, filePath); // side-effect: modifies connection
+    ModelHandler modelHandler;
+    if (!new File(filePath).isFile()) {
+      URL url = Resources.getResource(filePath);
+      String text = Resources.toString(url, StandardCharsets.UTF_8);
+      // ModelHandler can't directly read from resources, so we use "inline:" to load it dynamically
+      modelHandler = new ModelHandler(connection, "inline:" + text); // side-effect: modifies connection
+    } else {
+      modelHandler = new ModelHandler(connection, filePath); // side-effect: modifies connection
+    }
     return new HoptimatorPlanner(schema);
   }
 
