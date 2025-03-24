@@ -123,9 +123,11 @@ public final class AvroConverter {
           Schema innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst().get();
           return typeFactory.createTypeWithNullability(rel(innerType, typeFactory, true), true);
         }
+        // Since we collapse complex unions into separate fields, each of these fields needs to be nullable
+        // as only one of the group will be present in any given record.
         return typeFactory.createTypeWithNullability(typeFactory.createStructType(schema.getTypes().stream()
             .filter(x -> x.getType() != Schema.Type.NULL)
-            .map(x -> new AbstractMap.SimpleEntry<>(x.getName(), rel(x, typeFactory, isNullable)))
+            .map(x -> new AbstractMap.SimpleEntry<>(x.getName(), rel(x, typeFactory, true)))
             .filter(x -> x.getValue().getSqlTypeName() != SqlTypeName.NULL)
             .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
             .collect(Collectors.toList())), isNullable);
