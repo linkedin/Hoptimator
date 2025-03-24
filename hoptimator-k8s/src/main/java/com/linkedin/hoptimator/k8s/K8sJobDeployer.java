@@ -42,6 +42,7 @@ class K8sJobDeployer extends K8sYamlDeployer {
         .with("schema", job.sink().schema())
         .with("table", job.sink().table())
         .with("sql", sql.apply(SqlDialect.ANSI))
+        .with("flinksql", sql.apply(SqlDialect.FLINK))
         .with("flinkconfigs", properties)
         .with(job.sink().options());
     return jobTemplateApi.list()

@@ -35,7 +35,6 @@ import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.SqlWriterConfig;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
-import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
@@ -124,11 +123,8 @@ public interface ScriptImplementor {
       final String sql;
       switch (x) {
         case ANSI:
-          sql = sql(AnsiSqlDialect.DEFAULT);
-          break;
         case FLINK:
-          // Flink uses MySQL dialect, more or less
-          sql = sql(MysqlSqlDialect.DEFAULT);
+          sql = sql(AnsiSqlDialect.DEFAULT);
           break;
         default:
           throw new IllegalStateException("unreachable");
