@@ -15,7 +15,7 @@ spec:
     - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store` (`KEY_id` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_id', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='test-store', 'value.fields-include'='EXCEPT_KEY')
     - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
     - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store-1` (`KEY_id` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_id', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='test-store-1', 'value.fields-include'='EXCEPT_KEY')
-    - INSERT INTO `VENICE`.`test-store-1` (`KEY_id`, `intField`) SELECT `KEY_id`, CAST(`stringField` AS SIGNED) AS `intField` FROM `VENICE`.`test-store`
+    - INSERT INTO `VENICE`.`test-store-1` (`KEY_id`, `intField`) SELECT `KEY_id`, CAST(`stringField` AS INTEGER) AS `intField` FROM `VENICE`.`test-store`
     jarURI: file:///opt/hoptimator-flink-runner.jar
     parallelism: 1
     upgradeMode: stateless

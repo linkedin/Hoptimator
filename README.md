@@ -158,7 +158,7 @@ provide a few template defaults that you can choose to include in your templates
 
 K8sSourceDeployer: `name, database, schema, table, pipeline`
 
-K8sJobDeployer: `name, database, schema, table, pipeline, sql, flinksql, flinkconfigs`
+K8sJobDeployer: `name, database, schema, table, pipeline, sql, flinkconfigs`
 
 However, it is often a case where you want to add additional information to the templates that will be passed through during Source or Job creation.
 There are two mechanisms to achieve this:
