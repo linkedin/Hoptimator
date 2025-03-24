@@ -72,7 +72,7 @@ public class K8sEngineTable extends K8sTable<V1alpha1Engine, V1alpha1EngineList,
     if (row.DIALECT == null) {
       return SqlDialect.ANSI;
     }
-    return SqlDialect.valueOf(row.DIALECT);
+    return SqlDialect.valueOf(row.DIALECT.toUpperCase());
   }
 
   @Override
