@@ -59,7 +59,7 @@ import org.apache.calcite.runtime.Hook;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.dialect.MysqlSqlDialect;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlString;
 import org.apache.calcite.util.BuiltInMethod;
@@ -94,7 +94,7 @@ public class RemoteToEnumerableConverter
     RelRoot root = RelRoot.of(getInput(), SqlKind.SELECT);
     try {
       PipelineRel.Implementor plan = DeploymentService.plan(root, Collections.emptyList(), new Properties());
-      return new SqlString(MysqlSqlDialect.DEFAULT, plan.query(connectionProperties)
+      return new SqlString(AnsiSqlDialect.DEFAULT, plan.query(connectionProperties)
           .apply(com.linkedin.hoptimator.SqlDialect.FLINK));  // TODO dialect
     } catch (SQLException e) {
       throw new RuntimeException(e);
@@ -127,7 +127,7 @@ public class RemoteToEnumerableConverter
     final RemoteConvention convention =
         (RemoteConvention) requireNonNull(child.getConvention(),
             () -> "child.getConvention() is null for " + child);
-    SqlString sqlString = generateSql(MysqlSqlDialect.DEFAULT); // TODO hard-coded dialect
+    SqlString sqlString = generateSql(AnsiSqlDialect.DEFAULT); // TODO hard-coded dialect
     String sql = sqlString.getSql();
     if (CalciteSystemProperty.DEBUG.value()) {
       System.out.println("[" + sql + "]");
@@ -141,7 +141,7 @@ public class RemoteToEnumerableConverter
         Expressions.parameter(Modifier.FINAL, ResultSet.class,
             builder.newName("resultSet"));
     final SqlDialect.CalendarPolicy calendarPolicy =
-        MysqlSqlDialect.DEFAULT.getCalendarPolicy();  // TODO hard-coded dialect
+        AnsiSqlDialect.DEFAULT.getCalendarPolicy();  // TODO hard-coded dialect
     final Expression calendar_;
     switch (calendarPolicy) {
     case LOCAL:
