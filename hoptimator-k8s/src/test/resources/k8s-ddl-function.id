@@ -135,6 +135,26 @@ select * from ADS."unnested";
 
 !ok
 
+create or replace materialized view ADS."unnestedAgg" AS SELECT (SELECT LISTAGG(t."n") FROM UNNEST("ARR") AS t("n")) AS agg FROM (SELECT ARRAY['a','b','c'] AS arr);
+(0 rows modified)
+
+!update
+
+select * from ADS."unnestedAgg";
++-------+
+| AGG   |
++-------+
+| a,b,c |
++-------+
+(1 row)
+
+!ok
+
+drop materialized view ads."unnestedAgg";
+(0 rows modified)
+
+!update
+
 drop materialized view ads."unnested";
 (0 rows modified)
 

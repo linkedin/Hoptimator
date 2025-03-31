@@ -21,6 +21,7 @@ import org.apache.calcite.rel.convert.ConverterRule;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.Calc;
+import org.apache.calcite.rel.core.Correlate;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.Filter;
 import org.apache.calcite.rel.core.Join;
@@ -29,22 +30,27 @@ import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.core.Uncollect;
+import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalCalc;
+import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.ImmutableBitSet;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 
 import com.linkedin.hoptimator.util.DataTypeUtils;
@@ -57,7 +63,8 @@ public final class PipelineRules {
 
   public static Collection<RelOptRule> rules() {
     return Arrays.asList(PipelineFilterRule.INSTANCE, PipelineProjectRule.INSTANCE, PipelineJoinRule.INSTANCE,
-        PipelineCalcRule.INSTANCE, PipelineAggregateRule.INSTANCE, PipelineUncollectRule.INSTANCE);
+        PipelineCalcRule.INSTANCE, PipelineAggregateRule.INSTANCE, PipelineUncollectRule.INSTANCE,
+        PipelineCorrelateRule.INSTANCE, PipelineValuesRule.INSTANCE);
   }
 
   public static class PipelineTableScanRule extends ConverterRule {
@@ -378,6 +385,81 @@ public final class PipelineRules {
     @Override
     public PipelineUncollect copy(RelTraitSet traitSet, RelNode input) {
       return new PipelineUncollect(getCluster(), traitSet, input, withOrdinality, Collections.emptyList());
+    }
+
+    @Override
+    public void implement(Implementor implementor) {
+    }
+  }
+
+  static class PipelineCorrelateRule extends ConverterRule {
+    static final PipelineCorrelateRule INSTANCE =
+        Config.INSTANCE.withConversion(LogicalCorrelate.class, Convention.NONE, PipelineRel.CONVENTION, "PipelineCorrelateRule")
+            .withRuleFactory(PipelineCorrelateRule::new)
+            .as(Config.class)
+            .toRule(PipelineCorrelateRule.class);
+
+    protected PipelineCorrelateRule(Config config) {
+      super(config);
+    }
+
+    @Override
+    public RelNode convert(RelNode rel) {
+      Correlate corr = (Correlate) rel;
+      RelTraitSet traitSet = corr.getTraitSet().replace(PipelineRel.CONVENTION);
+      return new PipelineCorrelate(rel.getCluster(), traitSet, corr.getHints(), convert(corr.getLeft(), PipelineRel.CONVENTION),
+          convert(corr.getRight(), PipelineRel.CONVENTION), corr.getCorrelationId(), corr.getRequiredColumns(), corr.getJoinType());
+    }
+  }
+
+  static class PipelineCorrelate extends Correlate implements PipelineRel {
+
+    PipelineCorrelate(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, RelNode left,
+        RelNode right, CorrelationId correlationId, ImmutableBitSet requiredColumns, JoinRelType joinType) {
+      super(cluster, traitSet, hints, left, right, correlationId, requiredColumns, joinType);
+    }
+
+    @Override
+    public Correlate copy(RelTraitSet traitSet, RelNode left, RelNode right, CorrelationId correlationId,
+        ImmutableBitSet requiredColumns, JoinRelType joinType) {
+      return new PipelineCorrelate(getCluster(), traitSet, Collections.emptyList(), left, right, correlationId,
+          requiredColumns, joinType);
+    }
+
+    @Override
+    public void implement(Implementor implementor) {
+    }
+  }
+
+  static class PipelineValuesRule extends ConverterRule {
+    static final PipelineValuesRule INSTANCE =
+        Config.INSTANCE.withConversion(LogicalValues.class, Convention.NONE, PipelineRel.CONVENTION, "PipelineValuesRule")
+            .withRuleFactory(PipelineValuesRule::new)
+            .as(Config.class)
+            .toRule(PipelineValuesRule.class);
+
+    protected PipelineValuesRule(Config config) {
+      super(config);
+    }
+
+    @Override
+    public RelNode convert(RelNode rel) {
+      Values val = (Values) rel;
+      RelTraitSet traitSet = val.getTraitSet().replace(PipelineRel.CONVENTION);
+      return new PipelineValues(rel.getCluster(), val.getHints(), val.getRowType(), val.getTuples(), traitSet);
+    }
+  }
+
+  static class PipelineValues extends Values implements PipelineRel {
+
+    PipelineValues(RelOptCluster cluster, List<RelHint> hints, RelDataType rowType,
+        ImmutableList<ImmutableList<RexLiteral>> tuples, RelTraitSet traits) {
+      super(cluster, hints, rowType, tuples, traits);
+    }
+
+    @Override
+    public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
+      return new PipelineValues(getCluster(), getHints(), getRowType(), getTuples(), traitSet);
     }
 
     @Override
