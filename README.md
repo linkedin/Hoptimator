@@ -148,7 +148,7 @@ In this case, any jobs created with this template will get deployed as `FlinkSes
 
 ### Configuration
 
-The ``{{ }}`` sections you see in the templates are variable placeholders that will be filled in by the Deployer.
+The `{{ }}` sections you see in the templates are variable placeholders that will be filled in by the Deployer.
 See [Template.java](hoptimator-util/src/main/java/com/linkedin/hoptimator/util/Template.java) for how to specify templates.
 
 While Deployers are extensible, today the primary deployer is to Kubernetes. These deployers 
@@ -182,19 +182,23 @@ Hints are key-value pairs separated by an equals sign. Multiple hints are separa
 
 There are two ways to use hints.
 
-1. Hints prefixed with the schema name, will automatically be added as connector properties when that schema is used.
+1. Template hints can be used to override the `{{ }}` template specifications. 
+
+For example, to specify the number of kafka partitions and the flink parallelism, you could add the following hints to the connection:
+```
+jdbc:hoptimator://hints=kafka.partitions=4,flink.parallelism=2
+```
+These fields can then be added to templates as `{{kafka.partitions}}` or `{{flink.parallelism}}` where applicable.
+
+2. Connector hints allow the user to pass configurations directly through to an Engine (e.g. Flink).
+
+Connector hints must be formatted as follows `<schema>.<source|sink>.<configName>`
+
 For example, to set a Kafka group id and startup mode to be used by Flink, you could add the following hints to the connection:
 ```
 jdbc:hoptimator://hints=KAFKA.source.properties.group.id=4,KAFKA.sink.sink.parallelism=2
 ```
 Field `properties.group.id` will be applied if the `KAFKA` schema is used as a source, and `sink.parallelism`
 if the `KAFKA` schema is used as a sink.
-
-2. Hints can override template options for use cases where a default is required.
-For example, to specify the number of kafka partitions and the flink parallelism, you could add the following hints to the connection:
-```
-jdbc:hoptimator://hints=kafka.partitions=4,flink.parallelism=2
-```
-These fields can then be added to templates as `{{kafka.partitions}}` or `{{flink.parallelism}}` where applicable.
 
 Note that hints are simply recommendations, if the planner plans a different pipeline, they will be ignored.
