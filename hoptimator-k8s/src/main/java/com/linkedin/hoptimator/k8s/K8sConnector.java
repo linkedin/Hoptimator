@@ -7,7 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.linkedin.hoptimator.Connector;
@@ -37,7 +36,7 @@ class K8sConnector implements Connector {
             .with("database", source.database())
             .with("table", source.table())
             .with(source.options());
-    Set<String> configs = tableTemplateApi.list()
+    String configs = tableTemplateApi.list()
         .stream()
         .map(x -> x.getSpec())
         .filter(x -> x.getDatabases() == null || x.getDatabases().contains(source.database()))
@@ -45,7 +44,7 @@ class K8sConnector implements Connector {
         .filter(x -> x.getConnector() != null)
         .map(x -> x.getConnector())
         .map(x -> new Template.SimpleTemplate(x).render(env))
-        .collect(Collectors.toSet());
+        .collect(Collectors.joining("\n"));
     Properties props = new Properties();
     try {
       // The order here is intentional. Connection options that allow overrides will have already been overridden above
@@ -53,7 +52,7 @@ class K8sConnector implements Connector {
       // If this were allowed, this can lead to incorrect behavior if hints attempt to override essential properties,
       // e.g. 'connector' or 'topic' for kafka
       props.putAll(getSchemaHints());
-      props.load(new StringReader(String.join("\n", configs)));
+      props.load(new StringReader(configs));
     } catch (IOException e) {
       throw new SQLException(e);
     }
