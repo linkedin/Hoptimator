@@ -7,9 +7,11 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.linkedin.hoptimator.Connector;
+import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
@@ -35,7 +37,7 @@ class K8sConnector implements Connector {
             .with("database", source.database())
             .with("table", source.table())
             .with(source.options());
-    String configs = tableTemplateApi.list()
+    Set<String> configs = tableTemplateApi.list()
         .stream()
         .map(x -> x.getSpec())
         .filter(x -> x.getDatabases() == null || x.getDatabases().contains(source.database()))
@@ -43,10 +45,15 @@ class K8sConnector implements Connector {
         .filter(x -> x.getConnector() != null)
         .map(x -> x.getConnector())
         .map(x -> new Template.SimpleTemplate(x).render(env))
-        .collect(Collectors.joining("\n"));
+        .collect(Collectors.toSet());
     Properties props = new Properties();
     try {
-      props.load(new StringReader(configs));
+      // The order here is intentional. Connection options that allow overrides will have already been overridden above
+      // by hints. Connection options that do not allow overrides, should not be overridden by hints.
+      // If this were allowed, this can lead to incorrect behavior if hints attempt to override essential properties,
+      // e.g. 'connector' or 'topic' for kafka
+      props.putAll(getSchemaHints());
+      props.load(new StringReader(String.join("\n", configs)));
     } catch (IOException e) {
       throw new SQLException(e);
     }
@@ -54,5 +61,12 @@ class K8sConnector implements Connector {
     props.stringPropertyNames().stream().sorted().forEach(k ->
         map.put(k, props.getProperty(k)));
     return map;
+  }
+
+  private Map<String, String> getSchemaHints() {
+    String connectorHintPrefix = source.schema() + "." + (source instanceof Sink ? "sink" : "source");
+    return source.options().entrySet().stream()
+        .filter(e -> e.getKey().startsWith(connectorHintPrefix))
+        .collect(Collectors.toMap(e -> e.getKey().substring(connectorHintPrefix.length() + 1), Map.Entry::getValue));
   }
 }

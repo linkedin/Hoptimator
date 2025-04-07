@@ -180,7 +180,18 @@ This can be done by adding hints as JDBC properties.
 
 Hints are key-value pairs separated by an equals sign. Multiple hints are separated by a comma.
 
-For example, to specify the number of kafka partitions and the flink parallelism, you could add the following hints to the query:
+There are two ways to use hints.
+
+1. Hints prefixed with the schema name, will automatically be added as connector properties when that schema is used.
+For example, to set a Kafka group id and startup mode to be used by Flink, you could add the following hints to the connection:
+```
+jdbc:hoptimator://hints=KAFKA.source.properties.group.id=4,KAFKA.sink.sink.parallelism=2
+```
+Field `properties.group.id` will be applied if the `KAFKA` schema is used as a source, and `sink.parallelism`
+if the `KAFKA` schema is used as a sink.
+
+2. Hints can override template options for use cases where a default is required.
+For example, to specify the number of kafka partitions and the flink parallelism, you could add the following hints to the connection:
 ```
 jdbc:hoptimator://hints=kafka.partitions=4,flink.parallelism=2
 ```
