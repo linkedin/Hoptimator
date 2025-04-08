@@ -47,11 +47,16 @@ class K8sConnector implements Connector {
         .collect(Collectors.joining("\n"));
     Properties props = new Properties();
     try {
+      // Preload configs in order to check for 'connector'
+      props.load(new StringReader(configs));
+
       // The order here is intentional. Connection options that allow overrides will have already been overridden above
       // by hints. Connection options that do not allow overrides, should not be overridden by hints.
       // If this were allowed, this can lead to incorrect behavior if hints attempt to override essential properties,
       // e.g. 'connector' or 'topic' for kafka
-      props.putAll(getSchemaHints());
+      if (props.containsKey("connector")) {
+        props.putAll(getConnectorHints(props.getProperty("connector")));
+      }
       props.load(new StringReader(configs));
     } catch (IOException e) {
       throw new SQLException(e);
@@ -62,8 +67,8 @@ class K8sConnector implements Connector {
     return map;
   }
 
-  private Map<String, String> getSchemaHints() {
-    String connectorHintPrefix = source.schema() + "." + (source instanceof Sink ? "sink" : "source");
+  private Map<String, String> getConnectorHints(String connectorName) {
+    String connectorHintPrefix = connectorName + "." + (source instanceof Sink ? "sink" : "source");
     return source.options().entrySet().stream()
         .filter(e -> e.getKey().startsWith(connectorHintPrefix))
         .collect(Collectors.toMap(e -> e.getKey().substring(connectorHintPrefix.length() + 1), Map.Entry::getValue));

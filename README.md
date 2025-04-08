@@ -192,13 +192,13 @@ These fields can then be added to templates as `{{kafka.partitions}}` or `{{flin
 
 2. Connector hints allow the user to pass configurations directly through to an Engine (e.g. Flink).
 
-Connector hints must be formatted as follows `<schema>.<source|sink>.<configName>`
+Connector hints must be formatted as follows `<engine-connector-name>.<source|sink>.<configName>`
 
 For example, to set a Kafka group id and startup mode to be used by Flink, you could add the following hints to the connection:
 ```
-jdbc:hoptimator://hints=KAFKA.source.properties.group.id=4,KAFKA.sink.sink.parallelism=2
+jdbc:hoptimator://hints=kafka.source.properties.group.id=4,kafka.sink.sink.parallelism=2
 ```
-Field `properties.group.id` will be applied if the `KAFKA` schema is used as a source, and `sink.parallelism`
-if the `KAFKA` schema is used as a sink.
+Field `properties.group.id` will be applied if the `kafka` connector is used by a source, and `sink.parallelism`
+if the `kafka` connector is used by a sink.
 
 Note that hints are simply recommendations, if the planner plans a different pipeline, they will be ignored.
