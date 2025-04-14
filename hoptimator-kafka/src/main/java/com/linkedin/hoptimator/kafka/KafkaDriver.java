@@ -3,6 +3,8 @@ package com.linkedin.hoptimator.kafka;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientException;
 import java.util.Properties;
 
 import org.apache.calcite.avatica.ConnectStringParser;
@@ -49,8 +51,10 @@ public class KafkaDriver extends Driver {
       schema.populate();
       rootSchema.add("KAFKA", schema);
       return connection;
+    } catch (IOException e) {
+      throw new SQLTransientException("Problem loading " + url, e);
     } catch (Exception e) {
-      throw new SQLException("Problem loading " + url, e);
+      throw new SQLNonTransientException("Problem loading " + url, e);
     }
   }
 }

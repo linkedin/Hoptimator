@@ -3,6 +3,8 @@ package com.linkedin.hoptimator.demodb;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientException;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Properties;
@@ -63,8 +65,11 @@ public class DemoDriver extends Driver {
         rootSchema.add("ADS", new AdsSchema());
       }
       return connection;
+    } catch (IOException e) {
+      throw new SQLTransientException("Problem loading " + url, e);
     } catch (Exception e) {
-      throw new SQLException("Problem loading " + url, e);
+      throw new SQLNonTransientException("Problem loading " + url, e);
     }
+ 
   }
 }

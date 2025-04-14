@@ -107,7 +107,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     for (Function function : schemaPlus.getFunctions(pair.right)) {
       if (function.getParameters().isEmpty()) {
         if (!create.getReplace()) {
-          throw SqlUtil.newContextException(create.name.getParserPosition(), RESOURCE.viewExists(pair.right));
+          throw new DdlException(create,
+              "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
         }
         pair.left.removeFunction(pair.right);
       }
@@ -133,8 +134,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
       schemaPlus.add(viewName, viewTable);
     } catch (Exception e) {
-      throw new RuntimeException("Cannot CREATE VIEW in " + schemaName + ": " + e.getMessage(), e);
-    }
+      throw new DdlException(create, e.getMessage(), e);
+    } 
   }
 
   // N.B. copy-pasted from Apache Calcite
@@ -144,14 +145,14 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
     if (pair.left == null) {
-      throw SqlUtil.newContextException(create.name.getParserPosition(),
-          RESOURCE.schemaNotFound(create.name.getSimple()));
+      throw new DdlException(create, "Schema for " + create.name.getSimple() + " not found.");
     }
     if (pair.left.plus().getTable(pair.right) != null) {
       // Materialized view exists.
       if (!create.ifNotExists && !create.getReplace()) {
         // They did not specify IF NOT EXISTS, so give error.
-        throw SqlUtil.newContextException(create.name.getParserPosition(), RESOURCE.tableExists(pair.right));
+        throw new DdlException(create,
+            "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
       }
       if (create.getReplace()) {
         pair.left.plus().removeTable(pair.right);
@@ -173,7 +174,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     viewPath.add(viewName);
     try {
       if (!(pair.left.schema instanceof Database)) {
-        throw new RuntimeException(schemaName + " is not a physical database.");
+        throw new DdlException(create, schemaName + " is not a physical database.");
       }
       String database = ((Database) pair.left.schema).databaseName();
 
@@ -226,7 +227,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       schemaPlus.add(viewName, materializedViewTable);
     } catch (Exception e) {
-      throw new RuntimeException("Cannot CREATE MATERIALIZED VIEW in " + schemaName + ": " + e.getMessage(), e);
+      throw new DdlException(create, e.getMessage(), e);
     }
   }
 
@@ -252,7 +253,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       if (drop.ifExists) {
         return;
       }
-      throw SqlUtil.newContextException(drop.name.getParserPosition(), RESOURCE.tableNotFound(viewName));
+      throw new DdlException(drop, "View " + viewName + " not found.");
     }
 
     final List<String> schemaPath = pair.left.path(null);
@@ -260,24 +261,20 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     viewPath.addAll(schemaPath);
     viewPath.add(viewName);
 
-    if (table instanceof MaterializedViewTable) {
-      MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
-      View view = new View(viewPath, materializedViewTable.viewSql());
-      try {
+    try {
+      if (table instanceof MaterializedViewTable) {
+        MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
+        View view = new View(viewPath, materializedViewTable.viewSql());
         DeploymentService.delete(view, connectionProperties);
-      } catch (SQLException e) {
-        throw new RuntimeException("Cannot DROP MATERIALIZED VIEW in " + schemaName + ": " + e.getMessage(), e);
-      }
-    } else if (table instanceof ViewTable) {
-      ViewTable viewTable = (ViewTable) table;
-      View view = new View(viewPath, viewTable.getViewSql());
-      try {
+      } else if (table instanceof ViewTable) {
+        ViewTable viewTable = (ViewTable) table;
+        View view = new View(viewPath, viewTable.getViewSql());
         DeploymentService.delete(view, connectionProperties);
-      } catch (SQLException e) {
-        throw new RuntimeException("Cannot DROP VIEW in " + schemaName + ": " + e.getMessage(), e);
+      } else {
+        throw new DdlException(drop, viewName + " is not a view.");
       }
-    } else {
-      throw new RuntimeException("Cannot DROP in " + schemaName + ": " + viewName + " is not a view.");
+    } catch (Exception e) {
+      throw new DdlException(drop, e.getMessage(), e);
     }
     schemaPlus.removeTable(viewName);
   }
@@ -315,5 +312,24 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final SqlCall from = SqlStdOperatorTable.AS.createCall(p,
         Arrays.asList(new SqlNode[]{query, new SqlIdentifier("_", p), columnList}));
     return new SqlSelect(p, null, selectList, from, null, null, null, null, null, null, null, null, null);
+  }
+
+  /** Unchecked exception related to a DDL statement. */
+  static public class DdlException extends RuntimeException {
+    private final SqlParserPos pos;
+
+    private DdlException(SqlNode node, SqlParserPos pos, String msg, Throwable cause) {
+      super("Cannot " + node.toString() + " at line " + pos.getLineNum() + " col " + pos.getColumnNum()
+          + ": " + msg, cause);
+      this.pos = pos;
+    }
+
+    DdlException(SqlNode node, String msg, Throwable cause) {
+      this(node, node.getParserPosition(), msg, cause);
+    }
+
+    DdlException(SqlNode node, String msg) {
+      this(node, msg, null);
+    }
   }
 }

@@ -3,7 +3,11 @@ package com.linkedin.hoptimator.venice;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientConnectionException;
+import java.sql.SQLTransientException;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
@@ -53,8 +57,10 @@ public class VeniceDriver extends Driver {
       schema.populate();
       rootSchema.add(CATALOG_NAME, schema);
       return connection;
+    } catch (IOException|ExecutionException|InterruptedException e) {
+      throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {
-      throw new SQLException("Problem loading " + url, e);
+      throw new SQLNonTransientException("Problem loading " + url, e);
     }
   }
 

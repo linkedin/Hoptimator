@@ -1,6 +1,8 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -36,7 +38,7 @@ public class K8sYamlApi implements Api<String> {
     context.own(obj);
     KubernetesApiResponse<DynamicKubernetesObject> resp =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
-    checkResponse(yaml, resp);
+    K8sUtils.checkResponse("Error creating YAML:\n" + yaml, resp);
     log.info("Created K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
@@ -46,7 +48,7 @@ public class K8sYamlApi implements Api<String> {
     KubernetesApiResponse<DynamicKubernetesObject> resp =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
             .delete(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
-    checkResponse(yaml, resp);
+    K8sUtils.checkResponse("Error deleting YAML:\n" + yaml, resp);
     log.info("Deleted K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
@@ -75,7 +77,7 @@ public class K8sYamlApi implements Api<String> {
       context.own(obj);
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     }
-    checkResponse(yaml, resp);
+    K8sUtils.checkResponse("Error updating YAML:\n" + yaml, resp);
     log.info("Updated K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
@@ -85,13 +87,5 @@ public class K8sYamlApi implements Api<String> {
       obj.setMetadata(obj.getMetadata().namespace(context.namespace()));
     }
     return obj;
-  }
-
-  private void checkResponse(String yaml, KubernetesApiResponse<?> resp) throws SQLException {
-    try {
-      resp.throwsApiException();
-    } catch (ApiException e) {
-      throw new SQLException("Error applying Kubernetes YAML:\n" + yaml, e);
-    }
   }
 }

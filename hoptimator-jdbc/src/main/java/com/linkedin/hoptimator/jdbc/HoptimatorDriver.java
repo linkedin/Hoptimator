@@ -5,6 +5,9 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientConnectionException;
+import java.sql.SQLTransientException;
 import java.util.Properties;
 import java.util.logging.LogManager;
 
@@ -127,10 +130,11 @@ public class HoptimatorDriver implements java.sql.Driver {
           CatalogService.catalog(catalog).register(wrapped);
         }
       }
-
       return hoptimatorConnection;
+    } catch (IOException|SQLTransientException e) {
+      throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {
-      throw new SQLException("Problem loading " + url, e);
+      throw new SQLNonTransientException("Problem loading " + url, e);
     }
   }
 

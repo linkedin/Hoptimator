@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import java.sql.Connection;
+import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,7 +54,7 @@ public final class ValidationService {
     Validator.Issues issues = new Validator.Issues("");
     validate(obj, issues);
     if (!issues.valid()) {
-      throw new SQLException("Failed validation:\n" + issues.toString());
+      throw new SQLDataException("Failed validation:\n" + issues.toString());
     }
   }
 
