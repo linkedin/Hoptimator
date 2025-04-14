@@ -1,11 +1,16 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.sql.SQLException;
+import java.sql.SQLTransientException;
+import java.sql.SQLNonTransientException;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import io.kubernetes.client.common.KubernetesType;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.openapi.ApiException;
 
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
@@ -78,6 +83,23 @@ public final class K8sUtils {
       return MethodsEnum.MODIFY;  // sinks are modified
     } else {
       return MethodsEnum.SCAN;    // sources are scanned
+    }
+  }
+
+  static void checkResponse(String msg, KubernetesApiResponse<?> resp) throws SQLException {
+    try {
+      resp.throwsApiException();
+    } catch (ApiException e) {
+      switch (resp.getHttpStatusCode()) {
+      case 404: // not found
+      case 408: // timeout
+      case 409: // conflict
+      case 410: // gone
+      case 412: // precondition failed
+        throw new SQLTransientException(msg, e);
+      default:
+        throw new SQLNonTransientException(msg, e);
+      }
     }
   }
 }

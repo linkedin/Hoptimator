@@ -59,7 +59,8 @@ class K8sConnector implements Connector {
       }
       props.load(new StringReader(configs));
     } catch (IOException e) {
-      throw new SQLException(e);
+      // This doesn't seem possible.
+      throw new RuntimeException(e);
     }
     Map<String, String> map = new LinkedHashMap<>();
     props.stringPropertyNames().stream().sorted().forEach(k ->

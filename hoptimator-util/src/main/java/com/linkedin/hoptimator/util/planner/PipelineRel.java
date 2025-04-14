@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -145,7 +146,7 @@ public interface PipelineRel extends RelNode {
         // Assert target fields exist in the sink schema when the sink schema is known (partial view use case)
         for (String fieldName : targetFields.rightList()) {
           if (!targetRowType.getFieldNames().contains(fieldName)) {
-            throw new IllegalArgumentException("Field " + fieldName + " not found in sink schema");
+            throw new SQLNonTransientException("Field " + fieldName + " not found in sink schema");
           }
         }
       }
