@@ -107,7 +107,7 @@ public interface Template {
     private String formatPropertiesAsString(Properties props) {
       StringBuilder stringBuilder = new StringBuilder();
       for (String key : props.stringPropertyNames()) {
-        stringBuilder.append(key).append(": ").append(props.getProperty(key)).append("\n");
+        stringBuilder.append(key).append(": '").append(props.getProperty(key)).append("'\n");
       }
       return stringBuilder.toString();
     }

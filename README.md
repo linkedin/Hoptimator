@@ -148,7 +148,7 @@ In this case, any jobs created with this template will get deployed as `FlinkSes
 
 ### Configuration
 
-The ``{{ }}`` sections you see in the templates are variable placeholders that will be filled in by the Deployer.
+The `{{ }}` sections you see in the templates are variable placeholders that will be filled in by the Deployer.
 See [Template.java](hoptimator-util/src/main/java/com/linkedin/hoptimator/util/Template.java) for how to specify templates.
 
 While Deployers are extensible, today the primary deployer is to Kubernetes. These deployers 
@@ -180,10 +180,25 @@ This can be done by adding hints as JDBC properties.
 
 Hints are key-value pairs separated by an equals sign. Multiple hints are separated by a comma.
 
-For example, to specify the number of kafka partitions and the flink parallelism, you could add the following hints to the query:
+There are two ways to use hints.
+
+1. Template hints can be used to override the `{{ }}` template specifications. 
+
+For example, to specify the number of kafka partitions and the flink parallelism, you could add the following hints to the connection:
 ```
 jdbc:hoptimator://hints=kafka.partitions=4,flink.parallelism=2
 ```
 These fields can then be added to templates as `{{kafka.partitions}}` or `{{flink.parallelism}}` where applicable.
+
+2. Connector hints allow the user to pass configurations directly through to an Engine (e.g. Flink).
+
+Connector hints must be formatted as follows `<engine-connector-name>.<source|sink>.<configName>`
+
+For example, to set a Kafka group id and startup mode to be used by Flink, you could add the following hints to the connection:
+```
+jdbc:hoptimator://hints=kafka.source.properties.group.id=4,kafka.sink.sink.parallelism=2
+```
+Field `properties.group.id` will be applied if the `kafka` connector is used by a source, and `sink.parallelism`
+if the `kafka` connector is used by a sink.
 
 Note that hints are simply recommendations, if the planner plans a different pipeline, they will be ignored.
