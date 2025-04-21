@@ -34,15 +34,11 @@ undeploy: undeploy-config
 
 quickstart: build deploy
 
-deploy-samples: deploy
-	kubectl wait --for=condition=Established=True	\
-	  crds/subscriptions.hoptimator.linkedin.com \
-	  crds/kafkatopics.hoptimator.linkedin.com \
-	  crds/sqljobs.hoptimator.linkedin.com
-	kubectl apply -f ./deploy/samples
+deploy-demo: deploy
+	kubectl apply -f ./deploy/samples/demodb.yaml
 
-undeploy-samples: undeploy
-	kubectl delete -f ./deploy/samples || echo "skipping"
+undeploy-demo: undeploy
+	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"
 
 deploy-flink: deploy
 	kubectl create namespace flink || echo "skipping"
@@ -74,7 +70,6 @@ undeploy-kafka:
 	kubectl delete pvc -l strimzi.io/name=one-kafka -n kafka || echo "skipping"
 	kubectl delete -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka || echo "skipping"
 	kubectl delete -f ./deploy/samples/kafkadb.yaml || echo "skipping"
-	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"
 	kubectl delete namespace kafka || echo "skipping"
 
 # Deploys Venice cluster in docker and creates two stores in Venice. Stores are not managed via K8s for now.
@@ -88,17 +83,15 @@ undeploy-venice:
 	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml down
 
-deploy-dev-environment: deploy deploy-flink deploy-kafka deploy-venice
+deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-venice
 	kubectl wait --for=condition=Established=True	\
 	  crds/subscriptions.hoptimator.linkedin.com \
 	  crds/kafkatopics.hoptimator.linkedin.com \
 	  crds/sqljobs.hoptimator.linkedin.com
 	kubectl apply -f ./deploy/dev/
-	kubectl apply -f ./deploy/samples/demodb.yaml
 
-undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy
+undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy-demo undeploy
 	kubectl delete -f ./deploy/dev || echo "skipping"
-	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"
 
 # Integration test setup intended to be run locally
 integration-tests: deploy-dev-environment
@@ -141,4 +134,4 @@ run-zeppelin: build-zeppelin
 	  --name hoptimator-zeppelin \
 	  hoptimator-zeppelin
 
-.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-samples undeploy-samples deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
