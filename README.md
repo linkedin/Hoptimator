@@ -1,5 +1,14 @@
 # Hoptimator
 
+## Prerequisite
+Hoptimator by default requires a Kubernetes cluster to operate. To set up a local dev environment, you can follow the steps below:
+
+1. Install Docker for Desktop
+2. Navigate to Docker Settings -> Kubernetes -> Select Enable Kubernetes
+3. Run: kubectl config use-context docker-desktop
+
+Alternatively you can use [kind](https://kind.sigs.k8s.io/) to create a local cluster.
+
 ## Intro
 
 Hoptimator gives you a SQL interface to a Kubernetes cluster. You can install databases, query tables, create views, and deploy data pipelines using just SQL.
@@ -42,8 +51,8 @@ Hoptimator requires a Kubernetes cluster. To connect from outside a Kubernetes c
 The below setup will install two local demo DBs, ads and profiles.
 
 ```
-  $ make install            # build and install SQL CLI
-  $ make deploy deploy-demo # install demo DB CRDs and K8s objects
+  $ make build install      # build and install SQL CLI
+  $ make deploy-demo        # install demo DB CRDs and K8s objects
   $ ./hoptimator            # start the SQL CLI
   > !intro
 ```
@@ -53,7 +62,7 @@ The below setup will install two local demo DBs, ads and profiles.
 The below setup will create a dev environment with various resources within Kubernetes.
 
 ```
-  $ make install                                                    # build and install SQL CLI
+  $ make build install                                              # build and install SQL CLI
   $ make deploy-dev-environment                                     # start all local dev setups
   $ kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 &   # forward external Kafka port for use by SQL CLI
   $ ./hoptimator                                                    # start the SQL CLI
