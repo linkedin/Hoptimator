@@ -65,7 +65,7 @@ public final class PipelineReconciler implements Reconciler {
       boolean ready = Arrays.asList(object.getSpec().getYaml().split("\n---\n"))
           .stream()
           .filter(x -> x != null && !x.isEmpty())
-          .allMatch(x -> isReady(x));
+          .allMatch(x -> isReady(x, namespace));
 
       if (ready) {
         status.setReady(true);
@@ -115,15 +115,17 @@ public final class PipelineReconciler implements Reconciler {
         .build();
   }
 
-  private boolean isReady(String yaml) {
+  private boolean isReady(String yaml, String pipelineNamespace) {
     DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
-    String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
+    String namespace = obj.getMetadata().getNamespace() == null ? pipelineNamespace : obj.getMetadata().getNamespace();
     String kind = obj.getKind();
     try {
       KubernetesApiResponse<DynamicKubernetesObject> existing =
           context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(namespace, name);
-      existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));
+      existing.onFailure((code, status) ->
+          log.warn("Failed to fetch {}/{} in namespace {}: {}.", kind, name, namespace, status.getMessage())
+      );
       if (!existing.isSuccess()) {
         return false;
       }
@@ -135,6 +137,7 @@ public final class PipelineReconciler implements Reconciler {
         return false;
       }
     } catch (Exception e) {
+      log.error("Encountered exception while checking status of {}/{} in namespace {}", kind, name, namespace, e);
       return false;
     }
   }
