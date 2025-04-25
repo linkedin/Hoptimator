@@ -1,8 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
-import java.sql.SQLNonTransientException;
-import java.sql.SQLTransientException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -10,7 +8,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;

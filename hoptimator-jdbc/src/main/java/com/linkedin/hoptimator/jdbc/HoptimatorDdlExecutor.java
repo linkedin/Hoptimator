@@ -20,7 +20,6 @@
 package com.linkedin.hoptimator.jdbc;
 
 import java.io.Reader;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,7 +46,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlSelect;
-import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.ddl.SqlCreateMaterializedView;
 import org.apache.calcite.sql.ddl.SqlCreateView;
 import org.apache.calcite.sql.ddl.SqlDropObject;
@@ -68,8 +66,6 @@ import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
-
-import static org.apache.calcite.util.Static.RESOURCE;
 
 
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
@@ -135,7 +131,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       schemaPlus.add(viewName, viewTable);
     } catch (Exception e) {
       throw new DdlException(create, e.getMessage(), e);
-    } 
+    }
   }
 
   // N.B. copy-pasted from Apache Calcite
