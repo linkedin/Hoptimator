@@ -43,7 +43,7 @@ public class K8sContext {
 
   private final String namespace;
   private final String clientInfo;
-  private ApiClient apiClient;
+  private final ApiClient apiClient;
   private final SharedInformerFactory informerFactory;
   private final V1OwnerReference ownerReference;
   private final Map<String, String> labels;

@@ -12,7 +12,7 @@ abstract class CompatibilityValidatorBase implements Validator {
 
   private final SchemaPlus schema;
 
-  public CompatibilityValidatorBase(SchemaPlus schema) {
+  CompatibilityValidatorBase(SchemaPlus schema) {
     this.schema = schema;
   }
 
