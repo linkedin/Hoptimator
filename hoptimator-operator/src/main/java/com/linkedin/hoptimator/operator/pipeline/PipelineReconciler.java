@@ -1,28 +1,21 @@
 package com.linkedin.hoptimator.operator.pipeline;
 
-import java.sql.SQLException;
-import java.time.Duration;
-import java.util.Arrays;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.linkedin.hoptimator.k8s.K8sApi;
+import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
 import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
 import io.kubernetes.client.extended.controller.reconciler.Request;
 import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
-
-import com.linkedin.hoptimator.k8s.K8sApi;
-import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.k8s.K8sUtils;
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
+import java.sql.SQLException;
+import java.time.Duration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -62,10 +55,8 @@ public final class PipelineReconciler implements Reconciler {
 
       log.info("Checking status of Pipeline {}...", name);
 
-      boolean ready = Arrays.asList(object.getSpec().getYaml().split("\n---\n"))
-          .stream()
-          .filter(x -> x != null && !x.isEmpty())
-          .allMatch(x -> isReady(x, namespace));
+      K8sPipelineElementStatusEstimator elementStatusPredictor = new K8sPipelineElementStatusEstimator(context);
+      boolean ready = elementStatusPredictor.statuses(object).allMatch(x -> x.isReady());
 
       if (ready) {
         status.setReady(true);
@@ -113,71 +104,6 @@ public final class PipelineReconciler implements Reconciler {
         .withWorkerCount(1)
         .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1Pipeline.class, x).build())
         .build();
-  }
-
-  private boolean isReady(String yaml, String pipelineNamespace) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
-    String name = obj.getMetadata().getName();
-    String namespace = obj.getMetadata().getNamespace() == null ? pipelineNamespace : obj.getMetadata().getNamespace();
-    String kind = obj.getKind();
-    try {
-      KubernetesApiResponse<DynamicKubernetesObject> existing =
-          context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(namespace, name);
-      existing.onFailure((code, status) ->
-          log.warn("Failed to fetch {}/{} in namespace {}: {}.", kind, name, namespace, status.getMessage())
-      );
-      if (!existing.isSuccess()) {
-        return false;
-      }
-      if (guessReady(existing.getObject())) {
-        log.info("{}/{} is ready.", kind, name);
-        return true;
-      } else {
-        log.info("{}/{} is NOT ready.", kind, name);
-        return false;
-      }
-    } catch (Exception e) {
-      log.error("Encountered exception while checking status of {}/{} in namespace {}", kind, name, namespace, e);
-      return false;
-    }
-  }
-
-  public static boolean guessReady(DynamicKubernetesObject obj) {
-    // We make a best effort to guess the status of the dynamic object. By default, it's ready.
-    if (obj == null || obj.getRaw() == null) {
-      return false;
-    }
-    try {
-      return obj.getRaw().get("status").getAsJsonObject().get("ready").getAsBoolean();
-    } catch (Exception e) {
-      log.debug("Exception looking for .status.ready. Swallowing.", e);
-    }
-    try {
-      return obj.getRaw()
-          .get("status")
-          .getAsJsonObject()
-          .get("state")
-          .getAsString()
-          .matches("(?i)READY|RUNNING|FINISHED");
-    } catch (Exception e) {
-      log.debug("Exception looking for .status.state. Swallowing.", e);
-    }
-    try {
-      return obj.getRaw()
-          .get("status")
-          .getAsJsonObject()
-          .get("jobStatus")
-          .getAsJsonObject()
-          .get("state")
-          .getAsString()
-          .matches("(?i)READY|RUNNING|FINISHED");
-    } catch (Exception e) {
-      log.debug("Exception looking for .status.jobStatus.state. Swallowing.", e);
-    }
-    // TODO: Look for common Conditions
-    log.warn("Object {}/{}/{} considered ready by default.", obj.getMetadata().getNamespace(), obj.getKind(),
-        obj.getMetadata().getName());
-    return true;
   }
 }
 
