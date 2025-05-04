@@ -29,34 +29,34 @@ import org.apache.calcite.schema.impl.AbstractTable;
 
 
 /** A table behind some CRUD API */
-public abstract class RemoteTable<T, U> extends AbstractTable
-    implements TranslatableTable, ModifiableTable, RowMapper<T, U> {
+public abstract class RemoteTable<ObjectType, RowType> extends AbstractTable
+    implements TranslatableTable, ModifiableTable, RowMapper<ObjectType, RowType> {
 
-  private final Api<T> api;
-  private final Class<U> elementType;
+  private final Api<ObjectType> api;
+  private final Class<RowType> elementType;
   private final RelDataType javaType;
-  private final RemoteRowList<T, U> rows;
+  private final RemoteRowList<ObjectType, RowType> rows;
 
-  RemoteTable(Api<T> api, Class<U> elementType, RelDataType javaType) {
+  RemoteTable(Api<ObjectType> api, Class<RowType> elementType, RelDataType javaType) {
     this.api = api;
     this.elementType = elementType;
     this.javaType = javaType;
     this.rows = new RemoteRowList<>(api, this);
   }
 
-  RemoteTable(Api<T> api, Class<U> elementType, JavaTypeFactory javaTypeFactory) {
+  RemoteTable(Api<ObjectType> api, Class<RowType> elementType, JavaTypeFactory javaTypeFactory) {
     this(api, elementType, javaTypeFactory.createType(elementType));
   }
 
-  public RemoteTable(Api<T> api, Class<U> elementType) {
+  public RemoteTable(Api<ObjectType> api, Class<RowType> elementType) {
     this(api, elementType, new JavaTypeFactoryImpl());
   }
 
-  public Collection<U> rows() {
+  public Collection<RowType> rows() {
     return rows;
   }
 
-  public Api<T> api() {
+  public Api<ObjectType> api() {
     return api;
   }
 
@@ -71,7 +71,7 @@ public abstract class RemoteTable<T, U> extends AbstractTable
   }
 
   @Override
-  public Collection<U> getModifiableCollection() {
+  public Collection<RowType> getModifiableCollection() {
     return rows;
   }
 
@@ -86,7 +86,7 @@ public abstract class RemoteTable<T, U> extends AbstractTable
   }
 
   @Override
-  public T fromRow(U u) {
+  public ObjectType fromRow(RowType u) {
     throw new UnsupportedOperationException("This object is not writable.");
   }
 

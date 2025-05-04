@@ -1,13 +1,11 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
+import com.linkedin.hoptimator.util.RemoteTable;
 import org.apache.calcite.schema.Schema;
 
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 
-
-public class K8sPipelineTable extends K8sTable<V1alpha1Pipeline, V1alpha1PipelineList, K8sPipelineTable.Row> {
+public class K8sPipelineElementTable extends RemoteTable<K8sPipelineElement, K8sPipelineElementTable.Row> {
 
   // CHECKSTYLE:OFF
   public static class Row {
@@ -30,14 +28,14 @@ public class K8sPipelineTable extends K8sTable<V1alpha1Pipeline, V1alpha1Pipelin
   }
   // CHECKSTYLE:ON
 
-  public K8sPipelineTable(K8sContext context) {
-    super(context, K8sApiEndpoints.PIPELINES, Row.class);
+  public K8sPipelineElementTable(K8sPipelineElementApi pipelineElementApi) {
+    super(pipelineElementApi, Row.class);
   }
 
   @Override
-  public Row toRow(V1alpha1Pipeline obj) {
-    V1alpha1PipelineStatus status = obj.getStatus();
-    return new Row(obj.getMetadata().getName(), status.getReady(), status.getFailed(), status.getMessage());
+  public Row toRow(K8sPipelineElement k8sPipelineElement) {
+    K8sPipelineElementStatus status = k8sPipelineElement.getStatus();
+    return new Row(status.getName(), status.isReady(), status.isFailed(), status.getMessage());
   }
 
   @Override

@@ -48,28 +48,29 @@ public class K8sPipelineElementStatusEstimator {
     String name = obj.getMetadata().getName();
     String namespace = obj.getMetadata().getNamespace() == null ? pipelineNamespace : obj.getMetadata().getNamespace();
     String kind = obj.getKind();
+    String nameWithKind = String.format("%s/%s", kind, name);
     try {
       KubernetesApiResponse<DynamicKubernetesObject> existing =
           context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(namespace, name);
       String failureMessage =
-          String.format("Failed to fetch %s/%s in namespace %s: %s.", kind, name, namespace, existing.toString());
+          String.format("Failed to fetch %s in namespace %s: %s.", nameWithKind, namespace, existing.toString());
       existing.onFailure((code, status) -> log.warn(failureMessage));
       if (!existing.isSuccess()) {
-        return defaultUnreadyStatusOnK8sObjectRetrievalFailure(name, failureMessage);
+        return defaultUnreadyStatusOnK8sObjectRetrievalFailure(nameWithKind, failureMessage);
       }
-      K8sPipelineElementStatus elementStatus = estimateDynamicObjectStatus(name, existing.getObject());
+      K8sPipelineElementStatus elementStatus = estimateDynamicObjectStatus(nameWithKind, existing.getObject());
       if (elementStatus.isReady()) {
-        log.info("{}/{} is ready.", kind, name);
+        log.info("{} is ready.", nameWithKind);
       } else {
-        log.info("{}/{} is NOT ready.", kind, name);
+        log.info("{} is NOT ready.", nameWithKind);
       }
       return elementStatus;
     } catch (Exception e) {
       String failureMessage =
-          String.format("Encountered exception while checking status of %s/%s in namespace %s: %s", kind, name,
+          String.format("Encountered exception while checking status of %s in namespace %s: %s", nameWithKind,
               namespace, e);
       log.error(failureMessage);
-      return defaultUnreadyStatusOnK8sObjectRetrievalFailure(name, failureMessage);
+      return defaultUnreadyStatusOnK8sObjectRetrievalFailure(nameWithKind, failureMessage);
     }
   }
 
