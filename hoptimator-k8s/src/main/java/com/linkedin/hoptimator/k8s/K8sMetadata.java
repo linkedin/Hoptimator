@@ -21,13 +21,20 @@ public class K8sMetadata extends AbstractSchema {
 
   public K8sMetadata(HoptimatorConnection connection, K8sContext context) {
     this.connection = connection;
+    K8sPipelineElementApi pipelineElementApi = new K8sPipelineElementApi(context);
+    K8sPipelineElementMapApi pipelineElementMapApi = new K8sPipelineElementMapApi(pipelineElementApi);
+
     this.engineTable = new K8sEngineTable(context);
     this.databaseTable = new K8sDatabaseTable(context, engineTable);
     this.pipelineTable = new K8sPipelineTable(context);
+    K8sPipelineElementTable pipelineElementTable = new K8sPipelineElementTable(pipelineElementApi);
+    K8sPipelineElementMapTable pipelineElementMapTable = new K8sPipelineElementMapTable(pipelineElementMapApi);
     this.viewTable = new K8sViewTable(connection, context);
     tableMap.put("DATABASES", databaseTable);
     tableMap.put("ENGINES", engineTable);
     tableMap.put("PIPELINES", pipelineTable);
+    tableMap.put("PIPELINE_ELEMENTS", pipelineElementTable);
+    tableMap.put("PIPELINE_ELEMENT_MAP", pipelineElementMapTable);
     tableMap.put("VIEWS", viewTable);
   }
 

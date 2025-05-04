@@ -1,0 +1,83 @@
+!set outputformat mysql
+!use k8s
+
+create or replace view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+select * from ads.audience;
++------------+-----------+
+| FIRST_NAME | LAST_NAME |
++------------+-----------+
+| Alice      | Addison   |
+| Bob        | Baker     |
++------------+-----------+
+(2 rows)
+
+!ok
+
+create or replace materialized view ads.audience2 as select * from ads.audience;
+(0 rows modified)
+
+!update
+
+select * from ads.audience2;
++------------+-----------+
+| FIRST_NAME | LAST_NAME |
++------------+-----------+
+| Alice      | Addison   |
+| Bob        | Baker     |
++------------+-----------+
+(2 rows)
+
+!ok
+
+create or replace materialized view ads.pages as select page_urn from ads.page_views;
+(0 rows modified)
+
+!update
+
+select * from ads.pages;
++-------------------+
+| PAGE_URN          |
++-------------------+
+| urn:li:page:10000 |
+| urn:li:page:10001 |
++-------------------+
+(2 rows)
+
+!ok
+
+select * from "k8s".pipelines;
++---------------+--------+
+| NAME          | STATUS |
++---------------+--------+
+| ads-audience2 | Ready. |
+| ads-pages     | Ready. |
++---------------+--------+
+(2 rows)
+
+!ok
+
+select * from "k8s".pipeline_elements;
++------------------------+-------+--------+------------------------------------------------------------------------------------+
+| NAME                   | READY | FAILED | STATUS                                                                             |
++------------------------+-------+--------+------------------------------------------------------------------------------------+
+| ads-database-audience2 | true  | false  | Object default/FlinkSessionJob/ads-database-audience2 considered ready by default. |
+| ads-database-pages     | true  | false  | Object default/FlinkSessionJob/ads-database-pages considered ready by default.     |
++------------------------+-------+--------+------------------------------------------------------------------------------------+
+(2 rows)
+
+!ok
+
+select * from "k8s".pipeline_element_map;
++------------------------+---------------+
+| ELEMENT_NAME           | PIPELINE_NAME |
++------------------------+---------------+
+| ads-database-audience2 | ads-audience2 |
+| ads-database-pages     | ads-pages     |
++------------------------+---------------+
+(2 rows)
+
+!ok

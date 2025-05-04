@@ -130,7 +130,6 @@ public class RemoteToEnumerableConverter
     SqlString sqlString = generateSql(AnsiSqlDialect.DEFAULT); // TODO hard-coded dialect
     String sql = sqlString.getSql();
     if (CalciteSystemProperty.DEBUG.value()) {
-      System.out.println("[" + sql + "]");
     }
     Hook.QUERY_PLAN.run(sql);
     final Expression sql_ =

@@ -49,7 +49,6 @@ public class PipelineOperatorApp {
     try {
       cmd = parser.parse(options, args);
     } catch (ParseException e) {
-      System.out.println(e.getMessage());
       formatter.printHelp("pipeline-operator", options);
 
       System.exit(1);
