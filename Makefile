@@ -11,7 +11,7 @@ build:
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-runner -t hoptimator-flink-runner
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-operator -t hoptimator-flink-operator
 
-bounce: build undeploy-config undeploy deploy deploy-config
+bounce: build undeploy deploy
 
 clean:
 	./gradlew clean

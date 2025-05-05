@@ -15,15 +15,56 @@
 # Based on examples at:
 # https://github.com/strimzi/strimzi-kafka-operator/blob/main/examples/kafka
 
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: controller
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: one
+spec:
+  replicas: 3
+  roles:
+    - controller
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: ephemeral
+        kraftMetadata: shared
+---
+
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: broker
+  namespace: kafka
+  labels:
+    strimzi.io/cluster: one
+spec:
+  replicas: 3
+  roles:
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: ephemeral
+        kraftMetadata: shared
+---
 
 apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: one
   namespace: kafka
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
 spec:
   kafka:
-    version: 3.8.0
+    version: 4.0.0
+    metadataVersion: "4.0"
     replicas: 1
     listeners:
       - name: plain
@@ -54,16 +95,7 @@ spec:
       transaction.state.log.min.isr: 1
       default.replication.factor: 1
       min.insync.replicas: 1
-      inter.broker.protocol.version: "3.8"
       allow.everyone.if.no.acl.found: true
-    storage:
-      type: ephemeral
-    authorization:
-      type: simple
-  zookeeper:
-    replicas: 3
-    storage:
-      type: ephemeral
   entityOperator:
     topicOperator:
       watchedNamespace: default
