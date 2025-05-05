@@ -65,9 +65,9 @@ undeploy-flink:
 deploy-kafka: deploy deploy-flink
 	kubectl create namespace kafka || echo "skipping"
 	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
-	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
 	kubectl apply -f ./deploy/dev/kafka.yaml
+	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
 	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
 	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=10m
 	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=10m
