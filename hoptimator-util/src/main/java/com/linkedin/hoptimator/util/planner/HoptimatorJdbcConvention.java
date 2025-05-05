@@ -46,7 +46,7 @@ public class HoptimatorJdbcConvention extends JdbcConvention {
     super.register(planner);
     planner.addRule(PipelineRules.PipelineTableScanRule.create(this));
     planner.addRule(PipelineRules.PipelineTableModifyRule.create(this));
-    PipelineRules.rules().forEach(x -> planner.addRule(x));
+    PipelineRules.rules().forEach(planner::addRule);
     engines().forEach(x -> new EngineRules(x).register(this, planner, connectionProperties));
   }
 }

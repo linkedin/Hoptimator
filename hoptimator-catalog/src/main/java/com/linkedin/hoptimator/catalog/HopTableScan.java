@@ -20,7 +20,7 @@ public final class HopTableScan extends TableScan implements HopRel {
   @Override
   public void register(RelOptPlanner planner) {
     planner.addRule(HopTableScanRule.INSTANCE);
-    RuleService.rules().forEach(x -> planner.addRule(x));
+    RuleService.rules().forEach(planner::addRule);
   }
 }
 

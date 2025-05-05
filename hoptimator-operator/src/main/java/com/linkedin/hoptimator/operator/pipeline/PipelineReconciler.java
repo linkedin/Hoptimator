@@ -29,7 +29,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
  * Manages Pipelines.
  */
 public final class PipelineReconciler implements Reconciler {
-  private final static Logger log = LoggerFactory.getLogger(PipelineReconciler.class);
+  private static final Logger log = LoggerFactory.getLogger(PipelineReconciler.class);
 
   private final K8sContext context;
   private final K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi;
@@ -62,8 +62,7 @@ public final class PipelineReconciler implements Reconciler {
 
       log.info("Checking status of Pipeline {}...", name);
 
-      boolean ready = Arrays.asList(object.getSpec().getYaml().split("\n---\n"))
-          .stream()
+      boolean ready = Arrays.stream(object.getSpec().getYaml().split("\n---\n"))
           .filter(x -> x != null && !x.isEmpty())
           .allMatch(x -> isReady(x, namespace));
 
@@ -96,12 +95,12 @@ public final class PipelineReconciler implements Reconciler {
   }
 
   // TODO load from configuration
-  protected Duration failureRetryDuration() {
+  private Duration failureRetryDuration() {
     return Duration.ofMinutes(5);
   }
 
   // TODO load from configuration
-  protected Duration pendingRetryDuration() {
+  private Duration pendingRetryDuration() {
     return Duration.ofMinutes(1);
   }
 

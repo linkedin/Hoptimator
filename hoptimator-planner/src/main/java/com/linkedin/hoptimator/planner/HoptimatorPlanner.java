@@ -84,7 +84,7 @@ public class HoptimatorPlanner {
 
   public HoptimatorPlanner(SchemaPlus schema) {
     this.schema = schema;
-    List<RelTraitDef> traitDefs = new ArrayList<RelTraitDef>();
+    List<RelTraitDef> traitDefs = new ArrayList<>();
     traitDefs.add(ConventionTraitDef.INSTANCE);
     traitDefs.add(RelCollationTraitDef.INSTANCE);
 
@@ -119,7 +119,7 @@ public class HoptimatorPlanner {
 
   public Database database(String name) {
     String rootName = schema.getName();
-    if (rootName == null || rootName.length() == 0) {
+    if (rootName == null || rootName.isEmpty()) {
       rootName = "ROOT";
     }
     Schema subSchema = schema.getSubSchema(name);

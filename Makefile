@@ -11,7 +11,7 @@ build:
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-runner -t hoptimator-flink-runner
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-operator -t hoptimator-flink-operator
 
-bounce: build undeploy deploy deploy-samples deploy-config
+bounce: build undeploy-config undeploy deploy deploy-config
 
 clean:
 	./gradlew clean
@@ -26,6 +26,10 @@ deploy: deploy-config
 	kubectl apply -f ./hoptimator-k8s/src/main/resources/
 	kubectl apply -f ./deploy
 	kubectl apply -f ./deploy/dev/rbac.yaml
+	kubectl wait --for=condition=Established=True	\
+	  crds/subscriptions.hoptimator.linkedin.com \
+	  crds/kafkatopics.hoptimator.linkedin.com \
+	  crds/sqljobs.hoptimator.linkedin.com
 
 undeploy: undeploy-config
 	kubectl delete -f ./deploy/dev/rbac.yaml || echo "skipping"
@@ -45,9 +49,9 @@ deploy-flink: deploy
 	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.11.0/
 	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest --set-json='watchNamespaces=["default","flink"]' flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
-	kubectl apply -f deploy/dev/flink-session-cluster.yaml
-	kubectl apply -f deploy/dev/flink-sql-gateway.yaml
-	kubectl apply -f deploy/samples/flink-template.yaml
+	kubectl apply -f ./deploy/dev/flink-session-cluster.yaml
+	kubectl apply -f ./deploy/dev/flink-sql-gateway.yaml
+	kubectl apply -f ./deploy/samples/flink-template.yaml
 
 undeploy-flink:
 	kubectl delete flinksessionjobs.flink.apache.org --all || echo "skipping"
@@ -63,6 +67,10 @@ deploy-kafka: deploy deploy-flink
 	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
+	kubectl apply -f ./deploy/dev/kafka.yaml
+	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=10m
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=10m
 
 undeploy-kafka:
 	kubectl delete kafkatopic.kafka.strimzi.io --all || echo "skipping"
@@ -84,20 +92,12 @@ undeploy-venice:
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml down
 
 deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-venice
-	kubectl wait --for=condition=Established=True	\
-	  crds/subscriptions.hoptimator.linkedin.com \
-	  crds/kafkatopics.hoptimator.linkedin.com \
-	  crds/sqljobs.hoptimator.linkedin.com
-	kubectl apply -f ./deploy/dev/
 
 undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy-demo undeploy
 	kubectl delete -f ./deploy/dev || echo "skipping"
 
 # Integration test setup intended to be run locally
 integration-tests: deploy-dev-environment
-	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=10m
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=10m
 	kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 & echo $$! > port-forward.pid
 	kubectl port-forward -n flink svc/flink-sql-gateway 8083 & echo $$! > port-forward-2.pid
 	kubectl port-forward -n flink svc/basic-session-deployment-rest 8081 & echo $$! > port-forward-3.pid
@@ -108,9 +108,6 @@ integration-tests: deploy-dev-environment
 
 # kind cluster used in github workflow needs to have different routing set up, avoiding the need to forward kafka ports
 integration-tests-kind: deploy-dev-environment
-	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=10m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=10m
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=10m
 	./gradlew intTest -i --no-parallel
 
 generate-models:

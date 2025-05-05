@@ -28,7 +28,7 @@ import com.linkedin.hoptimator.util.ConnectionService;
 
 /**
  * Calling convention which implements a data pipeline.
- *
+ * <p>
  * "Convention" here just means a target set of "traits" the planner should
  * aim for. We can ask the planner to convert a query into the PIPELINE
  * convention, and the result will be a PipelineRel. This in turn can be
@@ -71,7 +71,7 @@ public interface PipelineRel extends RelNode {
 
     /**
      * Adds a source to the pipeline.
-     *
+     * <p>
      * This involves deploying any relevant objects, and configuring
      * a connector. The connector is configured via `CREATE TABLE...WITH(...)`.
      */
@@ -83,7 +83,7 @@ public interface PipelineRel extends RelNode {
 
     /**
      * Sets the sink to use for the pipeline.
-     *
+     * <p>
      * By default, the sink is `PIPELINE.SINK`. An expected row type is required
      * for validation purposes.
      */

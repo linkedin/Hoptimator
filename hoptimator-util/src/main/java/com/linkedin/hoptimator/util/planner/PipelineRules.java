@@ -95,7 +95,6 @@ public final class PipelineRules {
 
     @Override
     public void implement(Implementor implementor) throws SQLException {
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
       implementor.addSource(database, table.getQualifiedName(), table.getRowType(),
           Collections.emptyMap()); // TODO pass in table scan hints
     }
@@ -386,7 +385,7 @@ public final class PipelineRules {
   }
 
   static Table findTable(CalciteSchema schema, List<String> qualifiedName) {
-    if (qualifiedName.size() == 0) {
+    if (qualifiedName.isEmpty()) {
       throw new IllegalArgumentException("Empty qualified name.");
     } else if (qualifiedName.size() == 1) {
       String name = qualifiedName.get(0);
@@ -413,14 +412,14 @@ public final class PipelineRules {
   }
 
   static CalciteSchema schema(RelNode node) {
-    return (CalciteSchema) Optional.ofNullable(node.getTable())
+    return Optional.ofNullable(node.getTable())
         .map(x -> x.unwrap(CalciteSchema.class))
         .orElseThrow(() -> new IllegalArgumentException("null table?"));
   }
 
   static List<String> qualifiedName(RelNode node) {
     return Optional.ofNullable(node.getTable())
-        .map(x -> x.getQualifiedName())
+        .map(RelOptTable::getQualifiedName)
         .orElseThrow(() -> new IllegalArgumentException("null table?"));
   }
 

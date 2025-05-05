@@ -24,8 +24,8 @@ import java.util.stream.Collectors;
  *
  */
 public class FlinkStreamingSqlJobReconciler implements Reconciler {
-  private final static Logger log = LoggerFactory.getLogger(FlinkStreamingSqlJobReconciler.class);
-  private final static String SQLJOB = "hoptimator.linkedin.com/v1alpha1/SqlJob";
+  private static final Logger log = LoggerFactory.getLogger(FlinkStreamingSqlJobReconciler.class);
+  private static final String SQLJOB = "hoptimator.linkedin.com/v1alpha1/SqlJob";
 
   private final Operator operator;
 

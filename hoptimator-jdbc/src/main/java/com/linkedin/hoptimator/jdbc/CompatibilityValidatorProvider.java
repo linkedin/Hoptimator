@@ -13,7 +13,6 @@ import com.linkedin.hoptimator.ValidatorProvider;
 /** Provides BackwardCompatibilityValidator and ForwardCompatibilityValidator. */
 public class CompatibilityValidatorProvider implements ValidatorProvider {
 
-  @SuppressWarnings("unchecked")
   @Override
   public <T> Collection<Validator> validators(T obj) {
     if (obj instanceof SchemaPlus) {

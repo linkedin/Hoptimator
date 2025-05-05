@@ -12,7 +12,7 @@ public interface TableResolver {
   RelDataType resolve(String table) throws InterruptedException, ExecutionException;
 
   static TableResolver from(Function<String, RelDataType> f) {
-    return x -> f.apply(x);
+    return f::apply;
   }
 
   /** Appends an extra column to the resolved type */

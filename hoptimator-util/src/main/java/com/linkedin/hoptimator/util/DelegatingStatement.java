@@ -23,13 +23,13 @@ class DelegatingStatement implements Statement {
 
   @Override
   public boolean execute(String sql) throws SQLException {
-    executeQuery(sql);
+    resultSet = executeQuery(sql);
     return true;
   }
 
   @Override
   public ResultSet executeQuery(String sql) throws SQLException {
-    // Split multi-statement queries and execute any leading updates 
+    // Split multi-statement queries and execute any leading updates
     String[] parts = sql.split(";\n");
     int i = 0;
     for (; i < parts.length - 1; i++) {

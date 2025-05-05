@@ -112,10 +112,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final SqlNode q = renameColumns(create.columnList, create.query);
     final String sql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
     List<String> schemaPath = pair.left.path(null);
-    String schemaName = schemaPlus.getName();
     String viewName = pair.right;
-    List<String> viewPath = new ArrayList<>();
-    viewPath.addAll(schemaPath);
+    List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
     CalcitePrepare.AnalyzeViewResult analyzed = HoptimatorDriver.analyzeView(connection, sql);
     RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
@@ -165,8 +163,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     SchemaPlus schemaPlus = pair.left.plus();
     String schemaName = schemaPlus.getName();
     String viewName = pair.right;
-    List<String> viewPath = new ArrayList<>();
-    viewPath.addAll(schemaPath);
+    List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
     try {
       if (!(pair.left.schema instanceof Database)) {
@@ -191,8 +188,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         pipelineName = pipelineName + "-" + viewParts[1];
       }
       connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
-      List<String> sinkPath = new ArrayList<>();
-      sinkPath.addAll(schemaPath);
+      List<String> sinkPath = new ArrayList<>(schemaPath);
       sinkPath.add(sinkName);
       Table sink = pair.left.plus().getTable(sinkName);
 
@@ -243,7 +239,6 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     String viewName = pair.right;
 
     SchemaPlus schemaPlus = pair.left.plus();
-    String schemaName = schemaPlus.getName();
     Table table = schemaPlus.getTable(viewName);
     if (table == null) {
       if (drop.ifExists) {
@@ -253,8 +248,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
 
     final List<String> schemaPath = pair.left.path(null);
-    List<String> viewPath = new ArrayList<>();
-    viewPath.addAll(schemaPath);
+    List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
 
     try {
@@ -306,18 +300,16 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final SqlParserPos p = query.getParserPosition();
     final SqlNodeList selectList = SqlNodeList.SINGLETON_STAR;
     final SqlCall from = SqlStdOperatorTable.AS.createCall(p,
-        Arrays.asList(new SqlNode[]{query, new SqlIdentifier("_", p), columnList}));
+        Arrays.asList(query, new SqlIdentifier("_", p), columnList));
     return new SqlSelect(p, null, selectList, from, null, null, null, null, null, null, null, null, null);
   }
 
   /** Unchecked exception related to a DDL statement. */
   static public class DdlException extends RuntimeException {
-    private final SqlParserPos pos;
 
     private DdlException(SqlNode node, SqlParserPos pos, String msg, Throwable cause) {
       super("Cannot " + node.toString() + " at line " + pos.getLineNum() + " col " + pos.getColumnNum()
           + ": " + msg, cause);
-      this.pos = pos;
     }
 
     DdlException(SqlNode node, String msg, Throwable cause) {

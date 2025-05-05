@@ -29,13 +29,13 @@ public class ConfigAssembler {
   public Map<String, String> assemble() {
     Map<String, String> combined = new HashMap<>();
     refs.forEach(x -> combined.putAll(x.fetch(operator)));
-    overrides.forEach((k, v) -> combined.put(k, v));
+    combined.putAll(overrides);
     return combined;
   }
 
   public Properties assembleProperties() {
     Properties properties = new Properties();
-    assemble().forEach((k, v) -> properties.put(k, v));
+    properties.putAll(assemble());
     return properties;
   }
 

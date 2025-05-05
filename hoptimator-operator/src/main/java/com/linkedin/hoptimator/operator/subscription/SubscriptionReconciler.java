@@ -35,8 +35,8 @@ import com.linkedin.hoptimator.planner.PipelineRel;
 
 
 public final class SubscriptionReconciler implements Reconciler {
-  private final static Logger log = LoggerFactory.getLogger(SubscriptionReconciler.class);
-  private final static String SUBSCRIPTION = "hoptimator.linkedin.com/v1alpha1/Subscription";
+  private static final Logger log = LoggerFactory.getLogger(SubscriptionReconciler.class);
+  private static final String SUBSCRIPTION = "hoptimator.linkedin.com/v1alpha1/Subscription";
 
   private final Operator operator;
   private final HoptimatorPlanner.Factory plannerFactory;
@@ -97,7 +97,7 @@ public final class SubscriptionReconciler implements Reconciler {
       // 1. Plan a pipeline, and write the plan to Status.
       // 2. Deploy the pipeline per plan.
       // 3. Verify readiness of the entire pipeline.
-      // Each phase should be a separate reconcilation loop to avoid races.
+      // Each phase should be a separate reconciliation loop to avoid races.
       // TODO: We should disown orphaned resources when the pipeline changes.
       if (diverged(object.getSpec(), status)) {
         // Phase 1
@@ -167,7 +167,7 @@ public final class SubscriptionReconciler implements Reconciler {
       } else {
         log.info("Checking status of pipeline for {}/{}...", kind, name);
 
-        boolean ready = status.getResources().stream().allMatch(x -> operator.isReady(x));
+        boolean ready = status.getResources().stream().allMatch(operator::isReady);
 
         if (ready) {
           status.setReady(true);
@@ -184,9 +184,9 @@ public final class SubscriptionReconciler implements Reconciler {
       }
 
       status.setAttributes(Stream.concat(status.getJobResources().stream(), status.getDownstreamResources().stream())
-          .map(x -> fetchAttributes(x))
+          .map(this::fetchAttributes)
           .flatMap(x -> x.entrySet().stream())
-          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue(), (x, y) -> y)));
+          .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (x, y) -> y)));
 
       operator.apiFor(SUBSCRIPTION)
           .updateStatus(object, x -> object.getStatus())
@@ -262,7 +262,7 @@ public final class SubscriptionReconciler implements Reconciler {
           .entrySet()
           .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
-          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+          .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status.attributes. Swallowing.", e);
     }
@@ -275,7 +275,7 @@ public final class SubscriptionReconciler implements Reconciler {
           .entrySet()
           .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
-          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+          .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status.jobStatus. Swallowing.", e);
     }
@@ -286,7 +286,7 @@ public final class SubscriptionReconciler implements Reconciler {
           .entrySet()
           .stream()
           .filter(x -> x.getValue().isJsonPrimitive())
-          .collect(Collectors.toMap(x -> x.getKey(), x -> x.getValue().getAsString()));
+          .collect(Collectors.toMap(Map.Entry::getKey, x -> x.getValue().getAsString()));
     } catch (Exception e) {
       log.debug("Exception looking for .status. Swallowing.", e);
     }

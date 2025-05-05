@@ -17,7 +17,7 @@ public final class RuleService {
   public static Collection<RuleProvider> providers() {
     ServiceLoader<RuleProvider> loader = ServiceLoader.load(RuleProvider.class);
     List<RuleProvider> providers = new ArrayList<>();
-    loader.iterator().forEachRemaining(x -> providers.add(x));
+    loader.iterator().forEachRemaining(providers::add);
     return providers;
   }
 

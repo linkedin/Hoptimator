@@ -105,7 +105,7 @@ public interface Validator extends Validated {
     /** For convenience only, enabling try-with-resources */
     public void close() {
       closed = true;
-      children.values().forEach(x -> x.checkClosed());
+      children.values().forEach(Issues::checkClosed);
     }
 
     private void emit(String message) {
@@ -130,7 +130,7 @@ public interface Validator extends Validated {
     }
 
     private boolean empty() {
-      return issues.isEmpty() && children.values().stream().allMatch(x -> x.empty());
+      return issues.isEmpty() && children.values().stream().allMatch(Issues::empty);
     }
 
     private String fullPath() {

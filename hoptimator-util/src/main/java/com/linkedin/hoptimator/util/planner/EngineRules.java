@@ -65,7 +65,7 @@ public final class EngineRules {
 
   private class RemoteTableScan extends TableScan implements RemoteRel {
 
-    public RemoteTableScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table) {
+    RemoteTableScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table) {
       super(cluster, traitSet, Collections.emptyList(), table);
     }
   }

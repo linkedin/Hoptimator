@@ -244,7 +244,7 @@ public class PipelineRules implements RuleProvider {
   }
 
   static Table findTable(CalciteSchema schema, List<String> qualifiedName) {
-    if (qualifiedName.size() == 0) {
+    if (qualifiedName.isEmpty()) {
       throw new IllegalArgumentException("Empty qualified name.");
     } else if (qualifiedName.size() == 1) {
       String name = qualifiedName.get(0);

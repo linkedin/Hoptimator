@@ -39,7 +39,7 @@ public class Source implements Deployable {
   }
 
   protected String pathString() {
-    return path.stream().collect(Collectors.joining("."));
+    return String.join(".", path);
   }
 
   @Override

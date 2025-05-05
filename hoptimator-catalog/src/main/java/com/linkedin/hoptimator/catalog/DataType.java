@@ -12,7 +12,7 @@ import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 
-/** Common data types. Not authoratitive or exhaustive. */
+/** Common data types. Not authoritative or exhaustive. */
 public enum DataType {
 
   VARCHAR(x -> x.createTypeWithNullability(x.createSqlType(SqlTypeName.VARCHAR), true)),
