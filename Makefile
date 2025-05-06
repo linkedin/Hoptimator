@@ -83,8 +83,8 @@ undeploy-kafka:
 # Deploys Venice cluster in docker and creates two stores in Venice. Stores are not managed via K8s for now.
 deploy-venice: deploy deploy-flink
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml up -d --wait
-	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store schemas/keySchema.avsc schemas/valueSchema.avsc
-	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store-1 schemas/keySchema.avsc schemas/valueSchema.avsc
+	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store schemas/keySchemaRecord.avsc schemas/valueSchema.avsc
+	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store-primitive schemas/keySchemaPrimitive.avsc schemas/valueSchema.avsc
 	kubectl apply -f ./deploy/samples/venicedb.yaml
 
 undeploy-venice:
