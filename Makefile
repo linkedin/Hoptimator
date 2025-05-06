@@ -101,7 +101,7 @@ integration-tests: deploy-dev-environment
 	kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 & echo $$! > port-forward.pid
 	kubectl port-forward -n flink svc/flink-sql-gateway 8083 & echo $$! > port-forward-2.pid
 	kubectl port-forward -n flink svc/basic-session-deployment-rest 8081 & echo $$! > port-forward-3.pid
-	./gradlew intTest --no-parallel || kill `cat port-forward.pid port-forward-2.pid, port-forward-3.pid`
+	./gradlew intTest --no-parallel || kill `cat port-forward.pid port-forward-2.pid port-forward-3.pid`
 	kill `cat port-forward.pid`
 	kill `cat port-forward-2.pid`
 	kill `cat port-forward-3.pid`

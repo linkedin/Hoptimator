@@ -1,6 +1,27 @@
 !set outputformat mysql
 !use k8s
 
+create or replace view kafka."new-topic$kafka-test" as select * from kafka."existing-topic-2";
+(0 rows modified)
+
+!update
+
+select "tableSchem", "tableName", "columnName", "typeName" from "metadata".columns where "tableName"='new-topic$kafka-test';
++------------+----------------------+------------+-----------+
+| tableSchem | tableName            | columnName | typeName  |
++------------+----------------------+------------+-----------+
+| KAFKA      | new-topic$kafka-test | KEY        | VARCHAR   |
+| KAFKA      | new-topic$kafka-test | VALUE      | BINARY(1) |
++------------+----------------------+------------+-----------+
+(2 rows)
+
+!ok
+
+drop materialized view kafka."new-topic$kafka-test";
+(0 rows modified)
+
+!update
+
 insert into kafka."existing-topic-1" select * from kafka."existing-topic-2";
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
