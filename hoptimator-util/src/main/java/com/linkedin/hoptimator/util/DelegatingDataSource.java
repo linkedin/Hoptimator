@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.util;
 
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -14,7 +15,7 @@ public class DelegatingDataSource implements DataSource {
 
   private String url;
   private int loginTimeout = 60;
-  private PrintWriter printWriter = new PrintWriter(System.out);
+  private PrintWriter printWriter = new PrintWriter(System.out, false, StandardCharsets.UTF_8);
 
   public DelegatingDataSource() {
   }

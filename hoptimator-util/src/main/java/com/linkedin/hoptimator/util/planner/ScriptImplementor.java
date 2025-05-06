@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -15,9 +14,7 @@ import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.sql.SqlBasicTypeNameSpec;
@@ -39,7 +36,6 @@ import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.calcite.sql.type.BasicSqlType;
-import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.tools.RelBuilder;
@@ -399,7 +395,6 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
       RelDataType flattened = dataType;
       List<SqlIdentifier> fieldNames = flattened.getFieldList()
           .stream()
@@ -434,15 +429,17 @@ public interface ScriptImplementor {
             .collect(Collectors.toList());
         return maybeNullable(dataType,
             new SqlDataTypeSpec(new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes), SqlParserPos.ZERO));
-      } else if (dataType.getComponentType() != null) {
+      }
+      RelDataType componentType = dataType.getComponentType();
+      if (componentType != null) {
         // To handle ROW ARRAY types
-        if (dataType.getComponentType().isStruct()) {
-          List<SqlIdentifier> fieldNames = dataType.getComponentType().getFieldList()
+        if (componentType.isStruct()) {
+          List<SqlIdentifier> fieldNames = componentType.getFieldList()
               .stream()
               .map(RelDataTypeField::getName)
               .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
               .collect(Collectors.toList());
-          List<SqlDataTypeSpec> fieldTypes = dataType.getComponentType().getFieldList()
+          List<SqlDataTypeSpec> fieldTypes = componentType.getFieldList()
               .stream()
               .map(RelDataTypeField::getType)
               .map(RowTypeSpecImplementor::toSpec)
@@ -450,18 +447,15 @@ public interface ScriptImplementor {
           return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(
               new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes),
               dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
-        } else if (dataType.getComponentType() instanceof BasicSqlType) {
+        } else if (componentType instanceof BasicSqlType) {
           // To handle primitive ARRAY types, e.g. `FLOAT ARRAY`.
           return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(new SqlBasicTypeNameSpec(
-              Optional.ofNullable(dataType.getComponentType())
-                  .map(RelDataType::getSqlTypeName)
-                  .orElseThrow(() -> new IllegalArgumentException("not a collection?")), SqlParserPos.ZERO),
-              dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
+              componentType.getSqlTypeName(), SqlParserPos.ZERO), dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
         } else {
           // To handle nested arrays
           return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(
-              toSpec(dataType.getComponentType()).getTypeNameSpec(),
-              dataType.getComponentType().getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
+              toSpec(componentType).getTypeNameSpec(),
+              componentType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
         }
       } else if (dataType.getKeyType() != null && dataType.getValueType() != null) {
         return maybeNullable(dataType, new SqlDataTypeSpec(new SqlMapTypeNameSpec(

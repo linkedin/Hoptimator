@@ -14,7 +14,7 @@ public class K8sConnectorProvider implements ConnectorProvider {
 
   @Override
   public <T> Collection<Connector> connectors(T obj, Properties connectionProperties) {
-    K8sContext context = new K8sContext(connectionProperties);
+    K8sContext context = K8sContext.create(connectionProperties);
     List<Connector> list = new ArrayList<>();
     if (obj instanceof Source) {
       list.add(new K8sConnector((Source) obj, context));

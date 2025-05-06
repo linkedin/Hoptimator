@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.catalog;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -10,6 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Scanner;
 import java.util.Set;
@@ -127,6 +129,20 @@ public abstract class Resource {
   @Override
   public int hashCode() {
     return toString().hashCode();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+    Resource resource = (Resource) o;
+    return Objects.equals(template, resource.template)
+        && Objects.equals(properties, resource.properties)
+        && Objects.equals(inputs, resource.inputs);
   }
 
   @Override
@@ -318,9 +334,6 @@ public abstract class Resource {
         String defaultValue = m.group(4);
         String transform = m.group(5);
         String value = resource.getOrDefault(key, () -> env.getOrDefault(key, () -> defaultValue));
-        if (value == null) {
-          throw new IllegalArgumentException(template + " has no value for key " + key + ".");
-        }
         String transformedValue = applyTransform(value, transform);
         String quotedPrefix = Matcher.quoteReplacement(prefix);
         String quotedValue = Matcher.quoteReplacement(transformedValue);
@@ -387,7 +400,7 @@ public abstract class Resource {
           e.hasMoreElements(); ) {
         InputStream in = e.nextElement().openStream();
         StringBuilder sb = new StringBuilder();
-        Scanner scanner = new Scanner(in);
+        Scanner scanner = new Scanner(in, StandardCharsets.UTF_8);
         scanner.useDelimiter("\n");
         while (scanner.hasNext()) {
           sb.append(scanner.next());

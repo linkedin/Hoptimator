@@ -18,7 +18,7 @@ public class K8sDeployerProvider implements DeployerProvider {
   @Override
   public <T extends Deployable> Collection<Deployer> deployers(T obj, Properties connectionProperties) {
     List<Deployer> list = new ArrayList<>();
-    K8sContext context = new K8sContext(connectionProperties);
+    K8sContext context = K8sContext.create(connectionProperties);
     if (obj instanceof MaterializedView) {
       // K8sMaterializedViewDeployer also deploys a View.
       list.add(new K8sMaterializedViewDeployer((MaterializedView) obj, context, connectionProperties));

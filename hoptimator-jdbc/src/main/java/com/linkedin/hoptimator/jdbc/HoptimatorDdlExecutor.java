@@ -20,6 +20,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import java.io.Reader;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -79,7 +80,6 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     this.connectionProperties = connection.connectionProperties();
   }
 
-  @SuppressWarnings("unused") // used via reflection
   public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
     @Override
     public SqlAbstractParserImpl getParser(Reader stream) {
@@ -230,7 +230,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
 
       schemaPlus.add(viewName, materializedViewTable);
-    } catch (Exception e) {
+    } catch (SQLException e) {
       throw new DdlException(create, e.getMessage(), e);
     }
   }

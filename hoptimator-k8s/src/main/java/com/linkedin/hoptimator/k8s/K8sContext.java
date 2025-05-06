@@ -28,7 +28,7 @@ import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 
 
-public class K8sContext {
+public final class K8sContext {
   public static final String DEFAULT_NAMESPACE = "default";
   public static final String NAMESPACE_KEY = "k8s.namespace";
   public static final String SERVER_KEY = "k8s.server";
@@ -48,11 +48,25 @@ public class K8sContext {
   private final V1OwnerReference ownerReference;
   private final Map<String, String> labels;
 
-  public K8sContext(Properties connectionProperties) {
+  private K8sContext(String namespace, String clientInfo, ApiClient apiClient,
+      SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels) {
+    this.namespace = namespace;
+    this.clientInfo = clientInfo;
+    this.apiClient = apiClient;
+    this.informerFactory = informerFactory;
+    this.ownerReference = ownerReference;
+    this.labels = labels;
+  }
+
+  public static K8sContext create(Properties connectionProperties) {
+    String namespace;
+    ApiClient apiClient;
+    String info;
+
     if (connectionProperties.getProperty(NAMESPACE_KEY) != null) {
-      this.namespace = connectionProperties.getProperty(NAMESPACE_KEY);
+      namespace = connectionProperties.getProperty(NAMESPACE_KEY);
     } else {
-      this.namespace = getPodNamespace();
+      namespace = getPodNamespace();
     }
     String kubeconfig = connectionProperties.getProperty(KUBECONFIG_KEY);
     String server = connectionProperties.getProperty(SERVER_KEY);
@@ -64,19 +78,17 @@ public class K8sContext {
     String token = connectionProperties.getProperty(TOKEN_KEY);
     String truststore = connectionProperties.getProperty(SSL_TRUSTSTORE_LOCATION_KEY);
 
-    String info = "";
-
     if (server != null && user != null && password != null) {
       info = "User " + user + " using password authentication.";
-      this.apiClient = Config.fromUserPassword(server, user, password);
+      apiClient = Config.fromUserPassword(server, user, password);
     } else if (server != null && token != null) {
       info = "Using token authentication.";
-      this.apiClient = Config.fromToken(server, token);
-      this.apiClient.setApiKeyPrefix("Bearer");
+      apiClient = Config.fromToken(server, token);
+      apiClient.setApiKeyPrefix("Bearer");
     } else if (kubeconfig == null) {
       info = "Using default configuration from ./kube/config.";
       try {
-        this.apiClient = Config.defaultClient();
+        apiClient = Config.defaultClient();
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -85,7 +97,7 @@ public class K8sContext {
       try (Reader r = Files.newBufferedReader(Paths.get(kubeconfig))) {
         KubeConfig kubeConfig = KubeConfig.loadKubeConfig(r);
         kubeConfig.setFile(new File(kubeconfig));
-        this.apiClient = ClientBuilder.kubeconfig(kubeConfig).build();
+        apiClient = ClientBuilder.kubeconfig(kubeConfig).build();
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -93,7 +105,7 @@ public class K8sContext {
 
     if (server != null) {
       info += " Accessing " + server + ".";
-      this.apiClient.setBasePath(server);
+      apiClient.setBasePath(server);
     }
 
     if (truststore != null) {
@@ -123,21 +135,8 @@ public class K8sContext {
       }
     }
 
-    this.informerFactory = new SharedInformerFactory(apiClient);
-    this.clientInfo = info;
-    this.ownerReference = null;
-    this.labels = Collections.emptyMap();
-  }
-
-  // copy constructor
-  private K8sContext(String namespace, String clientInfo, ApiClient apiClient,
-      SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels) {
-    this.namespace = namespace;
-    this.clientInfo = clientInfo;
-    this.apiClient = apiClient;
-    this.informerFactory = informerFactory;
-    this.ownerReference = ownerReference;
-    this.labels = labels;
+    return new K8sContext(namespace, info, apiClient, new SharedInformerFactory(apiClient),
+        null, Collections.emptyMap());
   }
 
   public K8sContext withOwner(V1OwnerReference owner) {
@@ -146,8 +145,7 @@ public class K8sContext {
   }
 
   public K8sContext withLabel(String key, String value) {
-    Map<String, String> newLabels = new HashMap<>();
-    newLabels.putAll(labels);
+    Map<String, String> newLabels = new HashMap<>(labels);
     newLabels.put(key, value);
     return new K8sContext(namespace, clientInfo + " Label " + key + "=" + value + ".", apiClient,
         informerFactory, ownerReference, newLabels);
@@ -185,7 +183,7 @@ public class K8sContext {
 
   public <T extends KubernetesObject, U extends KubernetesListObject> GenericKubernetesApi<T, U> generic(Class<T> t,
       Class<U> u, String group, String version, String plural) {
-    return new GenericKubernetesApi<T, U>(t, u, group, version, plural, apiClient);
+    return new GenericKubernetesApi<>(t, u, group, version, plural, apiClient);
   }
 
   public <T extends KubernetesObject, U extends KubernetesListObject> GenericKubernetesApi<T, U> generic(
@@ -225,7 +223,7 @@ public class K8sContext {
     String filePath = System.getenv("POD_NAMESPACE_FILEPATH");
     if (filePath != null) {
       try {
-        return new String(Files.readAllBytes(Paths.get(filePath)));
+        return Files.readString(Paths.get(filePath));
       } catch (IOException e) {
         // swallow
       }

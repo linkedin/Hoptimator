@@ -271,11 +271,11 @@ public class PipelineRules implements RuleProvider {
   }
 
   static CalciteSchema schema(RelNode node) {
-    return (CalciteSchema) node.getTable().unwrap(CalciteSchema.class);
+    return Objects.requireNonNull(node.getTable()).unwrap(CalciteSchema.class);
   }
 
   static List<String> qualifiedName(RelNode node) {
-    return node.getTable().getQualifiedName();
+    return Objects.requireNonNull(node.getTable()).getQualifiedName();
   }
 
   static List<String> qualifiedName(RelOptTable table) {

@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
 import java.util.Collections;
+import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.calcite.plan.RelOptCluster;
@@ -48,7 +49,7 @@ public final class EngineRules {
         .toRule(RemoteTableScanRule.class));
   }
 
-  private class RemoteTableScanRule extends ConverterRule {
+  private static class RemoteTableScanRule extends ConverterRule {
 
     protected RemoteTableScanRule(Config config) {
       super(config);
@@ -63,7 +64,7 @@ public final class EngineRules {
     }
   }
 
-  private class RemoteTableScan extends TableScan implements RemoteRel {
+  private static class RemoteTableScan extends TableScan implements RemoteRel {
 
     RemoteTableScan(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable table) {
       super(cluster, traitSet, Collections.emptyList(), table);
@@ -110,7 +111,7 @@ public final class EngineRules {
 
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
-      return super.computeSelfCost(planner, mq).multiplyBy(0);  // TODO fix zero cost
+      return Objects.requireNonNull(super.computeSelfCost(planner, mq)).multiplyBy(0);  // TODO fix zero cost
     }
   }
 

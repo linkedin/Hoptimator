@@ -92,7 +92,7 @@ public class HoptimatorOperatorApp {
 
     Properties connectionProperties = new Properties();
     connectionProperties.putAll(properties);
-    K8sContext context = new K8sContext(connectionProperties);
+    K8sContext context = K8sContext.create(connectionProperties);
 
     ApiClient apiClient = context.apiClient();
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder().readTimeout(0, TimeUnit.SECONDS).build());

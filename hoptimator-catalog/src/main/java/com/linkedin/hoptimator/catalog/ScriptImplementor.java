@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.calcite.plan.RelOptUtil;
@@ -128,26 +129,11 @@ public interface ScriptImplementor {
   class QueryImplementor implements ScriptImplementor {
     private final RelNode relNode;
 
-    public QueryImplementor(RelNode relNode) {
-      this.relNode = relNode;
-    }
-
-    @Override
-    public void implement(SqlWriter w) {
-      RelToSqlConverter converter = new RelToSqlConverter(w.getDialect());
-      SqlImplementor.Result result = converter.visitRoot(relNode);
-      SqlSelect select = result.asSelect();
-      if (select.getSelectList() != null) {
-        select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
-      }
-      w.literal(select.toSqlString(w.getDialect()).getSql());
-    }
-
     // A `ROW(...)` operator which will unparse as just `(...)`.
-    private final SqlRowOperator IMPLIED_ROW_OPERATOR = new SqlRowOperator(""); // empty string name
+    private static final SqlRowOperator IMPLIED_ROW_OPERATOR = new SqlRowOperator(""); // empty string name
 
     // a shuttle that replaces `Row(...)` with just `(...)`
-    private final SqlShuttle REMOVE_ROW_CONSTRUCTOR = new SqlShuttle() {
+    private static final SqlShuttle REMOVE_ROW_CONSTRUCTOR = new SqlShuttle() {
       @Override
       public SqlNode visit(SqlCall call) {
         List<SqlNode> operands = call.getOperandList().stream().map(x -> x.accept(this)).collect(Collectors.toList());
@@ -159,6 +145,21 @@ public interface ScriptImplementor {
         }
       }
     };
+
+    public QueryImplementor(RelNode relNode) {
+      this.relNode = relNode;
+    }
+
+    @Override
+    public void implement(SqlWriter w) {
+      RelToSqlConverter converter = new RelToSqlConverter(w.getDialect());
+      SqlImplementor.Result result = converter.visitRoot(relNode);
+      SqlSelect select = result.asSelect();
+      if (select.getSelectList() != null) {
+        select.setSelectList((SqlNodeList) Objects.requireNonNull(select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR)));
+      }
+      w.literal(select.toSqlString(w.getDialect()).getSql());
+    }
   }
 
   /**
@@ -346,9 +347,10 @@ public interface ScriptImplementor {
         return maybeNullable(dataType,
             new SqlDataTypeSpec(new SqlRowTypeNameSpec(SqlParserPos.ZERO, fieldNames, fieldTypes), SqlParserPos.ZERO));
       }
-      if (dataType.getComponentType() != null) {
+      RelDataType componentType = dataType.getComponentType();
+      if (componentType != null) {
         return maybeNullable(dataType, new SqlDataTypeSpec(new SqlCollectionTypeNameSpec(
-            new SqlBasicTypeNameSpec(dataType.getComponentType().getSqlTypeName(), SqlParserPos.ZERO),
+            new SqlBasicTypeNameSpec(componentType.getSqlTypeName(), SqlParserPos.ZERO),
             dataType.getSqlTypeName(), SqlParserPos.ZERO), SqlParserPos.ZERO));
       } else {
         return maybeNullable(dataType,
