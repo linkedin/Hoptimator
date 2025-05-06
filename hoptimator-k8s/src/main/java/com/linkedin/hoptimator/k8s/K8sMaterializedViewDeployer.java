@@ -51,7 +51,7 @@ class K8sMaterializedViewDeployer implements Deployer {
 
   @Override
   public void delete() throws SQLException {
-    // The delete will cascade to any owned objects, including the Pipeline object.
+    // Delete will cascade to any owned objects, including the Pipeline object.
     new K8sViewDeployer(view, true, context).delete();
   }
 

@@ -3,8 +3,10 @@ package com.linkedin.hoptimator.util.planner;
 import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -124,7 +126,7 @@ public interface ScriptImplementor {
           break;
         default:
           throw new IllegalStateException("unreachable");
-      };
+      }
       return sql;
     };
   }
@@ -160,7 +162,7 @@ public interface ScriptImplementor {
       SqlNode node = result.asStatement();
       if (node instanceof SqlSelect && ((SqlSelect) node).getSelectList() != null) {
         SqlSelect select = (SqlSelect) node;
-        select.setSelectList((SqlNodeList) select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR));
+        select.setSelectList((SqlNodeList) Objects.requireNonNull(select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR)));
       }
       node.unparse(w, 0, 0);
     }
@@ -172,7 +174,7 @@ public interface ScriptImplementor {
     private static final SqlShuttle REMOVE_ROW_CONSTRUCTOR = new SqlShuttle() {
       @Override
       public SqlNode visit(SqlCall call) {
-        List<SqlNode> operands = call.getOperandList().stream().map(x -> x == null ? x : x.accept(this)).collect(Collectors.toList());
+        List<SqlNode> operands = call.getOperandList().stream().map(x -> x == null ? null : x.accept(this)).collect(Collectors.toList());
         if ((call.getKind() == SqlKind.ROW || call.getKind() == SqlKind.COLUMN_LIST
             || call.getOperator() instanceof SqlRowOperator) && operands.size() > 1) {
           return IMPLIED_ROW_OPERATOR.createCall(call.getParserPosition(), operands);
@@ -312,12 +314,14 @@ public interface ScriptImplementor {
     final List<String> fieldNames = rowType.getFieldNames();
     final RelBuilder relBuilder =
         RelBuilder.proto(factory).create(child.getCluster(), null);
-    final List<RexNode> exprs = new AbstractList<RexNode>() {
-      @Override public int size() {
+    final List<RexNode> exprs = new AbstractList<>() {
+      @Override
+      public int size() {
         return posList.size();
       }
 
-      @Override public RexNode get(int index) {
+      @Override
+      public RexNode get(int index) {
         final int pos = posList.get(index);
         return relBuilder.getRexBuilder().makeInputRef(child, pos);
       }
@@ -375,7 +379,7 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(name), SqlParserPos.ZERO);
+      SqlIdentifier identifier = new SqlIdentifier(Collections.singletonList(name), SqlParserPos.ZERO);
       identifier.unparse(w, 0, 0);
     }
   }

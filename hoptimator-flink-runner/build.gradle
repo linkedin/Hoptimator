@@ -20,11 +20,6 @@ dependencies {
   testImplementation libs.assertj
 }
 
-tasks.withType(JavaCompile) {
-  options.compilerArgs << '-Xlint:deprecation'
-  options.compilerArgs << '-Xlint:unchecked'
-}
-
 shadowJar {
   mainClassName  = 'com.linkedin.hoptimator.flink.runner.FlinkRunner'
   zip64 true

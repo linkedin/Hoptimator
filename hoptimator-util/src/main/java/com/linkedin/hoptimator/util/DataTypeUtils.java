@@ -148,7 +148,7 @@ public final class DataTypeUtils {
 
   private static class Node {
     RelDataType dataType;
-    LinkedHashMap<String, Node> children = new LinkedHashMap<>();
+    final LinkedHashMap<String, Node> children = new LinkedHashMap<>();
 
     Node(RelDataType dataType) {
       this.dataType = dataType;

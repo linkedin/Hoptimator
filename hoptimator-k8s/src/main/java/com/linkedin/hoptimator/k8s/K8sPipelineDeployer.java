@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
@@ -21,7 +20,7 @@ class K8sPipelineDeployer extends K8sDeployer<V1alpha1Pipeline, V1alpha1Pipeline
   K8sPipelineDeployer(String name, List<String> specs, String sql, K8sContext context) {
     super(context, K8sApiEndpoints.PIPELINES);
     this.name = name;
-    this.yaml = specs.stream().collect(Collectors.joining("\n---\n"));
+    this.yaml = String.join("\n---\n", specs);
     this.sql = sql;
   }
 

@@ -11,11 +11,12 @@ subprojects {
     options.compilerArgs << '-Xlint:deprecation'
     options.compilerArgs << '-Xlint:unchecked'
   }
-  tasks.withType(Javadoc) {
+  tasks.withType(Javadoc).configureEach {
     options.addStringOption('Xdoclint:none', '-quiet')
   }
 
   spotbugs {
+    ignoreFailures = false
     showProgress = true
     reportsDir = file("$rootProject.layout.buildDirectory/spotbugs")
     includeFilter = file("$rootDir/config/spotbugs/include.xml")

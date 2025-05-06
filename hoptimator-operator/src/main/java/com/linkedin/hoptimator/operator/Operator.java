@@ -62,7 +62,7 @@ public class Operator {
 
   public <T extends KubernetesObject, L extends KubernetesListObject> void registerApi(String kind, String singular,
       String plural, String group, String version, Class<T> type, Class<L> list) {
-    registerApi(new ApiInfo<T, L>(kind, singular, plural, group, version, type, list), true);
+    registerApi(new ApiInfo<>(kind, singular, plural, group, version, type, list), true);
   }
 
   public void registerApi(String kind, String singular, String plural, String group, String version) {

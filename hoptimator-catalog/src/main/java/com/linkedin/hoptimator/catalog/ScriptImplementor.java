@@ -298,7 +298,7 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(new String[]{database, name}), SqlParserPos.ZERO);
+      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(database, name), SqlParserPos.ZERO);
       identifier.unparse(w, 0, 0);
     }
   }

@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.util.Objects;
+
 import org.apache.calcite.schema.Schema;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
@@ -35,8 +37,9 @@ public class K8sPipelineTable extends K8sTable<V1alpha1Pipeline, V1alpha1Pipelin
 
   @Override
   public Row toRow(V1alpha1Pipeline obj) {
-    V1alpha1PipelineStatus status = obj.getStatus();
-    return new Row(obj.getMetadata().getName(), status.getReady(), status.getFailed(), status.getMessage());
+    V1alpha1PipelineStatus status = Objects.requireNonNull(obj.getStatus());
+    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Boolean.TRUE.equals(status.getReady()),
+        Boolean.TRUE.equals(status.getFailed()), status.getMessage());
   }
 
   @Override

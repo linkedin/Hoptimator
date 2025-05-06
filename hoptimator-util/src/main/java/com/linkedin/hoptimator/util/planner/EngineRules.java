@@ -71,7 +71,7 @@ public final class EngineRules {
     }
   }
 
-  private class RemoteJoinRule extends ConverterRule {
+  private static class RemoteJoinRule extends ConverterRule {
 
     protected RemoteJoinRule(Config config) {
       super(config);
@@ -90,7 +90,7 @@ public final class EngineRules {
     }
   }
 
-  private class RemoteJoin extends Join implements RemoteRel {
+  private static class RemoteJoin extends Join implements RemoteRel {
 
     protected RemoteJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left,
         RelNode right, RexNode condition, JoinRelType joinType)

@@ -44,9 +44,8 @@ public class DemoDriver extends Driver {
     properties.putAll(props);
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
 
-    Set<String> schemas = Arrays.asList(properties.getProperty("names").split(","))
-        .stream()
-        .map(x -> x.trim())
+    Set<String> schemas = Arrays.stream(properties.getProperty("names").split(","))
+        .map(String::trim)
         .filter(x -> !x.isEmpty())
         .map(x -> x.toUpperCase(Locale.ROOT))
         .collect(Collectors.toSet());
@@ -70,6 +69,6 @@ public class DemoDriver extends Driver {
     } catch (Exception e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
- 
+
   }
 }

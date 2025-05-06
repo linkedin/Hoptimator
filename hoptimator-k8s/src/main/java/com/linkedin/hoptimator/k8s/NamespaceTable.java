@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.util.Objects;
+
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1NamespaceList;
 
@@ -25,11 +27,11 @@ public class NamespaceTable extends RemoteTable<V1Namespace, NamespaceTable.Row>
   }
 
   public NamespaceTable(K8sContext context) {
-    this(new K8sApi<V1Namespace, V1NamespaceList>(context, K8sApiEndpoints.NAMESPACES));
+    this(new K8sApi<>(context, K8sApiEndpoints.NAMESPACES));
   }
 
   @Override
   public Row toRow(V1Namespace obj) {
-    return new Row(obj.getMetadata().getName(), obj.getStatus().getPhase());
+    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getStatus()).getPhase());
   }
 }

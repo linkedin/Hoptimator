@@ -10,10 +10,10 @@ public abstract class K8sTable<ObjectType extends KubernetesObject, ObjectListTy
     extends RemoteTable<ObjectType, RowType> {
 
   private final K8sContext context;
-  private final K8sApiEndpoint endpoint;
+  private final K8sApiEndpoint<ObjectType, ObjectListType> endpoint;
 
   public K8sTable(K8sContext context, K8sApiEndpoint<ObjectType, ObjectListType> endpoint, Class<RowType> v) {
-    super(new K8sApi<ObjectType, ObjectListType>(context, endpoint), v);
+    super(new K8sApi<>(context, endpoint), v);
     this.context = context;
     this.endpoint = endpoint;
   }

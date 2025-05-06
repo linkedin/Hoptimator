@@ -5,6 +5,7 @@ import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientException;
 import java.util.Collection;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -23,7 +24,7 @@ public final class K8sUtils {
   }
 
   public static String canonicalizeName(Collection<String> parts) {
-    return parts.stream().filter(x -> x != null).map(x -> canonicalizeName(x)).collect(Collectors.joining("-"));
+    return parts.stream().filter(Objects::nonNull).map(K8sUtils::canonicalizeName).collect(Collectors.joining("-"));
   }
 
   // TODO: Robust and reversible canonicalization
@@ -32,7 +33,7 @@ public final class K8sUtils {
   }
 
   public static String canonicalizeName(String database, String name) {
-    return Stream.of(database, name).filter(x -> x != null).map(x -> canonicalizeName(x))
+    return Stream.of(database, name).filter(Objects::nonNull).map(K8sUtils::canonicalizeName)
         .collect(Collectors.joining("-"));
   }
 

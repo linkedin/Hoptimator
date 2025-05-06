@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -51,8 +52,8 @@ public class K8sEngineTable extends K8sTable<V1alpha1Engine, V1alpha1EngineList,
 
   @Override
   public Row toRow(V1alpha1Engine obj) {
-    return new Row(obj.getMetadata().getName(), obj.getSpec().getUrl(),
-        Optional.ofNullable(obj.getSpec().getDialect()).map(x -> x.toString()).orElseGet(() -> null),
+    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getSpec()).getUrl(),
+        Optional.ofNullable(obj.getSpec().getDialect()).map(V1alpha1EngineSpec.DialectEnum::toString).orElse(null),
         obj.getSpec().getDriver(), obj.getSpec().getDatabases() != null
         ? obj.getSpec().getDatabases().toArray(new String[0]) : null);
   }

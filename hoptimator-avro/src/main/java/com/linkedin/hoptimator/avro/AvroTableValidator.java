@@ -57,9 +57,9 @@ class AvroTableValidator implements Validator {
     RelDataType originalRowType = originalTable.getRowType(typeFactory);
     Schema avroSchema = AvroConverter.avro("ns", "n", rowType);
     Schema originalAvroSchema = AvroConverter.avro("ns", "n", originalRowType);
-    DatumWriter<Object> datumWriter = new GenericDatumWriter<Object>(originalAvroSchema);
+    DatumWriter<Object> datumWriter = new GenericDatumWriter<>(originalAvroSchema);
     try (OutputStream out = new ByteArrayOutputStream();
-        DataFileWriter<Object> dataFileWriter = new DataFileWriter<Object>(datumWriter)) {
+        DataFileWriter<Object> dataFileWriter = new DataFileWriter<>(datumWriter)) {
       dataFileWriter.create(originalAvroSchema, out);
       for (Object obj : new RandomData(avroSchema, 1)) {
         dataFileWriter.append(obj);

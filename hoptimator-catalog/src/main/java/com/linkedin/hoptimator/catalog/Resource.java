@@ -321,7 +321,7 @@ public abstract class Resource {
 
     @Override
     public String render(Resource resource) {
-      StringBuffer sb = new StringBuffer();
+      StringBuilder sb = new StringBuilder();
       Pattern p =
           Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]+))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
       Matcher m = p.matcher(template);

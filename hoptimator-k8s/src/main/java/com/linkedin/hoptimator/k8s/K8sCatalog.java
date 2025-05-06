@@ -31,7 +31,7 @@ class K8sCatalog implements Catalog {
     SchemaPlus schemaPlus = wrapper.unwrap(SchemaPlus.class);
     HoptimatorConnection conn = wrapper.unwrap(HoptimatorConnection.class);
     K8sContext context = K8sContext.create(conn.connectionProperties());
-    log.info("Using K8s context " + context.toString());
+    log.info("Using K8s context " + context);
     K8sMetadata metadata = new K8sMetadata(conn, context);
     schemaPlus.add("k8s", metadata);
     metadata.databaseTable().addDatabases(schemaPlus, conn.connectionProperties());

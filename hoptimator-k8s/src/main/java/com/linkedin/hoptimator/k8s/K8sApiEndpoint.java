@@ -49,9 +49,9 @@ public class K8sApiEndpoint<T extends KubernetesObject, U extends KubernetesList
 
   /**
    * Most APIs are namespaced, but some are cluster-scoped.
-   *
+   * <p>
    * (e.g. Namespaces themselves are cluster-scoped.)
-   *
+   * <p>
    * */
   public boolean clusterScoped() {
     return clusterScoped;

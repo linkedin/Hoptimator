@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -296,7 +297,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
     for (String p : path) {
-      schema = schema.getSubSchema(p, true);
+      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
     }
     return Pair.of(schema, name);
   }
