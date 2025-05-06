@@ -22,7 +22,7 @@ public interface ConfigProvider {
     if (configs == null) {
       return empty();
     } else {
-      return x -> configs.entrySet().stream().collect(Collectors.toMap(y -> y.getKey(), y -> y.getValue().toString()));
+      return x -> configs.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, y -> y.getValue().toString()));
     }
   }
 
@@ -32,8 +32,7 @@ public interface ConfigProvider {
       if (base.containsKey(key)) {
         throw new IllegalStateException("Key '" + key + "' previously defined.");
       }
-      Map<String, String> combined = new HashMap<>();
-      combined.putAll(base);
+      Map<String, String> combined = new HashMap<>(base);
       combined.put(key, valueFunction.apply(x));
       return combined;
     };
@@ -45,8 +44,7 @@ public interface ConfigProvider {
     }
     return x -> {
       Map<String, String> base = config(x);
-      Map<String, String> combined = new HashMap<>();
-      combined.putAll(base);
+      Map<String, String> combined = new HashMap<>(base);
       configs.forEach((k, v) -> {
         if (base.containsKey(k)) {
           throw new IllegalStateException("Key '" + k + "' previously defined.");
@@ -66,6 +64,6 @@ public interface ConfigProvider {
   }
 
   default ConfigProvider withPrefix(String prefix) {
-    return x -> config(x).entrySet().stream().collect(Collectors.toMap(y -> prefix + y.getKey(), y -> y.getValue()));
+    return x -> config(x).entrySet().stream().collect(Collectors.toMap(y -> prefix + y.getKey(), Map.Entry::getValue));
   }
 }

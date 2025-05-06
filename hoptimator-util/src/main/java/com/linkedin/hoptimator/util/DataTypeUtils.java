@@ -25,10 +25,10 @@ public final class DataTypeUtils {
 
   /**
    * Flattens nested structs and complex arrays.
-   *
+   * <p>
    * Nested structs like `FOO Row(BAR Row(QUX VARCHAR))` are promoted to
    * top-level fields like `FOO$BAR$QUX VARCHAR`.
-   *
+   * <p>
    * Complex arrays like `FOO Row(BAR Row(QUX VARCHAR)) ARRAY` are promoted to
    * top-level fields like `FOO ANY ARRAY` and `FOO$BAR$QUX VARCHAR`.
    * Primitive arrays are unchanged.

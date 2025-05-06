@@ -68,7 +68,7 @@ public final class DeploymentService {
   public static Collection<DeployerProvider> providers() {
     ServiceLoader<DeployerProvider> loader = ServiceLoader.load(DeployerProvider.class);
     List<DeployerProvider> providers = new ArrayList<>();
-    loader.iterator().forEachRemaining(x -> providers.add(x));
+    loader.iterator().forEachRemaining(providers::add);
     return providers;
   }
 
@@ -84,7 +84,7 @@ public final class DeploymentService {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
     Program program = Programs.standard();
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
-    PipelineRules.rules().forEach(x -> planner.addRule(x));
+    PipelineRules.rules().forEach(planner::addRule);
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, materializations,
         Collections.emptyList());
     PipelineRel.Implementor implementor = new PipelineRel.Implementor(root.fields, parseHints(connectionProperties));

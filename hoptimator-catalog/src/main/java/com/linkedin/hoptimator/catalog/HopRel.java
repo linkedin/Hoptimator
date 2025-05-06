@@ -6,7 +6,7 @@ import org.apache.calcite.rel.RelNode;
 
 /**
  * Calling convention that ultimately gets converted to a Pipeline or similar.
- *
+ * <p>
  * For now, Hoptimator only implements Pipelines (via PipelineRel), which run on
  * Flink. Eventually, PipelineRel may support additional runtimes (e.g. Spark),
  * and/or Hoptimator may support additional calling conventions (e.g. batch jobs

@@ -17,12 +17,12 @@ public final class CatalogService {
   }
 
   // This bit of magic means we can trivially implement a RemoteTable:
-  public static final Api<Catalog> API = () -> catalogs();
+  public static final Api<Catalog> API = CatalogService::catalogs;
 
   public static Collection<CatalogProvider> providers() {
     ServiceLoader<CatalogProvider> loader = ServiceLoader.load(CatalogProvider.class);
     List<CatalogProvider> providers = new ArrayList<>();
-    loader.iterator().forEachRemaining(x -> providers.add(x));
+    loader.iterator().forEachRemaining(providers::add);
     return providers;
   }
 

@@ -54,14 +54,14 @@ public final class ValidationService {
     Validator.Issues issues = new Validator.Issues("");
     validate(obj, issues);
     if (!issues.valid()) {
-      throw new SQLDataException("Failed validation:\n" + issues.toString());
+      throw new SQLDataException("Failed validation:\n" + issues);
     }
   }
 
   public static Collection<ValidatorProvider> providers() {
     ServiceLoader<ValidatorProvider> loader = ServiceLoader.load(ValidatorProvider.class);
     List<ValidatorProvider> providers = new ArrayList<>();
-    loader.iterator().forEachRemaining(x -> providers.add(x));
+    loader.iterator().forEachRemaining(providers::add);
     return providers;
   }
 

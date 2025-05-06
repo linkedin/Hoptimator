@@ -34,8 +34,7 @@ public class HoptimatorAppConfig extends Application {
   }
 
   public Collection<CommandHandler> getCommandHandlers(SqlLine sqlline) {
-    Collection<CommandHandler> list = new ArrayList<>();
-    list.addAll(super.getCommandHandlers(sqlline));
+    Collection<CommandHandler> list = new ArrayList<>(super.getCommandHandlers(sqlline));
     list.add(new IntroCommandHandler(sqlline));
     list.add(new PipelineCommandHandler(sqlline));
     list.add(new SpecifyCommandHandler(sqlline));
@@ -172,7 +171,6 @@ public class HoptimatorAppConfig extends Application {
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
-        return;
       }
     }
 

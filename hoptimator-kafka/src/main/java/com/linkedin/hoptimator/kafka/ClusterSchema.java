@@ -15,7 +15,7 @@ import org.slf4j.LoggerFactory;
 
 public class ClusterSchema extends AbstractSchema {
 
-  private static Logger log = LoggerFactory.getLogger(ClusterSchema.class);
+  private static final Logger log = LoggerFactory.getLogger(ClusterSchema.class);
 
   private final Properties properties;
   private final Map<String, Table> tableMap = new HashMap<>();
@@ -33,6 +33,7 @@ public class ClusterSchema extends AbstractSchema {
     for (String name : topicNames) {
       tableMap.put(name, new KafkaTopic(name, properties));
     }
+    adminClient.close();
   }
 
   @Override

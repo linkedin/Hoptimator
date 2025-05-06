@@ -133,49 +133,47 @@ public class RemoteToEnumerableConverter
       System.out.println("[" + sql + "]");
     }
     Hook.QUERY_PLAN.run(sql);
-    final Expression sql_ =
+    final Expression sqlInternal =
         builder0.append("sql", Expressions.constant(sql));
     final int fieldCount = getRowType().getFieldCount();
     BlockBuilder builder = new BlockBuilder();
-    final ParameterExpression resultSet_ =
+    final ParameterExpression resultSet =
         Expressions.parameter(Modifier.FINAL, ResultSet.class,
             builder.newName("resultSet"));
     final SqlDialect.CalendarPolicy calendarPolicy =
         AnsiSqlDialect.DEFAULT.getCalendarPolicy();  // TODO hard-coded dialect
-    final Expression calendar_;
-    switch (calendarPolicy) {
-    case LOCAL:
-      calendar_ =
+    final Expression calendar;
+    if (requireNonNull(calendarPolicy) == SqlDialect.CalendarPolicy.LOCAL) {
+      calendar =
           builder0.append("calendar",
               Expressions.call(Calendar.class, "getInstance",
                   getTimeZoneExpression(implementor)));
-      break;
-    default:
-      calendar_ = null;
+    } else {
+      calendar = null;
     }
     if (fieldCount == 1) {
-      final ParameterExpression value_ =
+      final ParameterExpression value =
           Expressions.parameter(Object.class, builder.newName("value"));
-      builder.add(Expressions.declare(Modifier.FINAL, value_, null));
-      generateGet(implementor, physType, builder, resultSet_, 0, value_,
-          calendar_, calendarPolicy);
-      builder.add(Expressions.return_(null, value_));
+      builder.add(Expressions.declare(Modifier.FINAL, value, null));
+      generateGet(implementor, physType, builder, resultSet, 0, value,
+          calendar, calendarPolicy);
+      builder.add(Expressions.return_(null, value));
     } else {
-      final Expression values_ =
+      final Expression values =
           builder.append("values",
               Expressions.newArrayBounds(Object.class, 1,
                   Expressions.constant(fieldCount)));
       for (int i = 0; i < fieldCount; i++) {
-        generateGet(implementor, physType, builder, resultSet_, i,
-            Expressions.arrayIndex(values_, Expressions.constant(i)),
-            calendar_, calendarPolicy);
+        generateGet(implementor, physType, builder, resultSet, i,
+            Expressions.arrayIndex(values, Expressions.constant(i)),
+            calendar, calendarPolicy);
       }
       builder.add(
-          Expressions.return_(null, values_));
+          Expressions.return_(null, values));
     }
-    final ParameterExpression e_ =
+    final ParameterExpression e =
         Expressions.parameter(SQLException.class, builder.newName("e"));
-    final Expression rowBuilderFactory_ =
+    final Expression rowBuilderFactory =
         builder0.append("rowBuilderFactory",
             Expressions.lambda(
                 Expressions.block(
@@ -185,12 +183,12 @@ public class RemoteToEnumerableConverter
                                 Expressions.tryCatch(
                                     builder.toBlock(),
                                     Expressions.catch_(
-                                        e_,
+                                        e,
                                         Expressions.throw_(
                                             Expressions.new_(
                                                 RuntimeException.class,
-                                                e_)))))))),
-                resultSet_));
+                                                e)))))))),
+                resultSet));
 
     String dataSourceUrl = convention.engine().url();
     Expression dataSource = builder0.append("dataSource",
@@ -204,7 +202,7 @@ public class RemoteToEnumerableConverter
 
     if (sqlString.getDynamicParameters() != null
         && !sqlString.getDynamicParameters().isEmpty()) {
-      final Expression preparedStatementConsumer_ =
+      final Expression preparedStatementConsumer =
           builder0.append("preparedStatementConsumer",
               Expressions.call(BuiltInMethod.CREATE_ENRICHER.method,
                   Expressions.newArrayInit(Integer.class, 1,
@@ -216,17 +214,17 @@ public class RemoteToEnumerableConverter
               Expressions.call(
                   BuiltInMethod.RESULT_SET_ENUMERABLE_OF_PREPARED.method,
                   dataSource,
-                  sql_,
-                  rowBuilderFactory_,
-                  preparedStatementConsumer_));
+                  sqlInternal,
+                  rowBuilderFactory,
+                  preparedStatementConsumer));
     } else {
       enumerable =
           builder0.append("enumerable",
               Expressions.call(
                   BuiltInMethod.RESULT_SET_ENUMERABLE_OF.method,
                   dataSource,
-                  sql_,
-                  rowBuilderFactory_));
+                  sqlInternal,
+                  rowBuilderFactory));
     }
     builder0.add(
         Expressions.statement(
@@ -256,8 +254,8 @@ public class RemoteToEnumerableConverter
   }
 
   private static void generateGet(EnumerableRelImplementor implementor,
-      PhysType physType, BlockBuilder builder, ParameterExpression resultSet_,
-      int i, Expression target, @Nullable Expression calendar_,
+      PhysType physType, BlockBuilder builder, ParameterExpression resultSet,
+      int i, Expression target, @Nullable Expression calendar,
       SqlDialect.CalendarPolicy calendarPolicy) {
     final Primitive primitive = Primitive.ofBoxOr(physType.fieldClass(i));
     final RelDataType fieldType =
@@ -268,8 +266,8 @@ public class RemoteToEnumerableConverter
     boolean offset = false;
     switch (calendarPolicy) {
     case LOCAL:
-      requireNonNull(calendar_, "calendar_");
-      dateTimeArgs.add(calendar_);
+      requireNonNull(calendar, "calendar_");
+      dateTimeArgs.add(calendar);
       break;
     case NULL:
       // We don't specify a calendar at all, so we don't add an argument and
@@ -301,14 +299,14 @@ public class RemoteToEnumerableConverter
               getMethod(sqlTypeName, fieldType.isNullable(), offset),
               Expressions.<Expression>list()
                   .append(
-                      Expressions.call(resultSet_,
+                      Expressions.call(resultSet,
                           getMethod2(sqlTypeName), dateTimeArgs))
                   .appendIf(offset, getTimeZoneExpression(implementor)));
       break;
     case ARRAY:
       final Expression x =
           Expressions.convert_(
-              Expressions.call(resultSet_, jdbcGetMethod(primitive),
+              Expressions.call(resultSet, jdbcGetMethod(primitive),
                   Expressions.constant(i + 1)),
               java.sql.Array.class);
       source = Expressions.call(BuiltInMethod.JDBC_ARRAY_TO_LIST.method, x);
@@ -318,7 +316,7 @@ public class RemoteToEnumerableConverter
       break;
     default:
       source =
-          Expressions.call(resultSet_, jdbcGetMethod(primitive),
+          Expressions.call(resultSet, jdbcGetMethod(primitive),
               Expressions.constant(i + 1));
       break;
     }
@@ -332,7 +330,7 @@ public class RemoteToEnumerableConverter
     if (primitive != null) {
       builder.add(
           Expressions.ifThen(
-              Expressions.call(resultSet_, "wasNull"),
+              Expressions.call(resultSet, "wasNull"),
               Expressions.statement(
                   Expressions.assign(target,
                       Expressions.constant(null)))));

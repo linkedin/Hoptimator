@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 /**
  * Enables an adapter to emit arbitrary Resources for a given table.
- *
+ * <p>
  * Optionally, establishes source->sink relationships between such Resources. These are used
  * strictly for debugging purposes.
  */
@@ -31,10 +31,10 @@ public interface ResourceProvider {
 
   /**
    * Establishes a source->sink relationship between ResourceProviders.
-   *
+   * <p>
    * All leaf-node Resources provided by this ResourceProvider will become sources. All nodes
    * provided by the given ResourceProvider will be sinks.
-   *
+   * <p>
    * e.g.
    * <pre>
    *   ResourceProvider.empty().with(x -> a).with(x -> b).to(x -> c).to(x -> d)
@@ -49,11 +49,8 @@ public interface ResourceProvider {
    */
   default ResourceProvider toAll(ResourceProvider sink) {
     return x -> {
-      List<Resource> combined = new ArrayList<>();
-      List<Resource> sources = new ArrayList<>();
-      List<Resource> sinks = new ArrayList<>();
-      sources.addAll(resources(x));
-      combined.addAll(sources);
+      List<Resource> sources = new ArrayList<>(resources(x));
+      List<Resource> combined = new ArrayList<>(sources);
 
       // remove all non-leaf-node upstream Resources
       sources.removeAll(sources.stream().flatMap(y -> y.inputs().stream()).collect(Collectors.toList()));
@@ -64,13 +61,11 @@ public interface ResourceProvider {
           .collect(Collectors.toList()));
 
       // link all sources to all sinks
-      sink.resources(x).forEach(y -> {
-        combined.add(new Resource(y) {{
-          if (!(y instanceof ReadResource || y instanceof WriteResource)) {
-            sources.forEach(z -> input(z));
-          }
-        }});
-      });
+      sink.resources(x).forEach(y -> combined.add(new Resource(y) {{
+        if (!(y instanceof ReadResource || y instanceof WriteResource)) {
+          sources.forEach(this::input);
+        }
+      }}));
 
       return combined;
     };
@@ -112,7 +107,7 @@ public interface ResourceProvider {
       List<Resource> combined = new ArrayList<>();
       combined.addAll(resources(x));
       combined.addAll(
-          readResourceProvider.resources(x).stream().map(y -> new ReadResource(y)).collect(Collectors.toList()));
+          readResourceProvider.resources(x).stream().map(ReadResource::new).collect(Collectors.toList()));
       return combined;
     };
   }
@@ -123,7 +118,7 @@ public interface ResourceProvider {
       List<Resource> combined = new ArrayList<>();
       combined.addAll(resources(x));
       combined.addAll(
-          writeResourceProvider.resources(x).stream().map(y -> new WriteResource(y)).collect(Collectors.toList()));
+          writeResourceProvider.resources(x).stream().map(WriteResource::new).collect(Collectors.toList()));
       return combined;
     };
   }

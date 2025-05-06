@@ -22,7 +22,7 @@ import com.linkedin.hoptimator.util.Api;
 
 
 public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> implements Api<T> {
-  private final static Logger log = LoggerFactory.getLogger(K8sApi.class);
+  private static final Logger log = LoggerFactory.getLogger(K8sApi.class);
 
   private final K8sContext context;
   private final K8sApiEndpoint<T, U> endpoint;

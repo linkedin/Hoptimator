@@ -26,8 +26,8 @@ import com.linkedin.hoptimator.operator.Operator;
 
 
 public class KafkaTopicReconciler implements Reconciler {
-  private final static Logger log = LoggerFactory.getLogger(KafkaTopicReconciler.class);
-  private final static String KAFKATOPIC = "hoptimator.linkedin.com/v1alpha1/KafkaTopic";
+  private static final Logger log = LoggerFactory.getLogger(KafkaTopicReconciler.class);
+  private static final String KAFKATOPIC = "hoptimator.linkedin.com/v1alpha1/KafkaTopic";
 
   private final Operator operator;
 
@@ -61,7 +61,7 @@ public class KafkaTopicReconciler implements Reconciler {
       ConfigAssembler assembler = new ConfigAssembler(operator);
       list(object.getSpec().getClientConfigs()).forEach(
           x -> assembler.addRef(namespace, x.getConfigMapRef().getName()));
-      map(object.getSpec().getClientOverrides()).forEach((k, v) -> assembler.addOverride(k, v));
+      map(object.getSpec().getClientOverrides()).forEach(assembler::addOverride);
       Properties properties = assembler.assembleProperties();
       log.info("Using AdminClient config: {}", properties);
 
@@ -88,7 +88,7 @@ public class KafkaTopicReconciler implements Reconciler {
         if (e.getCause() instanceof UnknownTopicOrPartitionException) {
           log.info("No existing topic {}. Will create it.", topicName);
           admin.createTopics(Collections.singleton(new NewTopic(topicName, Optional.ofNullable(desiredPartitions),
-              Optional.ofNullable(desiredReplicationFactor).map(x -> x.shortValue())))).all().get();
+              Optional.ofNullable(desiredReplicationFactor).map(Integer::shortValue)))).all().get();
           object.getStatus().setNumPartitions(desiredPartitions);
         } else {
           throw e;

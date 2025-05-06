@@ -30,19 +30,17 @@ public final class AvroConverter {
     } else {
       switch (dataType.getSqlTypeName()) {
         case INTEGER:
-          return createAvroTypeWithNullability(Schema.Type.INT, dataType.isNullable());
         case SMALLINT:
           return createAvroTypeWithNullability(Schema.Type.INT, dataType.isNullable());
         case BIGINT:
           return createAvroTypeWithNullability(Schema.Type.LONG, dataType.isNullable());
         case VARCHAR:
+        case CHAR:
           return createAvroTypeWithNullability(Schema.Type.STRING, dataType.isNullable());
         case FLOAT:
           return createAvroTypeWithNullability(Schema.Type.FLOAT, dataType.isNullable());
         case DOUBLE:
           return createAvroTypeWithNullability(Schema.Type.DOUBLE, dataType.isNullable());
-        case CHAR:
-          return createAvroTypeWithNullability(Schema.Type.STRING, dataType.isNullable());
         case BOOLEAN:
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:

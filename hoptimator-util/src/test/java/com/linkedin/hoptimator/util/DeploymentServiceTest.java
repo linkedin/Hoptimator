@@ -18,7 +18,7 @@ class DeploymentServiceTest {
    * "hint" keys <b>and</b> values are required to be non-{@code null}. An
    * empty {@link Map} is considered invalid and should <b>not</b> be added
    * to the {@link Properties} object.
-   * <br/>
+   * <p>
    * nb. "pipeline" values are <b>always</b> added when present.
    */
   @Test

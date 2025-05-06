@@ -119,7 +119,7 @@ public class HoptimatorDriver implements java.sql.Driver {
       Wrapped wrapped = new Wrapped(hoptimatorConnection, rootSchema);
       String[] catalogs = properties.getProperty("catalogs", "").split(",");
 
-      if (catalogs.length == 0 || catalogs[0].length() == 0) {
+      if (catalogs.length == 0 || catalogs[0].isEmpty()) {
         // load all catalogs (typical usage)
         for (Catalog catalog : CatalogService.catalogs()) {
           catalog.register(wrapped);
@@ -138,7 +138,7 @@ public class HoptimatorDriver implements java.sql.Driver {
     }
   }
 
-  private static class ConnectionHolder {
+  private static final class ConnectionHolder {
     HoptimatorConnection connection;
   }
 

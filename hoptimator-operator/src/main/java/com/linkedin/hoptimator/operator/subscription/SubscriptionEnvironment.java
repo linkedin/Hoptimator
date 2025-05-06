@@ -7,15 +7,15 @@ import com.linkedin.hoptimator.planner.Pipeline;
 
 /**
  * Exposes Subscription variables to resource templates.
- *
+ * <p>
  * Variables have a `pipeline.` prefix (even though they come from the
  * Subscription object), because the planner is unaware of Subscriptions.
  * For example, the CLI constructs pipelines without any corresponding
- * Subscription object. In future, we may have additional K8s objects
+ * Subscription object. In the future, we may have additional K8s objects
  * that result in pipelines.
- *
+ * <p>
  * The exported variables include:
- *
+ * <p>
  *  - `pipeline.namespace`, the K8s namespace where the pipeline should be
  *     deployed. This is a recommendation -- templates may elect to ignore it.
  *  - `pipeline.name`, a unique name for the pipeline. Templates can use this

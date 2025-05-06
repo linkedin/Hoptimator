@@ -48,21 +48,21 @@ import org.apache.calcite.util.Util;
 
 /**
  * An abstract way to write SQL scripts.
- *
+ * <p>
  * To generate a specific statement, implement this interface, or use one
  * of the provided implementations, e.g. `QueryImplementor`.
- *
+ * <p>
  * To generate a script (more than one statement), start with `empty()`
  * and append subsequent ScriptImplementors with `with(...)` etc.
- *
+ * <p>
  * e.g.
- *
+ * <p>
  *   ScriptImplementor.empty()
  *     .database(db)
  *     .connector(name, rowType, configs)
- *
+ * <p>
  * ... would produce something like
- *
+ * <p>
  *   CREATE DATABASE IF NOT EXIST `FOO`;
  *   CREATE TABLE `BAR` (NAME VARCHAR) WITH ('key1' = 'value1');
  */
@@ -189,7 +189,7 @@ public interface ScriptImplementor {
 
   /**
    * Implements a CREATE TABLE...WITH... DDL statement.
-   *
+   * <p>
    * N.B. the following magic:
    *  - field 'PRIMARY_KEY' is treated as a PRIMARY KEY
    *  - NULL fields are promoted to BYTES
@@ -248,10 +248,10 @@ public interface ScriptImplementor {
   }
 
   /** Implements an INSERT INTO statement.
-   *
+   * <p>
    * N.B. the following magic:
    *  - NULL columns (e.g. `NULL AS KEY`) are elided from the pipeline
-   *
+   * <p>
    * */
   class InsertImplementor implements ScriptImplementor {
     private final String schema;
@@ -364,7 +364,7 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(new String[]{schema, table}), SqlParserPos.ZERO);
+      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(schema, table), SqlParserPos.ZERO);
       identifier.unparse(w, 0, 0);
     }
   }
@@ -379,13 +379,13 @@ public interface ScriptImplementor {
 
     @Override
     public void implement(SqlWriter w) {
-      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(new String[]{name}), SqlParserPos.ZERO);
+      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(name), SqlParserPos.ZERO);
       identifier.unparse(w, 0, 0);
     }
   }
 
   /** Implements row type specs, e.g. `NAME VARCHAR(20), AGE INTEGER`.
-   *
+   * <p>
    * N.B. the following magic:
    *  - NULL fields are promoted to BYTES
    *  - Flattened fields like FOO$BAR are renamed FOO_BAR
@@ -403,12 +403,12 @@ public interface ScriptImplementor {
       RelDataType flattened = dataType;
       List<SqlIdentifier> fieldNames = flattened.getFieldList()
           .stream()
-          .map(x -> x.getName())
+          .map(RelDataTypeField::getName)
           .map(x -> x.replaceAll("\\$", "_"))  // support FOO$BAR columns as FOO_BAR
           .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
           .collect(Collectors.toList());
       List<SqlDataTypeSpec> fieldTypes =
-          flattened.getFieldList().stream().map(x -> x.getType()).map(x -> toSpec(x)).collect(Collectors.toList());
+          flattened.getFieldList().stream().map(RelDataTypeField::getType).map(RowTypeSpecImplementor::toSpec).collect(Collectors.toList());
       for (int i = 0; i < fieldNames.size(); i++) {
         w.sep(",");
         fieldNames.get(i).unparse(w, 0, 0);
@@ -499,13 +499,13 @@ public interface ScriptImplementor {
     public void implement(SqlWriter w) {
       SqlWriter.Frame frame1 = w.startList("(", ")");
       List<SqlIdentifier> fieldNames = fields.stream()
-          .map(x -> x.getName())
+          .map(RelDataTypeField::getName)
           .map(x -> x.replaceAll("\\$", "_"))  // support FOO$BAR columns as FOO_BAR
           .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
           .collect(Collectors.toList());
-      for (int i = 0; i < fieldNames.size(); i++) {
+      for (SqlIdentifier fieldName : fieldNames) {
         w.sep(",");
-        fieldNames.get(i).unparse(w, 0, 0);
+        fieldName.unparse(w, 0, 0);
       }
       w.endList(frame1);
     }

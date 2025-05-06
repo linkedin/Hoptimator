@@ -16,7 +16,7 @@ import com.linkedin.hoptimator.util.Api;
 
 
 public class K8sYamlApi implements Api<String> {
-  private final static Logger log = LoggerFactory.getLogger(K8sYamlApi.class);
+  private static final Logger log = LoggerFactory.getLogger(K8sYamlApi.class);
 
   private final K8sContext context;
 

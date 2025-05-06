@@ -17,7 +17,7 @@ import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 
 /**
  * HopTables can have "baggage", including Resources and arbitrary DDL/SQL.
- *
+ * <p>
  * This mechanism is extremely powerful. In addition to enabling views, we can
  * bring along arbitrary infra required to materialize a view. For example, a
  * table can bring along a CDC stream or a cache. Generally, such Resources

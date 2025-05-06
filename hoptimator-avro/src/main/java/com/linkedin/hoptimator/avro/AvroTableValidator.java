@@ -24,7 +24,7 @@ class AvroTableValidator implements Validator {
 
   private final SchemaPlus schema;
 
-  public AvroTableValidator(SchemaPlus schema) {
+  AvroTableValidator(SchemaPlus schema) {
     this.schema = schema;
   }
 

@@ -20,7 +20,7 @@ import com.linkedin.hoptimator.catalog.ScriptImplementor;
 
 /**
  * Calling convention which implements an SQL-based streaming data pipeline.
- *
+ * <p>
  * Pipelines tend to have the following general shape:
  * <pre>
  *                                   _________
@@ -33,7 +33,6 @@ import com.linkedin.hoptimator.catalog.ScriptImplementor;
  * CDC and rETL "hops" are made possible by Resources, which describe any
  * additional infra required by the Pipeline. As Resources are essentially
  * YAML, anything can be represented there, including additional SQL jobs.
- *
  */
 public interface PipelineRel extends RelNode {
 
@@ -67,7 +66,7 @@ public interface PipelineRel extends RelNode {
     }
 
     private void visit(RelNode input) {
-      input.getInputs().forEach(x -> visit(x));
+      input.getInputs().forEach(this::visit);
       ((PipelineRel) input).implement(this);
     }
 
@@ -83,10 +82,10 @@ public interface PipelineRel extends RelNode {
       return script.database(sink.database()).with(sink).insert(sink.database(), sink.name(), castRel);
     }
 
-    /** Add any resources, SQL, DDL etc required to access the table. */
+    /** Add any resources: SQL, DDL, etc. required to access the table. */
     public void implement(HopTable table) {
       script = script.database(table.database()).with(table);
-      table.readResources().forEach(x -> resource(x));
+      table.readResources().forEach(this::resource);
     }
 
     /** Combine SQL and any Resources into a Pipeline, using ANSI dialect */

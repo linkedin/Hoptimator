@@ -28,9 +28,9 @@ import com.linkedin.hoptimator.operator.Operator;
 
 
 public class KafkaTopicAclReconciler implements Reconciler {
-  private final static Logger log = LoggerFactory.getLogger(KafkaTopicAclReconciler.class);
-  private final static String ACL = "hoptimator.linkedin.com/v1alpha1/Acl";
-  private final static String KAFKATOPIC = "hoptimator.linkedin.com/v1alpha1/KafkaTopic";
+  private static final Logger log = LoggerFactory.getLogger(KafkaTopicAclReconciler.class);
+  private static final String ACL = "hoptimator.linkedin.com/v1alpha1/Acl";
+  private static final String KAFKATOPIC = "hoptimator.linkedin.com/v1alpha1/KafkaTopic";
 
   private final Operator operator;
 
@@ -87,20 +87,17 @@ public class KafkaTopicAclReconciler implements Reconciler {
       ConfigAssembler assembler = new ConfigAssembler(operator);
       list(target.getSpec().getClientConfigs()).forEach(
           x -> assembler.addRef(namespace, x.getConfigMapRef().getName()));
-      map(target.getSpec().getClientOverrides()).forEach((k, v) -> assembler.addOverride(k, v));
+      map(target.getSpec().getClientOverrides()).forEach(assembler::addOverride);
       Properties properties = assembler.assembleProperties();
       log.info("Using AdminClient config: {}", properties);
 
-      AdminClient admin = AdminClient.create(properties);
-      try {
+      try (AdminClient admin = AdminClient.create(properties)) {
         log.info("Creating KafkaTopic Acl for {}...", target.getSpec().getTopicName());
         AclBinding binding = new AclBinding(
             new ResourcePattern(ResourceType.TOPIC, target.getSpec().getTopicName(), PatternType.LITERAL),
             new AccessControlEntry(principal, "*", operation, AclPermissionType.ALLOW));
         admin.createAcls(Collections.singleton(binding)).all().get();
         log.info("Granted {} {} access to {}.", principal, method, target.getSpec().getTopicName());
-      } finally {
-        admin.close();
       }
     } catch (Exception e) {
       log.error("Encountered exception while reconciling KafkaTopic Acl {}/{}", namespace, name, e);
