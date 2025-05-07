@@ -281,7 +281,7 @@ public interface ScriptImplementor {
     private static RelNode dropFields(RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
       List<Integer> cols = new ArrayList<>();
       int i = 0;
-      Set<String> targetFieldNames = targetFields.stream().map(Map.Entry::getValue).collect(Collectors.toSet());
+      List<String> targetFieldNames = targetFields.rightList();
       for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
         if (targetFieldNames.contains(field.getName())
             && !field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {

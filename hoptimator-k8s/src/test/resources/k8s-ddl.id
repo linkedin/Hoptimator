@@ -88,6 +88,41 @@ select * from ads.target2;
 
 !ok
 
+create or replace materialized view ads."PAGE_VIEWS$filter" as select first_name as page_urn, last_name as member_urn from profile.members where first_name = 'Alice';
+(0 rows modified)
+
+!update
+
+select * from ads."PAGE_VIEWS$filter";
++----------+------------+
+| PAGE_URN | MEMBER_URN |
++----------+------------+
+| Alice    | Addison    |
++----------+------------+
+(1 row)
+
+!ok
+
+create or replace materialized view ads."PAGE_VIEWS$filter" (member_urn) as select last_name as member_urn from profile.members where last_name = 'Addison';
+(0 rows modified)
+
+!update
+
+select * from ads."PAGE_VIEWS$filter";
++------------+
+| MEMBER_URN |
++------------+
+| Addison    |
++------------+
+(1 row)
+
+!ok
+
+drop materialized view ads."PAGE_VIEWS$filter";
+(0 rows modified)
+
+!update
+
 drop materialized view ads.target2;
 (0 rows modified)
 
@@ -107,3 +142,24 @@ drop view ads.audience;
 (0 rows modified)
 
 !update
+
+insert into ads.page_views select first_name as page_urn, last_name as member_urn from profile.members where first_name = 'Alice';
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: ads-database-pageviews
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT `FIRST_NAME` AS `PAGE_URN`, `LAST_NAME` AS `MEMBER_URN` FROM `PROFILE`.`MEMBERS` WHERE `FIRST_NAME` = 'Alice'
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify PAGE_VIEWS

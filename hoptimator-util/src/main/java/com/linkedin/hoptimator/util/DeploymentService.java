@@ -15,6 +15,7 @@ import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.Programs;
 
@@ -82,7 +83,16 @@ public final class DeploymentService {
   public static PipelineRel.Implementor plan(RelRoot root, List<RelOptMaterialization> materializations,
       Properties connectionProperties) throws SQLException {
     RelTraitSet traitSet = root.rel.getTraitSet().simplify().replace(PipelineRel.CONVENTION);
-    Program program = Programs.standard();
+
+    // We need to run the plan without field trimming enabled. The intention of field trimming is to optimize
+    // away unused fields. Calcite is able to make micro optimizations to the plan but at the cost of making
+    // no guarantees about what that fields will be named in the resulting RelNode. For the ScriptImplementor,
+    // field names are important because they are used to generate the final SQL against the sink table. This will
+    // almost always require some top-level Project in the plan, but with trimming enabled, identity projects
+    // (just field renames) are optimized out of the plan.
+    // See discussion in https://issues.apache.org/jira/browse/CALCITE-1297
+    Program program = Programs.standard(DefaultRelMetadataProvider.INSTANCE, false);
+
     RelOptPlanner planner = root.rel.getCluster().getPlanner();
     PipelineRules.rules().forEach(planner::addRule);
     PipelineRel plan = (PipelineRel) program.run(planner, root.rel, traitSet, materializations,
