@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -33,6 +34,6 @@ public class K8sPipelineElement {
   }
 
   public List<String> pipelineNames() {
-    return pipelines.stream().map(p -> p.getMetadata().getName()).collect(Collectors.toList());
+    return pipelines.stream().map(p -> Objects.requireNonNull(p.getMetadata()).getName()).collect(Collectors.toList());
   }
 }

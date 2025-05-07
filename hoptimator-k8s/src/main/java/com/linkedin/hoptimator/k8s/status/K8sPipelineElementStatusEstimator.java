@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s.status;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
@@ -16,8 +17,10 @@ import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 
+
 /**
- * Estimates or guesses the status of an element of a {@link com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline} by inspecting its internal state.
+ * Estimates or guesses the status of an element of a {@link com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline}
+ * by inspecting its internal state.
  */
 public class K8sPipelineElementStatusEstimator {
   private final static Logger log = LoggerFactory.getLogger(K8sPipelineElementStatusEstimator.class);
@@ -32,8 +35,9 @@ public class K8sPipelineElementStatusEstimator {
    * Returns statuses of all elements specified in the given pipeline.
    */
   public List<K8sPipelineElementStatus> estimateStatuses(V1alpha1Pipeline pipeline) {
-    String namespace = pipeline.getMetadata().getNamespace();
-    return Arrays.stream(pipeline.getSpec().getYaml().split("\n---\n"))
+    String namespace = Objects.requireNonNull(pipeline.getMetadata()).getNamespace();
+    return Arrays.stream(Objects.requireNonNull(Objects.requireNonNull(pipeline.getSpec()).getYaml())
+        .split("\n---\n"))
         .map(String::trim)
         .filter(x -> !x.isEmpty())
         .map(yaml -> estimateElementStatus(yaml, namespace))

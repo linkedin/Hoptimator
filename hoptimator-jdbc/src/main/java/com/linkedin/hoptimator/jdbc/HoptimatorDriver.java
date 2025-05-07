@@ -138,9 +138,6 @@ public class HoptimatorDriver implements java.sql.Driver {
       }
       throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {
-      if (connection != null) {
-        connection.close();
-      }
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
   }

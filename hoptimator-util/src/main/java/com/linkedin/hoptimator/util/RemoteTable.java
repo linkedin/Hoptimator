@@ -29,34 +29,34 @@ import org.apache.calcite.schema.impl.AbstractTable;
 
 
 /** A table behind some CRUD API */
-public abstract class RemoteTable<ObjectType, RowType> extends AbstractTable
-    implements TranslatableTable, ModifiableTable, RowMapper<ObjectType, RowType> {
+public abstract class RemoteTable<OBJECT_TYPE, ROW_TYPE> extends AbstractTable
+    implements TranslatableTable, ModifiableTable, RowMapper<OBJECT_TYPE, ROW_TYPE> {
 
-  private final Api<ObjectType> api;
-  private final Class<RowType> elementType;
+  private final Api<OBJECT_TYPE> api;
+  private final Class<ROW_TYPE> elementType;
   private final RelDataType javaType;
-  private final RemoteRowList<ObjectType, RowType> rows;
+  private final RemoteRowList<OBJECT_TYPE, ROW_TYPE> rows;
 
-  RemoteTable(Api<ObjectType> api, Class<RowType> elementType, RelDataType javaType) {
+  RemoteTable(Api<OBJECT_TYPE> api, Class<ROW_TYPE> elementType, RelDataType javaType) {
     this.api = api;
     this.elementType = elementType;
     this.javaType = javaType;
     this.rows = new RemoteRowList<>(api, this);
   }
 
-  RemoteTable(Api<ObjectType> api, Class<RowType> elementType, JavaTypeFactory javaTypeFactory) {
+  RemoteTable(Api<OBJECT_TYPE> api, Class<ROW_TYPE> elementType, JavaTypeFactory javaTypeFactory) {
     this(api, elementType, javaTypeFactory.createType(elementType));
   }
 
-  public RemoteTable(Api<ObjectType> api, Class<RowType> elementType) {
+  public RemoteTable(Api<OBJECT_TYPE> api, Class<ROW_TYPE> elementType) {
     this(api, elementType, new JavaTypeFactoryImpl());
   }
 
-  public Collection<RowType> rows() {
+  public Collection<ROW_TYPE> rows() {
     return rows;
   }
 
-  public Api<ObjectType> api() {
+  public Api<OBJECT_TYPE> api() {
     return api;
   }
 
@@ -71,7 +71,7 @@ public abstract class RemoteTable<ObjectType, RowType> extends AbstractTable
   }
 
   @Override
-  public Collection<RowType> getModifiableCollection() {
+  public Collection<ROW_TYPE> getModifiableCollection() {
     return rows;
   }
 
@@ -86,7 +86,7 @@ public abstract class RemoteTable<ObjectType, RowType> extends AbstractTable
   }
 
   @Override
-  public ObjectType fromRow(RowType u) {
+  public OBJECT_TYPE fromRow(ROW_TYPE u) {
     throw new UnsupportedOperationException("This object is not writable.");
   }
 

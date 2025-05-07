@@ -13,7 +13,7 @@ import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
 import com.linkedin.hoptimator.util.Api;
 
 /** Provides all pipeline elements in a {@link com.linkedin.hoptimator.k8s.K8sContext} instance. */
-class K8sPipelineElementApi implements Api<K8sPipelineElement> {
+public class K8sPipelineElementApi implements Api<K8sPipelineElement> {
   private final K8sContext context;
 
   K8sPipelineElementApi(K8sContext context) {

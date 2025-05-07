@@ -8,7 +8,7 @@ import java.util.stream.Stream;
 import com.linkedin.hoptimator.util.Api;
 
 /** Provides the n:m mapping information between pipelines and their elements. */
-class K8sPipelineElementMapApi implements Api<K8sPipelineElementMapEntry> {
+public class K8sPipelineElementMapApi implements Api<K8sPipelineElementMapEntry> {
 
   private final K8sPipelineElementApi pipelineElementApi;
 

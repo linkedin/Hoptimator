@@ -15,6 +15,7 @@ class DelegatingStatement implements Statement {
   private static final Logger logger = LoggerFactory.getLogger(DelegatingStatement.class);
 
   private final Connection connection;
+  private Statement statement;
   private ResultSet resultSet;
 
   DelegatingStatement(Connection connection) {
@@ -38,9 +39,9 @@ class DelegatingStatement implements Statement {
         stmt.execute(parts[i]);
       }
     }
-    Statement stmt = connection.createStatement();
+    statement = connection.createStatement();
     logger.info("SQL: " + parts[i]);
-    resultSet = stmt.executeQuery(parts[i]);
+    resultSet = statement.executeQuery(parts[i]);
     return resultSet;
   }
 
@@ -51,12 +52,13 @@ class DelegatingStatement implements Statement {
 
   @Override
   public void cancel() throws SQLException {
-    // nop
+    statement.cancel();
   }
 
   @Override
   public void close() throws SQLException {
-    // nop
+    statement.close();
+    resultSet.close();
   }
 
 
