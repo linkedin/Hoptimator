@@ -65,6 +65,7 @@ import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
 
@@ -99,7 +100,14 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   @Override
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
+    if (pair.left == null) {
+      throw new DdlException(create, "Schema for " + create.name + " not found.");
+    }
     final SchemaPlus schemaPlus = pair.left.plus();
+    if (schemaPlus.getTable(pair.right) instanceof HoptimatorJdbcTable) {
+      throw new DdlException(create,
+          "Cannot overwrite physical table " + pair.right + " with a view.");
+    }
     for (Function function : schemaPlus.getFunctions(pair.right)) {
       if (function.getParameters().isEmpty()) {
         if (!create.getReplace()) {
@@ -139,9 +147,14 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
     if (pair.left == null) {
-      throw new DdlException(create, "Schema for " + create.name.getSimple() + " not found.");
+      throw new DdlException(create, "Schema for " + create.name + " not found.");
     }
-    if (pair.left.plus().getTable(pair.right) != null) {
+    final SchemaPlus schemaPlus = pair.left.plus();
+    if (schemaPlus.getTable(pair.right) != null) {
+      if (schemaPlus.getTable(pair.right) instanceof HoptimatorJdbcTable) {
+        throw new DdlException(create,
+            "Cannot overwrite physical table " + pair.right + " with a view.");
+      }
       // Materialized view exists.
       if (!create.ifNotExists && !create.getReplace()) {
         // They did not specify IF NOT EXISTS, so give error.
@@ -149,7 +162,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
             "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
       }
       if (create.getReplace()) {
-        pair.left.plus().removeTable(pair.right);
+        schemaPlus.removeTable(pair.right);
       } else {
         // nothing to do
         return;
@@ -160,7 +173,6 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final String sql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
     final List<String> schemaPath = pair.left.path(null);
 
-    SchemaPlus schemaPlus = pair.left.plus();
     String schemaName = schemaPlus.getName();
     String viewName = pair.right;
     List<String> viewPath = new ArrayList<>(schemaPath);
@@ -190,7 +202,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
       List<String> sinkPath = new ArrayList<>(schemaPath);
       sinkPath.add(sinkName);
-      Table sink = pair.left.plus().getTable(sinkName);
+      Table sink = schemaPlus.getTable(sinkName);
 
       final RelDataType rowType;
       if (sink != null) {

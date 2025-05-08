@@ -83,8 +83,8 @@ undeploy-kafka:
 # Deploys Venice cluster in docker and creates two stores in Venice. Stores are not managed via K8s for now.
 deploy-venice: deploy deploy-flink
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml up -d --wait
-	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store schemas/keySchema.avsc schemas/valueSchema.avsc
-	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store-1 schemas/keySchema.avsc schemas/valueSchema.avsc
+	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store schemas/keySchemaRecord.avsc schemas/valueSchema.avsc
+	docker exec venice-client ./create-store.sh http://venice-controller:5555 venice-cluster0 test-store-primitive schemas/keySchemaPrimitive.avsc schemas/valueSchema.avsc
 	kubectl apply -f ./deploy/samples/venicedb.yaml
 
 undeploy-venice:
@@ -101,7 +101,7 @@ integration-tests: deploy-dev-environment
 	kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 & echo $$! > port-forward.pid
 	kubectl port-forward -n flink svc/flink-sql-gateway 8083 & echo $$! > port-forward-2.pid
 	kubectl port-forward -n flink svc/basic-session-deployment-rest 8081 & echo $$! > port-forward-3.pid
-	./gradlew intTest --no-parallel || kill `cat port-forward.pid port-forward-2.pid, port-forward-3.pid`
+	./gradlew intTest --no-parallel || kill `cat port-forward.pid port-forward-2.pid port-forward-3.pid`
 	kill `cat port-forward.pid`
 	kill `cat port-forward-2.pid`
 	kill `cat port-forward-3.pid`

@@ -5,7 +5,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -79,7 +78,7 @@ public final class PipelineRules {
     public RelNode convert(RelNode rel) {
       TableScan scan = (TableScan) rel;
       RelTraitSet traitSet = scan.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineTableScan(rel.getCluster(), traitSet, database, scan.getTable());
+      return new PipelineTableScan(rel.getCluster(), traitSet, scan.getHints(), database, scan.getTable());
     }
   }
 
@@ -87,8 +86,8 @@ public final class PipelineRules {
 
     private final String database;
 
-    PipelineTableScan(RelOptCluster cluster, RelTraitSet traitSet, String database, RelOptTable table) {
-      super(cluster, traitSet, Collections.emptyList(), table);
+    PipelineTableScan(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, String database, RelOptTable table) {
+      super(cluster, traitSet, hints, table);
       assert getConvention() == PipelineRel.CONVENTION;
       this.database = database;
     }
@@ -131,9 +130,9 @@ public final class PipelineRules {
     private final String database;
 
     PipelineTableModify(String database, RelOptCluster cluster, RelTraitSet traits, RelOptTable table,
-        Prepare.CatalogReader catalogReader, RelNode child, Operation operation, List<String> updateColumnList,
+        Prepare.CatalogReader catalogReader, RelNode input, Operation operation, List<String> updateColumnList,
         List<RexNode> sourceExpressionList, boolean flattened) {
-      super(cluster, traits, table, catalogReader, child, operation, updateColumnList, sourceExpressionList, flattened);
+      super(cluster, traits, table, catalogReader, input, operation, updateColumnList, sourceExpressionList, flattened);
       assert getConvention() == PipelineRel.CONVENTION;
       this.database = database;
     }
@@ -173,22 +172,20 @@ public final class PipelineRules {
     @Override
     public RelNode convert(RelNode rel) {
       LogicalFilter filter = (LogicalFilter) rel;
-      RelNode input = Objects.requireNonNull(filter.getInput(), "input");
-      RexNode condition = Objects.requireNonNull(filter.getCondition(), "condition");
       RelTraitSet traitSet = filter.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineFilter(rel.getCluster(), traitSet, convert(input, PipelineRel.CONVENTION), condition);
+      return new PipelineFilter(rel.getCluster(), traitSet, filter.getHints(), convert(filter.getInput(), PipelineRel.CONVENTION), filter.getCondition());
     }
   }
 
   static class PipelineFilter extends Filter implements PipelineRel {
 
-    PipelineFilter(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, RexNode conditions) {
-      super(cluster, traitSet, input, conditions);
+    PipelineFilter(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, RelNode input, RexNode condition) {
+      super(cluster, traitSet, hints, input, condition);
     }
 
     @Override
-    public PipelineFilter copy(RelTraitSet traitSet, RelNode input, RexNode conditions) {
-      return new PipelineFilter(getCluster(), traitSet, input, conditions);
+    public PipelineFilter copy(RelTraitSet traitSet, RelNode input, RexNode condition) {
+      return new PipelineFilter(getCluster(), traitSet, getHints(), input, condition);
     }
 
     @Override
@@ -212,23 +209,23 @@ public final class PipelineRules {
     public RelNode convert(RelNode rel) {
       Project project = (Project) rel;
       RelTraitSet traitSet = project.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineProject(rel.getCluster(), traitSet, convert(project.getInput(), PipelineRel.CONVENTION),
+      return new PipelineProject(rel.getCluster(), traitSet, project.getHints(), convert(project.getInput(), PipelineRel.CONVENTION),
           project.getProjects(), project.getRowType());
     }
   }
 
   static class PipelineProject extends Project implements PipelineRel {
 
-    PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, RelNode input, List<? extends RexNode> projects,
+    PipelineProject(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, RelNode input, List<? extends RexNode> projects,
         RelDataType rowType) {
-      super(cluster, traitSet, Collections.emptyList(), input, projects, rowType, ImmutableSet.of());
+      super(cluster, traitSet, hints, input, projects, rowType, ImmutableSet.of());
       assert getConvention() == PipelineRel.CONVENTION;
       assert input.getConvention() == PipelineRel.CONVENTION;
     }
 
     @Override
     public PipelineProject copy(RelTraitSet traitSet, RelNode input, List<RexNode> projects, RelDataType rowType) {
-      return new PipelineProject(getCluster(), traitSet, input, projects, rowType);
+      return new PipelineProject(input.getCluster(), traitSet, getHints(), input, projects, rowType);
     }
 
     @Override
@@ -251,7 +248,7 @@ public final class PipelineRules {
     public RelNode convert(RelNode rel) {
       Join join = (Join) rel;
       RelTraitSet traitSet = join.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineJoin(rel.getCluster(), traitSet, convert(join.getLeft(), PipelineRel.CONVENTION),
+      return new PipelineJoin(rel.getCluster(), traitSet, join.getHints(), convert(join.getLeft(), PipelineRel.CONVENTION),
           convert(join.getRight(), PipelineRel.CONVENTION), join.getCondition(), join.getVariablesSet(),
           join.getJoinType());
     }
@@ -259,15 +256,15 @@ public final class PipelineRules {
 
   static class PipelineJoin extends Join implements PipelineRel {
 
-    PipelineJoin(RelOptCluster cluster, RelTraitSet traitSet, RelNode left, RelNode right, RexNode condition,
-        Set<CorrelationId> variablesSet, JoinRelType joinType) {
-      super(cluster, traitSet, Collections.emptyList(), left, right, condition, variablesSet, joinType);
+    PipelineJoin(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, RelNode left, RelNode right,
+        RexNode condition, Set<CorrelationId> variablesSet, JoinRelType joinType) {
+      super(cluster, traitSet, hints, left, right, condition, variablesSet, joinType);
     }
 
     @Override
     public PipelineJoin copy(RelTraitSet traitSet, RexNode condition, RelNode left, RelNode right, JoinRelType joinType,
         boolean semiJoinDone) {
-      return new PipelineJoin(getCluster(), traitSet, left, right, condition, getVariablesSet(), joinType);
+      return new PipelineJoin(getCluster(), traitSet, getHints(), left, right, condition, getVariablesSet(), joinType);
     }
 
     @Override
@@ -290,19 +287,19 @@ public final class PipelineRules {
     public RelNode convert(RelNode rel) {
       Calc calc = (Calc) rel;
       RelTraitSet traitSet = calc.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineCalc(rel.getCluster(), traitSet, convert(calc.getInput()), calc.getProgram());
+      return new PipelineCalc(rel.getCluster(), traitSet, calc.getHints(), convert(calc.getInput()), calc.getProgram());
     }
   }
 
   static class PipelineCalc extends Calc implements PipelineRel {
 
-    PipelineCalc(RelOptCluster cluster, RelTraitSet traitSet, RelNode child, RexProgram program) {
-      super(cluster, traitSet, Collections.emptyList(), child, program);
+    PipelineCalc(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, RelNode child, RexProgram program) {
+      super(cluster, traitSet, hints, child, program);
     }
 
     @Override
     public PipelineCalc copy(RelTraitSet traitSet, RelNode child, RexProgram program) {
-      return new PipelineCalc(getCluster(), traitSet, child, program);
+      return new PipelineCalc(getCluster(), traitSet, getHints(), child, program);
     }
 
     @Override
@@ -340,7 +337,7 @@ public final class PipelineRules {
     @Override
     public PipelineAggregate copy(RelTraitSet traitSet, RelNode input, ImmutableBitSet groupSet,
         List<ImmutableBitSet> groupSets, List<AggregateCall> aggCalls) {
-      return new PipelineAggregate(getCluster(), traitSet, Collections.emptyList(), input, groupSet, groupSets, aggCalls);
+      return new PipelineAggregate(getCluster(), traitSet, getHints(), input, groupSet, groupSets, aggCalls);
     }
 
     @Override
