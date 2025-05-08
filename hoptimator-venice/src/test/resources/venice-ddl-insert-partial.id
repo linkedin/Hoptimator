@@ -1,23 +1,44 @@
 !set outputformat mysql
 !use k8s
 
-insert into "VENICE"."test-store-1" ("KEY_id", "intField") select "KEY_id", "stringField" from "VENICE"."test-store";
+create or replace materialized view "VENICE"."test-store$insert-partial" ("KEY_id", "intField") as select "KEY", "intField" from "VENICE"."test-store-primitive";
+(0 rows modified)
+
+!update
+
+select "tableSchem", "tableName", "columnName", "typeName" from "metadata".columns where "tableName"='test-store$insert-partial';
++------------+---------------------------+------------+------------------+
+| tableSchem | tableName                 | columnName | typeName         |
++------------+---------------------------+------------+------------------+
+| VENICE     | test-store$insert-partial | KEY_id     | INTEGER NOT NULL |
+| VENICE     | test-store$insert-partial | intField   | INTEGER          |
++------------+---------------------------+------------+------------------+
+(2 rows)
+
+!ok
+
+drop materialized view "VENICE"."test-store$insert-partial";
+(0 rows modified)
+
+!update
+
+insert into "VENICE"."test-store" ("KEY_id", "intField") select "KEY", "intField" from "VENICE"."test-store-primitive";
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
-  name: venice-test-store-1
+  name: venice-test-store
 spec:
   deploymentName: basic-session-deployment
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:
     - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
-    - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store` (`KEY_id` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_id', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='test-store', 'value.fields-include'='EXCEPT_KEY')
+    - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store-primitive` (`KEY` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY', 'key.fields-prefix'='', 'key.type'='PRIMITIVE', 'partial-update-mode'='true', 'storeName'='test-store-primitive', 'value.fields-include'='EXCEPT_KEY')
     - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
-    - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store-1` (`KEY_id` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_id', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='test-store-1', 'value.fields-include'='EXCEPT_KEY')
-    - INSERT INTO `VENICE`.`test-store-1` (`KEY_id`, `intField`) SELECT `KEY_id`, CAST(`stringField` AS INTEGER) AS `intField` FROM `VENICE`.`test-store`
+    - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store` (`KEY_id` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_id', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='test-store', 'value.fields-include'='EXCEPT_KEY')
+    - INSERT INTO `VENICE`.`test-store` (`KEY_id`, `intField`) SELECT `KEY` AS `KEY_id`, `intField` FROM `VENICE`.`test-store-primitive`
     jarURI: file:///opt/hoptimator-flink-runner.jar
     parallelism: 1
     upgradeMode: stateless
     state: running
-!specify test-store-1
+!specify test-store

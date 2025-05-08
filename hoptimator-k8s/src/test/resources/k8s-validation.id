@@ -1,0 +1,36 @@
+!set outputformat mysql
+!use k8s
+
+create or replace materialized view ads.page_views as select first_name, last_name from profile.members;
+Cannot overwrite physical table PAGE_VIEWS with a view.
+!error
+
+create or replace materialized view invalid.page_views as select first_name, last_name from profile.members;
+Schema for INVALID.PAGE_VIEWS not found.
+!error
+
+create or replace materialized view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+create materialized view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+View AUDIENCE already exists. Use CREATE OR REPLACE to update.
+!error
+
+drop materialized view ads.audience;
+(0 rows modified)
+
+!update
+
+create or replace materialized view ads."PAGE_VIEWS$myview" as select first_name from profile.members;
+Field FIRST_NAME not found in sink schema
+!error
+
+create or replace materialized view ads."PAGE_VIEWS$myview" (page_urn, member_urn) as select first_name from profile.members;
+List of column aliases must have same degree as table; table has 1 columns ('FIRST_NAME'), whereas alias list has 2 columns
+!error
+
+create or replace materialized view ads."PAGE_VIEWS$myview" (page_urn) as select first_name, last_name from profile.members;
+List of column aliases must have same degree as table; table has 2 columns ('FIRST_NAME', 'LAST_NAME'), whereas alias list has 1 columns
+!error

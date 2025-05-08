@@ -80,7 +80,7 @@ public abstract class QuidemTestBase {
                 String sql = context.previousSqlCommand().sql;
                 HoptimatorConnection conn = (HoptimatorConnection) connection;
                 RelRoot root = HoptimatorDriver.convert(conn, sql).root;
-                String []parts = line.split(" ", 2);
+                String[] parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
                 Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList(), conn.connectionProperties())
                     .pipeline(pipelineName, conn.connectionProperties());
