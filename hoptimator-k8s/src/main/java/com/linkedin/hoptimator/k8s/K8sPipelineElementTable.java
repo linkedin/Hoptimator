@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
-import com.linkedin.hoptimator.util.RemoteTable;
 import org.apache.calcite.schema.Schema;
 
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
+import com.linkedin.hoptimator.util.RemoteTable;
 
 public class K8sPipelineElementTable extends RemoteTable<K8sPipelineElement, K8sPipelineElementTable.Row> {
 

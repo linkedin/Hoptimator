@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
 
 /** Represents a pipeline element status and its associated pipelines. */
 public class K8sPipelineElement {

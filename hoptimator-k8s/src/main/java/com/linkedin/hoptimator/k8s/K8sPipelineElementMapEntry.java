@@ -5,7 +5,7 @@ class K8sPipelineElementMapEntry {
   private String elementName;
   private String pipelineName;
 
-  public K8sPipelineElementMapEntry(String elementName, String pipelineName) {
+  K8sPipelineElementMapEntry(String elementName, String pipelineName) {
     this.elementName = elementName;
     this.pipelineName = pipelineName;
   }

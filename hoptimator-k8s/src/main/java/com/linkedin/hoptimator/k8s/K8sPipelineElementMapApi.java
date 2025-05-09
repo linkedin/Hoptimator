@@ -1,18 +1,18 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.util.Api;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.linkedin.hoptimator.util.Api;
 
 /** Provides the n:m mapping information between pipelines and their elements. */
 class K8sPipelineElementMapApi implements Api<K8sPipelineElementMapEntry> {
 
   private final K8sPipelineElementApi pipelineElementApi;
 
-  public K8sPipelineElementMapApi(K8sPipelineElementApi pipelineElementApi) {
+  K8sPipelineElementMapApi(K8sPipelineElementApi pipelineElementApi) {
     this.pipelineElementApi = pipelineElementApi;
   }
 

@@ -1,22 +1,22 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
-import com.linkedin.hoptimator.util.Api;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
+import com.linkedin.hoptimator.util.Api;
 
 /** Provides all pipeline elements in a {@link com.linkedin.hoptimator.k8s.K8sContext} instance. */
 class K8sPipelineElementApi implements Api<K8sPipelineElement> {
   private final K8sContext context;
 
-  public K8sPipelineElementApi(K8sContext context) {
+  K8sPipelineElementApi(K8sContext context) {
     this.context = context;
   }
 
