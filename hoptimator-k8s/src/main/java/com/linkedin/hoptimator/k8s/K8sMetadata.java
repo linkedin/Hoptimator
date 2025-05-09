@@ -12,7 +12,6 @@ import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 /** Built-in K8s metadata tables */
 public class K8sMetadata extends AbstractSchema {
 
-  private final HoptimatorConnection connection;
   private final Map<String, Table> tableMap = new HashMap<>();
   private final K8sDatabaseTable databaseTable;
   private final K8sEngineTable engineTable;
@@ -20,7 +19,9 @@ public class K8sMetadata extends AbstractSchema {
   private final K8sViewTable viewTable;
 
   public K8sMetadata(HoptimatorConnection connection, K8sContext context) {
-    this.connection = connection;
+    K8sPipelineElementApi pipelineElementApi = new K8sPipelineElementApi(context);
+    K8sPipelineElementMapApi pipelineElementMapApi = new K8sPipelineElementMapApi(pipelineElementApi);
+
     this.engineTable = new K8sEngineTable(context);
     this.databaseTable = new K8sDatabaseTable(context, engineTable);
     this.pipelineTable = new K8sPipelineTable(context);
@@ -28,6 +29,8 @@ public class K8sMetadata extends AbstractSchema {
     tableMap.put("DATABASES", databaseTable);
     tableMap.put("ENGINES", engineTable);
     tableMap.put("PIPELINES", pipelineTable);
+    tableMap.put("PIPELINE_ELEMENTS",  new K8sPipelineElementTable(pipelineElementApi));
+    tableMap.put("PIPELINE_ELEMENT_MAP",  new K8sPipelineElementMapTable(pipelineElementMapApi));
     tableMap.put("VIEWS", viewTable);
   }
 
