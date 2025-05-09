@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 /** Maps an element name to the name of one of its pipelines. */
-public class K8sPipelineElementMapEntry {
+class K8sPipelineElementMapEntry {
   private String elementName;
   private String pipelineName;
 
@@ -10,11 +10,11 @@ public class K8sPipelineElementMapEntry {
     this.pipelineName = pipelineName;
   }
 
-  public String getElementName() {
+  public String elementName() {
     return elementName;
   }
 
-  public String getPipelineName() {
+  public String pipelineName() {
     return pipelineName;
   }
 }

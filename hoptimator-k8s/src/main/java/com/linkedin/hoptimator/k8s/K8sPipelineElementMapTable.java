@@ -4,7 +4,7 @@ import com.linkedin.hoptimator.util.RemoteTable;
 import org.apache.calcite.schema.Schema;
 
 
-/** Provides n:n mapping between pipeline elements and their pipelines. */
+/** Provides n:m mapping between pipeline elements and their pipelines. */
 public class K8sPipelineElementMapTable
     extends RemoteTable<K8sPipelineElementMapEntry, K8sPipelineElementMapTable.Row> {
 
@@ -31,7 +31,7 @@ public class K8sPipelineElementMapTable
 
   @Override
   public Row toRow(K8sPipelineElementMapEntry k8sDynamicPipelineElement) {
-    return new Row(k8sDynamicPipelineElement.getElementName(), k8sDynamicPipelineElement.getPipelineName());
+    return new Row(k8sDynamicPipelineElement.elementName(), k8sDynamicPipelineElement.pipelineName());
   }
 
   @Override

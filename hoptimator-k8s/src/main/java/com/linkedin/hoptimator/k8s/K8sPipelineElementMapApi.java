@@ -7,8 +7,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 
-/** Provides the n:n mapping information between pipelines and their elements. */
-public class K8sPipelineElementMapApi implements Api<K8sPipelineElementMapEntry> {
+/** Provides the n:m mapping information between pipelines and their elements. */
+class K8sPipelineElementMapApi implements Api<K8sPipelineElementMapEntry> {
 
   private final K8sPipelineElementApi pipelineElementApi;
 
@@ -17,7 +17,7 @@ public class K8sPipelineElementMapApi implements Api<K8sPipelineElementMapEntry>
   }
 
   /**
-   * Lists all n:n mapping information between pipelines and their elements.
+   * Lists all n:m mapping information between pipelines and their elements.
    */
   @Override
   public Collection<K8sPipelineElementMapEntry> list() throws SQLException {
@@ -28,8 +28,8 @@ public class K8sPipelineElementMapApi implements Api<K8sPipelineElementMapEntry>
   }
 
   private static Stream<K8sPipelineElementMapEntry> mapEntriesFromElement(K8sPipelineElement element) {
-    String elementName = element.getStatus().getName();
-    return element.getPipelineNames()
+    String elementName = element.status().getName();
+    return element.pipelineNames()
         .stream()
         .map(pipelineName -> new K8sPipelineElementMapEntry(elementName, pipelineName));
   }

@@ -20,11 +20,11 @@ public class K8sPipelineElement {
     this.pipelines.add(pipeline);
   }
 
-  public String getName() {
+  public String name() {
     return name;
   }
 
-  public K8sPipelineElementStatus getStatus() {
+  public K8sPipelineElementStatus status() {
     return status;
   }
 
@@ -32,7 +32,7 @@ public class K8sPipelineElement {
     pipelines.add(pipeline);
   }
 
-  public List<String> getPipelineNames() {
+  public List<String> pipelineNames() {
     return pipelines.stream().map(p -> p.getMetadata().getName()).collect(Collectors.toList());
   }
 }

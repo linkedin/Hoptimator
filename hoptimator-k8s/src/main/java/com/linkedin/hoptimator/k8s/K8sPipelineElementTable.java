@@ -12,18 +12,18 @@ public class K8sPipelineElementTable extends RemoteTable<K8sPipelineElement, K8s
     public String NAME;
     public boolean READY;
     public boolean FAILED;
-    public String STATUS;
+    public String MESSAGE;
 
-    public Row(String name, boolean ready, boolean failed, String status) {
+    public Row(String name, boolean ready, boolean failed, String message) {
       this.NAME = name;
       this.READY = ready;
       this.FAILED = failed;
-      this.STATUS = status;
+      this.MESSAGE = message;
     }
 
     @Override
     public String toString() {
-      return String.join("\t", NAME, String.valueOf(READY), String.valueOf(FAILED), STATUS);
+      return String.join("\t", NAME, String.valueOf(READY), String.valueOf(FAILED), MESSAGE);
     }
   }
   // CHECKSTYLE:ON
@@ -34,7 +34,7 @@ public class K8sPipelineElementTable extends RemoteTable<K8sPipelineElement, K8s
 
   @Override
   public Row toRow(K8sPipelineElement k8sPipelineElement) {
-    K8sPipelineElementStatus status = k8sPipelineElement.getStatus();
+    K8sPipelineElementStatus status = k8sPipelineElement.status();
     return new Row(status.getName(), status.isReady(), status.isFailed(), status.getMessage());
   }
 
