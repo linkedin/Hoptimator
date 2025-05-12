@@ -27,25 +27,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * JobTemplate spec.
+ * TableTrigger spec.
  */
-@ApiModel(description = "JobTemplate spec.")
+@ApiModel(description = "TableTrigger spec.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-12T17:43:51.662Z[Etc/UTC]")
-public class V1alpha1JobTemplateSpec {
-  public static final String SERIALIZED_NAME_DATABASES = "databases";
-  @SerializedName(SERIALIZED_NAME_DATABASES)
-  private List<String> databases = null;
-
+public class V1alpha1TableTriggerSpec {
   /**
    * Gets or Sets operations
    */
   @JsonAdapter(OperationsEnum.Adapter.class)
   public enum OperationsEnum {
-    APPEND("Append"),
+    DELETE("Delete"),
     
-    UPDATE("Update"),
+    INSERT("Insert"),
     
-    DELETE("Delete");
+    UPDATE("Update");
 
     private String value;
 
@@ -89,49 +85,26 @@ public class V1alpha1JobTemplateSpec {
   @SerializedName(SERIALIZED_NAME_OPERATIONS)
   private List<OperationsEnum> operations = null;
 
+  public static final String SERIALIZED_NAME_SCHEMA = "schema";
+  @SerializedName(SERIALIZED_NAME_SCHEMA)
+  private String schema;
+
+  public static final String SERIALIZED_NAME_TABLE = "table";
+  @SerializedName(SERIALIZED_NAME_TABLE)
+  private String table;
+
   public static final String SERIALIZED_NAME_YAML = "yaml";
   @SerializedName(SERIALIZED_NAME_YAML)
   private String yaml;
 
 
-  public V1alpha1JobTemplateSpec databases(List<String> databases) {
-    
-    this.databases = databases;
-    return this;
-  }
-
-  public V1alpha1JobTemplateSpec addDatabasesItem(String databasesItem) {
-    if (this.databases == null) {
-      this.databases = new ArrayList<>();
-    }
-    this.databases.add(databasesItem);
-    return this;
-  }
-
-   /**
-   * Databases this template matches. If null, matches everything.
-   * @return databases
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "Databases this template matches. If null, matches everything.")
-
-  public List<String> getDatabases() {
-    return databases;
-  }
-
-
-  public void setDatabases(List<String> databases) {
-    this.databases = databases;
-  }
-
-
-  public V1alpha1JobTemplateSpec operations(List<OperationsEnum> operations) {
+  public V1alpha1TableTriggerSpec operations(List<OperationsEnum> operations) {
     
     this.operations = operations;
     return this;
   }
 
-  public V1alpha1JobTemplateSpec addOperationsItem(OperationsEnum operationsItem) {
+  public V1alpha1TableTriggerSpec addOperationsItem(OperationsEnum operationsItem) {
     if (this.operations == null) {
       this.operations = new ArrayList<>();
     }
@@ -140,11 +113,11 @@ public class V1alpha1JobTemplateSpec {
   }
 
    /**
-   * Operations this template matches, e.g. Append. If null, matches everything.
+   * Specific operations this trigger matches. If null, matches all operations.
    * @return operations
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Operations this template matches, e.g. Append. If null, matches everything.")
+  @ApiModelProperty(value = "Specific operations this trigger matches. If null, matches all operations.")
 
   public List<OperationsEnum> getOperations() {
     return operations;
@@ -156,18 +129,62 @@ public class V1alpha1JobTemplateSpec {
   }
 
 
-  public V1alpha1JobTemplateSpec yaml(String yaml) {
+  public V1alpha1TableTriggerSpec schema(String schema) {
+    
+    this.schema = schema;
+    return this;
+  }
+
+   /**
+   * The schema the table belongs to, e.g. KAFKA.
+   * @return schema
+  **/
+  @ApiModelProperty(required = true, value = "The schema the table belongs to, e.g. KAFKA.")
+
+  public String getSchema() {
+    return schema;
+  }
+
+
+  public void setSchema(String schema) {
+    this.schema = schema;
+  }
+
+
+  public V1alpha1TableTriggerSpec table(String table) {
+    
+    this.table = table;
+    return this;
+  }
+
+   /**
+   * The table name, e.g. PageViewEvent.
+   * @return table
+  **/
+  @ApiModelProperty(required = true, value = "The table name, e.g. PageViewEvent.")
+
+  public String getTable() {
+    return table;
+  }
+
+
+  public void setTable(String table) {
+    this.table = table;
+  }
+
+
+  public V1alpha1TableTriggerSpec yaml(String yaml) {
     
     this.yaml = yaml;
     return this;
   }
 
    /**
-   * YAML template used to generate K8s specs.
+   * Specifies the Job to re/create when the trigger fires. A name will be generated automatically.
    * @return yaml
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "YAML template used to generate K8s specs.")
+  @ApiModelProperty(value = "Specifies the Job to re/create when the trigger fires. A name will be generated automatically.")
 
   public String getYaml() {
     return yaml;
@@ -187,24 +204,26 @@ public class V1alpha1JobTemplateSpec {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1JobTemplateSpec v1alpha1JobTemplateSpec = (V1alpha1JobTemplateSpec) o;
-    return Objects.equals(this.databases, v1alpha1JobTemplateSpec.databases) &&
-        Objects.equals(this.operations, v1alpha1JobTemplateSpec.operations) &&
-        Objects.equals(this.yaml, v1alpha1JobTemplateSpec.yaml);
+    V1alpha1TableTriggerSpec v1alpha1TableTriggerSpec = (V1alpha1TableTriggerSpec) o;
+    return Objects.equals(this.operations, v1alpha1TableTriggerSpec.operations) &&
+        Objects.equals(this.schema, v1alpha1TableTriggerSpec.schema) &&
+        Objects.equals(this.table, v1alpha1TableTriggerSpec.table) &&
+        Objects.equals(this.yaml, v1alpha1TableTriggerSpec.yaml);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(databases, operations, yaml);
+    return Objects.hash(operations, schema, table, yaml);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1JobTemplateSpec {\n");
-    sb.append("    databases: ").append(toIndentedString(databases)).append("\n");
+    sb.append("class V1alpha1TableTriggerSpec {\n");
     sb.append("    operations: ").append(toIndentedString(operations)).append("\n");
+    sb.append("    schema: ").append(toIndentedString(schema)).append("\n");
+    sb.append("    table: ").append(toIndentedString(table)).append("\n");
     sb.append("    yaml: ").append(toIndentedString(yaml)).append("\n");
     sb.append("}");
     return sb.toString();
