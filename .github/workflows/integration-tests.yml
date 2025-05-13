@@ -55,6 +55,11 @@ jobs:
         kubectl get flinkdeployments
         kubectl get subscriptions
         kubectl get pipelines
+        kubectl get tabletemplates
+        kubectl get jobtemplates
+        kubectl get tabletriggers
+        kubectl get cronjobs
+        kubectl get jobs
     - name: Capture Flink Job Logs
       if: always()
       run: |

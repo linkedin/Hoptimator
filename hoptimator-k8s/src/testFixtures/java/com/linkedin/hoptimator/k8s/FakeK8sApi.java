@@ -8,8 +8,6 @@ import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.util.Yaml;
 
-import com.linkedin.hoptimator.util.Api;
-
 
 public class FakeK8sApi<T extends KubernetesObject, U extends KubernetesListObject> extends K8sApi<T, U> {
 

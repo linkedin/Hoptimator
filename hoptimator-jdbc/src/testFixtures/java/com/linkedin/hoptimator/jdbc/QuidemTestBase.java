@@ -66,7 +66,7 @@ public abstract class QuidemTestBase {
       String line = output.get(i);
       String expected = input.get(i);
       Assertions.assertEquals(expected, line,
-        "Context\n:" + String.join("\n", output.subList(i, Math.min(i + 10, output.size() - 1))));
+        "Context:\n" + String.join("\n", output.subList(i, Math.min(i + 10, output.size() - 1))));
     }
   }
 

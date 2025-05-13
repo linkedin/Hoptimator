@@ -1,19 +1,11 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import org.apache.calcite.schema.Schema;
 
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
-import com.linkedin.hoptimator.Engine;
-import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 
 
 public class K8sTableTriggerTable extends K8sTable<V1alpha1TableTrigger, V1alpha1TableTriggerList, K8sTableTriggerTable.Row> {
