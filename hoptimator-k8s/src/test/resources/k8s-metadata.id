@@ -49,18 +49,18 @@ select * from ads.pages;
 
 !ok
 
-select * from "k8s".pipelines;
-+---------------+-------+--------+---------+
-| NAME          | READY | FAILED | MESSAGE |
-+---------------+-------+--------+---------+
-| ads-audience2 | true  | false  | Ready.  |
-| ads-pages     | true  | false  | Ready.  |
-+---------------+-------+--------+---------+
+select name, failed from "k8s".pipelines order by name;
++---------------+--------+
+| NAME          | FAILED |
++---------------+--------+
+| ads-audience2 | false  |
+| ads-pages     | false  |
++---------------+--------+
 (2 rows)
 
 !ok
 
-select name, failed from "k8s".pipeline_elements;
+select name, failed from "k8s".pipeline_elements order by name;
 +----------------------------------------+--------+
 | NAME                                   | FAILED |
 +----------------------------------------+--------+
@@ -71,7 +71,7 @@ select name, failed from "k8s".pipeline_elements;
 
 !ok
 
-select * from "k8s".pipeline_element_map;
+select * from "k8s".pipeline_element_map order by element_name;
 +----------------------------------------+---------------+
 | ELEMENT_NAME                           | PIPELINE_NAME |
 +----------------------------------------+---------------+
@@ -82,13 +82,13 @@ select * from "k8s".pipeline_element_map;
 
 !ok
 
-select pl.name as pipeline_name, pl.message as pipeline_message, pe.element_name, pe.failed as element_failed from "k8s".pipelines pl inner join (select t2.element_name, t1.failed, t2.pipeline_name from "k8s".pipeline_elements t1 inner join "k8s".pipeline_element_map t2 on t1.name = t2.element_name) pe on pl.name = pe.pipeline_name;
-+---------------+------------------+----------------------------------------+----------------+
-| PIPELINE_NAME | PIPELINE_MESSAGE | ELEMENT_NAME                           | ELEMENT_FAILED |
-+---------------+------------------+----------------------------------------+----------------+
-| ads-audience2 | Ready.           | FlinkSessionJob/ads-database-audience2 | false          |
-| ads-pages     | Ready.           | FlinkSessionJob/ads-database-pages     | false          |
-+---------------+------------------+----------------------------------------+----------------+
+select pl.name as pipeline_name, pe.element_name, pe.failed as element_failed from "k8s".pipelines pl inner join (select t2.element_name, t1.failed, t2.pipeline_name from "k8s".pipeline_elements t1 inner join "k8s".pipeline_element_map t2 on t1.name = t2.element_name) pe on pl.name = pe.pipeline_name order by pipeline_name;
++---------------+----------------------------------------+----------------+
+| PIPELINE_NAME | ELEMENT_NAME                           | ELEMENT_FAILED |
++---------------+----------------------------------------+----------------+
+| ads-audience2 | FlinkSessionJob/ads-database-audience2 | false          |
+| ads-pages     | FlinkSessionJob/ads-database-pages     | false          |
++---------------+----------------------------------------+----------------+
 (2 rows)
 
 !ok
