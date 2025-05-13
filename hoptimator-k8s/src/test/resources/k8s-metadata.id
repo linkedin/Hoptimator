@@ -92,3 +92,13 @@ select pl.name as pipeline_name, pl.message as pipeline_message, pe.element_name
 (2 rows)
 
 !ok
+
+select * from "k8s".TABLE_TRIGGERS;
++--------------------+--------+------------------+-----------+-----------+
+| NAME               | SCHEMA | TABLE            | TIMESTAMP | WATERMARK |
++--------------------+--------+------------------+-----------+-----------+
+| test-table-trigger | KAFKA  | existing-topic-1 |           |           |
++--------------------+--------+------------------+-----------+-----------+
+(1 row)
+
+!ok

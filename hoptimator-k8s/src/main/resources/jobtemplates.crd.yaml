@@ -40,13 +40,4 @@ spec:
                   type: array
                   items:
                     type: string
-                operations:
-                  description: Operations this template matches, e.g. Append. If null, matches everything.
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                    - Append
-                    - Update
-                    - Delete
 
