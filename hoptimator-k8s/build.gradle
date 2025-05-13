@@ -1,5 +1,6 @@
 plugins {
   id 'java'
+  id 'java-test-fixtures'
   id 'maven-publish'
 }
 
@@ -9,6 +10,10 @@ dependencies {
   implementation project(':hoptimator-util')
   implementation libs.calcite.server
   implementation libs.kubernetes.client
+
+  testFixturesImplementation libs.kubernetes.client
+  testFixturesImplementation project(':hoptimator-api')
+  testFixturesImplementation project(':hoptimator-util')
 
   // These are included in case the respective Databases are installed
   testRuntimeOnly project(':hoptimator-demodb')
