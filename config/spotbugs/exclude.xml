@@ -7,4 +7,21 @@
   <Match>
     <Class name="~.*models.*"/>
   </Match>
+
+  <!--
+    Allow a class to hold or return mutable objects. While this has obvious risks, it is much too
+    common a pattern to treat as a bug.
+  -->
+  <Match>
+    <Bug code="EI, EI2"/>
+  </Match>
+
+    <!--
+        Allow CT_CONSTRUCTOR_THROW in PipelineRules. The constructor pattern used by Calcite makes this
+        unavoidable for new rules.
+    -->
+  <Match>
+    <Class name="~.*PipelineRules.*"/>
+    <Bug code="CT"/>
+  </Match>
 </FindBugsFilter>

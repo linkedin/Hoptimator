@@ -44,24 +44,25 @@ public final class DataTypeUtils {
 
   private static void flattenInto(RelDataTypeFactory typeFactory, RelDataType dataType,
       RelDataTypeFactory.Builder builder, List<String> path) {
-    if (dataType.getComponentType() != null) {
+    RelDataType componentType = dataType.getComponentType();
+    if (componentType != null) {
       // Handles ARRAY types
-      if (dataType.getComponentType().isStruct()) {
+      if (componentType.isStruct()) {
         // Handles arrays of record types
         builder.add(String.join("$", path), typeFactory.createArrayType(
             typeFactory.createSqlType(SqlTypeName.ANY), -1));
-        for (RelDataTypeField field : dataType.getComponentType().getFieldList()) {
+        for (RelDataTypeField field : componentType.getFieldList()) {
           flattenInto(typeFactory, field.getType(), builder, Stream.concat(path.stream(),
               Stream.of(field.getName())).collect(Collectors.toList()));
         }
-      } else if (dataType.getComponentType() instanceof BasicSqlType) {
+      } else if (componentType instanceof BasicSqlType) {
         // Handles primitive arrays
         builder.add(String.join("$", path), dataType);
       } else {
         // Handles nested arrays
         builder.add(String.join("$", path), typeFactory.createArrayType(
             typeFactory.createSqlType(SqlTypeName.ANY), -1));
-        flattenInto(typeFactory, dataType.getComponentType(), builder, Stream.concat(path.stream(),
+        flattenInto(typeFactory, componentType, builder, Stream.concat(path.stream(),
             Stream.of(ARRAY_TYPE)).collect(Collectors.toList()));
       }
     } else if (dataType.isStruct()) {
@@ -135,13 +136,19 @@ public final class DataTypeUtils {
 
 
   private static boolean isComplexArray(RelDataType dataType) {
-    return dataType != null && dataType.getComponentType() != null
-        && (dataType.getComponentType().getSqlTypeName().equals(SqlTypeName.ANY));
+    if (dataType == null) {
+      return false;
+    }
+    RelDataType componentType = dataType.getComponentType();
+    if (componentType == null) {
+      return false;
+    }
+    return componentType.getSqlTypeName().equals(SqlTypeName.ANY);
   }
 
   private static class Node {
     RelDataType dataType;
-    LinkedHashMap<String, Node> children = new LinkedHashMap<>();
+    final LinkedHashMap<String, Node> children = new LinkedHashMap<>();
 
     Node(RelDataType dataType) {
       this.dataType = dataType;

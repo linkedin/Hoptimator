@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -59,7 +60,7 @@ public final class SubscriptionReconciler implements Reconciler {
 
     Result result = new Result(true, operator.pendingRetryDuration());
     try {
-      V1alpha1Subscription object = operator.<V1alpha1Subscription>fetch(SUBSCRIPTION, namespace, name);
+      V1alpha1Subscription object = operator.fetch(SUBSCRIPTION, namespace, name);
 
       if (object == null) {
         log.info("Object {}/{} deleted. Skipping.", namespace, name);
@@ -73,7 +74,7 @@ public final class SubscriptionReconciler implements Reconciler {
 
       String kind = object.getKind();
 
-      object.getMetadata().setNamespace(namespace);
+      Objects.requireNonNull(object.getMetadata()).setNamespace(namespace);
 
       V1alpha1SubscriptionStatus status = object.getStatus();
       if (status == null) {
@@ -81,7 +82,7 @@ public final class SubscriptionReconciler implements Reconciler {
         object.setStatus(status);
       }
 
-      if (object.getSpec().getHints() == null) {
+      if (Objects.requireNonNull(object.getSpec()).getHints() == null) {
         object.getSpec().setHints(new HashMap<>());
       }
 
@@ -167,7 +168,7 @@ public final class SubscriptionReconciler implements Reconciler {
       } else {
         log.info("Checking status of pipeline for {}/{}...", kind, name);
 
-        boolean ready = status.getResources().stream().allMatch(operator::isReady);
+        boolean ready = Objects.requireNonNull(status.getResources()).stream().allMatch(operator::isReady);
 
         if (ready) {
           status.setReady(true);
@@ -208,8 +209,8 @@ public final class SubscriptionReconciler implements Reconciler {
   }
 
   private Pipeline pipeline(V1alpha1Subscription object) throws Exception {
-    String name = object.getMetadata().getName();
-    String sql = object.getSpec().getSql();
+    String name = Objects.requireNonNull(object.getMetadata()).getName();
+    String sql = Objects.requireNonNull(object.getSpec()).getSql();
     String database = object.getSpec().getDatabase();
     HoptimatorPlanner planner = plannerFactory.makePlanner();
     PipelineRel plan = planner.pipeline(sql);

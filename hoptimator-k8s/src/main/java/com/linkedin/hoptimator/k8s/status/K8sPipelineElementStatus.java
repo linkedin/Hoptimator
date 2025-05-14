@@ -36,13 +36,11 @@ public class K8sPipelineElementStatus {
 
   @Override
   public String toString() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("class K8sPipelineElementStatus {\n");
-    sb.append("    name: ").append(ready).append("\n");
-    sb.append("    ready: ").append(ready).append("\n");
-    sb.append("    failed: ").append(failed).append("\n");
-    sb.append("    message: ").append(message).append("\n");
-    sb.append("}");
-    return sb.toString();
+    return "class K8sPipelineElementStatus {\n"
+        + "    name: " + ready + "\n"
+        + "    ready: " + ready + "\n"
+        + "    failed: " + failed + "\n"
+        + "    message: " + message + "\n"
+        + "}";
   }
 }

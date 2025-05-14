@@ -20,10 +20,12 @@
 package com.linkedin.hoptimator.jdbc;
 
 import java.io.Reader;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -79,7 +81,6 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     this.connectionProperties = connection.connectionProperties();
   }
 
-  @SuppressWarnings("unused") // used via reflection
   public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
     @Override
     public SqlAbstractParserImpl getParser(Reader stream) {
@@ -230,7 +231,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
 
       schemaPlus.add(viewName, materializedViewTable);
-    } catch (Exception e) {
+    } catch (SQLException e) {
       throw new DdlException(create, e.getMessage(), e);
     }
   }
@@ -296,7 +297,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
     for (String p : path) {
-      schema = schema.getSubSchema(p, true);
+      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
     }
     return Pair.of(schema, name);
   }

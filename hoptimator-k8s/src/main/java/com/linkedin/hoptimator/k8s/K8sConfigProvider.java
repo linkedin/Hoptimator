@@ -23,7 +23,7 @@ public class K8sConfigProvider implements ConfigProvider {
 
   // Load top-level config map properties
   private Map<String, String> loadTopLevelConfig(String configMapName, Properties connectionProperties) throws SQLException {
-    K8sContext context = new K8sContext(connectionProperties);
+    K8sContext context = K8sContext.create(connectionProperties);
     K8sApi<V1ConfigMap, V1ConfigMapList> configMapApi = new K8sApi<>(context, K8sApiEndpoints.CONFIG_MAPS);
     String namespace = context.namespace();
     if (namespace == null || namespace.isEmpty()) {

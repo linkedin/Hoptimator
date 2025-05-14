@@ -65,6 +65,8 @@ import org.apache.calcite.sql.util.SqlString;
 import org.apache.calcite.util.BuiltInMethod;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import com.google.common.collect.ImmutableList;
+
 import com.linkedin.hoptimator.util.DelegatingDataSource;
 import com.linkedin.hoptimator.util.DeploymentService;
 
@@ -200,8 +202,8 @@ public class RemoteToEnumerableConverter
 
     final Expression enumerable;
 
-    if (sqlString.getDynamicParameters() != null
-        && !sqlString.getDynamicParameters().isEmpty()) {
+    ImmutableList<Integer> dynamicParameters = sqlString.getDynamicParameters();
+    if (dynamicParameters != null && !dynamicParameters.isEmpty()) {
       final Expression preparedStatementConsumer =
           builder0.append("preparedStatementConsumer",
               Expressions.call(BuiltInMethod.CREATE_ENRICHER.method,

@@ -5,7 +5,7 @@ import org.apache.calcite.plan.Convention;
 import com.linkedin.hoptimator.Engine;
 
 
-class RemoteConvention extends Convention.Impl {
+public class RemoteConvention extends Convention.Impl {
 
   private final Engine engine;
 

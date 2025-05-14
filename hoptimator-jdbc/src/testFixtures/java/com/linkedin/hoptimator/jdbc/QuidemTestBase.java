@@ -45,7 +45,8 @@ public abstract class QuidemTestBase {
   protected void run(URI resource, String jdbcProperties) throws IOException {
     File in = new File(resource);
     File out = File.createTempFile(in.getName(), ".out");
-    try (Reader r = new FileReader(in); Writer w = new PrintWriter(out)) {
+    try (Reader r = new FileReader(in, StandardCharsets.UTF_8);
+         Writer w = new PrintWriter(Files.newBufferedWriter(out.toPath(), StandardCharsets.UTF_8))) {
       Quidem.Config config = Quidem.configBuilder()
           .withReader(r)
           .withWriter(w)

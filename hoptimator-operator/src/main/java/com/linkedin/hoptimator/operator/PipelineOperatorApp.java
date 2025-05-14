@@ -61,7 +61,7 @@ public class PipelineOperatorApp {
   }
 
   public void run() throws Exception {
-    K8sContext context = new K8sContext(connectionProperties);
+    K8sContext context = K8sContext.create(connectionProperties);
 
     // register informers
     context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), watchNamespace);

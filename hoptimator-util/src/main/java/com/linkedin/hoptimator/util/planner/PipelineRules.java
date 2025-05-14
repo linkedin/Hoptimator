@@ -287,7 +287,8 @@ public final class PipelineRules {
     public RelNode convert(RelNode rel) {
       Calc calc = (Calc) rel;
       RelTraitSet traitSet = calc.getTraitSet().replace(PipelineRel.CONVENTION);
-      return new PipelineCalc(rel.getCluster(), traitSet, calc.getHints(), convert(calc.getInput()), calc.getProgram());
+      return new PipelineCalc(rel.getCluster(), traitSet, calc.getHints(), convert(calc.getInput(), PipelineRel.CONVENTION),
+          calc.getProgram());
     }
   }
 

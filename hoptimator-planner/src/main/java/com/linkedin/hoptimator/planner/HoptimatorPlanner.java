@@ -14,8 +14,6 @@ import javax.sql.DataSource;
 
 import org.apache.calcite.adapter.jdbc.JdbcCatalogSchema;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
-import org.apache.calcite.config.CalciteConnectionConfig;
-import org.apache.calcite.config.CalciteConnectionConfigImpl;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.model.ModelHandler;
@@ -46,17 +44,17 @@ import com.linkedin.hoptimator.catalog.DatabaseSchema;
 /** A one-shot stateful object, which creates Pipelines from SQL. */
 public class HoptimatorPlanner {
 
-  public static final List<RelOptRule> RULE_SET = Arrays.asList(
-      new RelOptRule[]{PruneEmptyRules.PROJECT_INSTANCE, PruneEmptyRules.FILTER_INSTANCE,
-          CoreRules.PROJECT_TO_SEMI_JOIN,
-          //CoreRules.JOIN_ON_UNIQUE_TO_SEMI_JOIN, // not in this version of calcite
-          CoreRules.JOIN_TO_SEMI_JOIN, CoreRules.MATCH, CoreRules.PROJECT_MERGE, CoreRules.FILTER_MERGE,
-          CoreRules.AGGREGATE_STAR_TABLE, CoreRules.AGGREGATE_PROJECT_STAR_TABLE, CoreRules.FILTER_SCAN,
-          CoreRules.FILTER_TO_CALC, CoreRules.PROJECT_TO_CALC, CoreRules.FILTER_PROJECT_TRANSPOSE,
-          CoreRules.PROJECT_CALC_MERGE, CoreRules.FILTER_CALC_MERGE, CoreRules.CALC_MERGE, CoreRules.FILTER_INTO_JOIN,
-          CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES, CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
-          CoreRules.FILTER_AGGREGATE_TRANSPOSE, CoreRules.JOIN_COMMUTE, JoinPushThroughJoinRule.RIGHT,
-          JoinPushThroughJoinRule.LEFT, CoreRules.SORT_PROJECT_TRANSPOSE});
+  private static final List<RelOptRule> RULE_SET = Arrays.asList(
+      PruneEmptyRules.PROJECT_INSTANCE, PruneEmptyRules.FILTER_INSTANCE,
+      CoreRules.PROJECT_TO_SEMI_JOIN,
+      //CoreRules.JOIN_ON_UNIQUE_TO_SEMI_JOIN, // not in this version of calcite
+      CoreRules.JOIN_TO_SEMI_JOIN, CoreRules.MATCH, CoreRules.PROJECT_MERGE, CoreRules.FILTER_MERGE,
+      CoreRules.AGGREGATE_STAR_TABLE, CoreRules.AGGREGATE_PROJECT_STAR_TABLE, CoreRules.FILTER_SCAN,
+      CoreRules.FILTER_TO_CALC, CoreRules.PROJECT_TO_CALC, CoreRules.FILTER_PROJECT_TRANSPOSE,
+      CoreRules.PROJECT_CALC_MERGE, CoreRules.FILTER_CALC_MERGE, CoreRules.CALC_MERGE, CoreRules.FILTER_INTO_JOIN,
+      CoreRules.AGGREGATE_EXPAND_DISTINCT_AGGREGATES, CoreRules.AGGREGATE_REDUCE_FUNCTIONS,
+      CoreRules.FILTER_AGGREGATE_TRANSPOSE, CoreRules.JOIN_COMMUTE, JoinPushThroughJoinRule.RIGHT,
+      JoinPushThroughJoinRule.LEFT, CoreRules.SORT_PROJECT_TRANSPOSE);
 
   /** HoptimatorPlanner is a one-shot stateful object, so we construct them via factories */
   public interface Factory {
@@ -112,7 +110,6 @@ public class HoptimatorPlanner {
     SqlNode parsed = planner.parse(sql);
     SqlNode validated = planner.validate(parsed);
     RelNode logicalPlan = planner.rel(validated).project();
-    RelTraitSet traitSet = logicalPlan.getTraitSet();
     planner.close();
     return logicalPlan;
   }
@@ -126,12 +123,10 @@ public class HoptimatorPlanner {
     if (subSchema == null) {
       throw new NoSuchElementException("No database '" + name + "' found in schema '" + rootName + "'");
     }
-    if (subSchema instanceof SchemaPlus) {
-      subSchema = ((SchemaPlus) subSchema).unwrap(DatabaseSchema.class);
-    }
-    if (!(subSchema instanceof DatabaseSchema)) {
+    subSchema = ((SchemaPlus) subSchema).unwrap(DatabaseSchema.class);
+    if (subSchema == null) {
       throw new IllegalArgumentException("No database '" + name + "' found in schema '" + rootName
-          + "'. A sub-schema was found, but it is not a DatabaseSchema. Found instead: " + subSchema.toString());
+          + "'. A sub-schema was found, but it is null");
     }
     return ((DatabaseSchema) subSchema).database();
   }
@@ -150,17 +145,15 @@ public class HoptimatorPlanner {
   public static HoptimatorPlanner fromModelFile(String filePath, Properties properties)
       throws SQLException, IOException {
     Driver driver = new Driver();
-    CalciteConnectionConfig connectionConfig = new CalciteConnectionConfigImpl(properties);
     CalciteConnection connection = (CalciteConnection) driver.connect("jdbc:calcite:", properties);
     SchemaPlus schema = connection.getRootSchema();
-    ModelHandler modelHandler;
     if (!new File(filePath).isFile()) {
       URL url = Resources.getResource(filePath);
       String text = Resources.toString(url, StandardCharsets.UTF_8);
       // ModelHandler can't directly read from resources, so we use "inline:" to load it dynamically
-      modelHandler = new ModelHandler(connection, "inline:" + text); // side-effect: modifies connection
+      new ModelHandler(connection, "inline:" + text); // side-effect: modifies connection
     } else {
-      modelHandler = new ModelHandler(connection, filePath); // side-effect: modifies connection
+      new ModelHandler(connection, filePath); // side-effect: modifies connection
     }
     return new HoptimatorPlanner(schema);
   }

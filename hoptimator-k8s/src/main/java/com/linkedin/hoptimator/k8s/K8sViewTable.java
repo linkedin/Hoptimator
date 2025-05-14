@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.schema.Schema;
@@ -41,8 +42,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     }
 
     public List<String> viewPath() {
-      List<String> path = new ArrayList<>();
-      path.addAll(schemaPath());
+      List<String> path = new ArrayList<>(schemaPath());
       path.add(viewName());
       return path;
     }
@@ -85,14 +85,14 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
       // build schema path, filling in any missing schemas
       SchemaPlus schema = parentSchema;
       for (String pos : row.schemaPath()) {
-        SchemaPlus next = schema.getSubSchema(pos);
+        SchemaPlus next = Objects.requireNonNull(schema).getSubSchema(pos);
         if (next == null) {
           schema.add(pos, new AbstractSchema());
           next = schema.getSubSchema(pos);
         }
         schema = next;
       }
-      schema.add(row.viewName(), makeView(schema, row));
+      Objects.requireNonNull(schema).add(row.viewName(), makeView(schema, row));
     }
   }
 
@@ -134,8 +134,8 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
 
   @Override
   public Row toRow(V1alpha1View obj) {
-    return new Row(obj.getMetadata().getName(), obj.getSpec().getSchema(), obj.getSpec().getView(),
-        obj.getSpec().getSql(), Boolean.TRUE.equals(obj.getSpec().getMaterialized()));
+    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getSpec()).getSchema(),
+        obj.getSpec().getView(), obj.getSpec().getSql(), Boolean.TRUE.equals(obj.getSpec().getMaterialized()));
   }
 
   @Override

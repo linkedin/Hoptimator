@@ -27,7 +27,7 @@ public interface Validator extends Validated {
   }
 
   static <T, U> void validateUnique(Collection<T> collection, Function<T, U> accessor, Issues issues) {
-    Set<U> keys = new HashSet<U>();
+    Set<U> keys = new HashSet<>();
     for (T t : collection) {
       U u = accessor.apply(t);
       if (keys.contains(u)) {
@@ -149,17 +149,13 @@ public interface Validator extends Validated {
         return "";
       }
       StringBuilder sb = new StringBuilder();
-      for (int i = 0; i < indentLevel; i++) {
-        sb.append("  ");
-      }
+      sb.append("  ".repeat(Math.max(0, indentLevel)));
       if (context != null && !context.isEmpty()) {
         sb.append(context);
         sb.append(":\n");
       }
       for (String s : issues) {
-        for (int i = 0; i < indentLevel; i++) {
-          sb.append("  ");
-        }
+        sb.append("  ".repeat(Math.max(0, indentLevel)));
         sb.append("- ");
         sb.append(s);
         sb.append("\n");

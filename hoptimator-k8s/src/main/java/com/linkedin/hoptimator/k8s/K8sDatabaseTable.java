@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.StringJoiner;
@@ -59,8 +60,8 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
 
   @Override
   public Row toRow(V1alpha1Database obj) {
-    return new Row(obj.getMetadata().getName(), obj.getSpec().getUrl(), obj.getSpec().getSchema(),
-        Optional.ofNullable(obj.getSpec().getDialect()).map(x -> x.toString()).orElseGet(() -> null),
+    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getSpec()).getUrl(),
+        obj.getSpec().getSchema(), Optional.ofNullable(obj.getSpec().getDialect()).map(V1alpha1DatabaseSpec.DialectEnum::toString).orElse(null),
         obj.getSpec().getDriver());
   }
 

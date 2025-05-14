@@ -2,6 +2,8 @@ package com.linkedin.hoptimator.avro;
 
 import java.util.AbstractMap;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.apache.avro.Schema;
@@ -44,10 +46,10 @@ public final class AvroConverter {
         case BOOLEAN:
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:
-          return createAvroSchemaWithNullability(Schema.createArray(avro(null, null, dataType.getComponentType())),
+          return createAvroSchemaWithNullability(Schema.createArray(avro(null, null, Objects.requireNonNull(dataType.getComponentType()))),
               dataType.isNullable());
         case MAP:
-          return createAvroSchemaWithNullability(Schema.createMap(avro(null, null, dataType.getValueType())),
+          return createAvroSchemaWithNullability(Schema.createMap(avro(null, null, Objects.requireNonNull(dataType.getValueType()))),
               dataType.isNullable());
         case UNKNOWN:
         case NULL:
@@ -118,8 +120,11 @@ public final class AvroConverter {
       case UNION:
         boolean isNullable = schema.isNullable();
         if (schema.isNullable() && schema.getTypes().size() == 2) {
-          Schema innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst().get();
-          return typeFactory.createTypeWithNullability(rel(innerType, typeFactory, true), true);
+          Optional<Schema> innerType = schema.getTypes().stream().filter(x -> x.getType() != Schema.Type.NULL).findFirst();
+          if (innerType.isEmpty()) {
+            throw new IllegalArgumentException("Union schema must contain at least one non-null type");
+          }
+          return typeFactory.createTypeWithNullability(rel(innerType.get(), typeFactory, true), true);
         }
         // Since we collapse complex unions into separate fields, each of these fields needs to be nullable
         // as only one of the group will be present in any given record.

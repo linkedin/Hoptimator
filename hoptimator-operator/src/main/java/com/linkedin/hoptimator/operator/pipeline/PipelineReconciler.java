@@ -1,5 +1,17 @@
 package com.linkedin.hoptimator.operator.pipeline;
 
+import java.sql.SQLException;
+import java.time.Duration;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
@@ -8,16 +20,6 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
 import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
 import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.sql.SQLException;
-import java.time.Duration;
 
 
 /**

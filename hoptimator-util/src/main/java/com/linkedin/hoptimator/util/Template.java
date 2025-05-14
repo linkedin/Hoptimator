@@ -157,7 +157,7 @@ public interface Template {
    *      all upper case.
    *   - `{{var toLowerCase}}`, `{{var:default toLowerCase}}`: render in
    *     all lower case.
-   *   - `{{var concat}}`, `{{var:default concat}}`: concatinate a multiline
+   *   - `{{var concat}}`, `{{var:default concat}}`: concatenate a multiline
    *     string into one line
    *   - `{{var concat toUpperCase}}`: apply both transformations in sequence.
    * <p>
@@ -189,7 +189,7 @@ public interface Template {
 
     @Override
     public String render(Environment env) {
-      StringBuffer sb = new StringBuffer();
+      StringBuilder sb = new StringBuilder();
       Pattern p =
           Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]*))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
       Matcher m = p.matcher(template);

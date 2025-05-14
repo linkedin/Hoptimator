@@ -14,7 +14,7 @@ import com.linkedin.hoptimator.util.RemoteTable;
 /** A table prints whatever you INSERT into it. */
 public class PrintTable extends RemoteTable<String, Object> {
 
-  private static final Api<String> API = new Api<String>() {
+  private static final Api<String> API = new Api<>() {
 
     @Override
     public Collection<String> list() {

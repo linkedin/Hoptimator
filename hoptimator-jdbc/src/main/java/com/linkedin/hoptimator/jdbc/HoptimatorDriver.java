@@ -88,6 +88,7 @@ public class HoptimatorDriver implements java.sql.Driver {
     if (!acceptsURL(url)) {
       return null;
     }
+    Connection connection = null;
     try {
       // Load properties from the URL and from getConnection()'s properties.
       // URL properties take precedence.
@@ -99,7 +100,7 @@ public class HoptimatorDriver implements java.sql.Driver {
       // to return our Prepare. But our Prepare requires a HoptimatorConnection, which
       // we cannot construct yet.
       ConnectionHolder holder = new ConnectionHolder();
-      Connection connection = new Driver().withPrepareFactory(() -> new Prepare(holder))
+      connection = new Driver().withPrepareFactory(() -> new Prepare(holder))
           .connect("jdbc:calcite:", properties);
       if (connection == null) {
         throw new IOException("Could not connect to " + url + ": Could not create Calcite connection.");
@@ -132,6 +133,9 @@ public class HoptimatorDriver implements java.sql.Driver {
       }
       return hoptimatorConnection;
     } catch (IOException | SQLTransientException e) {
+      if (connection != null) {
+        connection.close();
+      }
       throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {
       throw new SQLNonTransientException("Problem loading " + url, e);

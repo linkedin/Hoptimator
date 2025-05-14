@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.operator.kafka;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 
 import org.apache.kafka.clients.admin.AdminClient;
@@ -45,14 +46,14 @@ public class KafkaTopicAclReconciler implements Reconciler {
     String namespace = request.getNamespace();
 
     try {
-      V1alpha1Acl object = operator.<V1alpha1Acl>fetch(ACL, namespace, name);
+      V1alpha1Acl object = operator.fetch(ACL, namespace, name);
 
       if (object == null) {
         log.info("Object {}/{} deleted. Skipping.", namespace, name);
         return new Result(false);
       }
 
-      String targetKind = object.getSpec().getResource().getKind();
+      String targetKind = Objects.requireNonNull(object.getSpec()).getResource().getKind();
 
       if (!"KafkaTopic".equals(targetKind)) {
         log.info("Not a KafkaTopic Acl. Skipping.");
@@ -76,7 +77,7 @@ public class KafkaTopicAclReconciler implements Reconciler {
       String targetName = object.getSpec().getResource().getName();
       String principal = object.getSpec().getPrincipal();
 
-      V1alpha1KafkaTopic target = operator.<V1alpha1KafkaTopic>fetch(KAFKATOPIC, namespace, targetName);
+      V1alpha1KafkaTopic target = operator.fetch(KAFKATOPIC, namespace, targetName);
 
       if (target == null) {
         log.info("Target KafkaTopic {}/{} not found. Retrying.", namespace, targetName);
@@ -85,8 +86,8 @@ public class KafkaTopicAclReconciler implements Reconciler {
 
       // assemble AdminClient config
       ConfigAssembler assembler = new ConfigAssembler(operator);
-      list(target.getSpec().getClientConfigs()).forEach(
-          x -> assembler.addRef(namespace, x.getConfigMapRef().getName()));
+      list(Objects.requireNonNull(target.getSpec()).getClientConfigs()).forEach(
+          x -> assembler.addRef(namespace, Objects.requireNonNull(x.getConfigMapRef()).getName()));
       map(target.getSpec().getClientOverrides()).forEach(assembler::addOverride);
       Properties properties = assembler.assembleProperties();
       log.info("Using AdminClient config: {}", properties);
@@ -108,19 +109,11 @@ public class KafkaTopicAclReconciler implements Reconciler {
   }
 
   private static <T> List<T> list(List<T> maybeNull) {
-    if (maybeNull == null) {
-      return Collections.emptyList();
-    } else {
-      return maybeNull;
-    }
+    return Objects.requireNonNullElse(maybeNull, Collections.emptyList());
   }
 
   private static <K, V> Map<K, V> map(Map<K, V> maybeNull) {
-    if (maybeNull == null) {
-      return Collections.emptyMap();
-    } else {
-      return maybeNull;
-    }
+    return Objects.requireNonNullElse(maybeNull, Collections.emptyMap());
   }
 }
 
