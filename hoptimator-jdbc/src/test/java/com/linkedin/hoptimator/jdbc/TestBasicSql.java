@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
+import java.util.Arrays;
+
 import org.junit.jupiter.api.Test;
 
 
@@ -21,6 +23,8 @@ public class TestBasicSql extends JdbcTestBase {
     sql("CREATE TABLE T2 (A VARCHAR, B INT)");
     sql("INSERT INTO T2 SELECT * FROM T1");
     assertQueriesEqual("SELECT * FROM T1", "SELECT * FROM T2");
+    assertResultSetsEqual(query("SELECT * FROM T1 WHERE X = 'one'"),
+        queryUsingPreparedStatement("SELECT * FROM T1 WHERE X = ?", Arrays.asList("one")));
     sql("DROP TABLE T1");
     sql("DROP TABLE T2");
   }

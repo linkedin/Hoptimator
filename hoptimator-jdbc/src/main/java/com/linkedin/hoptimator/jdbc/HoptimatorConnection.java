@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -30,6 +31,11 @@ public class HoptimatorConnection extends DelegatingConnection {
   @Override
   public Statement createStatement() throws SQLException {
     return connection.createStatement();
+  }
+
+  @Override
+  public PreparedStatement prepareStatement(String sql) throws SQLException {
+    return connection.prepareStatement(sql);
   }
 
   public Properties connectionProperties() {
