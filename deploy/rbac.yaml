@@ -5,12 +5,15 @@ metadata:
   name: hoptimator-operator
 rules:
 - apiGroups: ["hoptimator.linkedin.com"]
-  resources: ["acls", "databases", "engines", "jobtemplates", "kafkatopics", "pipelines", "sqljobs", "subscriptions", "tabletemplates", "views"]
+  resources: ["acls", "databases", "engines", "jobtemplates", "kafkatopics", "pipelines", "sqljobs", "subscriptions", "tabletemplates", "tabletriggers", "views"]
   verbs: ["get", "watch", "list", "update", "create"]
 - apiGroups: ["hoptimator.linkedin.com"]
-  resources: ["acls/status", "kafkatopics/status", "pipelines/status", "sqljobs/status", "subscriptions/status"]
-  verbs: ["get", "patch"]
+  resources: ["acls/status", "kafkatopics/status", "pipelines/status", "sqljobs/status", "subscriptions/status", "tabletriggers/status"]
+  verbs: ["get", "patch", "update", "create"]
 - apiGroups: ["flink.apache.org"]
   resources: ["flinkdeployments", "flinksessionjobs"]
   verbs: ["get", "update", "create"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["list", "create", "delete"]
 

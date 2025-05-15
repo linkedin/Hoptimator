@@ -2,6 +2,8 @@ package com.linkedin.hoptimator.k8s;
 
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1ConfigMapList;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobList;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1NamespaceList;
 import io.kubernetes.client.openapi.models.V1Secret;
@@ -17,6 +19,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 
@@ -31,6 +35,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1ConfigMap, V1ConfigMapList> CONFIG_MAPS =
       new K8sApiEndpoint<>("ConfigMap", "", "v1", "configmaps", false,
           V1ConfigMap.class, V1ConfigMapList.class);
+  public static final K8sApiEndpoint<V1Job, V1JobList> JOBS =
+      new K8sApiEndpoint<>("Job", "batch", "v1", "jobs", false,
+          V1Job.class, V1JobList.class);
 
   // Hoptimator custom resources
   public static final K8sApiEndpoint<V1alpha1Database, V1alpha1DatabaseList> DATABASES =
@@ -51,6 +58,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1JobTemplate, V1alpha1JobTemplateList> JOB_TEMPLATES =
       new K8sApiEndpoint<>("JobTemplate", "hoptimator.linkedin.com", "v1alpha1", "jobtemplates", false,
           V1alpha1JobTemplate.class, V1alpha1JobTemplateList.class);
+  public static final K8sApiEndpoint<V1alpha1TableTrigger, V1alpha1TableTriggerList> TABLE_TRIGGERS =
+      new K8sApiEndpoint<>("TableTrigger", "hoptimator.linkedin.com", "v1alpha1", "tabletriggers", false,
+          V1alpha1TableTrigger.class, V1alpha1TableTriggerList.class);
 
   private K8sApiEndpoints() {
   }

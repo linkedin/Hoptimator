@@ -31,8 +31,14 @@ public class K8sYamlApi implements Api<String> {
 
   @Override
   public void create(String yaml) throws SQLException {
+    createWithAnnotationsAndLabels(yaml, null, null);
+  }
+
+  public void createWithAnnotationsAndLabels(String yaml, Map<String, String> annotations,
+      Map<String, String> labels) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
     context.own(obj);
+    obj.setMetadata(obj.getMetadata().annotations(annotations).labels(labels));
     KubernetesApiResponse<DynamicKubernetesObject> resp =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     K8sUtils.checkResponse("Error creating YAML:\n" + yaml, resp);

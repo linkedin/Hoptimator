@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-trigger
+spec:
+  schedule: "* * * * *"
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 10
+      template:
+        spec:
+          serviceAccountName: hoptimator-operator
+          containers:
+          - name: trigger
+            image: alpine/k8s:1.33.0
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/bash
+            - -c
+            - >-
+              kubectl patch tabletrigger test-table-trigger -p
+              "{\"status\":{\"timestamp\": \"`date +%FT%TZ`\"}}"
+              --subresource=status --type=merge
+          restartPolicy: OnFailure

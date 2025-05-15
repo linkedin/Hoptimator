@@ -6,6 +6,7 @@ import java.sql.SQLTransientException;
 import java.util.Collection;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -88,6 +89,10 @@ public final class K8sUtils {
   }
 
   static void checkResponse(String msg, KubernetesApiResponse<?> resp) throws SQLException {
+    checkResponse(() -> msg, resp);
+  }
+
+  static void checkResponse(Supplier<String> msgSupplier, KubernetesApiResponse<?> resp) throws SQLException {
     try {
       resp.throwsApiException();
     } catch (ApiException e) {
@@ -97,9 +102,9 @@ public final class K8sUtils {
       case 409: // conflict
       case 410: // gone
       case 412: // precondition failed
-        throw new SQLTransientException(msg, e);
+        throw new SQLTransientException(msgSupplier.get(), e);
       default:
-        throw new SQLNonTransientException(msg, e);
+        throw new SQLNonTransientException(msgSupplier.get(), e);
       }
     }
   }

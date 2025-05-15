@@ -1,0 +1,24 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTrigger
+metadata:
+  name: test-table-trigger
+spec:
+  schema: KAFKA
+  table: existing-topic-1
+  yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: test-table-trigger-job
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: alpine/k8s:1.33.0
+            command: ["bash",  "-c", "echo test-table-trigger fired at `date`"]
+          restartPolicy: Never
+      backoffLimit: 4
+      ttlSecondsAfterFinished: 90
+
+
