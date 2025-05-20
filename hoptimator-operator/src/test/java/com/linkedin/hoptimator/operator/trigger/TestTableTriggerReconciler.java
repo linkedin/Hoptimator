@@ -59,7 +59,7 @@ class TestTableTriggerReconciler {
   void deletesCompletedJob() {
     V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
         .metadata(new V1ObjectMeta().name("completed-table-trigger-job"))
-        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Complete")));
+        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Complete").status("True")));
     V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("table-trigger"))
         .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
@@ -76,7 +76,7 @@ class TestTableTriggerReconciler {
     annotations.put("triggerTimestamp", OffsetDateTime.now().toString());
     V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
         .metadata(new V1ObjectMeta().name("completed-table-trigger-job").annotations(annotations))
-        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Complete")));
+        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Complete").status("True")));
     V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("table-trigger"))
         .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))

@@ -30,7 +30,7 @@ import java.util.List;
  * TableTrigger spec.
  */
 @ApiModel(description = "TableTrigger spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-12T17:43:51.662Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-21T02:31:00.123Z[Etc/UTC]")
 public class V1alpha1TableTriggerSpec {
   /**
    * Gets or Sets operations
@@ -180,11 +180,11 @@ public class V1alpha1TableTriggerSpec {
   }
 
    /**
-   * Specifies the Job to re/create when the trigger fires. A name will be generated automatically.
+   * Specifies the Job to re/create when the trigger fires.
    * @return yaml
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Specifies the Job to re/create when the trigger fires. A name will be generated automatically.")
+  @ApiModelProperty(value = "Specifies the Job to re/create when the trigger fires.")
 
   public String getYaml() {
     return yaml;

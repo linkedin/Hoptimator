@@ -35,7 +35,7 @@ import com.linkedin.hoptimator.util.DeploymentService;
 public abstract class QuidemTestBase {
 
   protected void run(String resourceName) throws IOException, URISyntaxException {
-    run(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(resourceName)).toURI(), "");
+    run(resourceName, "");
   }
 
   protected void run(String resourceName, String jdbcProperties) throws IOException, URISyntaxException {

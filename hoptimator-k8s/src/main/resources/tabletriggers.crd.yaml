@@ -46,7 +46,7 @@ spec:
                     - Insert
                     - Update
                 yaml:
-                  description: Specifies the Job to re/create when the trigger fires. A name will be generated automatically.
+                  description: Specifies the Job to re/create when the trigger fires.
                   type: string
               required:
               - schema

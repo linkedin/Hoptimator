@@ -33,6 +33,31 @@ import com.linkedin.hoptimator.util.Template;
 
 /**
  * Launches Jobs when TableTriggers are fired.
+ *
+ * TableTriggers maintain a timestamp and a watermark. The timestamp captures
+ * the time at which a matching event occured, which could be far in the past.
+ * The watermark records the last timestamp for which a corresponding job has
+ * successfully completed, and is thus always older than or equal to the
+ * timestamp.
+ *
+ * At steady-state, a trigger can be in one of two states:
+ *
+ * 1. Timestamp and watermark are the same: trigger has been fired and the
+ *    corresponding job has successfully completed.
+ * 2. Watermark is older than the timestamp: trigger has been fired, but a new
+ *    corresponding job has not yet successfully completed.
+ *
+ * At a high level, the reconciler checks whether the watermark is old and
+ * creates a Job accordingly. If a Job already exists, we just wait for it
+ * to complete. Once completed, we update the watermark to match the specific
+ * timestamp that caused the Job to run.
+ *
+ * Only one Job runs at a time, which means a trigger may be fired many times
+ * before a Job successfully completes. Rather than fall behind, we pass the
+ * current watermark and timestamp to each Job (e.g. via environment variables).
+ * The Job itself must decide what to do based on this window of time.
+ * Generally, a larger window means more work to do.
+ *
  */
 public final class TableTriggerReconciler implements Reconciler {
   private final static Logger log = LoggerFactory.getLogger(TableTriggerReconciler.class);
@@ -75,14 +100,14 @@ public final class TableTriggerReconciler implements Reconciler {
 
       V1alpha1TableTriggerStatus status = object.getStatus();
       if (status == null || status.getTimestamp() == null) {
-        log.info("Trigger has not been fired yet. Skipping.", name);
+        log.info("Trigger {} has not been fired yet. Skipping.", name);
         return new Result(false);
       }
 
       log.info("TableTrigger {} was last fired at {}.", name, status.getTimestamp());
 
       if (object.getSpec().getYaml() == null) {
-        log.info("Trigger has no Job YAML. Will take no action.", name);
+        log.info("Trigger {} has no Job YAML. Will take no action.", name);
         return new Result(false);
       }
 
@@ -90,45 +115,35 @@ public final class TableTriggerReconciler implements Reconciler {
       Collection<V1Job> jobs = jobApi.select(TRIGGER_KEY + " = " + name);
       V1Job job = jobs.stream().findFirst().orElse(null);  // assume only one job.
 
-      boolean shouldFire = true;
-      if (object.getStatus() != null && object.getStatus().getTimestamp() != null
-          && object.getStatus().getWatermark() != null
-          && !object.getStatus().getTimestamp().isAfter(object.getStatus().getWatermark())) {
-        shouldFire = false;
-      }
-
-      if (job == null && shouldFire) {
+      if (job == null
+          && (status.getWatermark() == null || status.getTimestamp().isAfter(status.getWatermark()))) {
         log.info("Launching Job for TableTrigger {}. ", name);
         createJob(object);
         return new Result(true, pendingRetryDuration());
       } else if (job != null && job.getStatus() != null && job.getStatus().getConditions() != null) {
         List<V1JobCondition> conditions = job.getStatus().getConditions();
-        boolean failed = conditions.stream().anyMatch(x -> x.getType().equals("Failed"));
-        boolean complete = conditions.stream().anyMatch(x -> x.getType().equals("Complete"));
+        boolean failed = conditions.stream()
+            .anyMatch(x -> "Failed".equals(x.getType()) && "True".equals(x.getStatus()));
+        boolean complete = conditions.stream()
+            .anyMatch(x -> "Complete".equals(x.getType()) && "True".equals(x.getStatus()));
         if (failed) {
           log.warn("Job {} has FAILED.", name);
+          jobApi.delete(job);
+          return new Result(true);  // retry
         } else if (complete) {
           log.info("Job {} completed successfully.", name);
           // We get the watermark from the job itself. We annotate the job when launching it.
           if (job.getMetadata().getAnnotations() == null || job.getMetadata().getAnnotations()
               .get(TRIGGER_TIMESTAMP_KEY) == null) {
-            log.error("Job {} has no timestamp annotation. Unable to progress the watermark.", name);
-          } else if (object.getStatus().getWatermark() == null) {
-            log.info("Trigger {} has no existing watermark.", name);
+            log.error("Job {} has no timestamp annotation. Unable to advance the watermark.", name);
+          } else {
             String watermark = job.getMetadata().getAnnotations().get(TRIGGER_TIMESTAMP_KEY);
             status.setWatermark(OffsetDateTime.parse(watermark));
             tableTriggerApi.updateStatus(object, status);
-            log.info("Trigger {} watermark set to {}.", name, watermark);
-          } else {
-            OffsetDateTime timestamp = OffsetDateTime.parse(job.getMetadata().getAnnotations().get(TRIGGER_TIMESTAMP_KEY));
-            status.setWatermark(timestamp);
-            tableTriggerApi.updateStatus(object, status);
-            log.info("Trigger {} watermark advanced to {}.", name, timestamp);
+            log.info("Trigger {} watermark advanced to {}.", name, watermark);
           }
-        }
-        if (failed || complete) {
           jobApi.delete(job);
-          return new Result(true);  // start over
+          return new Result(true);  // retry
         } else {
           log.info("Job for TableTrigger {} still running from a previous trigger event.", name);
           return new Result(true, pendingRetryDuration());  // retry later

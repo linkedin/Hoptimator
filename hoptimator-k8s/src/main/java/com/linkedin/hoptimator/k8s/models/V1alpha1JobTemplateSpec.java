@@ -30,64 +30,11 @@ import java.util.List;
  * JobTemplate spec.
  */
 @ApiModel(description = "JobTemplate spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-12T17:43:51.662Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-21T02:31:00.123Z[Etc/UTC]")
 public class V1alpha1JobTemplateSpec {
   public static final String SERIALIZED_NAME_DATABASES = "databases";
   @SerializedName(SERIALIZED_NAME_DATABASES)
   private List<String> databases = null;
-
-  /**
-   * Gets or Sets operations
-   */
-  @JsonAdapter(OperationsEnum.Adapter.class)
-  public enum OperationsEnum {
-    APPEND("Append"),
-    
-    UPDATE("Update"),
-    
-    DELETE("Delete");
-
-    private String value;
-
-    OperationsEnum(String value) {
-      this.value = value;
-    }
-
-    public String getValue() {
-      return value;
-    }
-
-    @Override
-    public String toString() {
-      return String.valueOf(value);
-    }
-
-    public static OperationsEnum fromValue(String value) {
-      for (OperationsEnum b : OperationsEnum.values()) {
-        if (b.value.equals(value)) {
-          return b;
-        }
-      }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
-    }
-
-    public static class Adapter extends TypeAdapter<OperationsEnum> {
-      @Override
-      public void write(final JsonWriter jsonWriter, final OperationsEnum enumeration) throws IOException {
-        jsonWriter.value(enumeration.getValue());
-      }
-
-      @Override
-      public OperationsEnum read(final JsonReader jsonReader) throws IOException {
-        String value =  jsonReader.nextString();
-        return OperationsEnum.fromValue(value);
-      }
-    }
-  }
-
-  public static final String SERIALIZED_NAME_OPERATIONS = "operations";
-  @SerializedName(SERIALIZED_NAME_OPERATIONS)
-  private List<OperationsEnum> operations = null;
 
   public static final String SERIALIZED_NAME_YAML = "yaml";
   @SerializedName(SERIALIZED_NAME_YAML)
@@ -125,37 +72,6 @@ public class V1alpha1JobTemplateSpec {
   }
 
 
-  public V1alpha1JobTemplateSpec operations(List<OperationsEnum> operations) {
-    
-    this.operations = operations;
-    return this;
-  }
-
-  public V1alpha1JobTemplateSpec addOperationsItem(OperationsEnum operationsItem) {
-    if (this.operations == null) {
-      this.operations = new ArrayList<>();
-    }
-    this.operations.add(operationsItem);
-    return this;
-  }
-
-   /**
-   * Operations this template matches, e.g. Append. If null, matches everything.
-   * @return operations
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "Operations this template matches, e.g. Append. If null, matches everything.")
-
-  public List<OperationsEnum> getOperations() {
-    return operations;
-  }
-
-
-  public void setOperations(List<OperationsEnum> operations) {
-    this.operations = operations;
-  }
-
-
   public V1alpha1JobTemplateSpec yaml(String yaml) {
     
     this.yaml = yaml;
@@ -189,13 +105,12 @@ public class V1alpha1JobTemplateSpec {
     }
     V1alpha1JobTemplateSpec v1alpha1JobTemplateSpec = (V1alpha1JobTemplateSpec) o;
     return Objects.equals(this.databases, v1alpha1JobTemplateSpec.databases) &&
-        Objects.equals(this.operations, v1alpha1JobTemplateSpec.operations) &&
         Objects.equals(this.yaml, v1alpha1JobTemplateSpec.yaml);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(databases, operations, yaml);
+    return Objects.hash(databases, yaml);
   }
 
 
@@ -204,7 +119,6 @@ public class V1alpha1JobTemplateSpec {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1JobTemplateSpec {\n");
     sb.append("    databases: ").append(toIndentedString(databases)).append("\n");
-    sb.append("    operations: ").append(toIndentedString(operations)).append("\n");
     sb.append("    yaml: ").append(toIndentedString(yaml)).append("\n");
     sb.append("}");
     return sb.toString();

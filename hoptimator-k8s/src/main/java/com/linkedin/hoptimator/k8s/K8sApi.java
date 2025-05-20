@@ -17,6 +17,7 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.Yaml;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.options.DeleteOptions;
 import io.kubernetes.client.util.generic.options.ListOptions;
 
 import com.linkedin.hoptimator.util.Api;
@@ -120,8 +121,10 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
   }
 
   public void delete(String namespace, String name) throws SQLException {
+    DeleteOptions options = new DeleteOptions();
+    options.setPropagationPolicy("Background");   // ensure deletes cascade
     KubernetesApiResponse<T> resp =
-        context.generic(endpoint).delete(namespace, name);
+        context.generic(endpoint).delete(namespace, name, options);
     K8sUtils.checkResponse("Error deleting " + name, resp);
     log.info("Deleted K8s obj: {}:{}", endpoint.kind(), name);
   }
