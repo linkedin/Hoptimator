@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator;
 
-import java.util.Collection;
+import java.util.Set;
 
 
 /**
@@ -8,17 +8,17 @@ import java.util.Collection;
  */
 public class Pipeline {
 
-  private final Collection<Source> sources;
+  private final Set<Source> sources;
   private final Sink sink;
   private final Job job;
 
-  public Pipeline(Collection<Source> sources, Sink sink, Job job) {
+  public Pipeline(Set<Source> sources, Sink sink, Job job) {
     this.sources = sources;
     this.sink = sink;
     this.job = job;
   }
 
-  public Collection<Source> sources() {
+  public Set<Source> sources() {
     return sources;
   }
 

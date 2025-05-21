@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -70,6 +71,7 @@ public final class DeploymentService {
     ServiceLoader<DeployerProvider> loader = ServiceLoader.load(DeployerProvider.class);
     List<DeployerProvider> providers = new ArrayList<>();
     loader.iterator().forEachRemaining(providers::add);
+    providers.sort(Comparator.comparingInt(DeployerProvider::priority));
     return providers;
   }
 
