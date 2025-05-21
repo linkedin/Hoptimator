@@ -27,10 +27,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * TableTemplate spec.
+ * JobTemplate spec.
  */
-@ApiModel(description = "TableTemplate spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-21T21:11:41.897Z[Etc/UTC]")
+@ApiModel(description = "JobTemplate spec.")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-21T02:31:00.123Z[Etc/UTC]")
 public class V1alpha1JobTemplateSpec {
   public static final String SERIALIZED_NAME_DATABASES = "databases";
   @SerializedName(SERIALIZED_NAME_DATABASES)

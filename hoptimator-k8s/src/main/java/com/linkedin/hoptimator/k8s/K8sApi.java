@@ -14,8 +14,10 @@ import org.slf4j.LoggerFactory;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
+import io.kubernetes.client.util.Yaml;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.options.DeleteOptions;
 import io.kubernetes.client.util.generic.options.ListOptions;
 
 import com.linkedin.hoptimator.util.Api;
@@ -115,10 +117,20 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     if (obj.getMetadata().getNamespace() == null && !endpoint.clusterScoped()) {
       obj.getMetadata().namespace(context.namespace());
     }
+    delete(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+  }
+
+  public void delete(String namespace, String name) throws SQLException {
+    DeleteOptions options = new DeleteOptions();
+    options.setPropagationPolicy("Background");   // ensure deletes cascade
     KubernetesApiResponse<T> resp =
-        context.generic(endpoint).delete(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
-    K8sUtils.checkResponse("Error deleting " + obj.getMetadata().getName(), resp);
-    log.info("Deleted K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
+        context.generic(endpoint).delete(namespace, name, options);
+    K8sUtils.checkResponse("Error deleting " + name, resp);
+    log.info("Deleted K8s obj: {}:{}", endpoint.kind(), name);
+  }
+
+  public void delete(String name) throws SQLException {
+    delete(context.namespace(), name);
   }
 
   @Override
@@ -170,7 +182,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       obj.getMetadata().namespace(context.namespace());
     }
     KubernetesApiResponse<T> resp = context.generic(endpoint).updateStatus(obj, x -> status);
-    K8sUtils.checkResponse("Error updating status of " + obj.getMetadata().getName(), resp);
+    K8sUtils.checkResponse(() -> "Error updating status of " + Yaml.dump(obj), resp);
     log.info("Updated K8s obj status: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 }

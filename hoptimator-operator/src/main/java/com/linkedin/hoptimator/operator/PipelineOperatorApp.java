@@ -21,6 +21,7 @@ import io.kubernetes.client.extended.controller.ControllerManager;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
+import com.linkedin.hoptimator.operator.trigger.TableTriggerReconciler;
 
 
 public class PipelineOperatorApp {
@@ -65,10 +66,12 @@ public class PipelineOperatorApp {
 
     // register informers
     context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), watchNamespace);
+    context.registerInformer(K8sApiEndpoints.TABLE_TRIGGERS, Duration.ofMinutes(5), watchNamespace);
 
     List<Controller> controllers = new ArrayList<>();
     // TODO: add additional controllers from ControllerProvider SPI
     controllers.add(PipelineReconciler.controller(context));
+    controllers.add(TableTriggerReconciler.controller(context));
 
     ControllerManager controllerManager =
         new ControllerManager(context.informerFactory(), controllers.toArray(new Controller[0]));

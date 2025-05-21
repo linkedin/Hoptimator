@@ -31,6 +31,7 @@ public class K8sMetadata extends AbstractSchema {
     tableMap.put("PIPELINES", pipelineTable);
     tableMap.put("PIPELINE_ELEMENTS",  new K8sPipelineElementTable(pipelineElementApi));
     tableMap.put("PIPELINE_ELEMENT_MAP",  new K8sPipelineElementMapTable(pipelineElementMapApi));
+    tableMap.put("TABLE_TRIGGERS",  new K8sTableTriggerTable(context));
     tableMap.put("VIEWS", viewTable);
   }
 

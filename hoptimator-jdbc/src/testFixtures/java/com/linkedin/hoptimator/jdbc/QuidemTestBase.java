@@ -35,7 +35,7 @@ import com.linkedin.hoptimator.util.DeploymentService;
 public abstract class QuidemTestBase {
 
   protected void run(String resourceName) throws IOException, URISyntaxException {
-    run(Objects.requireNonNull(Thread.currentThread().getContextClassLoader().getResource(resourceName)).toURI(), "");
+    run(resourceName, "");
   }
 
   protected void run(String resourceName, String jdbcProperties) throws IOException, URISyntaxException {
@@ -62,7 +62,12 @@ public abstract class QuidemTestBase {
     for (String line : output) {
       System.out.println(line);
     }
-    Assertions.assertIterableEquals(input, output);
+    for (int i = 0; i < input.size(); i++) {
+      String line = output.get(i);
+      String expected = input.get(i);
+      Assertions.assertEquals(expected, line,
+        "Context:\n" + String.join("\n", output.subList(i, Math.min(i + 10, output.size() - 1))));
+    }
   }
 
   private static final class CustomCommandHandler implements CommandHandler {

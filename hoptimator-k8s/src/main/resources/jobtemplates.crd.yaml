@@ -29,7 +29,7 @@ spec:
             metadata:
               type: object
             spec:
-              description: TableTemplate spec.
+              description: JobTemplate spec.
               type: object
               properties:
                 yaml:
