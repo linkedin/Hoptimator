@@ -46,7 +46,7 @@ class TestTableTriggerReconciler {
   @Test
   void createsNewJob() {
     V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
-        .metadata(new V1ObjectMeta().name("table-trigger-job"));
+        .metadata(new V1ObjectMeta().name("table-trigger-job").namespace("namespace"));
     triggers.add(new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("table-trigger"))
         .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
