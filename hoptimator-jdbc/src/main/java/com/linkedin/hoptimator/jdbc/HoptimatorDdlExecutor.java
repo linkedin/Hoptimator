@@ -19,6 +19,7 @@
  */
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.util.SnapshotService;
 import java.io.Reader;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -232,6 +233,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       schemaPlus.add(viewName, materializedViewTable);
     } catch (SQLException e) {
+      try {
+        SnapshotService.restore();
+      } catch (Exception ignored) {
+      }
       throw new DdlException(create, e.getMessage(), e);
     }
   }

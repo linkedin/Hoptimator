@@ -10,6 +10,8 @@ dependencies {
   implementation project(':hoptimator-util')
   implementation libs.calcite.server
   implementation libs.kubernetes.client
+  implementation libs.kubernetes.extended.client
+  implementation libs.jackson.dataformat.yaml
 
   testFixturesImplementation libs.kubernetes.client
   testFixturesImplementation project(':hoptimator-api')
