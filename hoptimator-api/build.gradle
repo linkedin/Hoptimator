@@ -4,7 +4,8 @@ plugins {
 }
 
 dependencies {
-  // plz keep it this way
+  // dependencies should be limited
+  implementation libs.calcite.core
 }
 
 publishing {
