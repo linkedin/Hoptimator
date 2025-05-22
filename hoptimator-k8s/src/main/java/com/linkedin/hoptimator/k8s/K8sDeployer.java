@@ -36,14 +36,14 @@ public abstract class K8sDeployer<T extends KubernetesObject, U extends Kubernet
   }
 
   private void create(T obj) throws SQLException {
-    SnapshotService.snapshot(Collections.singletonList(Yaml.dump(obj)), context.connectionProperties());
+    SnapshotService.store(obj, context.connectionProperties());
     api.create(obj);
   }
 
   @Override
   public void delete() throws SQLException {
     T obj = toK8sObject();
-    SnapshotService.snapshot(Collections.singletonList(Yaml.dump(obj)), context.connectionProperties());
+    SnapshotService.store(obj, context.connectionProperties());
     api.delete(obj);
   }
 
@@ -59,7 +59,7 @@ public abstract class K8sDeployer<T extends KubernetesObject, U extends Kubernet
   }
 
   private void update(T obj) throws SQLException {
-    SnapshotService.snapshot(Collections.singletonList(Yaml.dump(obj)), context.connectionProperties());
+    SnapshotService.store(obj, context.connectionProperties());
     api.update(obj);
   }
 

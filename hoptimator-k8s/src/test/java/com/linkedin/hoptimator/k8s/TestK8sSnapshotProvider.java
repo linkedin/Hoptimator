@@ -4,7 +4,6 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJob;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.util.Yaml;
 import java.sql.SQLException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -32,9 +31,9 @@ public class TestK8sSnapshotProvider {
     V1alpha1SqlJob sqlJob = new V1alpha1SqlJob();
     sqlJob.setApiVersion("hoptimator.linkedin.com/v1alpha1");
     sqlJob.setKind("SqlJob");
-    sqlJob.setMetadata(new V1ObjectMeta().name("test-sql-job"));
+    sqlJob.setMetadata(new V1ObjectMeta().name("test-sql-job").namespace("test-namespace"));
 
-    snapshotProvider.snapshot(Collections.singletonList(Yaml.dump(sqlJob)), new Properties());
+    snapshotProvider.store(sqlJob, new Properties());
     fakeApi.create(Yaml.dump(sqlJob));
     assertEquals(yamls.size(), 1);
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(sqlJob));
@@ -44,22 +43,32 @@ public class TestK8sSnapshotProvider {
   }
 
   @Test
-  void testRestoreWithUpdate() throws SQLException {
+  void testRestoreWithMultipleUpdates() throws SQLException {
     V1alpha1SqlJob oldSqlJob = new V1alpha1SqlJob();
     oldSqlJob.setApiVersion("hoptimator.linkedin.com/v1alpha1");
     oldSqlJob.setKind("SqlJob");
-    oldSqlJob.setMetadata(new V1ObjectMeta().name("test-sql-job").putAnnotationsItem("key", "old-value"));
+    oldSqlJob.setMetadata(new V1ObjectMeta().name("test-sql-job").namespace("test-namespace")
+        .putAnnotationsItem("key", "old-value"));
 
     V1alpha1SqlJob newSqlJob = new V1alpha1SqlJob();
     newSqlJob.setApiVersion("hoptimator.linkedin.com/v1alpha1");
     newSqlJob.setKind("SqlJob");
-    newSqlJob.setMetadata(new V1ObjectMeta().name("test-sql-job").putAnnotationsItem("key", "new-value"));
+    newSqlJob.setMetadata(new V1ObjectMeta().name("test-sql-job").namespace("test-namespace")
+        .putAnnotationsItem("key", "new-value"));
+
+    V1alpha1SqlJob newSqlJob2 = new V1alpha1SqlJob();
+    newSqlJob2.setApiVersion("hoptimator.linkedin.com/v1alpha1");
+    newSqlJob2.setKind("SqlJob");
+    newSqlJob2.setMetadata(new V1ObjectMeta().name("test-sql-job").namespace("test-namespace")
+        .putAnnotationsItem("key", "new-value-2"));
 
     fakeApi.create(Yaml.dump(oldSqlJob));
-    snapshotProvider.snapshot(Collections.singletonList(Yaml.dump(newSqlJob)), new Properties());
+    snapshotProvider.store(newSqlJob, new Properties());
     fakeApi.create(Yaml.dump(newSqlJob));
+    snapshotProvider.store(newSqlJob2, new Properties());
+    fakeApi.create(Yaml.dump(newSqlJob2));
     assertEquals(yamls.size(), 1);
-    assertEquals(yamls.get("test-sql-job"), Yaml.dump(newSqlJob));
+    assertEquals(yamls.get("test-sql-job"), Yaml.dump(newSqlJob2));
 
     snapshotProvider.restore();
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(oldSqlJob));

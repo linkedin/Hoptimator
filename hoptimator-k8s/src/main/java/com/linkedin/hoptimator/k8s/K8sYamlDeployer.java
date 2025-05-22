@@ -1,10 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.util.SnapshotService;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import java.sql.SQLException;
 
 import com.linkedin.hoptimator.Deployer;
-import java.util.Collections;
 
 
 public abstract class K8sYamlDeployer implements Deployer {
@@ -20,24 +20,27 @@ public abstract class K8sYamlDeployer implements Deployer {
   @Override
   public void create() throws SQLException {
     for (String spec : specify()) {
-      SnapshotService.snapshot(Collections.singletonList(spec), context.connectionProperties());
-      api.create(spec);
+      DynamicKubernetesObject obj = api.objFromYaml(spec);
+      SnapshotService.store(obj, context.connectionProperties());
+      api.create(obj);
     }
   }
 
   @Override
   public void delete() throws SQLException {
     for (String spec : specify()) {
-      SnapshotService.snapshot(Collections.singletonList(spec), context.connectionProperties());
-      api.delete(spec);
+      DynamicKubernetesObject obj = api.objFromYaml(spec);
+      SnapshotService.store(obj, context.connectionProperties());
+      api.delete(obj);
     }
   }
 
   @Override
   public void update() throws SQLException {
     for (String spec : specify()) {
-      SnapshotService.snapshot(Collections.singletonList(spec), context.connectionProperties());
-      api.update(spec);
+      DynamicKubernetesObject obj = api.objFromYaml(spec);
+      SnapshotService.store(obj, context.connectionProperties());
+      api.update(obj);
     }
   }
 }
