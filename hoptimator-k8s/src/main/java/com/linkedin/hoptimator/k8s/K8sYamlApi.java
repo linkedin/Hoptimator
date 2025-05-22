@@ -34,6 +34,19 @@ public class K8sYamlApi implements Api<String> {
     createWithAnnotationsAndLabels(yaml, null, null);
   }
 
+  // Returns the K8s Object or null if throwIfNotExists is set to false and the object does not exist.
+  public DynamicKubernetesObject get(String yaml, boolean throwIfNotExists) throws SQLException {
+    DynamicKubernetesObject obj = objFromYaml(yaml);
+    KubernetesApiResponse<DynamicKubernetesObject> resp =
+        context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(obj.getMetadata().getNamespace(),
+            obj.getMetadata().getName());
+    if (!throwIfNotExists && resp.getHttpStatusCode() == 404) {
+      return null;
+    }
+    K8sUtils.checkResponse("Error getting YAML:\n" + yaml, resp);
+    return resp.getObject();
+  }
+
   public void createWithAnnotationsAndLabels(String yaml, Map<String, String> annotations,
       Map<String, String> labels) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
@@ -58,6 +71,10 @@ public class K8sYamlApi implements Api<String> {
   @Override
   public void update(String yaml) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
+    update(obj);
+  }
+
+  public void update(DynamicKubernetesObject obj) throws SQLException {
     KubernetesApiResponse<DynamicKubernetesObject> existing =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
             .get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
@@ -80,7 +97,7 @@ public class K8sYamlApi implements Api<String> {
       context.own(obj);
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     }
-    K8sUtils.checkResponse("Error updating YAML:\n" + yaml, resp);
+    K8sUtils.checkResponse("Error updating YAML:\n" + obj, resp);
     log.info("Updated K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
