@@ -19,5 +19,5 @@ spec:
             command: ["bash",  "-c", "echo test-table-trigger fired at `date`"]
           restartPolicy: Never
       backoffLimit: 4
-      ttlSecondsAfterFinished: 100
+      ttlSecondsAfterFinished: 90
 
