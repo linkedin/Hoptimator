@@ -1,0 +1,104 @@
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTemplate
+metadata:
+  name: kafka-source-trigger-template
+spec:
+  databases:
+  - kafka-database
+  methods:
+  - Scan
+  yaml: |
+    apiVersion: hoptimator.linkedin.com/v1alpha1
+    kind: TableTrigger
+    metadata:
+      name: {{name}}-trigger
+    spec:
+      schema: KAFKA
+      table: {{table}}
+      yaml: |
+        apiVersion: batch/v1
+        kind: Job
+        metadata:
+          name: {{name}}-job
+        spec:
+          template:
+            spec:
+              containers:
+              - name: hello
+                image: alpine/k8s:1.33.0
+                command: ["bash",  "-c", "echo {{name}}-trigger fired at `date`"]
+              restartPolicy: Never
+          backoffLimit: 4
+
+---
+
+## Simulate an upstream rETL job
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTemplate
+metadata:
+  name: kafka-source-cron-template
+spec:
+  databases:
+  - kafka-database
+  methods:
+  - Scan
+  yaml: |
+    apiVersion: batch/v1
+    kind: CronJob
+    metadata:
+      name: {{name}}-retl-cronjob
+    spec:
+      schedule: "* * * * *"
+      jobTemplate:
+        spec:
+          ttlSecondsAfterFinished: 100
+          template:
+            spec:
+              serviceAccountName: hoptimator-operator
+              containers:
+              - name: trigger
+                image: alpine/k8s:1.33.0
+                imagePullPolicy: IfNotPresent
+                command:
+                - /bin/bash
+                - -c
+                - >-
+                  echo "Pushing data to {{name}}...";
+                  kubectl patch tabletrigger {{name}}-trigger -p
+                  "{\"status\":{\"timestamp\": \"`date +%FT%TZ`\"}}"
+                  --subresource=status --type=merge
+              restartPolicy: OnFailure
+
+---
+
+## Simulate a downstream ETL job
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: JobTemplate
+metadata:
+  name: kafka-etl-template
+spec:
+  databases:
+  - kafka-database
+  yaml: |
+    apiVersion: batch/v1
+    kind: CronJob
+    metadata:
+      name: {{name}}-etl-job
+    spec:
+      schedule: "* * * * *"
+      jobTemplate:
+        spec:
+          template:
+            spec:
+              containers:
+              - name: hello
+                image: alpine/k8s:1.33.0
+                command:
+                - bash
+                - -c
+                - >-
+                  echo "streaming Kafka topic {{table}} to disk...";
+              restartPolicy: Never
+          ttlSecondsAfterFinished: 100
+
