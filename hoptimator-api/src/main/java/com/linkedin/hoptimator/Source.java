@@ -2,17 +2,22 @@ package com.linkedin.hoptimator;
 
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
+import org.apache.calcite.rel.type.RelDataType;
+
 
 public class Source implements Deployable {
 
   private final String database;
   private final List<String> path;
   private final Map<String, String> options;
+  private final RelDataType rowType;
 
-  public Source(String database, List<String> path, Map<String, String> options) {
+  public Source(String database, List<String> path, Map<String, String> options, @Nullable RelDataType rowType) {
     this.database = database;
     this.path = path;
     this.options = options;
+    this.rowType = rowType;
   }
 
   public Map<String, String> options() {
@@ -34,6 +39,11 @@ public class Source implements Deployable {
 
   public List<String> path() {
     return path;
+  }
+
+  @Nullable
+  public RelDataType rowType() {
+    return rowType;
   }
 
   protected String pathString() {

@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.avro;
 
 import java.util.AbstractMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -15,9 +16,15 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.util.Pair;
+
 
 /** Converts between Avro and Calcite's RelDataType */
 public final class AvroConverter {
+
+  private static final String KEY_OPTION = "keys";
+  private static final String KEY_PREFIX_OPTION = "keyPrefix";
+  private static final String PRIMITIVE_KEY = "KEY";
 
   private AvroConverter() {
   }
@@ -33,6 +40,7 @@ public final class AvroConverter {
       switch (dataType.getSqlTypeName()) {
         case INTEGER:
         case SMALLINT:
+        case TINYINT:
           return createAvroTypeWithNullability(Schema.Type.INT, dataType.isNullable());
         case BIGINT:
           return createAvroTypeWithNullability(Schema.Type.LONG, dataType.isNullable());
@@ -41,6 +49,14 @@ public final class AvroConverter {
           return createAvroTypeWithNullability(Schema.Type.STRING, dataType.isNullable());
         case FLOAT:
           return createAvroTypeWithNullability(Schema.Type.FLOAT, dataType.isNullable());
+        case BINARY:
+        case VARBINARY:
+          if (dataType.getPrecision() != -1) {
+            return createAvroSchemaWithNullability(Schema.createFixed(sanitize(name), dataType.toString(), namespace,
+                dataType.getPrecision()), dataType.isNullable());
+          } else {
+            return createAvroTypeWithNullability(Schema.Type.BYTES, dataType.isNullable());
+          }
         case DOUBLE:
           return createAvroTypeWithNullability(Schema.Type.DOUBLE, dataType.isNullable());
         case BOOLEAN:
@@ -53,7 +69,7 @@ public final class AvroConverter {
               dataType.isNullable());
         case UNKNOWN:
         case NULL:
-          return Schema.createUnion(Schema.create(Schema.Type.NULL));
+          return createAvroSchemaWithNullability(Schema.createUnion(Schema.create(Schema.Type.NULL)), true);
         default:
           throw new UnsupportedOperationException("No support yet for " + dataType.getSqlTypeName().toString());
       }
@@ -63,6 +79,47 @@ public final class AvroConverter {
   public static Schema avro(String namespace, String name, RelProtoDataType relProtoDataType) {
     RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     return avro(namespace, name, relProtoDataType.apply(factory));
+  }
+
+  // Uses expected key options to create a key schema for the key fields and a payload schema for the rest
+  // A key schema will not always be present and will be returned as null if not
+  // Returns a pair of Pair<key schema, payload schema>
+  public static Pair<Schema, Schema> avroKeyPayloadSchema(String namespace, String keySchemaName, String payloadSchemaName,
+      RelDataType dataType, Map<String, String> keyOptions) {
+    String keys = keyOptions.get(KEY_OPTION);
+    String keyPrefix = keyOptions.getOrDefault(KEY_PREFIX_OPTION, "");
+
+    // If no keys are provided or the RelDataType is a primitive, return just a payload schema
+    if (keys == null || keys.isEmpty() || !dataType.isStruct()) {
+      return new Pair<>(null, avro(namespace, payloadSchemaName, dataType));
+    }
+
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory.Builder keyBuilder = new RelDataTypeFactory.Builder(typeFactory);
+    RelDataTypeFactory.Builder payloadBuilder = new RelDataTypeFactory.Builder(typeFactory);
+
+    List<String> keyNames = List.of(keys.split(";"));
+
+    Schema primitiveKeySchema = null;
+    for (RelDataTypeField field : dataType.getFieldList()) {
+      if (keyNames.contains(field.getName())) {
+        String keyName = field.getName().substring(keyPrefix.length());
+
+        // Key is a primitive
+        if (keyNames.size() == 1 && keyName.equals(PRIMITIVE_KEY)) {
+          primitiveKeySchema = avro(namespace, keySchemaName, field.getType());
+        } else {
+          keyBuilder.add(keyName, field.getType());
+        }
+      } else {
+        payloadBuilder.add(field);
+      }
+    }
+    if (primitiveKeySchema != null) {
+      return new Pair<>(primitiveKeySchema, avro(namespace, payloadSchemaName, payloadBuilder.build()));
+    }
+    return new Pair<>(avro(namespace, keySchemaName, keyBuilder.build()),
+        avro(namespace, payloadSchemaName, payloadBuilder.build()));
   }
 
   private static Schema createAvroSchemaWithNullability(Schema schema, boolean nullable) {

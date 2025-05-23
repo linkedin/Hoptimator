@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Scanner;
 
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
 import org.jline.reader.Completer;
 
@@ -93,8 +94,13 @@ public class HoptimatorAppConfig extends Application {
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
         RelRoot root = HoptimatorDriver.convert(conn, sql).root;
-        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), conn.connectionProperties());
-        sqlline.output(plan.sql(conn.connectionProperties()).apply(SqlDialect.ANSI));
+        Properties connectionProperties = conn.connectionProperties();
+        RelOptTable table = root.rel.getTable();
+        if (table != null) {
+          connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
+        }
+        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
+        sqlline.output(plan.sql(connectionProperties).apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
@@ -162,6 +168,10 @@ public class HoptimatorAppConfig extends Application {
       RelRoot root = HoptimatorDriver.convert(conn, sql).root;
       try {
         Properties connectionProperties = conn.connectionProperties();
+        RelOptTable table = root.rel.getTable();
+        if (table != null) {
+          connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
+        }
         Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), conn.connectionProperties()).pipeline("sink", connectionProperties);
         List<String> specs = new ArrayList<>();
         for (Source source : pipeline.sources()) {
