@@ -1,57 +1,46 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.SnapshotProvider;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 
 // Grabs information from each K8s spec to snapshot the current state of the resource.
-// On restore, the last state of each spec will be reapplied.
+// On restore, the oldest state of each spec will be reapplied.
 // Handles deletion if the resource previously did not exist.
-public class K8sSnapshotProvider implements SnapshotProvider {
-  private static final Logger log = LoggerFactory.getLogger(K8sSnapshotProvider.class);
+public class K8sSnapshot {
+  private static final Logger log = LoggerFactory.getLogger(K8sSnapshot.class);
 
   // Mapping of K8sSpec to existing object
   private final Map<K8sSpec, DynamicKubernetesObject> newToOldMap = new HashMap<>();
 
-  private K8sYamlApi api;
+  private final K8sContext context;
+  private final K8sYamlApi api;
 
   // Needed for ServiceLoader
-  public K8sSnapshotProvider() {
+  public K8sSnapshot(K8sContext context) {
+    this.context = context;
+    this.api = new K8sYamlApi(context);
   }
 
   // Used for testing purposes
-  K8sSnapshotProvider(K8sYamlApi api) {
+  K8sSnapshot(K8sYamlApi api) {
+    this.context = null;
     this.api = api;
   }
 
-  @Override
-  public void snapshot(Properties connectionProperties) {
-    this.api = new K8sYamlApi(K8sContext.create(connectionProperties));
-    newToOldMap.clear();
-    log.info("K8sSnapshotProvider initialized.");
-  }
-
-  @Override
-  public <T> void store(T obj) throws SQLException {
+  public void store(KubernetesObject obj) throws SQLException {
     // Must support the more generic KubernetesObject and not DynamicKubernetesObject as generated types
     // such as V1alpha1Pipeline implement KubernetesObject
-    if (!(obj instanceof KubernetesObject)) {
-      return;
+    DynamicKubernetesObject spec = toDynamicKubernetesObject(obj);
+    if (context != null) {
+      spec = K8sUtils.overrideNamespaceFromContext(context, spec);
     }
-    DynamicKubernetesObject spec = toDynamicKubernetesObject((KubernetesObject) obj);
-
-    if (api == null) {
-      throw new IllegalStateException("K8sSnapshotProvider not initialized. Cannot store K8s object.");
-    }
-    spec = this.api.setNamespaceFromContext(spec);
 
     K8sSpec k8sSpec = new K8sSpec(spec);
     if (newToOldMap.containsKey(k8sSpec)) {
@@ -74,12 +63,7 @@ public class K8sSnapshotProvider implements SnapshotProvider {
     return dynamicObject;
   }
 
-  @Override
   public void restore() {
-    if (api == null) {
-      throw new IllegalStateException("K8sSnapshotProvider not initialized. Cannot restore K8s objects.");
-    }
-
     for (Map.Entry<K8sSpec, DynamicKubernetesObject> entry : newToOldMap.entrySet()) {
       try {
         K8sSpec spec = entry.getKey();
@@ -87,10 +71,10 @@ public class K8sSnapshotProvider implements SnapshotProvider {
 
         if (oldObj == null) {
           api.delete(spec.apiVersion(), spec.kind(), spec.namespace(), spec.name());
-          log.info("Removed K8s obj: {}:{}", k8sSpec.kind(), k8sSpec.name());
+          log.info("Removed K8s obj: {}:{}", spec.kind(), spec.name());
         } else {
           api.update(oldObj);
-          log.info("Restored K8s obj: {}:{}", k8sSpec.kind(), k8sSpec.name());
+          log.info("Restored K8s obj: {}:{}", spec.kind(), spec.name());
         }
       } catch (SQLException e) {
         log.warn("Error restoring K8s YAML. This may be expected if the owner object was already deleted: {}:{}",

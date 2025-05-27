@@ -123,13 +123,6 @@ public class K8sYamlApi implements Api<String> {
 
   public DynamicKubernetesObject objFromYaml(String yaml) {
     DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
-    return setNamespaceFromContext(obj);
-  }
-
-  public DynamicKubernetesObject setNamespaceFromContext(DynamicKubernetesObject obj) {
-    if (obj.getMetadata().getNamespace() == null) {
-      obj.setMetadata(obj.getMetadata().namespace(context.namespace()));
-    }
-    return obj;
+    return K8sUtils.overrideNamespaceFromContext(this.context, obj);
   }
 }

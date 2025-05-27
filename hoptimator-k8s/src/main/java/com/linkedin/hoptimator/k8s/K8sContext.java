@@ -48,8 +48,8 @@ public final class K8sContext {
   private final V1OwnerReference ownerReference;
   private final Map<String, String> labels;
 
-  private K8sContext(String namespace, String clientInfo, ApiClient apiClient, SharedInformerFactory informerFactory,
-      V1OwnerReference ownerReference, Map<String, String> labels) {
+  private K8sContext(String namespace, String clientInfo, ApiClient apiClient,
+      SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels) {
     this.namespace = namespace;
     this.clientInfo = clientInfo;
     this.apiClient = apiClient;

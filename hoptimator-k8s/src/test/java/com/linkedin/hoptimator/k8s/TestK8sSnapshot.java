@@ -10,20 +10,19 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
-public class TestK8sSnapshotProvider {
+public class TestK8sSnapshot {
   private FakeK8sYamlApi fakeApi;
-  private K8sSnapshotProvider snapshotProvider;
+  private K8sSnapshot snapshot;
   private Map<String, String> yamls;
 
   @BeforeEach
   void setUp() {
     yamls = new HashMap<>();
     fakeApi = new FakeK8sYamlApi(yamls);
-    snapshotProvider = new K8sSnapshotProvider(fakeApi);
+    snapshot = new K8sSnapshot(fakeApi);
   }
 
   @Test
@@ -33,12 +32,12 @@ public class TestK8sSnapshotProvider {
     sqlJob.setKind("SqlJob");
     sqlJob.setMetadata(new V1ObjectMeta().name("test-sql-job").namespace("test-namespace"));
 
-    snapshotProvider.store(sqlJob);
+    snapshot.store(sqlJob);
     fakeApi.create(Yaml.dump(sqlJob));
     assertEquals(yamls.size(), 1);
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(sqlJob));
 
-    snapshotProvider.restore();
+    snapshot.restore();
     assertTrue(yamls.isEmpty());
   }
 
@@ -63,21 +62,14 @@ public class TestK8sSnapshotProvider {
         .putAnnotationsItem("key", "new-value-2"));
 
     fakeApi.create(Yaml.dump(oldSqlJob));
-    snapshotProvider.store(newSqlJob);
+    snapshot.store(newSqlJob);
     fakeApi.create(Yaml.dump(newSqlJob));
-    snapshotProvider.store(newSqlJob2);
+    snapshot.store(newSqlJob2);
     fakeApi.create(Yaml.dump(newSqlJob2));
     assertEquals(yamls.size(), 1);
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(newSqlJob2));
 
-    snapshotProvider.restore();
+    snapshot.restore();
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(oldSqlJob));
-  }
-
-  @Test
-  void testSnapshotProviderInitializationException() {
-    K8sSnapshotProvider provider = new K8sSnapshotProvider();
-    assertThrows(IllegalStateException.class, () -> provider.store(new V1alpha1SqlJob()));
-    assertThrows(IllegalStateException.class, () -> provider.restore());
   }
 }
