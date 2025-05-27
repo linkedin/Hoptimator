@@ -33,7 +33,14 @@ public class K8sSnapshotProvider implements SnapshotProvider {
   }
 
   @Override
-  public <T> void store(T obj, Properties connectionProperties) throws SQLException {
+  public void snapshot(Properties connectionProperties) {
+    this.api = new K8sYamlApi(K8sContext.create(connectionProperties));
+    newToOldMap.clear();
+    log.info("K8sSnapshotProvider initialized.");
+  }
+
+  @Override
+  public <T> void store(T obj) throws SQLException {
     // Must support the more generic KubernetesObject and not DynamicKubernetesObject as generated types
     // such as V1alpha1Pipeline implement KubernetesObject
     if (!(obj instanceof KubernetesObject)) {
@@ -42,7 +49,7 @@ public class K8sSnapshotProvider implements SnapshotProvider {
     DynamicKubernetesObject spec = toDynamicKubernetesObject((KubernetesObject) obj);
 
     if (api == null) {
-      this.api = new K8sYamlApi(K8sContext.create(connectionProperties));
+      throw new IllegalStateException("K8sSnapshotProvider not initialized. Cannot store K8s object.");
     }
     spec = this.api.setNamespaceFromContext(spec);
 
@@ -53,7 +60,7 @@ public class K8sSnapshotProvider implements SnapshotProvider {
     }
     DynamicKubernetesObject existing = api.getIfExists(spec);
     newToOldMap.put(k8sSpec, existing);
-    log.info("Successfully snapshot K8s obj: {}", spec);
+    log.info("Successfully snapshot K8s obj: {}:{}", k8sSpec.kind(), k8sSpec.name());
   }
 
   public static DynamicKubernetesObject toDynamicKubernetesObject(KubernetesObject obj) {
@@ -70,9 +77,9 @@ public class K8sSnapshotProvider implements SnapshotProvider {
   @Override
   public void restore() {
     if (api == null) {
-      log.warn("K8sSnapshotProvider not initialized. Skipping restore operation.");
-      return;
+      throw new IllegalStateException("K8sSnapshotProvider not initialized. Cannot restore K8s objects.");
     }
+
     for (Map.Entry<K8sSpec, DynamicKubernetesObject> entry : newToOldMap.entrySet()) {
       try {
         K8sSpec spec = entry.getKey();
@@ -80,13 +87,14 @@ public class K8sSnapshotProvider implements SnapshotProvider {
 
         if (oldObj == null) {
           api.delete(spec.apiVersion(), spec.kind(), spec.namespace(), spec.name());
-          log.info("Removed K8s obj: {}", spec);
+          log.info("Removed K8s obj: {}:{}", k8sSpec.kind(), k8sSpec.name());
         } else {
           api.update(oldObj);
-          log.info("Restored K8s obj: {}:{}", oldObj.getKind(), oldObj.getMetadata().getName());
+          log.info("Restored K8s obj: {}:{}", k8sSpec.kind(), k8sSpec.name());
         }
       } catch (SQLException e) {
-        log.warn("Error restoring K8s YAML. This may be expected if the owner object was already deleted: {}", entry.getKey(), e);
+        log.warn("Error restoring K8s YAML. This may be expected if the owner object was already deleted: {}:{}",
+            entry.getKey().kind(), entry.getKey().name(), e);
       }
     }
     newToOldMap.clear();

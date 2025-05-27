@@ -6,7 +6,9 @@ import java.util.Properties;
 
 public interface SnapshotProvider {
 
-  <T> void store(T obj, Properties connectionProperties) throws SQLException;
+  void snapshot(Properties connectionProperties);
+
+  <T> void store(T obj) throws SQLException;
 
   void restore();
 }

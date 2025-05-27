@@ -17,11 +17,9 @@ public abstract class K8sDeployer<T extends KubernetesObject, U extends Kubernet
     implements Deployer {
 
   private final K8sApi<T, U> api;
-  private final K8sContext context;
 
   K8sDeployer(K8sContext context, K8sApiEndpoint<T, U> endpoint) {
     this.api = new K8sApi<>(context, endpoint);
-    this.context = context;
   }
 
   @Override
@@ -36,14 +34,14 @@ public abstract class K8sDeployer<T extends KubernetesObject, U extends Kubernet
   }
 
   private void create(T obj) throws SQLException {
-    SnapshotService.store(obj, context.connectionProperties());
+    SnapshotService.store(obj);
     api.create(obj);
   }
 
   @Override
   public void delete() throws SQLException {
     T obj = toK8sObject();
-    SnapshotService.store(obj, context.connectionProperties());
+    SnapshotService.store(obj);
     api.delete(obj);
   }
 
@@ -59,7 +57,7 @@ public abstract class K8sDeployer<T extends KubernetesObject, U extends Kubernet
   }
 
   private void update(T obj) throws SQLException {
-    SnapshotService.store(obj, context.connectionProperties());
+    SnapshotService.store(obj);
     api.update(obj);
   }
 

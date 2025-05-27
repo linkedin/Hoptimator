@@ -6,11 +6,11 @@ import io.kubernetes.client.util.Yaml;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -33,7 +33,7 @@ public class TestK8sSnapshotProvider {
     sqlJob.setKind("SqlJob");
     sqlJob.setMetadata(new V1ObjectMeta().name("test-sql-job").namespace("test-namespace"));
 
-    snapshotProvider.store(sqlJob, new Properties());
+    snapshotProvider.store(sqlJob);
     fakeApi.create(Yaml.dump(sqlJob));
     assertEquals(yamls.size(), 1);
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(sqlJob));
@@ -63,9 +63,9 @@ public class TestK8sSnapshotProvider {
         .putAnnotationsItem("key", "new-value-2"));
 
     fakeApi.create(Yaml.dump(oldSqlJob));
-    snapshotProvider.store(newSqlJob, new Properties());
+    snapshotProvider.store(newSqlJob);
     fakeApi.create(Yaml.dump(newSqlJob));
-    snapshotProvider.store(newSqlJob2, new Properties());
+    snapshotProvider.store(newSqlJob2);
     fakeApi.create(Yaml.dump(newSqlJob2));
     assertEquals(yamls.size(), 1);
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(newSqlJob2));
@@ -74,4 +74,10 @@ public class TestK8sSnapshotProvider {
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(oldSqlJob));
   }
 
+  @Test
+  void testSnapshotProviderInitializationException() {
+    K8sSnapshotProvider provider = new K8sSnapshotProvider();
+    assertThrows(IllegalStateException.class, () -> provider.store(new V1alpha1SqlJob()));
+    assertThrows(IllegalStateException.class, () -> provider.restore());
+  }
 }

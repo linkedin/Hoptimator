@@ -130,6 +130,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     ViewTable viewTable = new ViewTable(Object.class, protoType, sql, schemaPath, viewPath);
     View view = new View(viewPath, sql);
     try {
+      SnapshotService.snapshot(connectionProperties);
+
       ValidationService.validateOrThrow(viewTable);
       if (create.getReplace()) {
         DeploymentService.update(view, connectionProperties);
@@ -138,6 +140,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
       schemaPlus.add(viewName, viewTable);
     } catch (Exception e) {
+      SnapshotService.restore();
       throw new DdlException(create, e.getMessage(), e);
     }
   }
@@ -184,6 +187,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         throw new DdlException(create, schemaName + " is not a physical database.");
       }
       String database = ((Database) pair.left.schema).databaseName();
+
+      SnapshotService.snapshot(connectionProperties);
 
       // Table does not exist. Create it.
       RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
@@ -267,6 +272,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     viewPath.add(viewName);
 
     try {
+      SnapshotService.snapshot(connectionProperties);
       if (table instanceof MaterializedViewTable) {
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
         View view = new View(viewPath, materializedViewTable.viewSql());
@@ -279,6 +285,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         throw new DdlException(drop, viewName + " is not a view.");
       }
     } catch (Exception e) {
+      SnapshotService.restore();
       throw new DdlException(drop, e.getMessage(), e);
     }
     schemaPlus.removeTable(viewName);

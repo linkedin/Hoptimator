@@ -18,9 +18,15 @@ public final class SnapshotService {
   private SnapshotService() {
   }
 
-  public static <T> void store(T obj, Properties connectionProperties) throws SQLException {
+  public static void snapshot(Properties connectionProperties) {
     for (SnapshotProvider provider : providers()) {
-      provider.store(obj, connectionProperties);
+      provider.snapshot(connectionProperties);
+    }
+  }
+
+  public static <T> void store(T obj) throws SQLException {
+    for (SnapshotProvider provider : providers()) {
+      provider.store(obj);
     }
   }
 

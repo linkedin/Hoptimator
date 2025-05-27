@@ -10,18 +10,16 @@ import com.linkedin.hoptimator.Deployer;
 public abstract class K8sYamlDeployer implements Deployer {
 
   private final K8sYamlApi api;
-  private final K8sContext context;
 
   public K8sYamlDeployer(K8sContext context) {
     this.api = new K8sYamlApi(context);
-    this.context = context;
   }
 
   @Override
   public void create() throws SQLException {
     for (String spec : specify()) {
       DynamicKubernetesObject obj = api.objFromYaml(spec);
-      SnapshotService.store(obj, context.connectionProperties());
+      SnapshotService.store(obj);
       api.create(obj);
     }
   }
@@ -30,7 +28,7 @@ public abstract class K8sYamlDeployer implements Deployer {
   public void delete() throws SQLException {
     for (String spec : specify()) {
       DynamicKubernetesObject obj = api.objFromYaml(spec);
-      SnapshotService.store(obj, context.connectionProperties());
+      SnapshotService.store(obj);
       api.delete(obj);
     }
   }
@@ -39,7 +37,7 @@ public abstract class K8sYamlDeployer implements Deployer {
   public void update() throws SQLException {
     for (String spec : specify()) {
       DynamicKubernetesObject obj = api.objFromYaml(spec);
-      SnapshotService.store(obj, context.connectionProperties());
+      SnapshotService.store(obj);
       api.update(obj);
     }
   }
