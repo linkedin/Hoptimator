@@ -1,2 +1,3 @@
 com.linkedin.hoptimator.jdbc.DefaultValidatorProvider
 com.linkedin.hoptimator.jdbc.CompatibilityValidatorProvider
+com.linkedin.hoptimator.jdbc.SqlNodeValidatorProvider

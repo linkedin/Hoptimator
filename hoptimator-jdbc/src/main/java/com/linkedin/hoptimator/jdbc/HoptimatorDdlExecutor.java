@@ -19,6 +19,7 @@
  */
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Validator;
 import java.io.Reader;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -118,17 +119,22 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         pair.left.removeFunction(pair.right);
       }
     }
-    final SqlNode q = renameColumns(create.columnList, create.query);
-    final String sql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
-    List<String> schemaPath = pair.left.path(null);
-    String viewName = pair.right;
-    List<String> viewPath = new ArrayList<>(schemaPath);
-    viewPath.add(viewName);
-    CalcitePrepare.AnalyzeViewResult analyzed = HoptimatorDriver.analyzeView(connection, sql);
-    RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
-    ViewTable viewTable = new ViewTable(Object.class, protoType, sql, schemaPath, viewPath);
-    View view = new View(viewPath, sql);
     try {
+      // TODO: add config to skip validation for stateful operators.
+      // Perhaps a conn property like "hoptimator.validator.stateful"?
+      // passed to: ValidationService.validateOrThrow(create.query, connectionProperties);
+      ValidationService.validateOrThrow(create.query);
+
+      final SqlNode q = renameColumns(create.columnList, create.query);
+      final String sql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
+      List<String> schemaPath = pair.left.path(null);
+      String viewName = pair.right;
+      List<String> viewPath = new ArrayList<>(schemaPath);
+      viewPath.add(viewName);
+      CalcitePrepare.AnalyzeViewResult analyzed = HoptimatorDriver.analyzeView(connection, sql);
+      RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
+      ViewTable viewTable = new ViewTable(Object.class, protoType, sql, schemaPath, viewPath);
+      View view = new View(viewPath, sql);
       ValidationService.validateOrThrow(viewTable);
       if (create.getReplace()) {
         DeploymentService.update(view, connectionProperties);

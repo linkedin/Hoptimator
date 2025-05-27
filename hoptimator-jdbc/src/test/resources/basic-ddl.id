@@ -1,12 +1,12 @@
 !set outputformat mysql
 !use util
 
-create table foo (id VARCHAR(128), a VARCHAR, c INT);
+create table foo (id VARCHAR(128), a VARCHAR, c INT, rowtime TIMESTAMP);
 (0 rows modified)
 
 !update
 
-create view foo_edge as select * from foo;
+create view foo_edge as select count(*) from foo GROUP BY TUMBLE(rowtime, INTERVAL '1' HOUR), id;
 (0 rows modified)
 
 !update
