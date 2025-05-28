@@ -1,0 +1,12 @@
+!set outputformat mysql
+!use util
+
+create table foo (id VARCHAR(128), a VARCHAR, c INT);
+(0 rows modified)
+
+!update
+
+create materialized view foo_edge as select * from foo;
+(0 rows modified)
+
+!update
