@@ -1,0 +1,30 @@
+plugins {
+  id 'java'
+  id 'application'
+  id 'idea'
+}
+
+dependencies {
+  implementation project(':hoptimator-jdbc-driver')
+  implementation libs.slf4j.simple
+  implementation project(':hoptimator-demodb')
+  implementation project(':hoptimator-kafka')
+  implementation project(':hoptimator-venice')
+
+  implementation libs.gson
+  implementation libs.jackson.databind
+  implementation platform(libs.mcp.bom)
+  implementation 'io.modelcontextprotocol.sdk:mcp'
+}
+
+application {
+  mainClassName  = 'com.linkedin.hoptimator.mcp.server.HoptimatorMcpServer'
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.release = 17
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
+ 
+
