@@ -19,7 +19,14 @@
  */
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.View;
+import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
 import java.io.Reader;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -29,7 +36,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
-
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.RelRoot;
@@ -64,14 +70,6 @@ import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
-import com.linkedin.hoptimator.Database;
-import com.linkedin.hoptimator.MaterializedView;
-import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.View;
-import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
-
 
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
@@ -102,6 +100,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code CREATE VIEW} command. */
   @Override
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
+    try {
+      ValidationService.validateOrThrow(create);
+    } catch (SQLException e) {
+      throw new DdlException(create, e.getMessage(), e);
+    }
+
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
     if (pair.left == null) {
       throw new DdlException(create, "Schema for " + create.name + " not found.");
@@ -120,6 +124,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         pair.left.removeFunction(pair.right);
       }
     }
+
     final SqlNode q = renameColumns(create.columnList, create.query);
     final String sql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
     List<String> schemaPath = pair.left.path(null);
@@ -154,6 +159,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code CREATE MATERIALIZED VIEW} command. */
   @Override
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
+    try {
+      ValidationService.validateOrThrow(create);
+    } catch (SQLException e) {
+      throw new DdlException(create, e.getMessage(), e);
+    }
+
     final Pair<CalciteSchema, String> pair = schema(context, true, create.name);
     if (pair.left == null) {
       throw new DdlException(create, "Schema for " + create.name + " not found.");
