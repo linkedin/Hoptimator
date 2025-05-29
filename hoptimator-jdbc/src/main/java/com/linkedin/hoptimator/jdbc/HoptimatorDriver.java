@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Source;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -8,6 +9,8 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.sql.SQLTransientException;
+import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.logging.LogManager;
 
@@ -16,10 +19,16 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParser;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -140,6 +149,23 @@ public class HoptimatorDriver implements java.sql.Driver {
     } catch (Exception e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
+  }
+
+  public static RelDataType rowType(Source source, Properties connectionProperties) throws SQLException {
+    HoptimatorConnection hoptimatorConnection = ((HoptimatorConnection)
+        DriverManager.getConnection(CONNECTION_PREFIX, connectionProperties));
+    final List<String> path = Util.skipLast(source.path());
+    String name = source.table();
+    SchemaPlus schema = Objects.requireNonNull(hoptimatorConnection.calciteConnection().getRootSchema());
+    for (String p : path) {
+      schema = Objects.requireNonNull(schema.getSubSchema(p));
+    }
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    Table table = schema.getTable(name);
+    if (table == null) {
+      throw new SQLException("Table " + name + " not found in schema " + schema.getName() + ".");
+    }
+    return table.getRowType(typeFactory);
   }
 
   private static final class ConnectionHolder {
