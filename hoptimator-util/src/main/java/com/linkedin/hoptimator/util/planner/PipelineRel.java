@@ -4,11 +4,9 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -48,16 +46,17 @@ public interface PipelineRel extends RelNode {
 
   /** Implements a deployable Pipeline. */
   class Implementor {
-    private final Set<Source> sources = new LinkedHashSet<>();
+    private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private final ImmutablePairList<Integer, String> targetFields;
     private final Map<String, String> hints;
     private RelNode query;
     private Sink sink;
+    private RelDataType sinkRowType = null;
 
     public Implementor(ImmutablePairList<Integer, String> targetFields, Map<String, String> hints) {
       this.targetFields = targetFields;
       this.hints = hints;
-      this.sink = new Sink("PIPELINE", Arrays.asList("PIPELINE", "SINK"), hints, null);
+      this.sink = new Sink("PIPELINE", Arrays.asList("PIPELINE", "SINK"), hints);
     }
 
     public void visit(RelNode node) throws SQLException {
@@ -79,7 +78,7 @@ public interface PipelineRel extends RelNode {
     public void addSource(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
       Map<String, String> newOptions = addKeysAsOption(options, rowType);
       newOptions.putAll(this.hints);
-      sources.add(new Source(database, path, newOptions, rowType));
+      sources.put(new Source(database, path, newOptions), rowType);
     }
 
     /**
@@ -89,9 +88,11 @@ public interface PipelineRel extends RelNode {
      * for validation purposes.
      */
     public void setSink(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
+      this.sinkRowType = rowType;
+
       Map<String, String> newOptions = addKeysAsOption(options, rowType);
       newOptions.putAll(this.hints);
-      this.sink = new Sink(database, path, newOptions, rowType);
+      this.sink = new Sink(database, path, newOptions);
     }
 
     @VisibleForTesting
@@ -122,15 +123,15 @@ public interface PipelineRel extends RelNode {
     /** Combine deployables into a Pipeline */
     public Pipeline pipeline(String name, Properties connectionProperties) throws SQLException {
       Job job = new Job(name, sink, sql(connectionProperties));
-      return new Pipeline(sources, sink, job);
+      return new Pipeline(sources.keySet(), sink, job);
     }
 
     private ScriptImplementor script(Properties connectionProperties) throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
-      for (Source source : sources) {
-        script = script.database(source.schema());
-        Map<String, String> configs = ConnectionService.configure(source, connectionProperties);
-        script = script.connector(source.schema(), source.table(), source.rowType(), configs);
+      for (Map.Entry<Source, RelDataType> source : sources.entrySet()) {
+        script = script.database(source.getKey().schema());
+        Map<String, String> configs = ConnectionService.configure(source.getKey(), connectionProperties);
+        script = script.connector(source.getKey().schema(), source.getKey().table(), source.getValue(), configs);
       }
       return script;
     }
@@ -138,7 +139,7 @@ public interface PipelineRel extends RelNode {
     /** SQL script ending in an INSERT INTO */
     public Function<SqlDialect, String> sql(Properties connectionProperties) throws SQLException {
       ScriptImplementor script = script(connectionProperties);
-      RelDataType targetRowType = sink.rowType();
+      RelDataType targetRowType = sinkRowType;
       if (targetRowType == null) {
         targetRowType = query.getRowType();
       } else {

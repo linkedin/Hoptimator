@@ -81,8 +81,8 @@ public final class AvroConverter {
     return avro(namespace, name, relProtoDataType.apply(factory));
   }
 
-  // Uses expected key options to create a key schema for the key fields and a payload schema for the rest
-  // A key schema will not always be present and will be returned as null if not
+  // Users expect key options to create a key schema for the key fields and a payload schema for the rest.
+  // A key schema will not always be present and will be returned as null if not.
   // Returns a pair of Pair<key schema, payload schema>
   public static Pair<Schema, Schema> avroKeyPayloadSchema(String namespace, String keySchemaName, String payloadSchemaName,
       RelDataType dataType, Map<String, String> keyOptions) {
