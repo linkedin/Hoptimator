@@ -29,35 +29,72 @@ public class K8sYamlApi implements Api<String> {
     throw new UnsupportedOperationException("Cannot list a dynamic YAML API.");
   }
 
+  // Returns the K8s Object or null if it does not exist.
+  public DynamicKubernetesObject getIfExists(String yaml) throws SQLException {
+    DynamicKubernetesObject obj = objFromYaml(yaml);
+    return getIfExists(obj);
+  }
+
+  public DynamicKubernetesObject getIfExists(DynamicKubernetesObject obj) throws SQLException {
+    KubernetesApiResponse<DynamicKubernetesObject> resp =
+        context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(obj.getMetadata().getNamespace(),
+            obj.getMetadata().getName());
+    if (resp.getHttpStatusCode() == 404) {
+      return null;
+    }
+    K8sUtils.checkResponse(String.format("Error getting K8s obj: %s:%s", obj.getKind(), obj.getMetadata().getName()), resp);
+    return resp.getObject();
+  }
+
   @Override
   public void create(String yaml) throws SQLException {
     createWithAnnotationsAndLabels(yaml, null, null);
   }
 
+  public void create(DynamicKubernetesObject obj) throws SQLException {
+    createWithAnnotationsAndLabels(obj, null, null);
+  }
+
   public void createWithAnnotationsAndLabels(String yaml, Map<String, String> annotations,
       Map<String, String> labels) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
+    createWithAnnotationsAndLabels(obj, annotations, labels);
+  }
+
+  public void createWithAnnotationsAndLabels(DynamicKubernetesObject obj, Map<String, String> annotations,
+      Map<String, String> labels) throws SQLException {
     context.own(obj);
     obj.setMetadata(obj.getMetadata().annotations(annotations).labels(labels));
     KubernetesApiResponse<DynamicKubernetesObject> resp =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
-    K8sUtils.checkResponse("Error creating YAML:\n" + yaml, resp);
+    K8sUtils.checkResponse(String.format("Error creating K8s obj: %s:%s", obj.getKind(), obj.getMetadata().getName()), resp);
     log.info("Created K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
   @Override
   public void delete(String yaml) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
+    delete(obj);
+  }
+
+  public void delete(DynamicKubernetesObject obj) throws SQLException {
+    delete(obj.getApiVersion(), obj.getKind(), obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+  }
+
+  public void delete(String apiVersion, String kind, String namespace, String name) throws SQLException {
     KubernetesApiResponse<DynamicKubernetesObject> resp =
-        context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
-            .delete(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
-    K8sUtils.checkResponse("Error deleting YAML:\n" + yaml, resp);
-    log.info("Deleted K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
+        context.dynamic(apiVersion, K8sUtils.guessPlural(kind)).delete(namespace, name);
+    K8sUtils.checkResponse(String.format("Error getting K8s obj: %s:%s", kind, name), resp);
+    log.info("Deleted K8s obj: {}:{}", kind, name);
   }
 
   @Override
   public void update(String yaml) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
+    update(obj);
+  }
+
+  public void update(DynamicKubernetesObject obj) throws SQLException {
     KubernetesApiResponse<DynamicKubernetesObject> existing =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
             .get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
@@ -80,15 +117,12 @@ public class K8sYamlApi implements Api<String> {
       context.own(obj);
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     }
-    K8sUtils.checkResponse("Error updating YAML:\n" + yaml, resp);
+    K8sUtils.checkResponse(String.format("Error updating K8s obj: %s:%s", obj.getKind(), obj.getMetadata().getName()), resp);
     log.info("Updated K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
 
-  private DynamicKubernetesObject objFromYaml(String yaml) {
+  public DynamicKubernetesObject objFromYaml(String yaml) {
     DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
-    if (obj.getMetadata().getNamespace() == null) {
-      obj.setMetadata(obj.getMetadata().namespace(context.namespace()));
-    }
-    return obj;
+    return K8sUtils.overrideNamespaceFromContext(this.context, obj);
   }
 }

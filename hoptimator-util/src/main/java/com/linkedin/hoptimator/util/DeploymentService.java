@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,27 +37,28 @@ public final class DeploymentService {
   private DeploymentService() {
   }
 
-  public static <T extends Deployable> void create(T obj, Properties connectionProperties)
+  public static void create(Collection<Deployer> deployers)
       throws SQLException {
-    for (Deployer deployer : deployers(obj, connectionProperties)) {
+    for (Deployer deployer : deployers) {
       deployer.create();
     }
   }
 
-  public static <T extends Deployable> void delete(T obj, Properties connectionProperties)
+  public static void delete(Collection<Deployer> deployers)
       throws SQLException {
-    for (Deployer deployer : deployers(obj, connectionProperties)) {
+    for (Deployer deployer : deployers) {
       deployer.delete();
     }
   }
 
-  public static <T extends Deployable> void update(T obj, Properties connectionProperties)
+  public static void update(Collection<Deployer> deployers)
       throws SQLException {
-    for (Deployer deployer : deployers(obj, connectionProperties)) {
+    for (Deployer deployer : deployers) {
       deployer.update();
     }
   }
 
+  // Since nothing about specify needs to be stateful, the deployers can be fetched on demand
   public static <T extends Deployable> List<String> specify(T obj, Properties connectionProperties)
       throws SQLException {
     List<String> specs = new ArrayList<>();
@@ -66,10 +68,17 @@ public final class DeploymentService {
     return specs;
   }
 
+  public static void restore(Collection<Deployer> deployers) {
+    for (Deployer deployer : deployers) {
+      deployer.restore();
+    }
+  }
+
   public static Collection<DeployerProvider> providers() {
     ServiceLoader<DeployerProvider> loader = ServiceLoader.load(DeployerProvider.class);
     List<DeployerProvider> providers = new ArrayList<>();
     loader.iterator().forEachRemaining(providers::add);
+    providers.sort(Comparator.comparingInt(DeployerProvider::priority));
     return providers;
   }
 
