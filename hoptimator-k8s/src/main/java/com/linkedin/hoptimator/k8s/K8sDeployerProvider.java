@@ -32,4 +32,9 @@ public class K8sDeployerProvider implements DeployerProvider {
 
    return list;
   }
+
+  @Override
+  public int priority() {
+    return 1;
+  }
 }

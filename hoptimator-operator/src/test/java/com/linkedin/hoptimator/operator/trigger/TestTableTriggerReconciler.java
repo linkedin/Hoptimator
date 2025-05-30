@@ -27,15 +27,15 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 
 
 class TestTableTriggerReconciler {
- 
+
   private List<V1Job> jobs = new ArrayList<>();
   private List<V1alpha1TableTrigger> triggers = new ArrayList<>();
-  private List<String> yamls = new ArrayList<>();
+  private Map<String, String> yamls = new HashMap<>();
   private final TableTriggerReconciler reconciler = new TableTriggerReconciler(null,
       new FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList>(triggers),
       new FakeK8sApi<V1Job, V1JobList>(jobs),
       new FakeK8sYamlApi(yamls));
- 
+
   @BeforeEach
   void beforeEach() {
     jobs.clear();
@@ -46,7 +46,7 @@ class TestTableTriggerReconciler {
   @Test
   void createsNewJob() {
     V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
-        .metadata(new V1ObjectMeta().name("table-trigger-job"));
+        .metadata(new V1ObjectMeta().name("table-trigger-job").namespace("namespace"));
     triggers.add(new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("table-trigger"))
         .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientException;
@@ -107,5 +108,12 @@ public final class K8sUtils {
         throw new SQLNonTransientException(msgSupplier.get(), e);
       }
     }
+  }
+
+  public static DynamicKubernetesObject overrideNamespaceFromContext(K8sContext context, DynamicKubernetesObject obj) {
+    if (obj.getMetadata().getNamespace() == null) {
+      obj.setMetadata(obj.getMetadata().namespace(context.namespace()));
+    }
+    return obj;
   }
 }
