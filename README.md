@@ -127,6 +127,22 @@ The CLI includes some additional commands. See `!intro`.
 
 To use Hoptimator from Java code, or from anything that supports JDBC, use the `jdbc:hoptimator://` JDBC driver.
 
+## The MCP Server
+
+To use Hoptimator from an AI chat bot, agent, IDE, etc, you can use the Model Context Protocol Server. Just point your MCP configs at the server path:
+
+```
+{
+  "mcpServers": {
+    "Hoptimator": {
+      "command": "./hoptimator-mcp-server/start"
+    }
+}
+```
+
+You may need additional configuration, e.g. `JAVA_HOME`, depending on your environment.
+
+
 ## The Operator
 
 `hoptimator-operator` turns materialized views into real data pipelines. The name operator comes from the Kubernetes Operator pattern.
