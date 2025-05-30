@@ -8,4 +8,7 @@ public interface DeployerProvider {
 
   /** Find deployers capable of deploying the obj. */
   <T extends Deployable> Collection<Deployer> deployers(T obj, Properties connectionProperties);
+
+  /** A DeployerProvider with lower priority will execute first */
+  int priority();
 }

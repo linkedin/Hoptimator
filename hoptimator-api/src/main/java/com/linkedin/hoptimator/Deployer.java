@@ -15,4 +15,7 @@ public interface Deployer {
 
   /** Render a list of specs, usually YAML. */
   List<String> specify() throws SQLException;
+
+  /** Deployers are expected to track the state of changes made and revert them on demand. */
+  void restore();
 }

@@ -20,6 +20,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.View;
@@ -30,6 +31,7 @@ import java.io.Reader;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -133,15 +135,21 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
     ViewTable viewTable = new ViewTable(Object.class, protoType, sql, schemaPath, viewPath);
     View view = new View(viewPath, sql);
+
+    Collection<Deployer> deployers = null;
     try {
+      deployers = DeploymentService.deployers(view, connectionProperties);
       ValidationService.validateOrThrow(viewTable);
       if (create.getReplace()) {
-        DeploymentService.update(view, connectionProperties);
+        DeploymentService.update(deployers);
       } else {
-        DeploymentService.create(view, connectionProperties);
+        DeploymentService.create(deployers);
       }
       schemaPlus.add(viewName, viewTable);
     } catch (Exception e) {
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+      }
       throw new DdlException(create, e.getMessage(), e);
     }
   }
@@ -184,6 +192,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final SqlNode q = renameColumns(create.columnList, create.query);
     final String sql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
     final List<String> schemaPath = pair.left.path(null);
+
+    Collection<Deployer> deployers = null;
 
     String schemaName = schemaPlus.getName();
     String viewName = pair.right;
@@ -235,14 +245,18 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook);
 
+      deployers = DeploymentService.deployers(hook, connectionProperties);
       if (create.getReplace()) {
-        DeploymentService.update(hook, connectionProperties);
+        DeploymentService.update(deployers);
       } else {
-        DeploymentService.create(hook, connectionProperties);
+        DeploymentService.create(deployers);
       }
 
       schemaPlus.add(viewName, materializedViewTable);
-    } catch (SQLException e) {
+    } catch (SQLException | RuntimeException e) {
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+      }
       throw new DdlException(create, e.getMessage(), e);
     }
   }
@@ -275,19 +289,25 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
 
+    Collection<Deployer> deployers = null;
     try {
       if (table instanceof MaterializedViewTable) {
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
         View view = new View(viewPath, materializedViewTable.viewSql());
-        DeploymentService.delete(view, connectionProperties);
+        deployers = DeploymentService.deployers(view, connectionProperties);
+        DeploymentService.delete(deployers);
       } else if (table instanceof ViewTable) {
         ViewTable viewTable = (ViewTable) table;
         View view = new View(viewPath, viewTable.getViewSql());
-        DeploymentService.delete(view, connectionProperties);
+        deployers = DeploymentService.deployers(view, connectionProperties);
+        DeploymentService.delete(deployers);
       } else {
         throw new DdlException(drop, viewName + " is not a view.");
       }
     } catch (Exception e) {
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+      }
       throw new DdlException(drop, e.getMessage(), e);
     }
     schemaPlus.removeTable(viewName);
