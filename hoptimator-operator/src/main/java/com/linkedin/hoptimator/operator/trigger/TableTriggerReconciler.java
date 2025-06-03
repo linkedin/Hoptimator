@@ -33,36 +33,36 @@ import com.linkedin.hoptimator.util.Template;
 
 /**
  * Launches Jobs when TableTriggers are fired.
- *
+ * <p>
  * TableTriggers maintain a timestamp and a watermark. The timestamp captures
  * the time at which a matching event occured, which could be far in the past.
  * The watermark records the last timestamp for which a corresponding job has
  * successfully completed, and is thus always older than or equal to the
  * timestamp.
- *
+ * <p>
  * At steady-state, a trigger can be in one of two states:
- *
+ * <p>
  * 1. Timestamp and watermark are the same: trigger has been fired and the
  *    corresponding job has successfully completed.
  * 2. Watermark is older than the timestamp: trigger has been fired, but a new
  *    corresponding job has not yet successfully completed.
- *
+ * <p>
  * At a high level, the reconciler checks whether the watermark is old and
  * creates a Job accordingly. If a Job already exists, we just wait for it
  * to complete. Once completed, we update the watermark to match the specific
  * timestamp that caused the Job to run.
- *
+ * <p>
  * Only one Job runs at a time, which means a trigger may be fired many times
  * before a Job successfully completes. Rather than fall behind, we pass the
  * current watermark and timestamp to each Job (e.g. via environment variables).
  * The Job itself must decide what to do based on this window of time.
  * Generally, a larger window means more work to do.
- *
+ * <p>
  */
-public final class TableTriggerReconciler implements Reconciler {
-  private final static Logger log = LoggerFactory.getLogger(TableTriggerReconciler.class);
-  private final static String TRIGGER_KEY = "trigger";
-  private final static String TRIGGER_TIMESTAMP_KEY = "triggerTimestamp";
+public class TableTriggerReconciler implements Reconciler {
+  private static final Logger log = LoggerFactory.getLogger(TableTriggerReconciler.class);
+  private static final String TRIGGER_KEY = "trigger";
+  private static final String TRIGGER_TIMESTAMP_KEY = "triggerTimestamp";
 
   private final K8sContext context;
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi;
@@ -82,7 +82,7 @@ public final class TableTriggerReconciler implements Reconciler {
     this.tableTriggerApi = tableTriggerApi;
     this.jobApi = jobApi;
     this.yamlApi = yamlApi;
-  } 
+  }
 
   @Override
   public Result reconcile(Request request) {
@@ -115,8 +115,16 @@ public final class TableTriggerReconciler implements Reconciler {
       Collection<V1Job> jobs = jobApi.select(TRIGGER_KEY + " = " + name);
       V1Job job = jobs.stream().findFirst().orElse(null);  // assume only one job.
 
-      if (job == null
-          && (status.getWatermark() == null || status.getTimestamp().isAfter(status.getWatermark()))) {
+      boolean shouldFire = false;
+      if (status.getTimestamp() != null && status.getWatermark() != null) {
+        // Only fire if the new timestamp is after the watermark
+        shouldFire = status.getTimestamp().isAfter(status.getWatermark());
+      } else if (status.getTimestamp() != null) {
+        // If this is the first trigger (no watermark yet), fire
+        shouldFire = true;
+      }
+
+      if (job == null && shouldFire) {
         log.info("Launching Job for TableTrigger {}. ", name);
         createJob(object);
         return new Result(true, pendingRetryDuration());
@@ -150,12 +158,23 @@ public final class TableTriggerReconciler implements Reconciler {
         }
       } else {
         log.info("Job for TableTrigger {} has no status yet.", name);
+        if (shouldInvokeTableTrigger()) {
+          status.setTimestamp(OffsetDateTime.now()); // updating the timestamp will trigger the job creation
+          return new Result(true);  // retry now
+        }
         return new Result(true, pendingRetryDuration());  // retry later
       }
     } catch (Exception e) {
       log.error("Encountered exception while reconciling TableTrigger {}.", name, e);
       return new Result(true, failureRetryDuration());
     }
+  }
+
+  // This method can be overridden to add custom logic for when to invoke the TableTrigger.
+  public boolean shouldInvokeTableTrigger() {
+    int currentMinute = OffsetDateTime.now().getMinute();
+    // dummy logic: invoke every 5 minutes
+    return currentMinute % 5 == 0;
   }
 
   private void createJob(V1alpha1TableTrigger trigger) throws SQLException {
