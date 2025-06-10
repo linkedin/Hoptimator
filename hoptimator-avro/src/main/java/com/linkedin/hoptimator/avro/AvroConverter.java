@@ -69,7 +69,9 @@ public final class AvroConverter {
               dataType.isNullable());
         case UNKNOWN:
         case NULL:
-          return createAvroSchemaWithNullability(Schema.createUnion(Schema.create(Schema.Type.NULL)), true);
+          // We can't have a union of null and null ["null", "null"], nor a nested union ["null",["null"]],
+          // so we ignore nullability and just use ["null"] here.
+          return Schema.createUnion(Schema.create(Schema.Type.NULL));
         default:
           throw new UnsupportedOperationException("No support yet for " + dataType.getSqlTypeName().toString());
       }

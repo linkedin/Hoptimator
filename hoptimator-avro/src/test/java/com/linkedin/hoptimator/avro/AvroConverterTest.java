@@ -82,6 +82,16 @@ public class AvroConverterTest {
   }
 
   @Test
+  public void supportsNullTypes() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rel = typeFactory.createStructType(Collections.singletonList(typeFactory.createSqlType(SqlTypeName.NULL)),
+        Collections.singletonList("field1"));
+
+    Schema avroSchema = AvroConverter.avro("NS", "R", rel);
+    assertEquals(avroSchema.toString(), avroSchema.getFields().size(), rel.getFieldCount());
+  }
+
+  @Test
   public void testAvroKeyPayloadSchemaNoKeyOptions() {
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType dataType = typeFactory.createStructType(Collections.singletonList(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
