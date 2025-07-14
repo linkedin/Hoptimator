@@ -82,7 +82,7 @@ public final class TableTriggerReconciler implements Reconciler {
     this.tableTriggerApi = tableTriggerApi;
     this.jobApi = jobApi;
     this.yamlApi = yamlApi;
-  } 
+  }
 
   @Override
   public Result reconcile(Request request) {
@@ -91,11 +91,15 @@ public final class TableTriggerReconciler implements Reconciler {
     String namespace = request.getNamespace();
 
     try {
-      V1alpha1TableTrigger object = tableTriggerApi.get(namespace, name);
-
-      if (object == null) {
-        log.info("Object {} deleted. Skipping.", name);
-        return new Result(false);
+      V1alpha1TableTrigger object;
+      try {
+        object = tableTriggerApi.get(namespace, name);
+      } catch (SQLException e) {
+        if (e.getErrorCode() == 404) {
+          log.info("Object {} deleted. Skipping.", name);
+          return new Result(false);
+        }
+        throw e;
       }
 
       V1alpha1TableTriggerStatus status = object.getStatus();

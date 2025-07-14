@@ -103,9 +103,9 @@ public final class K8sUtils {
       case 409: // conflict
       case 410: // gone
       case 412: // precondition failed
-        throw new SQLTransientException(msgSupplier.get(), e);
+        throw new SQLTransientException(msgSupplier.get(), null, resp.getHttpStatusCode(), e);
       default:
-        throw new SQLNonTransientException(msgSupplier.get(), e);
+        throw new SQLNonTransientException(msgSupplier.get(), null, resp.getHttpStatusCode(), e);
       }
     }
   }

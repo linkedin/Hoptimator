@@ -46,11 +46,15 @@ public final class PipelineReconciler implements Reconciler {
 
     Result result = new Result(true, pendingRetryDuration());
     try {
-      V1alpha1Pipeline object = pipelineApi.get(namespace, name);
-
-      if (object == null) {
-        log.info("Object {} deleted. Skipping.", name);
-        return new Result(false);
+      V1alpha1Pipeline object;
+      try {
+        object = pipelineApi.get(namespace, name);
+      } catch (SQLException e) {
+        if (e.getErrorCode() == 404) {
+          log.info("Object {} deleted. Skipping.", name);
+          return new Result(false);
+        }
+        throw e;
       }
 
       V1alpha1PipelineStatus status = object.getStatus();
@@ -79,13 +83,6 @@ public final class PipelineReconciler implements Reconciler {
 
       pipelineApi.updateStatus(object, status);
     } catch (Exception e) {
-      if (e instanceof SQLException) {
-        SQLException sqlException = (SQLException) e;
-        if (sqlException.getErrorCode() == 404) {
-          log.info("Object {} deleted. Skipping.", name);
-          return new Result(false);
-        }
-      }
       log.error("Encountered exception while reconciling Pipeline {}.", name, e);
       return new Result(true, failureRetryDuration());
     }
