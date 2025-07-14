@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator.trigger;
 
+import io.kubernetes.client.extended.controller.reconciler.Result;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -44,6 +45,13 @@ class TestTableTriggerReconciler {
   }
 
   @Test
+  void deletedJob() {
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertFalse(result.isRequeue());
+    Assertions.assertTrue(yamls.isEmpty(), "Job should not exist");
+  }
+
+  @Test
   void createsNewJob() {
     V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
         .metadata(new V1ObjectMeta().name("table-trigger-job").namespace("namespace"));
@@ -51,7 +59,8 @@ class TestTableTriggerReconciler {
         .metadata(new V1ObjectMeta().name("table-trigger"))
         .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
         .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now())));
-    reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertTrue(result.isRequeue());
     Assertions.assertFalse(yamls.isEmpty(), "Job was not created");
   }
 
@@ -66,7 +75,8 @@ class TestTableTriggerReconciler {
         .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
     triggers.add(trigger);
     jobs.add(job);
-    reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertTrue(result.isRequeue());
     Assertions.assertTrue(jobs.isEmpty(), "Job was not deleted");
   }
 
@@ -83,7 +93,8 @@ class TestTableTriggerReconciler {
         .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
     triggers.add(trigger);
     jobs.add(job);
-    reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Result result =  reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertTrue(result.isRequeue());
     Assertions.assertNotNull(trigger.getStatus().getWatermark(), "Watermark was not set");
   }
 }
