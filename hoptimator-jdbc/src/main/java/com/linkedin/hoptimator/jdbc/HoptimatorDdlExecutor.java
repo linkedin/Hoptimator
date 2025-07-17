@@ -199,6 +199,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     String viewName = pair.right;
     List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
+
+    Table currentViewTable = schemaPlus.getTable(viewName);
     try {
       if (!(pair.left.schema instanceof Database)) {
         throw new DdlException(create, schemaName + " is not a physical database.");
@@ -239,9 +241,11 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
       PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), connectionProperties);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
-      Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
 
-      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(connectionProperties), pipeline);
+      // Need to add the view table to the connection so that the ConnectorService can find it when resolving options.
+      schemaPlus.add(viewName, materializedViewTable);
+      Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
+      MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().sql(), pipeline);
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook);
 
@@ -251,11 +255,14 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       } else {
         DeploymentService.create(deployers);
       }
-
-      schemaPlus.add(viewName, materializedViewTable);
     } catch (SQLException | RuntimeException e) {
       if (deployers != null) {
         DeploymentService.restore(deployers);
+      }
+      if (currentViewTable == null) {
+        schemaPlus.removeTable(viewName);
+      } else {
+        schemaPlus.add(viewName, currentViewTable);
       }
       throw new DdlException(create, e.getMessage(), e);
     }

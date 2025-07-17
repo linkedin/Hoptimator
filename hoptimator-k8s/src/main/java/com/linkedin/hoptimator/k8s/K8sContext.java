@@ -47,15 +47,17 @@ public final class K8sContext {
   private final SharedInformerFactory informerFactory;
   private final V1OwnerReference ownerReference;
   private final Map<String, String> labels;
+  private final Properties connectionProperties;
 
-  private K8sContext(String namespace, String clientInfo, ApiClient apiClient,
-      SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels) {
+  private K8sContext(String namespace, String clientInfo, ApiClient apiClient, SharedInformerFactory informerFactory,
+      V1OwnerReference ownerReference, Map<String, String> labels, Properties connectionProperties) {
     this.namespace = namespace;
     this.clientInfo = clientInfo;
     this.apiClient = apiClient;
     this.informerFactory = informerFactory;
     this.ownerReference = ownerReference;
     this.labels = labels;
+    this.connectionProperties = connectionProperties;
   }
 
   public static K8sContext create(Properties connectionProperties) {
@@ -136,19 +138,19 @@ public final class K8sContext {
     }
 
     return new K8sContext(namespace, info, apiClient, new SharedInformerFactory(apiClient),
-        null, Collections.emptyMap());
+        null, Collections.emptyMap(), connectionProperties);
   }
 
   public K8sContext withOwner(V1OwnerReference owner) {
     return new K8sContext(namespace, clientInfo + " Owner is " + owner.getName() + ".", apiClient,
-        informerFactory, owner, labels);
+        informerFactory, owner, labels, connectionProperties);
   }
 
   public K8sContext withLabel(String key, String value) {
     Map<String, String> newLabels = new HashMap<>(labels);
     newLabels.put(key, value);
     return new K8sContext(namespace, clientInfo + " Label " + key + "=" + value + ".", apiClient,
-        informerFactory, ownerReference, newLabels);
+        informerFactory, ownerReference, newLabels, connectionProperties);
   }
 
   public ApiClient apiClient() {
@@ -213,6 +215,9 @@ public final class K8sContext {
     }
   }
 
+  public Properties connectionProperties() {
+    return connectionProperties;
+  }
 
   @Override
   public String toString() {
