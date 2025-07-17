@@ -140,6 +140,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       deployers = DeploymentService.deployers(view, connectionProperties);
       ValidationService.validateOrThrow(viewTable);
+      ValidationService.validateOrThrow(deployers);
       if (create.getReplace()) {
         DeploymentService.update(deployers);
       } else {
