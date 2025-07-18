@@ -102,3 +102,8 @@ select name, "SCHEMA", "TABLE" from "k8s".TABLE_TRIGGERS;
 (1 row)
 
 !ok
+
+drop materialized view ads.pages;
+(0 rows modified)
+
+!update

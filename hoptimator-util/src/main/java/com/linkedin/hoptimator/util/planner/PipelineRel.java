@@ -8,15 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.runtime.ImmutablePairList;
-
-import com.google.common.annotations.VisibleForTesting;
 
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
@@ -37,10 +33,6 @@ import com.linkedin.hoptimator.util.ConnectionService;
 public interface PipelineRel extends RelNode {
 
   Convention CONVENTION = new Convention.Impl("PIPELINE", PipelineRel.class);
-  String KEY_OPTION = "keys";
-  String KEY_PREFIX_OPTION = "keyPrefix";
-  String KEY_TYPE_OPTION = "keyType";
-  String KEY_PREFIX = "KEY_";
 
   void implement(Implementor implementor) throws SQLException;
 
@@ -76,7 +68,7 @@ public interface PipelineRel extends RelNode {
      * a connector. The connector is configured via `CREATE TABLE...WITH(...)`.
      */
     public void addSource(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
-      Map<String, String> newOptions = addKeysAsOption(options, rowType);
+      Map<String, String> newOptions = new LinkedHashMap<>(options);
       newOptions.putAll(this.hints);
       sources.put(new Source(database, path, newOptions), rowType);
     }
@@ -90,30 +82,9 @@ public interface PipelineRel extends RelNode {
     public void setSink(String database, List<String> path, RelDataType rowType, Map<String, String> options) {
       this.sinkRowType = rowType;
 
-      Map<String, String> newOptions = addKeysAsOption(options, rowType);
+      Map<String, String> newOptions = new LinkedHashMap<>(options);
       newOptions.putAll(this.hints);
       this.sink = new Sink(database, path, newOptions);
-    }
-
-    @VisibleForTesting
-    static Map<String, String> addKeysAsOption(Map<String, String> options, RelDataType rowType) {
-      Map<String, String> newOptions = new LinkedHashMap<>(options);
-
-      // If the keys are already set, don't overwrite them
-      if (newOptions.containsKey(KEY_OPTION)) {
-        return newOptions;
-      }
-
-      String keyString = rowType.getFieldList().stream()
-          .map(RelDataTypeField::getName)
-          .filter(name -> name.startsWith(KEY_PREFIX))
-          .collect(Collectors.joining(";"));
-      if (!keyString.isEmpty()) {
-        newOptions.put(KEY_OPTION, keyString);
-        newOptions.put(KEY_PREFIX_OPTION, KEY_PREFIX);
-        newOptions.put(KEY_TYPE_OPTION, "RECORD");
-      }
-      return newOptions;
     }
 
     public void setQuery(RelNode query) {
