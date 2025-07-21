@@ -138,8 +138,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     Collection<Deployer> deployers = null;
     try {
-      deployers = DeploymentService.deployers(view, connectionProperties);
       ValidationService.validateOrThrow(viewTable);
+      deployers = DeploymentService.deployers(view, connectionProperties);
       ValidationService.validateOrThrow(deployers);
       if (create.getReplace()) {
         DeploymentService.update(deployers);
@@ -249,8 +249,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().sql(), pipeline);
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook);
-
       deployers = DeploymentService.deployers(hook, connectionProperties);
+      ValidationService.validateOrThrow(deployers);
       if (create.getReplace()) {
         DeploymentService.update(deployers);
       } else {
