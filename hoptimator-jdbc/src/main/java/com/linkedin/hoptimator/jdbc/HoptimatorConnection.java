@@ -50,6 +50,10 @@ public class HoptimatorConnection extends DelegatingConnection {
     return connection;
   }
 
+  public HoptimatorConnection withProperties(Properties properties) {
+    return new HoptimatorConnection(connection, properties);
+  }
+
   public void registerMaterialization(List<String> viewPath, String querySql) {
     String tableSql = "SELECT * FROM " + viewPath.stream().map(x -> "\"" + x + "\"").collect(Collectors.joining("."));
     RelNode tableRel = HoptimatorDriver.convert(this, tableSql).root.rel;
