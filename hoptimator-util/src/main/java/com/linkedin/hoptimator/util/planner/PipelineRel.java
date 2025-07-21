@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.util.planner;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.function.Function;
 
 import org.apache.calcite.plan.Convention;
@@ -92,24 +92,24 @@ public interface PipelineRel extends RelNode {
     }
 
     /** Combine deployables into a Pipeline */
-    public Pipeline pipeline(String name, Properties connectionProperties) throws SQLException {
-      Job job = new Job(name, sink, sql(connectionProperties));
+    public Pipeline pipeline(String name, Connection connection) throws SQLException {
+      Job job = new Job(name, sink, sql(connection));
       return new Pipeline(sources.keySet(), sink, job);
     }
 
-    private ScriptImplementor script(Properties connectionProperties) throws SQLException {
+    private ScriptImplementor script(Connection connection) throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
       for (Map.Entry<Source, RelDataType> source : sources.entrySet()) {
         script = script.database(source.getKey().schema());
-        Map<String, String> configs = ConnectionService.configure(source.getKey(), connectionProperties);
+        Map<String, String> configs = ConnectionService.configure(source.getKey(), connection);
         script = script.connector(source.getKey().schema(), source.getKey().table(), source.getValue(), configs);
       }
       return script;
     }
 
     /** SQL script ending in an INSERT INTO */
-    public Function<SqlDialect, String> sql(Properties connectionProperties) throws SQLException {
-      ScriptImplementor script = script(connectionProperties);
+    public Function<SqlDialect, String> sql(Connection connection) throws SQLException {
+      ScriptImplementor script = script(connection);
       RelDataType targetRowType = sinkRowType;
       if (targetRowType == null) {
         targetRowType = query.getRowType();
@@ -121,7 +121,7 @@ public interface PipelineRel extends RelNode {
           }
         }
       }
-      Map<String, String> sinkConfigs = ConnectionService.configure(sink, connectionProperties);
+      Map<String, String> sinkConfigs = ConnectionService.configure(sink, connection);
       script = script.database(sink.schema());
       script = script.connector(sink.schema(), sink.table(), targetRowType, sinkConfigs);
       script = script.insert(sink.schema(), sink.table(), query, targetFields);
@@ -129,8 +129,8 @@ public interface PipelineRel extends RelNode {
     }
 
     /** SQL script ending in a SELECT */
-    public Function<SqlDialect, String> query(Properties connectionProperties) throws SQLException {
-      return script(connectionProperties).query(query).seal();
+    public Function<SqlDialect, String> query(Connection connection) throws SQLException {
+      return script(connection).query(query).seal();
     }
   }
 }

@@ -105,11 +105,6 @@ public class HoptimatorDriver implements java.sql.Driver {
       properties.putAll(props); // via getConnection()
       properties.putAll(ConnectStringParser.parse(url.substring(CONNECTION_PREFIX.length())));
 
-      connection = ConnectionCache.getConnection(CONNECTION_PREFIX, properties);
-      if (connection != null) {
-        return connection;
-      }
-
       // For [Calcite]Driver.connect() to work, we need [Calcite]Driver.createPrepare()
       // to return our Prepare. But our Prepare requires a HoptimatorConnection, which
       // we cannot construct yet.
@@ -145,7 +140,6 @@ public class HoptimatorDriver implements java.sql.Driver {
           CatalogService.catalog(catalog).register(wrapped);
         }
       }
-      ConnectionCache.setConnection(CONNECTION_PREFIX, properties, hoptimatorConnection);
       return hoptimatorConnection;
     } catch (IOException | SQLTransientException e) {
       if (connection != null) {
@@ -157,12 +151,10 @@ public class HoptimatorDriver implements java.sql.Driver {
     }
   }
 
-  public static RelDataType rowType(Source source, Properties connectionProperties) throws SQLException {
-    HoptimatorConnection hoptimatorConnection = ((HoptimatorConnection)
-        DriverManager.getConnection(CONNECTION_PREFIX, connectionProperties));
+  public static RelDataType rowType(Source source, HoptimatorConnection connection) throws SQLException {
     final List<String> path = Util.skipLast(source.path());
     String name = source.table();
-    SchemaPlus schema = Objects.requireNonNull(hoptimatorConnection.calciteConnection().getRootSchema());
+    SchemaPlus schema = Objects.requireNonNull(connection.calciteConnection().getRootSchema());
     for (String p : path) {
       schema = Objects.requireNonNull(schema.getSubSchema(p));
     }

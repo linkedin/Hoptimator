@@ -47,7 +47,7 @@ class K8sConnector implements Connector {
     Map<String, String> options = new HashMap<>();
     // The PIPELINE schema is a placeholder used for select * type queries, no schema will be present
     if (!source.database().equals("PIPELINE")) {
-      RelDataType sourceRowType = HoptimatorDriver.rowType(source, context.connectionProperties());
+      RelDataType sourceRowType = HoptimatorDriver.rowType(source, context.connection());
       options = addKeysAsOption(source.options(), sourceRowType);
     }
 

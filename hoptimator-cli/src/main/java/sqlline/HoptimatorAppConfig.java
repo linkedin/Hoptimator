@@ -100,7 +100,7 @@ public class HoptimatorAppConfig extends Application {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
         }
         PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
-        sqlline.output(plan.sql(connectionProperties).apply(SqlDialect.ANSI));
+        sqlline.output(plan.sql(conn).apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
@@ -172,13 +172,13 @@ public class HoptimatorAppConfig extends Application {
         if (table != null) {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
         }
-        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), conn.connectionProperties()).pipeline("sink", connectionProperties);
+        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), connectionProperties).pipeline("sink", conn);
         List<String> specs = new ArrayList<>();
         for (Source source : pipeline.sources()) {
-          specs.addAll(DeploymentService.specify(source, connectionProperties));
+          specs.addAll(DeploymentService.specify(source, conn));
         }
-        specs.addAll(DeploymentService.specify(pipeline.sink(), connectionProperties));
-        specs.addAll(DeploymentService.specify(pipeline.job(), connectionProperties));
+        specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
+        specs.addAll(DeploymentService.specify(pipeline.job(), conn));
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
       } catch (SQLException e) {
         sqlline.error(e);

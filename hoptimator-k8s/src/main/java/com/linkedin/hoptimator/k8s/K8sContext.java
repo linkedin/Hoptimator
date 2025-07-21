@@ -1,11 +1,13 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.sql.Connection;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,24 +49,27 @@ public final class K8sContext {
   private final SharedInformerFactory informerFactory;
   private final V1OwnerReference ownerReference;
   private final Map<String, String> labels;
-  private final Properties connectionProperties;
+  private final HoptimatorConnection connection;
 
-  private K8sContext(String namespace, String clientInfo, ApiClient apiClient, SharedInformerFactory informerFactory,
-      V1OwnerReference ownerReference, Map<String, String> labels, Properties connectionProperties) {
+  private K8sContext(String namespace, String clientInfo, ApiClient apiClient,
+      SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels,
+      HoptimatorConnection connection) {
     this.namespace = namespace;
     this.clientInfo = clientInfo;
     this.apiClient = apiClient;
     this.informerFactory = informerFactory;
     this.ownerReference = ownerReference;
     this.labels = labels;
-    this.connectionProperties = connectionProperties;
+    this.connection = connection;
   }
 
-  public static K8sContext create(Properties connectionProperties) {
+  public static K8sContext create(Connection connection) {
     String namespace;
     ApiClient apiClient;
     String info;
 
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) connection;
+    Properties connectionProperties = hoptimatorConnection.connectionProperties();
     if (connectionProperties.getProperty(NAMESPACE_KEY) != null) {
       namespace = connectionProperties.getProperty(NAMESPACE_KEY);
     } else {
@@ -138,19 +143,19 @@ public final class K8sContext {
     }
 
     return new K8sContext(namespace, info, apiClient, new SharedInformerFactory(apiClient),
-        null, Collections.emptyMap(), connectionProperties);
+        null, Collections.emptyMap(), hoptimatorConnection);
   }
 
   public K8sContext withOwner(V1OwnerReference owner) {
     return new K8sContext(namespace, clientInfo + " Owner is " + owner.getName() + ".", apiClient,
-        informerFactory, owner, labels, connectionProperties);
+        informerFactory, owner, labels, connection);
   }
 
   public K8sContext withLabel(String key, String value) {
     Map<String, String> newLabels = new HashMap<>(labels);
     newLabels.put(key, value);
     return new K8sContext(namespace, clientInfo + " Label " + key + "=" + value + ".", apiClient,
-        informerFactory, ownerReference, newLabels, connectionProperties);
+        informerFactory, ownerReference, newLabels, connection);
   }
 
   public ApiClient apiClient() {
@@ -215,8 +220,8 @@ public final class K8sContext {
     }
   }
 
-  public Properties connectionProperties() {
-    return connectionProperties;
+  public HoptimatorConnection connection() {
+    return connection;
   }
 
   @Override

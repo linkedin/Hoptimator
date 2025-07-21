@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator;
 
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -92,7 +93,7 @@ public class HoptimatorOperatorApp {
 
     Properties connectionProperties = new Properties();
     connectionProperties.putAll(properties);
-    K8sContext context = K8sContext.create(connectionProperties);
+    K8sContext context = K8sContext.create(new HoptimatorConnection(null, connectionProperties));
 
     ApiClient apiClient = context.apiClient();
     apiClient.setHttpClient(apiClient.getHttpClient().newBuilder().readTimeout(0, TimeUnit.SECONDS).build());

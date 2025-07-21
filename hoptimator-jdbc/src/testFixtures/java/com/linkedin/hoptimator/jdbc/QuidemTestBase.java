@@ -89,13 +89,13 @@ public abstract class QuidemTestBase {
                 String[] parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
                 Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList(), conn.connectionProperties())
-                    .pipeline(pipelineName, conn.connectionProperties());
+                    .pipeline(pipelineName, conn);
                 List<String> specs = new ArrayList<>();
                 for (Source source : pipeline.sources()) {
-                  specs.addAll(DeploymentService.specify(source, conn.connectionProperties()));
+                  specs.addAll(DeploymentService.specify(source, conn));
                 }
-                specs.addAll(DeploymentService.specify(pipeline.sink(), conn.connectionProperties()));
-                specs.addAll(DeploymentService.specify(pipeline.job(), conn.connectionProperties()));
+                specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
+                specs.addAll(DeploymentService.specify(pipeline.job(), conn));
                 String joined = specs.stream().sorted().collect(Collectors.joining("---\n"));
                 String[] lines = joined.replaceAll(";\n", "\n").split("\n");
                 context.echo(Arrays.asList(lines));

@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.util;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
@@ -19,10 +19,10 @@ public final class ConnectionService {
   private ConnectionService() {
   }
 
-  public static <T> Map<String, String> configure(T obj, Properties connectionProperties)
+  public static <T> Map<String, String> configure(T obj, Connection connection)
         throws SQLException {
     Map<String, String> configs = new LinkedHashMap<>();
-    for (Connector connector : connectors(obj, connectionProperties)) {
+    for (Connector connector : connectors(obj, connection)) {
       configs.putAll(connector.configure());
     }
     return configs;
@@ -35,9 +35,9 @@ public final class ConnectionService {
     return providers;
   }
 
-  public static <T> Collection<Connector> connectors(T obj, Properties connectionProperties) {
+  public static <T> Collection<Connector> connectors(T obj, Connection connection) {
     return providers().stream()
-        .flatMap(x -> x.connectors(obj, connectionProperties).stream())
+        .flatMap(x -> x.connectors(obj, connection).stream())
         .collect(Collectors.toList());
   }
 }
