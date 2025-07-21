@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator;
 
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +63,7 @@ public class PipelineOperatorApp {
   }
 
   public void run() throws Exception {
-    K8sContext context = K8sContext.create(connectionProperties);
+    K8sContext context = K8sContext.create(new HoptimatorConnection(null, connectionProperties));
 
     // register informers
     context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), watchNamespace);
