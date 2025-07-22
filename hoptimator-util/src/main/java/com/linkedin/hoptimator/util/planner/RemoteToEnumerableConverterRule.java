@@ -18,7 +18,7 @@
  */
 package com.linkedin.hoptimator.util.planner;
 
-import java.util.Properties;
+import java.sql.Connection;
 
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
@@ -34,25 +34,25 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  */
 public class RemoteToEnumerableConverterRule extends ConverterRule {
 
-  private final Properties connectionProperties;
+  private final Connection connection;
 
   /** Creates a RemoteToEnumerableConverterRule. */
-  public static RemoteToEnumerableConverterRule create(RemoteConvention inTrait, Properties connectionProperties) {
+  public static RemoteToEnumerableConverterRule create(RemoteConvention inTrait, Connection connection) {
     return Config.INSTANCE
         .withConversion(RelNode.class, inTrait, EnumerableConvention.INSTANCE,
             "RemoteToEnumerableConverterRule")
-        .withRuleFactory(x -> new RemoteToEnumerableConverterRule(x, connectionProperties))
+        .withRuleFactory(x -> new RemoteToEnumerableConverterRule(x, connection))
         .toRule(RemoteToEnumerableConverterRule.class);
   }
 
   /** Called from the Config. */
-  protected RemoteToEnumerableConverterRule(Config config, Properties connectionProperties) {
+  protected RemoteToEnumerableConverterRule(Config config, Connection connection) {
     super(config);
-    this.connectionProperties = connectionProperties;
+    this.connection = connection;
   }
 
   @Override public @Nullable RelNode convert(RelNode rel) {
     RelTraitSet newTraitSet = rel.getTraitSet().replace(getOutTrait());
-    return new RemoteToEnumerableConverter(rel.getCluster(), newTraitSet, rel, connectionProperties);
+    return new RemoteToEnumerableConverter(rel.getCluster(), newTraitSet, rel, connection);
   }
 }

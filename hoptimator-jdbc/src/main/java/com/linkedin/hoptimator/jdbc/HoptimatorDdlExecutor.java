@@ -74,11 +74,9 @@ import org.apache.calcite.util.Util;
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   private final HoptimatorConnection connection;
-  private final Properties connectionProperties;
 
   public HoptimatorDdlExecutor(HoptimatorConnection connection) {
     this.connection = connection;
-    this.connectionProperties = connection.connectionProperties();
   }
 
   public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
@@ -138,8 +136,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     Collection<Deployer> deployers = null;
     try {
-      deployers = DeploymentService.deployers(view, connectionProperties);
       ValidationService.validateOrThrow(viewTable);
+      deployers = DeploymentService.deployers(view, connection);
+      ValidationService.validateOrThrow(deployers);
       if (create.getReplace()) {
         DeploymentService.update(deployers);
       } else {
@@ -199,6 +198,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     String viewName = pair.right;
     List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
+
+    Table currentViewTable = schemaPlus.getTable(viewName);
     try {
       if (!(pair.left.schema instanceof Database)) {
         throw new DdlException(create, schemaName + " is not a physical database.");
@@ -221,6 +222,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       if (viewParts.length > 1) {
         pipelineName = pipelineName + "-" + viewParts[1];
       }
+      Properties connectionProperties = connection.connectionProperties();
       connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
       List<String> sinkPath = new ArrayList<>(schemaPath);
       sinkPath.add(sinkName);
@@ -239,23 +241,28 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
       PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), connectionProperties);
       plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
-      Pipeline pipeline = plan.pipeline(viewName, connectionProperties);
 
-      MaterializedView hook = new MaterializedView(database, viewPath, sql, plan.sql(connectionProperties), pipeline);
+      // Need to add the view table to the connection so that the ConnectorService can find it when resolving options.
+      schemaPlus.add(viewName, materializedViewTable);
+      Pipeline pipeline = plan.pipeline(viewName, connection);
+      MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().sql(), pipeline);
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook);
-
-      deployers = DeploymentService.deployers(hook, connectionProperties);
+      deployers = DeploymentService.deployers(hook, connection);
+      ValidationService.validateOrThrow(deployers);
       if (create.getReplace()) {
         DeploymentService.update(deployers);
       } else {
         DeploymentService.create(deployers);
       }
-
-      schemaPlus.add(viewName, materializedViewTable);
     } catch (SQLException | RuntimeException e) {
       if (deployers != null) {
         DeploymentService.restore(deployers);
+      }
+      if (currentViewTable == null) {
+        schemaPlus.removeTable(viewName);
+      } else {
+        schemaPlus.add(viewName, currentViewTable);
       }
       throw new DdlException(create, e.getMessage(), e);
     }
@@ -294,12 +301,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       if (table instanceof MaterializedViewTable) {
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
         View view = new View(viewPath, materializedViewTable.viewSql());
-        deployers = DeploymentService.deployers(view, connectionProperties);
+        deployers = DeploymentService.deployers(view, connection);
         DeploymentService.delete(deployers);
       } else if (table instanceof ViewTable) {
         ViewTable viewTable = (ViewTable) table;
         View view = new View(viewPath, viewTable.getViewSql());
-        deployers = DeploymentService.deployers(view, connectionProperties);
+        deployers = DeploymentService.deployers(view, connection);
         DeploymentService.delete(deployers);
       } else {
         throw new DdlException(drop, viewName + " is not a view.");

@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.util.planner;
 
+import java.sql.Connection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
 import org.apache.calcite.linq4j.tree.Expression;
@@ -17,15 +17,15 @@ public class HoptimatorJdbcConvention extends JdbcConvention {
 
   private final String database;
   private final List<Engine> engines;
-  private final Properties connectionProperties;
+  private final Connection connection;
   private final Map<String, RemoteConvention> remoteConventions = new HashMap<>();
 
   public HoptimatorJdbcConvention(SqlDialect dialect, Expression expression, String name,
-      List<Engine> engines, Properties connectionProperties) {
+      List<Engine> engines, Connection connection) {
     super(dialect, expression, name);
     this.database = name;
     this.engines = engines;
-    this.connectionProperties = connectionProperties;
+    this.connection = connection;
   }
 
   public String database() {
@@ -47,6 +47,6 @@ public class HoptimatorJdbcConvention extends JdbcConvention {
     planner.addRule(PipelineRules.PipelineTableScanRule.create(this));
     planner.addRule(PipelineRules.PipelineTableModifyRule.create(this));
     PipelineRules.rules().forEach(planner::addRule);
-    engines().forEach(x -> new EngineRules(x).register(this, planner, connectionProperties));
+    engines().forEach(x -> new EngineRules(x).register(this, planner, connection));
   }
 }

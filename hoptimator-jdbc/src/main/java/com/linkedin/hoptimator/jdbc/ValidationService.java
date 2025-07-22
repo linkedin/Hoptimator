@@ -58,6 +58,16 @@ public final class ValidationService {
     }
   }
 
+  public static <T> void validateOrThrow(Collection<T> objs) throws SQLException {
+    Validator.Issues issues = new Validator.Issues("");
+    for (T obj : objs) {
+      validate(obj, issues);
+      if (!issues.valid()) {
+        throw new SQLDataException("Failed validation:\n" + issues);
+      }
+    }
+  }
+
   public static Collection<ValidatorProvider> providers() {
     ServiceLoader<ValidatorProvider> loader = ServiceLoader.load(ValidatorProvider.class);
     List<ValidatorProvider> providers = new ArrayList<>();
