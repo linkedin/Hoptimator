@@ -48,3 +48,25 @@ spec:
   - Modify
   connector: |
     connector = blackhole
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTemplate
+metadata:
+  name: ads-source-trigger-template
+spec:
+  databases:
+    - ads-database
+  methods:
+    - Scan
+  yaml: |
+    apiVersion: hoptimator.linkedin.com/v1alpha1
+    kind: TableTrigger
+    metadata:
+      name: {{name}}-trigger
+    spec:
+      schema: KAFKA
+      table: {{offline.table.name}}
+      yaml: |
+        {{job.yaml}}
