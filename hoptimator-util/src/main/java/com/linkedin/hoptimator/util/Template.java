@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -11,7 +14,8 @@ import java.util.regex.Pattern;
 
 /** A convenient way to generate K8s YAML. */
 public interface Template {
-
+  Logger log = LoggerFactory.getLogger(Template.class);
+  String EMPTY_STRING = "";
   String render(Environment env);
 
   /** Exposes environment variables to templates */
@@ -201,9 +205,13 @@ public interface Template {
         String key = m.group(2);
         String defaultValue = m.group(4);
         String transform = m.group(5);
-        String value = env.getOrDefault(key, () -> defaultValue);
-        if (value == null) {
-          throw new IllegalArgumentException(template + " has no value for variable " + key + ".");
+
+        String value;
+        try {
+          value = env.getOrDefault(key, () -> defaultValue);
+        } catch (IllegalArgumentException e) {
+          log.warn("Missing template variable '{}' in env. Skipping to apply this template \n {}.", key, template);
+          return EMPTY_STRING;
         }
         String transformedValue = applyTransform(value, transform);
         String quotedPrefix = Matcher.quoteReplacement(prefix);

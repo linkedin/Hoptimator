@@ -27,7 +27,7 @@ public class K8sDeployerProvider implements DeployerProvider {
     } else if (obj instanceof Job) {
       list.add(new K8sJobDeployer((Job) obj, context));
     } else if (obj instanceof Source) {
-      list.add(new K8sSourceDeployer((Source) obj, context));
+      list.add(new K8sSourceDeployer((Source) obj, context, connectionProperties));
     }
 
    return list;
