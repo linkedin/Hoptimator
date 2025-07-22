@@ -27,6 +27,7 @@ import io.kubernetes.client.util.generic.dynamic.Dynamics;
 
 
 /** Single handle to all the clients and configs required by all the controllers. */
+@Deprecated
 public class Operator {
   private static final Logger log = LoggerFactory.getLogger(Operator.class);
 

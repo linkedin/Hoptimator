@@ -23,6 +23,7 @@ import com.linkedin.hoptimator.planner.Pipeline;
  *     name is guaranteed to be a valid K8s object name, e.g. `my-subscription`.
  *  - `pipeline.avroSchema`, an Avro schema for the pipeline's output type.
  */
+@Deprecated
 public class SubscriptionEnvironment extends Resource.SimpleEnvironment {
 
   public SubscriptionEnvironment(String namespace, String name, Pipeline pipeline) {
