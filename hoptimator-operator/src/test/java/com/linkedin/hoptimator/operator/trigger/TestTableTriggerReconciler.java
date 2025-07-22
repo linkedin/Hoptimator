@@ -32,7 +32,7 @@ class TestTableTriggerReconciler {
   private List<V1Job> jobs = new ArrayList<>();
   private List<V1alpha1TableTrigger> triggers = new ArrayList<>();
   private Map<String, String> yamls = new HashMap<>();
-  private final TableTriggerReconciler reconciler = new TableTriggerReconciler(null,
+  private final TableTriggerReconciler reconciler = new TableTriggerReconciler(
       new FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList>(triggers),
       new FakeK8sApi<V1Job, V1JobList>(jobs),
       new FakeK8sYamlApi(yamls));

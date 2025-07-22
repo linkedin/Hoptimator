@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
   implementation project(':hoptimator-k8s')
+  implementation project(':hoptimator-util')
   implementation project(':hoptimator-operator')
   implementation project(':hoptimator-models')      // <-- marked for deletion
   implementation libs.calcite.core

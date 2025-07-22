@@ -1,5 +1,10 @@
 package com.linkedin.hoptimator.operator.kafka;
 
+import com.linkedin.hoptimator.k8s.K8sApi;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
+import java.sql.SQLException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -19,22 +24,25 @@ import org.slf4j.LoggerFactory;
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
 import io.kubernetes.client.extended.controller.reconciler.Request;
 import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.openapi.ApiException;
 
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopicStatus;
 import com.linkedin.hoptimator.operator.ConfigAssembler;
-import com.linkedin.hoptimator.operator.Operator;
 
 
 public class KafkaTopicReconciler implements Reconciler {
   private static final Logger log = LoggerFactory.getLogger(KafkaTopicReconciler.class);
-  private static final String KAFKATOPIC = "hoptimator.linkedin.com/v1alpha1/KafkaTopic";
 
-  private final Operator operator;
+  private final K8sContext context;
+  private final K8sApi<V1alpha1KafkaTopic, V1alpha1KafkaTopicList> kafkaTopicApi;
 
-  public KafkaTopicReconciler(Operator operator) {
-    this.operator = operator;
+  public KafkaTopicReconciler(K8sContext context) {
+    this(context, new K8sApi<>(context, KafkaControllerProvider.KAFKA_TOPICS));
+  }
+
+  KafkaTopicReconciler(K8sContext context, K8sApi<V1alpha1KafkaTopic, V1alpha1KafkaTopicList> kafkaTopicApi) {
+    this.context = context;
+    this.kafkaTopicApi = kafkaTopicApi;
   }
 
   @Override
@@ -44,11 +52,15 @@ public class KafkaTopicReconciler implements Reconciler {
     String namespace = request.getNamespace();
 
     try {
-      V1alpha1KafkaTopic object = operator.fetch(KAFKATOPIC, namespace, name);
-
-      if (object == null) {
-        log.info("Object {}/{} deleted. Skipping.", namespace, name);
-        return new Result(false);
+      V1alpha1KafkaTopic object;
+      try {
+        object = kafkaTopicApi.get(namespace, name);
+      } catch (SQLException e) {
+        if (e.getErrorCode() == 404) {
+          log.info("Object {} deleted. Skipping.", name);
+          return new Result(false);
+        }
+        throw e;
       }
 
       if (object.getStatus() == null) {
@@ -60,7 +72,7 @@ public class KafkaTopicReconciler implements Reconciler {
       Integer desiredReplicationFactor = object.getSpec().getReplicationFactor();
 
       // assemble AdminClient config
-      ConfigAssembler assembler = new ConfigAssembler(operator);
+      ConfigAssembler assembler = new ConfigAssembler(context);
       list(object.getSpec().getClientConfigs()).forEach(
           x -> assembler.addRef(namespace, Objects.requireNonNull(x.getConfigMapRef()).getName()));
       map(object.getSpec().getClientOverrides()).forEach(assembler::addOverride);
@@ -99,13 +111,10 @@ public class KafkaTopicReconciler implements Reconciler {
         admin.close();
       }
 
-      operator.apiFor(KAFKATOPIC)
-          .updateStatus(object, x -> object.getStatus())
-          .onFailure(
-              (x, y) -> log.error("Failed to update status of KafkaTopic {}/{}: {}.", namespace, name, y.getMessage()));
-    } catch (InterruptedException | ExecutionException | ApiException e) {
+      kafkaTopicApi.updateStatus(object, object.getStatus());
+    } catch (InterruptedException | ExecutionException | SQLException e) {
       log.error("Encountered exception while reconciling KafkaTopic {}/{}", namespace, name, e);
-      return new Result(true, operator.failureRetryDuration());
+      return new Result(true, failureRetryDuration());
     }
     log.info("Done reconciling {}/{}", namespace, name);
     return new Result(false);
@@ -117,6 +126,16 @@ public class KafkaTopicReconciler implements Reconciler {
 
   private static <K, V> Map<K, V> map(Map<K, V> maybeNull) {
     return Objects.requireNonNullElse(maybeNull, Collections.emptyMap());
+  }
+
+  // TODO load from configuration
+  protected Duration failureRetryDuration() {
+    return Duration.ofMinutes(5);
+  }
+
+  // TODO load from configuration
+  protected Duration pendingRetryDuration() {
+    return Duration.ofMinutes(1);
   }
 }
 
