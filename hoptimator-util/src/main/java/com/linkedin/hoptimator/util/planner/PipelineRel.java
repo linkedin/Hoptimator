@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.util.planner;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,13 +41,12 @@ public interface PipelineRel extends RelNode {
     private final ImmutablePairList<Integer, String> targetFields;
     private final Map<String, String> hints;
     private RelNode query;
-    private Sink sink;
+    private Sink sink = null;
     private RelDataType sinkRowType = null;
 
     public Implementor(ImmutablePairList<Integer, String> targetFields, Map<String, String> hints) {
       this.targetFields = targetFields;
       this.hints = hints;
-      this.sink = new Sink("PIPELINE", Arrays.asList("PIPELINE", "SINK"), hints);
     }
 
     public void visit(RelNode node) throws SQLException {

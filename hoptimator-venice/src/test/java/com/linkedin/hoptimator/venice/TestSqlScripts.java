@@ -10,12 +10,6 @@ public class TestSqlScripts extends QuidemTestBase {
 
   @Test
   @Tag("integration")
-  public void veniceDdlSelectScript() throws Exception {
-    run("venice-ddl-select.id");
-  }
-
-  @Test
-  @Tag("integration")
   public void veniceDdlInsertPartialScript() throws Exception {
     run("venice-ddl-insert-partial.id");
   }

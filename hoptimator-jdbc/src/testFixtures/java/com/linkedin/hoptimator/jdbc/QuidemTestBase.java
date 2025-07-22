@@ -59,6 +59,8 @@ public abstract class QuidemTestBase {
     List<String> output = Files.readAllLines(out.toPath(), StandardCharsets.UTF_8);
     Assertions.assertFalse(input.isEmpty(), "input script is empty");
     Assertions.assertFalse(output.isEmpty(), "script output is empty");
+    // This check is necessary because on error, the input is echo'd to the output along with the error message
+    Assertions.assertEquals(input.size(), output.size(), "input and output have different number of lines");
     for (String line : output) {
       System.out.println(line);
     }

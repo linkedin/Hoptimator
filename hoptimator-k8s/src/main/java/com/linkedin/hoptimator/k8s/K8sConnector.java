@@ -5,7 +5,6 @@ import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import java.io.IOException;
 import java.io.StringReader;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -44,12 +43,8 @@ class K8sConnector implements Connector {
 
   @Override
   public Map<String, String> configure() throws SQLException {
-    Map<String, String> options = new HashMap<>();
-    // The PIPELINE schema is a placeholder used for select * type queries, no schema will be present
-    if (!source.database().equals("PIPELINE")) {
-      RelDataType sourceRowType = HoptimatorDriver.rowType(source, context.connection());
-      options = addKeysAsOption(source.options(), sourceRowType);
-    }
+    RelDataType sourceRowType = HoptimatorDriver.rowType(source, context.connection());
+    Map<String, String> options = addKeysAsOption(source.options(), sourceRowType);
 
     Template.Environment env =
         new Template.SimpleEnvironment()
