@@ -22,8 +22,8 @@ import org.apache.calcite.util.Pair;
 /** Converts between Avro and Calcite's RelDataType */
 public final class AvroConverter {
 
-  private static final String KEY_OPTION = "keys";
-  private static final String KEY_PREFIX_OPTION = "keyPrefix";
+  private static final String KEY_OPTION = "key.fields";
+  private static final String KEY_PREFIX_OPTION = "key.fields-prefix";
   private static final String PRIMITIVE_KEY = "KEY";
 
   private AvroConverter() {
