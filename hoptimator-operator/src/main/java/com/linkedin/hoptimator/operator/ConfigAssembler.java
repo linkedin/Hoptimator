@@ -1,5 +1,10 @@
 package com.linkedin.hoptimator.operator;
 
+import com.linkedin.hoptimator.k8s.K8sApi;
+import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import io.kubernetes.client.openapi.models.V1ConfigMapList;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,12 +15,12 @@ import io.kubernetes.client.openapi.models.V1ConfigMap;
 
 
 public class ConfigAssembler {
-  private final Operator operator;
+  private final K8sContext context;
   private final List<ConfigMapRef> refs = new ArrayList<>();
   private final Map<String, String> overrides = new HashMap<>();
 
-  public ConfigAssembler(Operator operator) {
-    this.operator = operator;
+  public ConfigAssembler(K8sContext context) {
+    this.context = context;
   }
 
   public void addOverride(String key, String value) {
@@ -26,14 +31,16 @@ public class ConfigAssembler {
     refs.add(new ConfigMapRef(namespace, name));
   }
 
-  public Map<String, String> assemble() {
+  public Map<String, String> assemble() throws SQLException {
     Map<String, String> combined = new HashMap<>();
-    refs.forEach(x -> combined.putAll(x.fetch(operator)));
+    for (ConfigMapRef ref : refs) {
+        combined.putAll(ref.fetch(context));
+    }
     combined.putAll(overrides);
     return combined;
   }
 
-  public Properties assembleProperties() {
+  public Properties assembleProperties() throws SQLException {
     Properties properties = new Properties();
     properties.putAll(assemble());
     return properties;
@@ -48,8 +55,9 @@ public class ConfigAssembler {
       this.name = name;
     }
 
-    Map<String, String> fetch(Operator operator) {
-      return operator.<V1ConfigMap>fetch("configmap", namespace, name).getData();
+    Map<String, String> fetch(K8sContext context) throws SQLException {
+      K8sApi<V1ConfigMap, V1ConfigMapList> configMapApi = new K8sApi<>(context, K8sApiEndpoints.CONFIG_MAPS);
+      return configMapApi.get(namespace, name).getData();
     }
   }
 }

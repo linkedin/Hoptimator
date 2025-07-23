@@ -64,21 +64,18 @@ public final class TableTriggerReconciler implements Reconciler {
   private final static String TRIGGER_KEY = "trigger";
   private final static String TRIGGER_TIMESTAMP_KEY = "triggerTimestamp";
 
-  private final K8sContext context;
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi;
   private final K8sApi<V1Job, V1JobList> jobApi;
   private final K8sYamlApi yamlApi;
 
   private TableTriggerReconciler(K8sContext context) {
-    this(context, new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS),
+    this(new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS),
         new K8sApi<>(context, K8sApiEndpoints.JOBS),
         new K8sYamlApi(context));
   }
 
-  TableTriggerReconciler(K8sContext context,
-      K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
+  TableTriggerReconciler(K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
       K8sApi<V1Job, V1JobList> jobApi, K8sYamlApi yamlApi) {
-    this.context = context;
     this.tableTriggerApi = tableTriggerApi;
     this.jobApi = jobApi;
     this.yamlApi = yamlApi;

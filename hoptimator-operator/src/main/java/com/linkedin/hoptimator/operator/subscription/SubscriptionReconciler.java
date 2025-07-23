@@ -26,9 +26,9 @@ import io.kubernetes.client.util.generic.dynamic.Dynamics;
 
 import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.models.V1alpha1Subscription;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Subscription;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionStatus;
 import com.linkedin.hoptimator.operator.Operator;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 import com.linkedin.hoptimator.planner.Pipeline;

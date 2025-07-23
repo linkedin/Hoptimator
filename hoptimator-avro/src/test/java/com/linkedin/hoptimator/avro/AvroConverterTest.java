@@ -131,8 +131,8 @@ public class AvroConverterTest {
         List.of("KEY_field1", "field2"));
 
     Map<String, String> keyOptions = Map.of(
-        "keys", "KEY_field1",
-        "keyPrefix", "KEY_"
+        "key.fields", "KEY_field1",
+        "key.fields-prefix", "KEY_"
     );
     Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("namespace", "keySchema", "payloadSchema", dataType, keyOptions);
 
@@ -160,7 +160,7 @@ public class AvroConverterTest {
         List.of("field1", "KEY"));
 
     Map<String, String> keyOptions = Map.of(
-        "keys", "KEY"
+        "key.fields", "KEY"
     );
     Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("namespace", "keySchema", "payloadSchema", dataType, keyOptions);
 

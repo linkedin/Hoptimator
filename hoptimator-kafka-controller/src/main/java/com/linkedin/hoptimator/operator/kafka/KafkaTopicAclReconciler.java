@@ -1,5 +1,11 @@
 package com.linkedin.hoptimator.operator.kafka;
 
+import com.linkedin.hoptimator.k8s.K8sApi;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.models.V1alpha1AclList;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
+import java.sql.SQLException;
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -25,18 +31,25 @@ import com.linkedin.hoptimator.models.V1alpha1Acl;
 import com.linkedin.hoptimator.models.V1alpha1AclSpec;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
 import com.linkedin.hoptimator.operator.ConfigAssembler;
-import com.linkedin.hoptimator.operator.Operator;
 
 
 public class KafkaTopicAclReconciler implements Reconciler {
   private static final Logger log = LoggerFactory.getLogger(KafkaTopicAclReconciler.class);
-  private static final String ACL = "hoptimator.linkedin.com/v1alpha1/Acl";
-  private static final String KAFKATOPIC = "hoptimator.linkedin.com/v1alpha1/KafkaTopic";
 
-  private final Operator operator;
+  private final K8sContext context;
+  private final K8sApi<V1alpha1KafkaTopic, V1alpha1KafkaTopicList> kafkaTopicApi;
+  private final K8sApi<V1alpha1Acl, V1alpha1AclList> aclApi;
 
-  public KafkaTopicAclReconciler(Operator operator) {
-    this.operator = operator;
+  public KafkaTopicAclReconciler(K8sContext context) {
+    this(context, new K8sApi<>(context, KafkaControllerProvider.KAFKA_TOPICS),
+        new K8sApi<>(context, KafkaControllerProvider.ACLS));
+  }
+
+  KafkaTopicAclReconciler(K8sContext context, K8sApi<V1alpha1KafkaTopic, V1alpha1KafkaTopicList> kafkaTopicApi,
+      K8sApi<V1alpha1Acl, V1alpha1AclList> aclApi) {
+    this.context = context;
+    this.kafkaTopicApi = kafkaTopicApi;
+    this.aclApi = aclApi;
   }
 
   @Override
@@ -46,11 +59,15 @@ public class KafkaTopicAclReconciler implements Reconciler {
     String namespace = request.getNamespace();
 
     try {
-      V1alpha1Acl object = operator.fetch(ACL, namespace, name);
-
-      if (object == null) {
-        log.info("Object {}/{} deleted. Skipping.", namespace, name);
-        return new Result(false);
+      V1alpha1Acl object;
+      try {
+        object = aclApi.get(namespace, name);
+      } catch (SQLException e) {
+        if (e.getErrorCode() == 404) {
+          log.info("Object {} deleted. Skipping.", name);
+          return new Result(false);
+        }
+        throw e;
       }
 
       String targetKind = Objects.requireNonNull(object.getSpec()).getResource().getKind();
@@ -77,15 +94,15 @@ public class KafkaTopicAclReconciler implements Reconciler {
       String targetName = object.getSpec().getResource().getName();
       String principal = object.getSpec().getPrincipal();
 
-      V1alpha1KafkaTopic target = operator.fetch(KAFKATOPIC, namespace, targetName);
+      V1alpha1KafkaTopic target = kafkaTopicApi.get(namespace, targetName);
 
       if (target == null) {
         log.info("Target KafkaTopic {}/{} not found. Retrying.", namespace, targetName);
-        return new Result(true, operator.failureRetryDuration());
+        return new Result(true, failureRetryDuration());
       }
 
       // assemble AdminClient config
-      ConfigAssembler assembler = new ConfigAssembler(operator);
+      ConfigAssembler assembler = new ConfigAssembler(context);
       list(Objects.requireNonNull(target.getSpec()).getClientConfigs()).forEach(
           x -> assembler.addRef(namespace, Objects.requireNonNull(x.getConfigMapRef()).getName()));
       map(target.getSpec().getClientOverrides()).forEach(assembler::addOverride);
@@ -102,7 +119,7 @@ public class KafkaTopicAclReconciler implements Reconciler {
       }
     } catch (Exception e) {
       log.error("Encountered exception while reconciling KafkaTopic Acl {}/{}", namespace, name, e);
-      return new Result(true, operator.failureRetryDuration());
+      return new Result(true, failureRetryDuration());
     }
     log.info("Done reconciling {}/{}", namespace, name);
     return new Result(false);
@@ -114,6 +131,16 @@ public class KafkaTopicAclReconciler implements Reconciler {
 
   private static <K, V> Map<K, V> map(Map<K, V> maybeNull) {
     return Objects.requireNonNullElse(maybeNull, Collections.emptyMap());
+  }
+
+  // TODO load from configuration
+  protected Duration failureRetryDuration() {
+    return Duration.ofMinutes(5);
+  }
+
+  // TODO load from configuration
+  protected Duration pendingRetryDuration() {
+    return Duration.ofMinutes(1);
   }
 }
 
