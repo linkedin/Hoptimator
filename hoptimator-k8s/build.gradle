@@ -78,7 +78,7 @@ publishing {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
       artifactId = 'hoptimator-k8s'
-      version = System.getenv('VERSION')
+      version = '0.1.4-srnand'
       from components.java
       pom {
         name = 'LinkedIn Hoptimator'
