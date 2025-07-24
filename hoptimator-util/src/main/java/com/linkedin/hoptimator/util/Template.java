@@ -15,7 +15,6 @@ import java.util.regex.Pattern;
 /** A convenient way to generate K8s YAML. */
 public interface Template {
   Logger log = LoggerFactory.getLogger(Template.class);
-  String EMPTY_STRING = "";
   String render(Environment env);
 
   /** Exposes environment variables to templates */
@@ -205,13 +204,16 @@ public interface Template {
         String key = m.group(2);
         String defaultValue = m.group(4);
         String transform = m.group(5);
-
         String value;
         try {
           value = env.getOrDefault(key, () -> defaultValue);
+          if (value == null) {
+            log.warn("Template variable '{}' resolved to null. Skipping template.", key);
+            return null;
+          }
         } catch (IllegalArgumentException e) {
-          log.warn("Missing template variable '{}' in env. Skipping to apply this template \n {}.", key, template);
-          return EMPTY_STRING;
+          log.warn("Missing template variable '{}' in environment: {}. Skipping template.", key, e.getMessage());
+          return null;
         }
         String transformedValue = applyTransform(value, transform);
         String quotedPrefix = Matcher.quoteReplacement(prefix);
