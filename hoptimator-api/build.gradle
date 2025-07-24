@@ -30,7 +30,7 @@ publishing {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
       artifactId = 'hoptimator-api'
-      version = '0.1.4-srnand'
+      version = System.getenv('VERSION')
       from components.java
       pom {
         name = 'hoptimator-api'
