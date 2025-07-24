@@ -10,6 +10,11 @@ dependencies {
   implementation project(':hoptimator-demodb')
   implementation project(':hoptimator-kafka')
   implementation project(':hoptimator-venice')
+  implementation project(':hoptimator-api')
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-util')
+
+  implementation libs.calcite.core
 
   implementation libs.gson
   implementation libs.jackson.databind
@@ -26,5 +31,5 @@ tasks.withType(JavaCompile).configureEach {
   options.compilerArgs << '-Xlint:deprecation'
   options.compilerArgs << '-Xlint:unchecked'
 }
- 
+
 

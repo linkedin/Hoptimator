@@ -1,5 +1,6 @@
 package sqlline;
 
+import com.linkedin.hoptimator.Database;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -11,8 +12,30 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Scanner;
 
+import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeImpl;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.rel.type.RelProtoDataType;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.SqlSelect;
+import org.apache.calcite.sql.ddl.SqlCreateMaterializedView;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.parser.SqlParserPos;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.Util;
 import org.jline.reader.Completer;
 
 import com.linkedin.hoptimator.Pipeline;
@@ -96,13 +119,29 @@ public class HoptimatorAppConfig extends Application {
       String sql = split[1];
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
-        RelRoot root = HoptimatorDriver.convert(conn, sql).root;
+        String querySql = sql;
+        SqlCreateMaterializedView create = null;
+        SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
+        if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
+          if (sqlNode instanceof SqlCreateMaterializedView) {
+            create = (SqlCreateMaterializedView) sqlNode;
+            final SqlNode q = renameColumns(create.columnList, create.query);
+            querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
+          } else {
+            sqlline.error("Unsupported DDL statement: " + sql);
+            dispatchCallback.setToFailure();
+            return;
+          }
+        }
+
+        RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
         Properties connectionProperties = conn.connectionProperties();
         RelOptTable table = root.rel.getTable();
         if (table != null) {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
         }
         PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
+        setSink(conn, plan, create, querySql);
         sqlline.output(plan.sql(conn).apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
@@ -241,14 +280,32 @@ public class HoptimatorAppConfig extends Application {
       }
       String sql = split[1];
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
-      RelRoot root = HoptimatorDriver.convert(conn, sql).root;
       try {
+        String querySql = sql;
+        SqlCreateMaterializedView create = null;
+        SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
+        if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
+          if (sqlNode instanceof SqlCreateMaterializedView) {
+            create = (SqlCreateMaterializedView) sqlNode;
+            final SqlNode q = renameColumns(create.columnList, create.query);
+            querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
+          } else {
+            sqlline.error("Unsupported DDL statement: " + sql);
+            dispatchCallback.setToFailure();
+            return;
+          }
+        }
+
+        RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
         Properties connectionProperties = conn.connectionProperties();
         RelOptTable table = root.rel.getTable();
         if (table != null) {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
         }
-        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), connectionProperties).pipeline("sink", conn);
+        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
+        setSink(conn, plan, create, querySql);
+        String viewName = create == null ? "sink" : viewName(create.name);
+        Pipeline pipeline = plan.pipeline(viewName, conn);
         List<String> specs = new ArrayList<>();
         for (Source source : pipeline.sources()) {
           specs.addAll(DeploymentService.specify(source, conn));
@@ -328,5 +385,74 @@ public class HoptimatorAppConfig extends Application {
 
   private static boolean startsWith(String s, String prefix) {
     return s.matches("(?i)" + prefix + ".*");
+  }
+
+  private static void setSink(HoptimatorConnection conn, PipelineRel.Implementor plan,
+      SqlCreateMaterializedView create, String querySql) throws SQLException {
+    if (create == null) {
+      return;
+    }
+    final Pair<CalciteSchema, String> pair = schema(conn.createPrepareContext(), create.name);
+    String database = ((Database) pair.left.schema).databaseName();
+    final List<String> schemaPath = pair.left.path(null);
+    List<String> sinkPath = new ArrayList<>(schemaPath);
+    String sinkName = pair.right.split("\\$", 2)[0];
+    sinkPath.add(sinkName);
+
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    CalcitePrepare.AnalyzeViewResult analyzed = HoptimatorDriver.analyzeView(conn, querySql);
+    RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
+    RelDataType viewRowType = protoType.apply(typeFactory);
+
+    final SchemaPlus schemaPlus = pair.left.plus();
+    Table sink = schemaPlus.getTable(sinkName);
+    final RelDataType rowType;
+    if (sink != null) {
+      // For "partial views", the sink may already exist. Use the existing row type.
+      rowType = sink.getRowType(typeFactory);
+    } else {
+      // For normal views, we create the sink based on the view row type.
+      rowType = viewRowType;
+    }
+
+    plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
+  }
+
+  private static SqlNode renameColumns(SqlNodeList columnList, SqlNode query) {
+    if (columnList == null) {
+      return query;
+    }
+    final SqlParserPos p = query.getParserPosition();
+    final SqlNodeList selectList = SqlNodeList.SINGLETON_STAR;
+    final SqlCall from = SqlStdOperatorTable.AS.createCall(p,
+        Arrays.asList(query, new SqlIdentifier("_", p), columnList));
+    return new SqlSelect(p, null, selectList, from, null, null, null, null, null, null, null, null, null);
+  }
+
+  private static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context, SqlIdentifier id) {
+    final String name;
+    final List<String> path;
+    if (id.isSimple()) {
+      path = context.getDefaultSchemaPath();
+      name = id.getSimple();
+    } else {
+      path = Util.skipLast(id.names);
+      name = Util.last(id.names);
+    }
+    CalciteSchema schema = context.getRootSchema();
+    for (String p : path) {
+      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+    }
+    return Pair.of(schema, name);
+  }
+
+  private static String viewName(SqlIdentifier id) {
+    final String name;
+    if (id.isSimple()) {
+      name = id.getSimple();
+    } else {
+      name = Util.last(id.names);
+    }
+    return name;
   }
 }
