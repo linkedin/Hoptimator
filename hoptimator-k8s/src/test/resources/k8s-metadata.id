@@ -61,45 +61,52 @@ select name, failed from "k8s".pipelines order by name;
 !ok
 
 select name, failed from "k8s".pipeline_elements order by name;
-+----------------------------------------+--------+
-| NAME                                   | FAILED |
-+----------------------------------------+--------+
-| FlinkSessionJob/ads-database-audience2 | false  |
-| FlinkSessionJob/ads-database-pages     | false  |
-+----------------------------------------+--------+
-(2 rows)
++---------------------------------------------+--------+
+| NAME                                        | FAILED |
++---------------------------------------------+--------+
+| FlinkSessionJob/ads-database-audience2      | false  |
+| FlinkSessionJob/ads-database-pages          | false  |
+| TableTrigger/ads-database-pageviews-trigger | false  |
++---------------------------------------------+--------+
+(3 rows)
 
 !ok
 
 select * from "k8s".pipeline_element_map order by element_name;
-+----------------------------------------+---------------+
-| ELEMENT_NAME                           | PIPELINE_NAME |
-+----------------------------------------+---------------+
-| FlinkSessionJob/ads-database-audience2 | ads-audience2 |
-| FlinkSessionJob/ads-database-pages     | ads-pages     |
-+----------------------------------------+---------------+
-(2 rows)
++---------------------------------------------+---------------+
+| ELEMENT_NAME                                | PIPELINE_NAME |
++---------------------------------------------+---------------+
+| FlinkSessionJob/ads-database-audience2      | ads-audience2 |
+| FlinkSessionJob/ads-database-pages          | ads-pages     |
+| TableTrigger/ads-database-pageviews-trigger | ads-audience2 |
+| TableTrigger/ads-database-pageviews-trigger | ads-pages     |
++---------------------------------------------+---------------+
+(4 rows)
 
 !ok
 
-select pl.name as pipeline_name, pe.element_name, pe.failed as element_failed from "k8s".pipelines pl inner join (select t2.element_name, t1.failed, t2.pipeline_name from "k8s".pipeline_elements t1 inner join "k8s".pipeline_element_map t2 on t1.name = t2.element_name) pe on pl.name = pe.pipeline_name order by pipeline_name;
-+---------------+----------------------------------------+----------------+
-| PIPELINE_NAME | ELEMENT_NAME                           | ELEMENT_FAILED |
-+---------------+----------------------------------------+----------------+
-| ads-audience2 | FlinkSessionJob/ads-database-audience2 | false          |
-| ads-pages     | FlinkSessionJob/ads-database-pages     | false          |
-+---------------+----------------------------------------+----------------+
-(2 rows)
+select pl.name as pipeline_name, pe.element_name, pe.failed as element_failed from "k8s".pipelines pl inner join (select t2.element_name, t1.failed, t2.pipeline_name from "k8s".pipeline_elements t1 inner join "k8s".pipeline_element_map t2 on t1.
+name = t2.element_name) pe on pl.name = pe.pipeline_name order by pipeline_name;
++---------------+---------------------------------------------+----------------+
+| PIPELINE_NAME | ELEMENT_NAME                                | ELEMENT_FAILED |
++---------------+---------------------------------------------+----------------+
+| ads-audience2 | FlinkSessionJob/ads-database-audience2      | false          |
+| ads-audience2 | TableTrigger/ads-database-pageviews-trigger | false          |
+| ads-pages     | FlinkSessionJob/ads-database-pages          | false          |
+| ads-pages     | TableTrigger/ads-database-pageviews-trigger | false          |
++---------------+---------------------------------------------+----------------+
+(4 rows)
 
 !ok
 
 select name, "SCHEMA", "TABLE" from "k8s".TABLE_TRIGGERS;
-+--------------------+--------+------------------+
-| NAME               | SCHEMA | TABLE            |
-+--------------------+--------+------------------+
-| test-table-trigger | KAFKA  | existing-topic-1 |
-+--------------------+--------+------------------+
-(1 row)
++--------------------------------+--------+------------------+
+| NAME                           | SCHEMA | TABLE            |
++--------------------------------+--------+------------------+
+| test-table-trigger             | KAFKA  | existing-topic-1 |
+| ads-database-pageviews-trigger | KAFKA  | ads_offline      |
++--------------------------------+--------+------------------+
+(2 rows)
 
 !ok
 
