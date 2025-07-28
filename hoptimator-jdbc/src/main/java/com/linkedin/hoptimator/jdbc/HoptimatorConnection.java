@@ -8,7 +8,9 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +27,7 @@ import org.apache.calcite.rel.RelNode;
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.util.DelegatingConnection;
 import org.apache.calcite.util.Util;
+import org.slf4j.Logger;
 
 
 public class HoptimatorConnection extends DelegatingConnection {
@@ -32,6 +35,28 @@ public class HoptimatorConnection extends DelegatingConnection {
   private final CalciteConnection connection;
   private final Properties connectionProperties;
   private final List<RelOptMaterialization> materializations = new ArrayList<>();
+
+  private final Map<Class<?>, HoptimatorConnectionDualLogger> loggers = new HashMap<>();
+
+  public HoptimatorConnectionDualLogger getLogger(Class<?> clazz) {
+    return loggers.computeIfAbsent(clazz, k -> new HoptimatorConnectionDualLogger(clazz));
+  }
+
+  public List<String> getLogs() {
+    return getLogsByClass().entrySet()
+        .stream()
+        .map(e -> e.getKey().getSimpleName() + ": " + String.join("\n", e.getValue()))
+        .collect(Collectors.toList());
+  }
+
+  public Map<Class<?>, List<String>> getLogsByClass() {
+    return loggers.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getLogs()));
+  }
+
+  public void clearLogs() {
+    loggers.clear();
+  }
+
 
   public HoptimatorConnection(CalciteConnection connection, Properties connectionProperties) {
     super(connection);
@@ -113,5 +138,25 @@ public class HoptimatorConnection extends DelegatingConnection {
       throw new SQLException(tablePath + " is not a physical database.");
     }
     return ((Database) schema.schema).databaseName();
+  }
+
+  /** A logger that logs to both SLF4J and an internal list. */
+  public static class HoptimatorConnectionDualLogger {
+    private final Logger slf4jLogger;
+
+    public HoptimatorConnectionDualLogger(Class<?> clazz) {
+      this.slf4jLogger = org.slf4j.LoggerFactory.getLogger(clazz);
+    }
+
+    private final List<String> logs = new ArrayList<>();
+
+    public void info(String format, Object... arguments) {
+      logs.add(String.format(format, arguments));
+      slf4jLogger.info(format, arguments);
+    }
+
+    public List<String> getLogs() {
+      return logs;
+    }
   }
 }
