@@ -74,9 +74,11 @@ import org.apache.calcite.util.Util;
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   private final HoptimatorConnection connection;
+  private final HoptimatorConnection.HoptimatorConnectionDualLogger logger;
 
   public HoptimatorDdlExecutor(HoptimatorConnection connection) {
     this.connection = connection;
+    this.logger = connection.getLogger(HoptimatorDdlExecutor.class);
   }
 
   public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
@@ -98,6 +100,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code CREATE VIEW} command. */
   @Override
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
+    logger.info("Validating provided CREATE VIEW statement: {}", create);
     try {
       ValidationService.validateOrThrow(create);
     } catch (SQLException e) {
@@ -139,12 +142,16 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       ValidationService.validateOrThrow(viewTable);
       deployers = DeploymentService.deployers(view, connection);
       ValidationService.validateOrThrow(deployers);
+      logger.info("View {} validated", viewName);
+      logger.info("Deploying view {} started", viewName);
       if (create.getReplace()) {
         DeploymentService.update(deployers);
       } else {
         DeploymentService.create(deployers);
       }
+      logger.info("Deploying view {} completed", viewName);
       schemaPlus.add(viewName, viewTable);
+      logger.info("View {} added to schema {}", viewName, schemaPlus.getName());
     } catch (Exception e) {
       if (deployers != null) {
         DeploymentService.restore(deployers);
