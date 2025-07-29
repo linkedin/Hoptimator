@@ -170,8 +170,12 @@ public class HoptimatorAppConfig extends Application {
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
         ResolvedTable resolved = conn.resolve(tablePath, Collections.emptyMap());
-        sqlline.output("Avro schema:\n");
-        sqlline.output(resolved.avroSchemaString());
+        sqlline.output("Avro schema:");
+        sqlline.output(resolved.avroSchemaString() + "\n");
+        sqlline.output("Source configs:");
+        sqlline.output(resolved.sourceConnectorConfigs().toString() + "\n");
+        sqlline.output("Sink configs:");
+        sqlline.output(resolved.sinkConnectorConfigs().toString() + "\n");
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
