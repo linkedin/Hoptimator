@@ -2,6 +2,7 @@ package sqlline;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -19,6 +20,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.jdbc.ResolvedTable;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
@@ -41,6 +43,7 @@ public class HoptimatorAppConfig extends Application {
     Collection<CommandHandler> list = new ArrayList<>(super.getCommandHandlers(sqlline));
     list.add(new IntroCommandHandler(sqlline));
     list.add(new PipelineCommandHandler(sqlline));
+    list.add(new ResolveCommandHandler(sqlline));
     list.add(new SpecifyCommandHandler(sqlline));
     return list;
   }
@@ -117,6 +120,75 @@ public class HoptimatorAppConfig extends Application {
       return false;
     }
   }
+
+  private static final class ResolveCommandHandler implements CommandHandler {
+
+    private final SqlLine sqlline;
+
+    private ResolveCommandHandler(SqlLine sqlline) {
+      this.sqlline = sqlline;
+    }
+
+    @Override
+    public String getName() {
+      return "resolve";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Resolve a table path.";
+    }
+
+    @Override
+    public String matches(String line) {
+      if (startsWith(line, "!resolve") || startsWith(line, "resolve")) {
+        return line;
+      } else {
+        return null;
+      }
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      if (!(sqlline.getConnection() instanceof HoptimatorConnection)) {
+        sqlline.error("This connection doesn't support `!resolve`.");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String[] split = line.split("\\s+", 2);
+      if (split.length < 2) {
+        sqlline.error("Missing argument.");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      List<String> tablePath = Arrays.asList(split[1].split("\\."));
+      HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
+      try {
+        ResolvedTable resolved = conn.resolve(tablePath, Collections.emptyMap());
+        sqlline.output("Avro schema:\n");
+        sqlline.output(resolved.avroSchemaString());
+      } catch (SQLException e) {
+        sqlline.error(e);
+        dispatchCallback.setToFailure();
+      }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
 
   private static final class SpecifyCommandHandler implements CommandHandler {
 

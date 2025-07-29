@@ -4,7 +4,10 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
@@ -13,6 +16,7 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.rel.RelNode;
 
+import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.util.DelegatingConnection;
 
 
@@ -26,6 +30,26 @@ public class HoptimatorConnection extends DelegatingConnection {
     super(connection);
     this.connection = connection;
     this.connectionProperties = connectionProperties;
+  }
+
+  public ResolvedTable resolve(List<String> tablePath, Map<String, String> hints) throws SQLException {
+    try {
+      String tableSql = "SELECT * FROM " + tablePath.stream()
+          .map(x -> "\"" + x + "\"")
+          .collect(Collectors.joining("."));
+      RelNode tableRel = HoptimatorDriver.convert(this, tableSql).root.rel;
+      String namespace = "com.linkedin."
+            + tablePath.stream()
+            .map(x -> x.toLowerCase(Locale.ROOT))
+            .limit(tablePath.size() - 1)
+            .collect(Collectors.joining("."));
+      String schemaName = tablePath.get(tablePath.size() - 1).toLowerCase(Locale.ROOT);
+      org.apache.avro.Schema avroSchema = AvroConverter.avro(namespace, schemaName, tableRel.getRowType());
+      // TODO: generate source and sink configs via ConnectionService
+      return new ResolvedTable(tablePath, avroSchema, Collections.emptyMap(), Collections.emptyMap());
+    } catch (Exception e) {
+      throw new SQLException("Failed to resolve " + String.join(".", tablePath) + ": " + e.getMessage(), e);
+    }
   }
 
   @Override
