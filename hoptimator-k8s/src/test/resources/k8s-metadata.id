@@ -72,7 +72,7 @@ select name, failed from "k8s".pipeline_elements order by name;
 
 !ok
 
-select * from "k8s".pipeline_element_map order by element_name;
+select * from "k8s".pipeline_element_map order by element_name, pipeline_name;
 +---------------------------------------------+---------------+
 | ELEMENT_NAME                                | PIPELINE_NAME |
 +---------------------------------------------+---------------+
@@ -86,7 +86,7 @@ select * from "k8s".pipeline_element_map order by element_name;
 !ok
 
 select pl.name as pipeline_name, pe.element_name, pe.failed as element_failed from "k8s".pipelines pl inner join (select t2.element_name, t1.failed, t2.pipeline_name from "k8s".pipeline_elements t1 inner join "k8s".pipeline_element_map t2 on t1.
-name = t2.element_name) pe on pl.name = pe.pipeline_name order by pipeline_name;
+name = t2.element_name) pe on pl.name = pe.pipeline_name order by pipeline_name, element_name;
 +---------------+---------------------------------------------+----------------+
 | PIPELINE_NAME | ELEMENT_NAME                                | ELEMENT_FAILED |
 +---------------+---------------------------------------------+----------------+
@@ -111,6 +111,16 @@ select name, "SCHEMA", "TABLE" from "k8s".TABLE_TRIGGERS;
 !ok
 
 drop materialized view ads.pages;
+(0 rows modified)
+
+!update
+
+drop materialized view ads.audience;
+(0 rows modified)
+
+!update
+
+drop materialized view ads.audience2;
 (0 rows modified)
 
 !update
