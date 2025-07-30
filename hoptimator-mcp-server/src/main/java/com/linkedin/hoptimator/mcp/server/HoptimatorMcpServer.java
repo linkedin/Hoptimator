@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.mcp.server;
 
-import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -16,8 +16,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.List;
@@ -26,52 +24,58 @@ import com.google.gson.Gson;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
-import java.util.Objects;
 import java.util.Properties;
-import org.apache.calcite.jdbc.CalcitePrepare;
-import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeImpl;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
-import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-import org.apache.calcite.sql.SqlCall;
-import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.ddl.SqlCreateMaterializedView;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
-import org.apache.calcite.sql.fun.SqlStdOperatorTable;
-import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.Pair;
-import org.apache.calcite.util.Util;
 
 import static io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
+import static io.modelcontextprotocol.server.McpServerFeatures.SyncResourceSpecification;
+import static io.modelcontextprotocol.server.McpServerFeatures.SyncPromptSpecification;
 import static io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import static io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
 import static io.modelcontextprotocol.spec.McpSchema.Tool;
 
-public final class HoptimatorMcpServer {
+public class HoptimatorMcpServer {
 
   public static final String PIPELINE_STATUS_QUERY = "select * from \"k8s\".pipelines where name = ?";
-  public static final String PIPELINE_ELEMENT_STATUS_QUERY =
-      "select name, ready, failed, message\n" + "from \"k8s\".pipeline_elements t1 inner join \n"
-          + "(select * from \"k8s\".pipeline_element_map where pipeline_name=?) t2 on t1.name = t2.element_name";
+  public static final String PIPELINE_ELEMENT_STATUS_QUERY = """
+      select name, ready, failed, message
+      from "k8s".pipeline_elements t1 inner join
+      (select * from "k8s".pipeline_element_map where pipeline_name=?) t2 on t1.name = t2.element_name""";
 
   public static final String PIPELINE_DESCRIBE_QUERY = "select p.name, \"SQL\" from \"k8s\".pipelines as p natural join "
       + "\"k8s\".views where p.name = ?";
 
-  private HoptimatorMcpServer() {
+  private final String jdbcUrl;
+  private final List<SyncToolSpecification> initialTools = new ArrayList<>();
+  private final List<SyncResourceSpecification> initialResources = new ArrayList<>();
+  private final List<SyncPromptSpecification> initialPrompts = new ArrayList<>();
+
+  public HoptimatorMcpServer(String jdbcUrl) {
+    this.jdbcUrl = jdbcUrl;
+  }
+
+  public HoptimatorMcpServer(String jdbcUrl, List<SyncToolSpecification> tools, List<SyncResourceSpecification> resources,
+      List<SyncPromptSpecification> prompts) {
+    this.jdbcUrl = jdbcUrl;
+    this.initialTools.addAll(tools);
+    this.initialResources.addAll(resources);
+    this.initialPrompts.addAll(prompts);
   }
 
   public static void main(String[] args) throws Exception {
-    HoptimatorConnection conn = (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://fun=mysql");
+    HoptimatorMcpServer server = new HoptimatorMcpServer(args[args.length - 1]);
+    server.run();
+  }
+
+  public void run() throws SQLException {
+    HoptimatorConnection conn = (HoptimatorConnection) DriverManager.getConnection(this.jdbcUrl);
     Gson gson = new Gson();
 
     StdioServerTransportProvider transportProvider = new StdioServerTransportProvider();
@@ -211,17 +215,21 @@ public final class HoptimatorMcpServer {
             return new CallToolResult("ERROR: The provided SQL is not a valid modify statement.", true);
           }
 
+          Pair<SchemaPlus, Table> schemaSnapshot = null;
+          String viewName = null;
+          CallToolResult result;
           try {
             String querySql;
             SqlCreateMaterializedView create;
             SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
             if (sqlNode instanceof SqlCreateMaterializedView) {
               create = (SqlCreateMaterializedView) sqlNode;
-              final SqlNode q = renameColumns(create.columnList, create.query);
+              final SqlNode q = HoptimatorDdlUtils.renameColumns(create.columnList, create.query);
               querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
             } else {
               return new CallToolResult("Unsupported DDL statement: " + sql, true);
             }
+            viewName = HoptimatorDdlUtils.viewName(create.name);
 
             RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
             Properties connectionProperties = conn.connectionProperties();
@@ -230,18 +238,26 @@ public final class HoptimatorMcpServer {
               connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
             }
             PipelineRel.Implementor sqlPlan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
-            setSink(conn, sqlPlan, create, querySql);
-            Pipeline pipeline = sqlPlan.pipeline(viewName(create.name), conn);
+            schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
+                  new HoptimatorDriver.Prepare(conn), sqlPlan, create, querySql);
+            Pipeline pipeline = sqlPlan.pipeline(viewName, conn);
             List<String> specs = new ArrayList<>();
             for (Source source : pipeline.sources()) {
               specs.addAll(DeploymentService.specify(source, conn));
             }
             specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
             specs.addAll(DeploymentService.specify(pipeline.job(), conn));
-            return new CallToolResult(gson.toJson(specs), false);
+            result = new CallToolResult(gson.toJson(specs), false);
           } catch (SQLException e) {
-            return new CallToolResult("ERROR: " + e, true);
+            result = new CallToolResult("ERROR: " + e, true);
           }
+          if (schemaSnapshot != null) {
+            if (schemaSnapshot.right != null) {
+              schemaSnapshot.left.add(viewName, schemaSnapshot.right);
+            }
+            schemaSnapshot.left.removeTable(viewName);
+          }
+          return result;
         });
 
     String querySchema = "{\"type\" : \"object\", \"properties\" : {\"sql\" : {\"type\" : \"string\"}},"
@@ -299,6 +315,22 @@ public final class HoptimatorMcpServer {
     server.addTool(plan);
     server.addTool(query);
     server.addTool(modify);
+
+    if (!this.initialTools.isEmpty()) {
+      for (SyncToolSpecification tool : this.initialTools) {
+        server.addTool(tool);
+      }
+    }
+    if (!this.initialResources.isEmpty()) {
+      for (SyncResourceSpecification resource : this.initialResources) {
+        server.addResource(resource);
+      }
+    }
+    if (!this.initialPrompts.isEmpty()) {
+      for (SyncPromptSpecification prompt : this.initialPrompts) {
+        server.addPrompt(prompt);
+      }
+    }
   }
 
   private static Map<String, Object> getTableInfo(Connection conn, String cat, String sch, String table, String type) throws SQLException {
@@ -435,74 +467,5 @@ public final class HoptimatorMcpServer {
   private static boolean isModifyStatement(String sql) {
     String upperSql = sql.trim().toUpperCase();
     return (upperSql.startsWith("CREATE") && upperSql.contains("VIEW")) || upperSql.startsWith("DROP");
-  }
-
-  private static void setSink(HoptimatorConnection conn, PipelineRel.Implementor plan,
-      SqlCreateMaterializedView create, String querySql) throws SQLException {
-    if (create == null) {
-      return;
-    }
-    final Pair<CalciteSchema, String> pair = schema(conn.createPrepareContext(), create.name);
-    String database = ((Database) pair.left.schema).databaseName();
-    final List<String> schemaPath = pair.left.path(null);
-    List<String> sinkPath = new ArrayList<>(schemaPath);
-    String sinkName = pair.right.split("\\$", 2)[0];
-    sinkPath.add(sinkName);
-
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    CalcitePrepare.AnalyzeViewResult analyzed = HoptimatorDriver.analyzeView(conn, querySql);
-    RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
-    RelDataType viewRowType = protoType.apply(typeFactory);
-
-    final SchemaPlus schemaPlus = pair.left.plus();
-    Table sink = schemaPlus.getTable(sinkName);
-    final RelDataType rowType;
-    if (sink != null) {
-      // For "partial views", the sink may already exist. Use the existing row type.
-      rowType = sink.getRowType(typeFactory);
-    } else {
-      // For normal views, we create the sink based on the view row type.
-      rowType = viewRowType;
-    }
-
-    plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
-  }
-
-  private static SqlNode renameColumns(SqlNodeList columnList, SqlNode query) {
-    if (columnList == null) {
-      return query;
-    }
-    final SqlParserPos p = query.getParserPosition();
-    final SqlNodeList selectList = SqlNodeList.SINGLETON_STAR;
-    final SqlCall from = SqlStdOperatorTable.AS.createCall(p,
-        Arrays.asList(query, new SqlIdentifier("_", p), columnList));
-    return new SqlSelect(p, null, selectList, from, null, null, null, null, null, null, null, null, null);
-  }
-
-  private static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context, SqlIdentifier id) {
-    final String name;
-    final List<String> path;
-    if (id.isSimple()) {
-      path = context.getDefaultSchemaPath();
-      name = id.getSimple();
-    } else {
-      path = Util.skipLast(id.names);
-      name = Util.last(id.names);
-    }
-    CalciteSchema schema = context.getRootSchema();
-    for (String p : path) {
-      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
-    }
-    return Pair.of(schema, name);
-  }
-
-  private static String viewName(SqlIdentifier id) {
-    final String name;
-    if (id.isSimple()) {
-      name = id.getSimple();
-    } else {
-      name = Util.last(id.names);
-    }
-    return name;
   }
 }
