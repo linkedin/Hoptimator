@@ -195,6 +195,7 @@ public class Operator {
         return false;
       }
     } catch (Exception e) {
+      log.error("Failed to check isReady {}/{}", kind, name, e);
       return false;
     }
   }
@@ -255,6 +256,7 @@ public class Operator {
         return false;
       }
     } catch (Exception e) {
+      log.error("Failed to check isFailed {}/{}", kind, name, e);
       return false;
     }
   }
