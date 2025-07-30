@@ -190,7 +190,7 @@ public class HoptimatorDriver implements java.sql.Driver {
       this.holder = holder;
     }
 
-    Prepare(HoptimatorConnection connection) {
+    public Prepare(HoptimatorConnection connection) {
       this.holder = new ConnectionHolder();
       this.holder.connection = connection;
     }
