@@ -1,23 +1,30 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.util.ConnectionService;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.rel.RelNode;
 
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.util.DelegatingConnection;
+import org.apache.calcite.util.Util;
 
 
 public class HoptimatorConnection extends DelegatingConnection {
@@ -44,9 +51,12 @@ public class HoptimatorConnection extends DelegatingConnection {
             .limit(tablePath.size() - 1)
             .collect(Collectors.joining("."));
       String schemaName = tablePath.get(tablePath.size() - 1).toLowerCase(Locale.ROOT);
-      org.apache.avro.Schema avroSchema = AvroConverter.avro(namespace, schemaName, tableRel.getRowType());
-      // TODO: generate source and sink configs via ConnectionService
-      return new ResolvedTable(tablePath, avroSchema, Collections.emptyMap(), Collections.emptyMap());
+      Schema avroSchema = AvroConverter.avro(namespace, schemaName, tableRel.getRowType());
+      String database = databaseName(this.createPrepareContext(), tablePath);
+      Source source = new Source(database, tablePath, hints);
+      Sink sink = new Sink(database, tablePath, hints);
+      return new ResolvedTable(tablePath, avroSchema, ConnectionService.configure(source, this),
+          ConnectionService.configure(sink, this));
     } catch (Exception e) {
       throw new SQLException("Failed to resolve " + String.join(".", tablePath) + ": " + e.getMessage(), e);
     }
@@ -91,5 +101,17 @@ public class HoptimatorConnection extends DelegatingConnection {
 
   public List<RelOptMaterialization> materializations() {
     return materializations;
+  }
+
+  private static String databaseName(CalcitePrepare.Context context, List<String> tablePath) throws SQLException {
+    final List<String> path = Util.skipLast(tablePath);
+    CalciteSchema schema = context.getRootSchema();
+    for (String p : path) {
+      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+    }
+    if (schema == null || !(schema.schema instanceof Database)) {
+      throw new SQLException(tablePath + " is not a physical database.");
+    }
+    return ((Database) schema.schema).databaseName();
   }
 }
