@@ -203,6 +203,7 @@ public final class SubscriptionReconciler implements Reconciler {
     try {
       operator.apply(yaml, owner);
     } catch (Exception e) {
+      log.error("Failed to apply {}.", yaml, e);
       return false;
     }
     return true;

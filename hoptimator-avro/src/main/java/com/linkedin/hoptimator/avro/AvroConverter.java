@@ -62,10 +62,10 @@ public final class AvroConverter {
         case BOOLEAN:
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:
-          return createAvroSchemaWithNullability(Schema.createArray(avro(null, null, Objects.requireNonNull(dataType.getComponentType()))),
+          return createAvroSchemaWithNullability(Schema.createArray(avro(null, "arrayElement", Objects.requireNonNull(dataType.getComponentType()))),
               dataType.isNullable());
         case MAP:
-          return createAvroSchemaWithNullability(Schema.createMap(avro(null, null, Objects.requireNonNull(dataType.getValueType()))),
+          return createAvroSchemaWithNullability(Schema.createMap(avro(null, "mapElement", Objects.requireNonNull(dataType.getValueType()))),
               dataType.isNullable());
         case UNKNOWN:
         case NULL:
