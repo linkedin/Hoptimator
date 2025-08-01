@@ -4,7 +4,6 @@ Try:
   > !tables
   > !schemas
   > create view foo as select * from ads.ad_clicks natural join profile.members;
-  > !specify select * from foo
-  > !pipeline select * from foo
-
-
+  > !specify create view foo as select * from ads.ad_clicks natural join profile.members;
+  > !pipeline create view foo as select * from ads.ad_clicks natural join profile.members;
+  > !resolve ADS.AD_CLICKS
