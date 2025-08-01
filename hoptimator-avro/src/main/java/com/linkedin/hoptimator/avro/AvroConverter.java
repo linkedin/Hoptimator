@@ -221,10 +221,6 @@ public final class AvroConverter {
   }
 
   private static String sanitize(String name) {
-    if (name == null) {
-      return "element";
-    }
-
     if (name.matches("^[^A-Za-z_]")) {
       // avoid starting with numbers, etc
       return sanitize("_" + name);
