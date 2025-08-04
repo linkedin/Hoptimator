@@ -19,6 +19,7 @@ dependencies {
   implementation libs.calcite.core
   implementation libs.gson
   implementation libs.jackson.databind
+  implementation libs.jackson.dataformat.yaml
   implementation libs.mcp
 }
 

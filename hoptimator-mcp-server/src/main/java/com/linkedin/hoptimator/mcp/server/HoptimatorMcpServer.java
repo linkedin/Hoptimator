@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.mcp.server;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
@@ -21,6 +23,7 @@ import java.util.Map;
 import java.util.List;
 
 import com.google.gson.Gson;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpSyncServer;
 import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
@@ -77,6 +80,7 @@ public class HoptimatorMcpServer {
   public void run() throws SQLException {
     HoptimatorConnection conn = (HoptimatorConnection) DriverManager.getConnection(this.jdbcUrl);
     Gson gson = new Gson();
+    ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
 
     StdioServerTransportProvider transportProvider = new StdioServerTransportProvider();
 
@@ -247,8 +251,12 @@ public class HoptimatorMcpServer {
             }
             specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
             specs.addAll(DeploymentService.specify(pipeline.job(), conn));
-            result = new CallToolResult(gson.toJson(specs), false);
-          } catch (SQLException e) {
+            List<Object> mappedObjs = new ArrayList<>();
+            for (String spec : specs) {
+              mappedObjs.add(yamlMapper.readValue(spec, Object.class));
+            }
+            result = new CallToolResult(gson.toJson(mappedObjs), false);
+          } catch (SQLException | JsonProcessingException e) {
             result = new CallToolResult("ERROR: " + e, true);
           }
           if (schemaSnapshot != null) {
@@ -268,6 +276,9 @@ public class HoptimatorMcpServer {
           // Validate the SQL is a query statement
           if (!isQueryStatement(sql)) {
             return new CallToolResult("ERROR: The provided SQL is not a valid query statement.", true);
+          }
+          if (!isQueryableSource(sql)) {
+            return new CallToolResult("ERROR: The provided source is not queryable.", true);
           }
 
           try (Statement stmt = conn.createStatement()) {
@@ -464,8 +475,15 @@ public class HoptimatorMcpServer {
     return upperSql.startsWith("SELECT");
   }
 
+  private static boolean isQueryableSource(String sql) {
+    String upperSql = sql.trim().toUpperCase();
+    // TODO: Needs to be more robust
+    String from = upperSql.substring(upperSql.indexOf("FROM"));
+    return from.contains("ADS") || from.contains("PROFILE") || from.contains("METADATA") || from.contains("K8S");
+  }
+
   private static boolean isModifyStatement(String sql) {
     String upperSql = sql.trim().toUpperCase();
-    return (upperSql.startsWith("CREATE") && upperSql.contains("VIEW")) || upperSql.startsWith("DROP");
+    return (upperSql.startsWith("CREATE") && upperSql.contains("MATERIALIZED") && upperSql.contains("VIEW")) || upperSql.startsWith("DROP");
   }
 }
