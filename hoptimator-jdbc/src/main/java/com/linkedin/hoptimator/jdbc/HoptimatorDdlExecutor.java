@@ -100,7 +100,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code CREATE VIEW} command. */
   @Override
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
-    logger.info("Validating provided CREATE VIEW statement: {}", create);
+    logger.info("Validating statement: {}", create);
     try {
       ValidationService.validateOrThrow(create);
     } catch (SQLException e) {
@@ -136,22 +136,26 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
     ViewTable viewTable = new ViewTable(Object.class, protoType, sql, schemaPath, viewPath);
     View view = new View(viewPath, sql);
+    logger.info("Validated sql statement. The view is named {} and has path {}",
+        viewName, viewPath);
 
     Collection<Deployer> deployers = null;
     try {
+      logger.info("Validating view {} with deployers", viewName);
       ValidationService.validateOrThrow(viewTable);
       deployers = DeploymentService.deployers(view, connection);
       ValidationService.validateOrThrow(deployers);
-      logger.info("View {} validated", viewName);
-      logger.info("Deploying view {} started", viewName);
+      logger.info("Validated view {}", viewName);
+      logger.info("Deploying view {}", viewName);
       if (create.getReplace()) {
         DeploymentService.update(deployers);
       } else {
         DeploymentService.create(deployers);
       }
-      logger.info("Deploying view {} completed", viewName);
+      logger.info("Deployed view {}", viewName);
       schemaPlus.add(viewName, viewTable);
-      logger.info("View {} added to schema {}", viewName, schemaPlus.getName());
+      logger.info("Added view {} to schema {}", viewName, schemaPlus.getName());
+      logger.info("CREATE VIEW {} completed", viewName);
     } catch (Exception e) {
       if (deployers != null) {
         DeploymentService.restore(deployers);
@@ -165,6 +169,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code CREATE MATERIALIZED VIEW} command. */
   @Override
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
+    logger.info("Validating statement: {}", create);
     try {
       ValidationService.validateOrThrow(create);
     } catch (SQLException e) {
@@ -221,6 +226,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       MaterializedViewTable materializedViewTable = new MaterializedViewTable(viewTable);
       RelDataType viewRowType = materializedViewTable.getRowType(typeFactory);
 
+      logger.info("Validated sql statement. The view is named {} and has path {}",
+          viewName, viewPath);
+
       // Support "partial views", i.e. CREATE VIEW FOO$BAR, where the view name
       // is "foo-bar" and the sink is just FOO.
       String[] viewParts = viewName.split("\\$", 2);
@@ -229,6 +237,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       if (viewParts.length > 1) {
         pipelineName = pipelineName + "-" + viewParts[1];
       }
+      logger.info("Pipeline name for view {} is {}", viewName, pipelineName);
       Properties connectionProperties = connection.connectionProperties();
       connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
       List<String> sinkPath = new ArrayList<>(schemaPath);
@@ -251,17 +260,22 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
       // Need to add the view table to the connection so that the ConnectorService can find it when resolving options.
       schemaPlus.add(viewName, materializedViewTable);
+      logger.info("Added view {} to schema {}", viewName, schemaPlus.getName());
       Pipeline pipeline = plan.pipeline(viewName, connection);
       MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().sql(), pipeline);
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook);
       deployers = DeploymentService.deployers(hook, connection);
+      logger.info("Validating view {} with deployers", viewName);
       ValidationService.validateOrThrow(deployers);
+      logger.info("Validated view {}", viewName);
+      logger.info("Deploying view {}", viewName);
       if (create.getReplace()) {
         DeploymentService.update(deployers);
       } else {
         DeploymentService.create(deployers);
       }
+      logger.info("Deployed view {}", viewName);
     } catch (SQLException | RuntimeException e) {
       if (deployers != null) {
         DeploymentService.restore(deployers);
@@ -273,6 +287,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
       throw new DdlException(create, e.getMessage(), e);
     }
+    logger.info("CREATE MATERIALIZED VIEW {} completed", viewName);
   }
 
   // N.B. largely copy-pasted from Apache Calcite
