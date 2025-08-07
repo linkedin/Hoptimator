@@ -271,7 +271,8 @@ public class HoptimatorMcpServer {
     String querySchema = "{\"type\" : \"object\", \"properties\" : {\"sql\" : {\"type\" : \"string\"}},"
         + "\"required\" : [\"sql\"]}";
     SyncToolSpecification query = new SyncToolSpecification(
-        new Tool("query", "Executes select queries", querySchema), (x, args2) -> {
+        new Tool("query", "Executes select queries against supported data sources. "
+            + "This will often only work for system tables.", querySchema), (x, args2) -> {
           String sql = (String) args2.get("sql");
           // Validate the SQL is a query statement
           if (!isQueryStatement(sql)) {
