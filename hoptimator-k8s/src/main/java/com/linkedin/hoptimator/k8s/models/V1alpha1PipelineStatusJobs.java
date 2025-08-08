@@ -23,65 +23,65 @@ import com.google.gson.stream.JsonWriter;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.time.OffsetDateTime;
 
 /**
- * Pipeline spec.
+ * V1alpha1PipelineStatusJobs
  */
-@ApiModel(description = "Pipeline spec.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-08-06T20:26:32.932Z[Etc/UTC]")
-public class V1alpha1PipelineSpec {
-  public static final String SERIALIZED_NAME_SQL = "sql";
-  @SerializedName(SERIALIZED_NAME_SQL)
-  private String sql;
+public class V1alpha1PipelineStatusJobs {
+  public static final String SERIALIZED_NAME_URL = "url";
+  @SerializedName(SERIALIZED_NAME_URL)
+  private String url;
 
-  public static final String SERIALIZED_NAME_YAML = "yaml";
-  @SerializedName(SERIALIZED_NAME_YAML)
-  private String yaml;
+  public static final String SERIALIZED_NAME_WATERMARK = "watermark";
+  @SerializedName(SERIALIZED_NAME_WATERMARK)
+  private OffsetDateTime watermark;
 
 
-  public V1alpha1PipelineSpec sql(String sql) {
+  public V1alpha1PipelineStatusJobs url(String url) {
     
-    this.sql = sql;
+    this.url = url;
     return this;
   }
 
    /**
-   * The INSERT INTO statement this pipeline implements.
-   * @return sql
+   * Get url
+   * @return url
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "The INSERT INTO statement this pipeline implements.")
+  @ApiModelProperty(value = "")
 
-  public String getSql() {
-    return sql;
+  public String getUrl() {
+    return url;
   }
 
 
-  public void setSql(String sql) {
-    this.sql = sql;
+  public void setUrl(String url) {
+    this.url = url;
   }
 
 
-  public V1alpha1PipelineSpec yaml(String yaml) {
+  public V1alpha1PipelineStatusJobs watermark(OffsetDateTime watermark) {
     
-    this.yaml = yaml;
+    this.watermark = watermark;
     return this;
   }
 
    /**
-   * The objects that make up the pipeline.
-   * @return yaml
+   * Get watermark
+   * @return watermark
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "The objects that make up the pipeline.")
+  @ApiModelProperty(value = "")
 
-  public String getYaml() {
-    return yaml;
+  public OffsetDateTime getWatermark() {
+    return watermark;
   }
 
 
-  public void setYaml(String yaml) {
-    this.yaml = yaml;
+  public void setWatermark(OffsetDateTime watermark) {
+    this.watermark = watermark;
   }
 
 
@@ -93,23 +93,23 @@ public class V1alpha1PipelineSpec {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1PipelineSpec v1alpha1PipelineSpec = (V1alpha1PipelineSpec) o;
-    return Objects.equals(this.sql, v1alpha1PipelineSpec.sql) &&
-        Objects.equals(this.yaml, v1alpha1PipelineSpec.yaml);
+    V1alpha1PipelineStatusJobs v1alpha1PipelineStatusJobs = (V1alpha1PipelineStatusJobs) o;
+    return Objects.equals(this.url, v1alpha1PipelineStatusJobs.url) &&
+        Objects.equals(this.watermark, v1alpha1PipelineStatusJobs.watermark);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(sql, yaml);
+    return Objects.hash(url, watermark);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1PipelineSpec {\n");
-    sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
-    sb.append("    yaml: ").append(toIndentedString(yaml)).append("\n");
+    sb.append("class V1alpha1PipelineStatusJobs {\n");
+    sb.append("    url: ").append(toIndentedString(url)).append("\n");
+    sb.append("    watermark: ").append(toIndentedString(watermark)).append("\n");
     sb.append("}");
     return sb.toString();
   }
