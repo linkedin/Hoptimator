@@ -32,7 +32,7 @@ public class HoptimatorConnection extends DelegatingConnection {
   private final Properties connectionProperties;
   private final List<RelOptMaterialization> materializations = new ArrayList<>();
 
-  private final List<Consumer<String>> hooks = new ArrayList<>();
+  private final List<Consumer<String>> logHooks = new ArrayList<>();
 
   public HoptimatorConnection(CalciteConnection connection, Properties connectionProperties) {
     super(connection);
@@ -100,7 +100,7 @@ public class HoptimatorConnection extends DelegatingConnection {
    * Returns a logger for a client of this connection. The logger logs to both SLF4J and hooks.
    */
   HoptimatorConnectionDualLogger getLogger(Class<?> clazz) {
-    return new HoptimatorConnectionDualLogger(clazz, hooks);
+    return new HoptimatorConnectionDualLogger(clazz, logHooks);
   }
 
   /**
@@ -108,7 +108,7 @@ public class HoptimatorConnection extends DelegatingConnection {
    * TODO: Revise to allow hooks to be added per statement.
    */
   public void addLogHook(Consumer<String> hook) {
-    hooks.add(hook);
+    logHooks.add(hook);
   }
 
   private void registerMaterialization(List<String> viewPath, RelNode tableRel, RelNode queryRel) {

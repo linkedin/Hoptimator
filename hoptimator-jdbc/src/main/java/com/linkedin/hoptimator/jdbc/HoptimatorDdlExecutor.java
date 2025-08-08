@@ -146,10 +146,11 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       deployers = DeploymentService.deployers(view, connection);
       ValidationService.validateOrThrow(deployers);
       logger.info("Validated view {}", viewName);
-      logger.info("Deploying view {}", viewName);
       if (create.getReplace()) {
+        logger.info("Deploying update view {}", viewName);
         DeploymentService.update(deployers);
       } else {
+        logger.info("Deploying create view {}", viewName);
         DeploymentService.create(deployers);
       }
       logger.info("Deployed view {}", viewName);
@@ -269,10 +270,11 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       logger.info("Validating view {} with deployers", viewName);
       ValidationService.validateOrThrow(deployers);
       logger.info("Validated view {}", viewName);
-      logger.info("Deploying view {}", viewName);
       if (create.getReplace()) {
+        logger.info("Deploying update view {}", viewName);
         DeploymentService.update(deployers);
       } else {
+        logger.info("Deploying create view {}", viewName);
         DeploymentService.create(deployers);
       }
       logger.info("Deployed view {}", viewName);
