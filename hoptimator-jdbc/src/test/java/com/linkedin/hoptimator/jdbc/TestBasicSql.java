@@ -45,9 +45,12 @@ public class TestBasicSql extends JdbcTestBase {
     var expectedLogs = List.of(
         "[HoptimatorDdlExecutor] Validating statement: CREATE VIEW `V` AS\nSELECT *\nFROM `T`",
         "[HoptimatorDdlExecutor] Validated sql statement. The view is named V and has path [DEFAULT, V]",
-        "[HoptimatorDdlExecutor] Validating view V with deployers", "[HoptimatorDdlExecutor] Validated view V",
-        "[HoptimatorDdlExecutor] Deploying view V", "[HoptimatorDdlExecutor] Deployed view V",
-        "[HoptimatorDdlExecutor] Added view V to schema DEFAULT", "[HoptimatorDdlExecutor] CREATE VIEW V completed");
+        "[HoptimatorDdlExecutor] Validating view V with deployers",
+        "[HoptimatorDdlExecutor] Validated view V",
+        "[HoptimatorDdlExecutor] Deploying create view V",
+        "[HoptimatorDdlExecutor] Deployed view V",
+        "[HoptimatorDdlExecutor] Added view V to schema DEFAULT",
+        "[HoptimatorDdlExecutor] CREATE VIEW V completed");
     Assertions.assertEquals(expectedLogs, logs);
   }
 }
