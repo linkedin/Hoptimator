@@ -53,6 +53,14 @@ spec:
                 message:
                   description: Error or success message, for information only.
                   type: string
+                jobs:
+                  type: object
+                  description: External jobs that this pipeline triggers.
+                  additionalProperties:
+                    type: object
+                    description: Properties of the job.
+                    additionalProperties:
+                      type: string
       subresources:
         status: {}
       additionalPrinterColumns:
