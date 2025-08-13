@@ -22,8 +22,8 @@ import org.apache.calcite.util.Pair;
 /** Converts between Avro and Calcite's RelDataType */
 public final class AvroConverter {
 
-  private static final String KEY_OPTION = "keys";
-  private static final String KEY_PREFIX_OPTION = "keyPrefix";
+  private static final String KEY_OPTION = "key.fields";
+  private static final String KEY_PREFIX_OPTION = "key.fields-prefix";
   private static final String PRIMITIVE_KEY = "KEY";
 
   private AvroConverter() {
@@ -62,14 +62,20 @@ public final class AvroConverter {
         case BOOLEAN:
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:
-          return createAvroSchemaWithNullability(Schema.createArray(avro(null, null, Objects.requireNonNull(dataType.getComponentType()))),
+          return createAvroSchemaWithNullability(
+              Schema.createArray(avro(null, sanitize(name) + "ArrayElement",
+                  Objects.requireNonNull(dataType.getComponentType()))),
               dataType.isNullable());
         case MAP:
-          return createAvroSchemaWithNullability(Schema.createMap(avro(null, null, Objects.requireNonNull(dataType.getValueType()))),
+          return createAvroSchemaWithNullability(
+              Schema.createMap(avro(null, sanitize(name) + "MapElement",
+                  Objects.requireNonNull(dataType.getValueType()))),
               dataType.isNullable());
         case UNKNOWN:
         case NULL:
-          return createAvroSchemaWithNullability(Schema.createUnion(Schema.create(Schema.Type.NULL)), true);
+          // We can't have a union of null and null ["null", "null"], nor a nested union ["null",["null"]],
+          // so we ignore nullability and just use ["null"] here.
+          return Schema.createUnion(Schema.create(Schema.Type.NULL));
         default:
           throw new UnsupportedOperationException("No support yet for " + dataType.getSqlTypeName().toString());
       }

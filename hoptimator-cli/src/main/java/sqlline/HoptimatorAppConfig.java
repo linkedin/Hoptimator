@@ -2,6 +2,7 @@ package sqlline;
 
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -19,6 +20,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.jdbc.ResolvedTable;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 
@@ -41,6 +43,7 @@ public class HoptimatorAppConfig extends Application {
     Collection<CommandHandler> list = new ArrayList<>(super.getCommandHandlers(sqlline));
     list.add(new IntroCommandHandler(sqlline));
     list.add(new PipelineCommandHandler(sqlline));
+    list.add(new ResolveCommandHandler(sqlline));
     list.add(new SpecifyCommandHandler(sqlline));
     return list;
   }
@@ -100,7 +103,7 @@ public class HoptimatorAppConfig extends Application {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
         }
         PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
-        sqlline.output(plan.sql(connectionProperties).apply(SqlDialect.ANSI));
+        sqlline.output(plan.sql(conn).apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
@@ -117,6 +120,79 @@ public class HoptimatorAppConfig extends Application {
       return false;
     }
   }
+
+  private static final class ResolveCommandHandler implements CommandHandler {
+
+    private final SqlLine sqlline;
+
+    private ResolveCommandHandler(SqlLine sqlline) {
+      this.sqlline = sqlline;
+    }
+
+    @Override
+    public String getName() {
+      return "resolve";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Resolve a table path.";
+    }
+
+    @Override
+    public String matches(String line) {
+      if (startsWith(line, "!resolve") || startsWith(line, "resolve")) {
+        return line;
+      } else {
+        return null;
+      }
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      if (!(sqlline.getConnection() instanceof HoptimatorConnection)) {
+        sqlline.error("This connection doesn't support `!resolve`.");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String[] split = line.split("\\s+", 2);
+      if (split.length < 2) {
+        sqlline.error("Missing argument.");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      List<String> tablePath = Arrays.asList(split[1].split("\\."));
+      HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
+      try {
+        ResolvedTable resolved = conn.resolve(tablePath, Collections.emptyMap());
+        sqlline.output("Avro schema:");
+        sqlline.output(resolved.avroSchemaString() + "\n");
+        sqlline.output("Source configs:");
+        sqlline.output(resolved.sourceConnectorConfigs().toString() + "\n");
+        sqlline.output("Sink configs:");
+        sqlline.output(resolved.sinkConnectorConfigs().toString() + "\n");
+      } catch (SQLException e) {
+        sqlline.error(e);
+        dispatchCallback.setToFailure();
+      }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
 
   private static final class SpecifyCommandHandler implements CommandHandler {
 
@@ -172,13 +248,13 @@ public class HoptimatorAppConfig extends Application {
         if (table != null) {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
         }
-        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), conn.connectionProperties()).pipeline("sink", connectionProperties);
+        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), connectionProperties).pipeline("sink", conn);
         List<String> specs = new ArrayList<>();
         for (Source source : pipeline.sources()) {
-          specs.addAll(DeploymentService.specify(source, connectionProperties));
+          specs.addAll(DeploymentService.specify(source, conn));
         }
-        specs.addAll(DeploymentService.specify(pipeline.sink(), connectionProperties));
-        specs.addAll(DeploymentService.specify(pipeline.job(), connectionProperties));
+        specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
+        specs.addAll(DeploymentService.specify(pipeline.job(), conn));
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
       } catch (SQLException e) {
         sqlline.error(e);

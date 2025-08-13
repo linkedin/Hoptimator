@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator;
 
+import com.linkedin.hoptimator.k8s.K8sContext;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -22,7 +23,7 @@ public final class ControllerService {
     return providers;
   }
 
-  public static Collection<Controller> controllers(Operator operator) {
-    return providers().stream().flatMap(x -> x.controllers(operator).stream()).collect(Collectors.toList());
+  public static Collection<Controller> controllers(K8sContext context) {
+    return providers().stream().flatMap(x -> x.controllers(context).stream()).collect(Collectors.toList());
   }
 }

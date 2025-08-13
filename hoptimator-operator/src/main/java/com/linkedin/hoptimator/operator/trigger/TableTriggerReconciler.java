@@ -64,25 +64,22 @@ public final class TableTriggerReconciler implements Reconciler {
   private final static String TRIGGER_KEY = "trigger";
   private final static String TRIGGER_TIMESTAMP_KEY = "triggerTimestamp";
 
-  private final K8sContext context;
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi;
   private final K8sApi<V1Job, V1JobList> jobApi;
   private final K8sYamlApi yamlApi;
 
   private TableTriggerReconciler(K8sContext context) {
-    this(context, new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS),
+    this(new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS),
         new K8sApi<>(context, K8sApiEndpoints.JOBS),
         new K8sYamlApi(context));
   }
 
-  TableTriggerReconciler(K8sContext context,
-      K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
+  TableTriggerReconciler(K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
       K8sApi<V1Job, V1JobList> jobApi, K8sYamlApi yamlApi) {
-    this.context = context;
     this.tableTriggerApi = tableTriggerApi;
     this.jobApi = jobApi;
     this.yamlApi = yamlApi;
-  } 
+  }
 
   @Override
   public Result reconcile(Request request) {
@@ -91,11 +88,15 @@ public final class TableTriggerReconciler implements Reconciler {
     String namespace = request.getNamespace();
 
     try {
-      V1alpha1TableTrigger object = tableTriggerApi.get(namespace, name);
-
-      if (object == null) {
-        log.info("Object {} deleted. Skipping.", name);
-        return new Result(false);
+      V1alpha1TableTrigger object;
+      try {
+        object = tableTriggerApi.get(namespace, name);
+      } catch (SQLException e) {
+        if (e.getErrorCode() == 404) {
+          log.info("Object {} deleted. Skipping.", name);
+          return new Result(false);
+        }
+        throw e;
       }
 
       V1alpha1TableTriggerStatus status = object.getStatus();

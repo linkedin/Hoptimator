@@ -151,12 +151,10 @@ public class HoptimatorDriver implements java.sql.Driver {
     }
   }
 
-  public static RelDataType rowType(Source source, Properties connectionProperties) throws SQLException {
-    HoptimatorConnection hoptimatorConnection = ((HoptimatorConnection)
-        DriverManager.getConnection(CONNECTION_PREFIX, connectionProperties));
+  public static RelDataType rowType(Source source, HoptimatorConnection connection) throws SQLException {
     final List<String> path = Util.skipLast(source.path());
     String name = source.table();
-    SchemaPlus schema = Objects.requireNonNull(hoptimatorConnection.calciteConnection().getRootSchema());
+    SchemaPlus schema = Objects.requireNonNull(connection.calciteConnection().getRootSchema());
     for (String p : path) {
       schema = Objects.requireNonNull(schema.getSubSchema(p));
     }

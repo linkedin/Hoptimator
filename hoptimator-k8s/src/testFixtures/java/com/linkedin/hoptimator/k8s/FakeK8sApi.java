@@ -26,7 +26,7 @@ public class FakeK8sApi<T extends KubernetesObject, U extends KubernetesListObje
   @Override
   public T get(String name) throws SQLException {
     return objects.stream().filter(x -> x.getMetadata().getName().equals(name)).findFirst()
-        .orElseThrow(() -> new SQLException("No object named " + name));
+        .orElseThrow(() -> new SQLException("No object named " + name, null, 404));
   }
 
   @Override

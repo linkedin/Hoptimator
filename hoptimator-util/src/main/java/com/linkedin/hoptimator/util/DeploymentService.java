@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -59,10 +60,10 @@ public final class DeploymentService {
   }
 
   // Since nothing about specify needs to be stateful, the deployers can be fetched on demand
-  public static <T extends Deployable> List<String> specify(T obj, Properties connectionProperties)
+  public static <T extends Deployable> List<String> specify(T obj, Connection connection)
       throws SQLException {
     List<String> specs = new ArrayList<>();
-    for (Deployer deployer : deployers(obj, connectionProperties)) {
+    for (Deployer deployer : deployers(obj, connection)) {
       specs.addAll(deployer.specify());
     }
     return specs;
@@ -82,9 +83,9 @@ public final class DeploymentService {
     return providers;
   }
 
-  public static <T extends Deployable> Collection<Deployer> deployers(T obj, Properties connectionProperties) {
+  public static <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
     return providers().stream()
-        .flatMap(x -> x.deployers(obj, connectionProperties).stream())
+        .flatMap(x -> x.deployers(obj, connection).stream())
         .collect(Collectors.toList());
   }
 

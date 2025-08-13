@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.k8s;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
@@ -19,16 +18,14 @@ class K8sMaterializedViewDeployer implements Deployer {
 
   private final MaterializedView view;
   private final K8sContext context;
-  private final Properties connectionProperties;
   private final K8sViewDeployer viewDeployer;
   private final List<Deployer> deployers;
 
   private final Object crudLock = new Object();
 
-  K8sMaterializedViewDeployer(MaterializedView view, K8sContext context, Properties connectionProperties) {
+  K8sMaterializedViewDeployer(MaterializedView view, K8sContext context) {
     this.view = view;
     this.context = context;
-    this.connectionProperties = connectionProperties;
     this.viewDeployer = new K8sViewDeployer(view, true, context);
     this.deployers = new ArrayList<>();
   }
@@ -90,10 +87,10 @@ class K8sMaterializedViewDeployer implements Deployer {
   List<String> pipelineSpecs() throws SQLException {
     List<String> specs = new ArrayList<>();
     for (Source source : view.pipeline().sources()) {
-      specs.addAll(DeploymentService.specify(source, connectionProperties));
+      specs.addAll(DeploymentService.specify(source, context.connection()));
     }
-    specs.addAll(DeploymentService.specify(view.pipeline().sink(), connectionProperties));
-    specs.addAll(DeploymentService.specify(view.pipeline().job(), connectionProperties));
+    specs.addAll(DeploymentService.specify(view.pipeline().sink(), context.connection()));
+    specs.addAll(DeploymentService.specify(view.pipeline().job(), context.connection()));
     return specs;
   }
 

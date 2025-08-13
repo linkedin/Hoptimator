@@ -30,11 +30,11 @@ class K8sCatalog implements Catalog {
   public void register(Wrapper wrapper) throws SQLException {
     SchemaPlus schemaPlus = wrapper.unwrap(SchemaPlus.class);
     HoptimatorConnection conn = wrapper.unwrap(HoptimatorConnection.class);
-    K8sContext context = K8sContext.create(conn.connectionProperties());
+    K8sContext context = K8sContext.create(conn);
     log.info("Using K8s context " + context);
     K8sMetadata metadata = new K8sMetadata(conn, context);
     schemaPlus.add("k8s", metadata);
-    metadata.databaseTable().addDatabases(schemaPlus, conn.connectionProperties());
+    metadata.databaseTable().addDatabases(schemaPlus, conn);
     metadata.viewTable().addViews(schemaPlus);
     metadata.viewTable().registerMaterializations(conn);
   }

@@ -23,16 +23,23 @@ import com.google.gson.stream.JsonWriter;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Pipeline status.
  */
 @ApiModel(description = "Pipeline status.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-21T02:31:00.123Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-08-12T17:02:58.557Z[Etc/UTC]")
 public class V1alpha1PipelineStatus {
   public static final String SERIALIZED_NAME_FAILED = "failed";
   @SerializedName(SERIALIZED_NAME_FAILED)
   private Boolean failed;
+
+  public static final String SERIALIZED_NAME_JOBS = "jobs";
+  @SerializedName(SERIALIZED_NAME_JOBS)
+  private Map<String, Map<String, String>> jobs = null;
 
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
@@ -63,6 +70,37 @@ public class V1alpha1PipelineStatus {
 
   public void setFailed(Boolean failed) {
     this.failed = failed;
+  }
+
+
+  public V1alpha1PipelineStatus jobs(Map<String, Map<String, String>> jobs) {
+    
+    this.jobs = jobs;
+    return this;
+  }
+
+  public V1alpha1PipelineStatus putJobsItem(String key, Map<String, String> jobsItem) {
+    if (this.jobs == null) {
+      this.jobs = new HashMap<>();
+    }
+    this.jobs.put(key, jobsItem);
+    return this;
+  }
+
+   /**
+   * External jobs that this pipeline triggers.
+   * @return jobs
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "External jobs that this pipeline triggers.")
+
+  public Map<String, Map<String, String>> getJobs() {
+    return jobs;
+  }
+
+
+  public void setJobs(Map<String, Map<String, String>> jobs) {
+    this.jobs = jobs;
   }
 
 
@@ -122,13 +160,14 @@ public class V1alpha1PipelineStatus {
     }
     V1alpha1PipelineStatus v1alpha1PipelineStatus = (V1alpha1PipelineStatus) o;
     return Objects.equals(this.failed, v1alpha1PipelineStatus.failed) &&
+        Objects.equals(this.jobs, v1alpha1PipelineStatus.jobs) &&
         Objects.equals(this.message, v1alpha1PipelineStatus.message) &&
         Objects.equals(this.ready, v1alpha1PipelineStatus.ready);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(failed, message, ready);
+    return Objects.hash(failed, jobs, message, ready);
   }
 
 
@@ -137,6 +176,7 @@ public class V1alpha1PipelineStatus {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1PipelineStatus {\n");
     sb.append("    failed: ").append(toIndentedString(failed)).append("\n");
+    sb.append("    jobs: ").append(toIndentedString(jobs)).append("\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("}");

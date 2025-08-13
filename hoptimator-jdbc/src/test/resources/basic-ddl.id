@@ -11,3 +11,12 @@ create view foo_edge as select * from foo;
 
 !update
 
+drop view foo_edge;
+(0 rows modified)
+
+!update
+
+drop table foo;
+(0 rows modified)
+
+!update

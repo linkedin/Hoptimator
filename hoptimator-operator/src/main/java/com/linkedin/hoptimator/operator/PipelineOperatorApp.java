@@ -1,7 +1,9 @@
 package com.linkedin.hoptimator.operator;
 
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -27,12 +29,10 @@ import com.linkedin.hoptimator.operator.trigger.TableTriggerReconciler;
 public class PipelineOperatorApp {
   private static final Logger log = LoggerFactory.getLogger(PipelineOperatorApp.class);
 
-  final String watchNamespace;
-  final Properties connectionProperties;
+  private final K8sContext context;
 
-  public PipelineOperatorApp(String watchNamespace, Properties connectionProperties) {
-    this.watchNamespace = watchNamespace;
-    this.connectionProperties = connectionProperties;
+  public PipelineOperatorApp(K8sContext context) {
+    this.context = context;
   }
 
   public static void main(String[] args) throws Exception {
@@ -58,18 +58,23 @@ public class PipelineOperatorApp {
     }
 
     String watchNamespaceInput = cmd.getOptionValue("watch", "");
-    new PipelineOperatorApp(watchNamespaceInput, new Properties()).run();
+    Properties connectionProperties = new Properties();
+    connectionProperties.put("k8s.watch.namespace", watchNamespaceInput);
+    K8sContext context = K8sContext.create(new HoptimatorConnection(null, connectionProperties));
+    new PipelineOperatorApp(context).run();
   }
 
-  public void run() throws Exception {
-    K8sContext context = K8sContext.create(connectionProperties);
+  public void run() {
+    run(Collections.emptyList());
+  }
 
+  public void run(List<Controller> initialControllers) {
     // register informers
-    context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5), watchNamespace);
-    context.registerInformer(K8sApiEndpoints.TABLE_TRIGGERS, Duration.ofMinutes(5), watchNamespace);
+    context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5));
+    context.registerInformer(K8sApiEndpoints.TABLE_TRIGGERS, Duration.ofMinutes(5));
 
-    List<Controller> controllers = new ArrayList<>();
-    // TODO: add additional controllers from ControllerProvider SPI
+    List<Controller> controllers = new ArrayList<>(initialControllers);
+    controllers.addAll(ControllerService.controllers(context));
     controllers.add(PipelineReconciler.controller(context));
     controllers.add(TableTriggerReconciler.controller(context));
 

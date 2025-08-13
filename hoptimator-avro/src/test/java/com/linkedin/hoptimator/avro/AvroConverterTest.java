@@ -82,6 +82,16 @@ public class AvroConverterTest {
   }
 
   @Test
+  public void supportsNullTypes() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rel = typeFactory.createStructType(Collections.singletonList(typeFactory.createSqlType(SqlTypeName.NULL)),
+        Collections.singletonList("field1"));
+
+    Schema avroSchema = AvroConverter.avro("NS", "R", rel);
+    assertEquals(avroSchema.toString(), avroSchema.getFields().size(), rel.getFieldCount());
+  }
+
+  @Test
   public void testAvroKeyPayloadSchemaNoKeyOptions() {
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType dataType = typeFactory.createStructType(Collections.singletonList(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
@@ -121,8 +131,8 @@ public class AvroConverterTest {
         List.of("KEY_field1", "field2"));
 
     Map<String, String> keyOptions = Map.of(
-        "keys", "KEY_field1",
-        "keyPrefix", "KEY_"
+        "key.fields", "KEY_field1",
+        "key.fields-prefix", "KEY_"
     );
     Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("namespace", "keySchema", "payloadSchema", dataType, keyOptions);
 
@@ -150,7 +160,7 @@ public class AvroConverterTest {
         List.of("field1", "KEY"));
 
     Map<String, String> keyOptions = Map.of(
-        "keys", "KEY"
+        "key.fields", "KEY"
     );
     Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("namespace", "keySchema", "payloadSchema", dataType, keyOptions);
 
@@ -163,5 +173,39 @@ public class AvroConverterTest {
     assertEquals(1, result.getValue().getFields().size());
     assertEquals("field1", result.getValue().getFields().get(0).name());
     assertEquals("string", result.getValue().getFields().get(0).schema().getType().getName());
+  }
+
+  @Test
+  public void convertsNestedArray() {
+    // Create a RelDataType with an array of structs
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+
+    // Create a struct type for array elements
+    RelDataTypeFactory.Builder elementBuilder = new RelDataTypeFactory.Builder(typeFactory);
+    elementBuilder.add("field1", typeFactory.createSqlType(SqlTypeName.VARCHAR));
+    elementBuilder.add("field2", typeFactory.createSqlType(SqlTypeName.INTEGER));
+    RelDataType structType = elementBuilder.build();
+
+    // Create array of structs type
+    RelDataType arrayOfStructsType = typeFactory.createArrayType(structType, -1);
+
+    // Test with a struct containing an array of structs field
+    RelDataTypeFactory.Builder containerBuilder = new RelDataTypeFactory.Builder(typeFactory);
+    containerBuilder.add("arrayOfStructsField", arrayOfStructsType);
+    RelDataType containerType = containerBuilder.build();
+
+    Schema containerSchema = AvroConverter.avro("test", "Record", containerType);
+    assertNotNull(containerSchema);
+    assertEquals(1, containerSchema.getFields().size());
+    assertEquals("arrayOfStructsField", containerSchema.getFields().get(0).name());
+
+    Schema arrayFieldSchema = containerSchema.getFields().get(0).schema();
+    assertEquals(Schema.Type.ARRAY, arrayFieldSchema.getType());
+
+    Schema structElementSchema = arrayFieldSchema.getElementType();
+    assertEquals(Schema.Type.RECORD, structElementSchema.getType());
+    assertEquals(2, structElementSchema.getFields().size());
+    assertEquals("field1", structElementSchema.getFields().get(0).name());
+    assertEquals("field2", structElementSchema.getFields().get(1).name());
   }
 }

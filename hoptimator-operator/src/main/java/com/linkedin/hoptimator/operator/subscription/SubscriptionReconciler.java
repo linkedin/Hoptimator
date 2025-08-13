@@ -26,9 +26,9 @@ import io.kubernetes.client.util.generic.dynamic.Dynamics;
 
 import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.models.V1alpha1Subscription;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionSpec;
-import com.linkedin.hoptimator.models.V1alpha1SubscriptionStatus;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Subscription;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionStatus;
 import com.linkedin.hoptimator.operator.Operator;
 import com.linkedin.hoptimator.planner.HoptimatorPlanner;
 import com.linkedin.hoptimator.planner.Pipeline;
@@ -203,6 +203,7 @@ public final class SubscriptionReconciler implements Reconciler {
     try {
       operator.apply(yaml, owner);
     } catch (Exception e) {
+      log.error("Failed to apply {}.", yaml, e);
       return false;
     }
     return true;

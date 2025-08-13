@@ -20,6 +20,7 @@ package com.linkedin.hoptimator.util.planner;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -80,15 +81,15 @@ public class RemoteToEnumerableConverter
     extends ConverterImpl
     implements EnumerableRel {
 
-  private final Properties connectionProperties;
+  private final Connection connection;
 
   protected RemoteToEnumerableConverter(
       RelOptCluster cluster,
       RelTraitSet traits,
       RelNode input,
-      Properties connectionProperties) {
+      Connection connection) {
     super(cluster, ConventionTraitDef.INSTANCE, traits, input);
-    this.connectionProperties = connectionProperties;
+    this.connection = connection;
   }
 
   /** This method modified from upstream */
@@ -96,7 +97,7 @@ public class RemoteToEnumerableConverter
     RelRoot root = RelRoot.of(getInput(), SqlKind.SELECT);
     try {
       PipelineRel.Implementor plan = DeploymentService.plan(root, Collections.emptyList(), new Properties());
-      return new SqlString(AnsiSqlDialect.DEFAULT, plan.query(connectionProperties)
+      return new SqlString(AnsiSqlDialect.DEFAULT, plan.query(connection)
           .apply(com.linkedin.hoptimator.SqlDialect.FLINK));  // TODO dialect
     } catch (SQLException e) {
       throw new RuntimeException(e);
@@ -105,7 +106,7 @@ public class RemoteToEnumerableConverter
 
   @Override public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     return new RemoteToEnumerableConverter(
-        getCluster(), traitSet, sole(inputs), connectionProperties);
+        getCluster(), traitSet, sole(inputs), connection);
   }
 
   @Override public @Nullable RelOptCost computeSelfCost(RelOptPlanner planner,

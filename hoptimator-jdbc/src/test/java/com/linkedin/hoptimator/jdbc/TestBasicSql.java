@@ -2,7 +2,10 @@ package com.linkedin.hoptimator.jdbc;
 
 import java.util.Arrays;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
 
 
 public class TestBasicSql extends JdbcTestBase {
@@ -27,5 +30,27 @@ public class TestBasicSql extends JdbcTestBase {
         queryUsingPreparedStatement("SELECT * FROM T1 WHERE X = ?", Arrays.asList("one")));
     sql("DROP TABLE T1");
     sql("DROP TABLE T2");
+  }
+
+  @Test
+  public void createView() throws Exception {
+    sql("CREATE TABLE T (X VARCHAR, Y VARCHAR)");
+    sql("INSERT INTO T VALUES ('one', 'two')");
+    assertQueriesEqual("SELECT * FROM T", "VALUES ('one', 'two')");
+    var logs = sqlReturnsLogs("CREATE VIEW V AS SELECT * FROM T");
+    assertResultSetsEqual(query("SELECT * FROM V"), query("SELECT * FROM T"));
+    sql("DROP VIEW V");
+    sql("DROP TABLE T");
+
+    var expectedLogs = List.of(
+        "[HoptimatorDdlExecutor] Validating statement: CREATE VIEW `V` AS\nSELECT *\nFROM `T`",
+        "[HoptimatorDdlExecutor] Validated sql statement. The view is named V and has path [DEFAULT, V]",
+        "[HoptimatorDdlExecutor] Validating view V with deployers",
+        "[HoptimatorDdlExecutor] Validated view V",
+        "[HoptimatorDdlExecutor] Deploying create view V",
+        "[HoptimatorDdlExecutor] Deployed view V",
+        "[HoptimatorDdlExecutor] Added view V to schema DEFAULT",
+        "[HoptimatorDdlExecutor] CREATE VIEW V completed");
+    Assertions.assertEquals(expectedLogs, logs);
   }
 }

@@ -27,6 +27,7 @@ import io.kubernetes.client.util.generic.dynamic.Dynamics;
 
 
 /** Single handle to all the clients and configs required by all the controllers. */
+@Deprecated
 public class Operator {
   private static final Logger log = LoggerFactory.getLogger(Operator.class);
 
@@ -194,6 +195,7 @@ public class Operator {
         return false;
       }
     } catch (Exception e) {
+      log.error("Failed to check isReady {}/{}", kind, name, e);
       return false;
     }
   }
@@ -254,6 +256,7 @@ public class Operator {
         return false;
       }
     } catch (Exception e) {
+      log.error("Failed to check isFailed {}/{}", kind, name, e);
       return false;
     }
   }
