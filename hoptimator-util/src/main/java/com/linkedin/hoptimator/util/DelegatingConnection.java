@@ -135,12 +135,12 @@ public class DelegatingConnection implements Connection {
 
   @Override
   public void setReadOnly(boolean readOnly) throws SQLException {
-    // nop
+    connection.setReadOnly(readOnly);
   }
 
   @Override
   public boolean isReadOnly() throws SQLException {
-    throw new SQLFeatureNotSupportedException();
+    return connection.isReadOnly();
   }
 
   @Override
