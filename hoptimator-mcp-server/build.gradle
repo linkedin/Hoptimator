@@ -2,19 +2,25 @@ plugins {
   id 'java'
   id 'application'
   id 'idea'
+  id 'maven-publish'
 }
 
 dependencies {
-  implementation project(':hoptimator-jdbc-driver')
-  implementation libs.slf4j.simple
+  implementation project(':hoptimator-api')
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-util')
+  implementation project(':hoptimator-k8s')
+
   implementation project(':hoptimator-demodb')
   implementation project(':hoptimator-kafka')
   implementation project(':hoptimator-venice')
 
+  implementation libs.slf4j.simple
+  implementation libs.calcite.core
   implementation libs.gson
   implementation libs.jackson.databind
-  implementation platform(libs.mcp.bom)
-  implementation 'io.modelcontextprotocol.sdk:mcp'
+  implementation libs.jackson.dataformat.yaml
+  implementation libs.mcp
 }
 
 application {
@@ -26,5 +32,48 @@ tasks.withType(JavaCompile).configureEach {
   options.compilerArgs << '-Xlint:deprecation'
   options.compilerArgs << '-Xlint:unchecked'
 }
- 
 
+publishing {
+  repositories {
+    maven {
+      name 'GitHubPackages'
+      url = 'https://maven.pkg.github.com/linkedin/Hoptimator'
+      credentials {
+        username = System.getenv('GITHUB_ACTOR')
+        password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+    maven {
+      name 'LinkedInJFrog'
+      url 'https://linkedin.jfrog.io/artifactory/hoptimator'
+      credentials {
+        username = System.getenv('JFROG_USERNAME')
+        password = System.getenv('JFROG_API_KEY')
+      }
+    }
+  }
+  publications {
+    maven(MavenPublication) {
+      groupId = 'com.linkedin.hoptimator'
+      artifactId = 'hoptimator-mcp-server'
+      version = System.getenv('VERSION')
+      from components.java
+      pom {
+        name = 'LinkedIn Hoptimator'
+        description = 'Multi-hop declarative data pipelines'
+        url = 'https://github.com/linkedin/Hoptimator'
+        licenses {
+          license {
+            name = 'BSD 2-Clause'
+            url = 'https://raw.githubusercontent.com/linkedin/Hoptimator/main/LICENSE'
+          }
+        }
+        scm {
+          connection = 'scm:git:git://github.com:linkedin/Hoptimator.git'
+          developerConnection = 'scm:git:ssh://github.com:linkedin/Hoptimator.git'
+          url = 'https://github.com/linkedin/Hoptimator'
+        }
+      }
+    }
+  }
+}

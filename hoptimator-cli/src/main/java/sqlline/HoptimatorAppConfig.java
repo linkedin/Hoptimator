@@ -1,5 +1,6 @@
 package sqlline;
 
+import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -13,6 +14,13 @@ import java.util.Scanner;
 
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.ddl.SqlCreateMaterializedView;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.util.Pair;
 import org.jline.reader.Completer;
 
 import com.linkedin.hoptimator.Pipeline;
@@ -95,18 +103,46 @@ public class HoptimatorAppConfig extends Application {
       }
       String sql = split[1];
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
+      Pair<SchemaPlus, Table> schemaSnapshot = null;
+      String viewName = null;
       try {
-        RelRoot root = HoptimatorDriver.convert(conn, sql).root;
+        String querySql = sql;
+        SqlCreateMaterializedView create = null;
+        SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
+        if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
+          if (sqlNode instanceof SqlCreateMaterializedView) {
+            create = (SqlCreateMaterializedView) sqlNode;
+            final SqlNode q = HoptimatorDdlUtils.renameColumns(create.columnList, create.query);
+            querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
+            viewName = HoptimatorDdlUtils.viewName(create.name);
+          } else {
+            sqlline.error("Unsupported DDL statement: " + sql);
+            dispatchCallback.setToFailure();
+            return;
+          }
+        }
+
+        RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
         Properties connectionProperties = conn.connectionProperties();
         RelOptTable table = root.rel.getTable();
         if (table != null) {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
         }
         PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
+        if (create != null) {
+          schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
+              new HoptimatorDriver.Prepare(conn), plan, create, querySql);
+        }
         sqlline.output(plan.sql(conn).apply(SqlDialect.ANSI));
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
+      }
+      if (schemaSnapshot != null) {
+        if (schemaSnapshot.right != null) {
+          schemaSnapshot.left.add(viewName, schemaSnapshot.right);
+        }
+        schemaSnapshot.left.removeTable(viewName);
       }
     }
 
@@ -241,14 +277,37 @@ public class HoptimatorAppConfig extends Application {
       }
       String sql = split[1];
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
-      RelRoot root = HoptimatorDriver.convert(conn, sql).root;
+      Pair<SchemaPlus, Table> schemaSnapshot = null;
+      String viewName = "sink";
       try {
+        String querySql = sql;
+        SqlCreateMaterializedView create = null;
+        SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
+        if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
+          if (sqlNode instanceof SqlCreateMaterializedView) {
+            create = (SqlCreateMaterializedView) sqlNode;
+            final SqlNode q = HoptimatorDdlUtils.renameColumns(create.columnList, create.query);
+            querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
+            viewName = HoptimatorDdlUtils.viewName(create.name);
+          } else {
+            sqlline.error("Unsupported DDL statement: " + sql);
+            dispatchCallback.setToFailure();
+            return;
+          }
+        }
+
+        RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
         Properties connectionProperties = conn.connectionProperties();
         RelOptTable table = root.rel.getTable();
         if (table != null) {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
         }
-        Pipeline pipeline = DeploymentService.plan(root, conn.materializations(), connectionProperties).pipeline("sink", conn);
+        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
+        if (create != null) {
+          schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
+              new HoptimatorDriver.Prepare(conn), plan, create, querySql);
+        }
+        Pipeline pipeline = plan.pipeline(viewName, conn);
         List<String> specs = new ArrayList<>();
         for (Source source : pipeline.sources()) {
           specs.addAll(DeploymentService.specify(source, conn));
@@ -259,6 +318,12 @@ public class HoptimatorAppConfig extends Application {
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
+      }
+      if (schemaSnapshot != null) {
+        if (schemaSnapshot.right != null) {
+          schemaSnapshot.left.add(viewName, schemaSnapshot.right);
+        }
+        schemaSnapshot.left.removeTable(viewName);
       }
     }
 

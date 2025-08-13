@@ -26,6 +26,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.parser.SqlParser;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.Util;
@@ -49,6 +50,17 @@ public class HoptimatorDriver implements java.sql.Driver {
       } catch (SQLException e) {
         throw new RuntimeException("Failed to register Hoptimator driver.", e);
       }
+    }
+  }
+
+  public static SqlNode parseQuery(HoptimatorConnection conn, String sql) {
+    Prepare prepare = new Prepare(conn);
+    SqlParser parser = SqlParser.create(sql, prepare.parserConfig());
+    try {
+      return parser.parseQuery();
+    } catch (SqlParseException e) {
+      throw new RuntimeException(
+          "Failed to parse: " + e.getMessage(), e);
     }
   }
 
@@ -178,7 +190,7 @@ public class HoptimatorDriver implements java.sql.Driver {
       this.holder = holder;
     }
 
-    Prepare(HoptimatorConnection connection) {
+    public Prepare(HoptimatorConnection connection) {
       this.holder = new ConnectionHolder();
       this.holder.connection = connection;
     }
