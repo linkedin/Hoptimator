@@ -62,6 +62,13 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   private final HoptimatorConnection.HoptimatorConnectionDualLogger logger;
 
   public HoptimatorDdlExecutor(HoptimatorConnection connection) {
+    try {
+      if (connection.isReadOnly()) {
+        throw new DdlException("Cannot execute DDL in read-only mode");
+      }
+    } catch (SQLException e) {
+      throw new DdlException("Failed to check read-only mode", e);
+    }
     this.connection = connection;
     this.logger = connection.getLogger(HoptimatorDdlExecutor.class);
   }
@@ -314,12 +321,20 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
           + ": " + msg, cause);
     }
 
+    DdlException(String msg, Throwable cause) {
+      super(msg, cause);
+    }
+
     DdlException(SqlNode node, String msg, Throwable cause) {
       this(node, node.getParserPosition(), msg, cause);
     }
 
     DdlException(SqlNode node, String msg) {
       this(node, msg, null);
+    }
+
+    DdlException(String msg) {
+      this(msg, null);
     }
   }
 }
