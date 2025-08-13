@@ -13,6 +13,7 @@ include 'hoptimator-jdbc-driver-int'
 include 'hoptimator-k8s'
 include 'hoptimator-kafka-controller'
 include 'hoptimator-kafka'
+include 'hoptimator-mcp-server'
 include 'hoptimator-models'           // <-- marked for deletion
 include 'hoptimator-operator'
 include 'hoptimator-operator-integration'
