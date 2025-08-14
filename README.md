@@ -135,7 +135,7 @@ To use Hoptimator from an AI chat bot, agent, IDE, etc, you can use the Model Co
 {
   "mcpServers": {
     "Hoptimator": {
-      "command": "./hoptimator-mcp-server/start"
+      "command": "./start-mcp-server"
     }
 }
 ```

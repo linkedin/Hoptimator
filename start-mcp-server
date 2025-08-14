@@ -2,8 +2,7 @@
 
 BASEDIR="$( cd "$( dirname "$0" )" && pwd )"
 
-$BASEDIR/build/install/hoptimator-mcp-server/bin/hoptimator-mcp-server \
+$BASEDIR/hoptimator-mcp-server-app/build/install/hoptimator-mcp-server-app/bin/hoptimator-mcp-server-app \
   -Dorg.slf4j.simpleLogger.showThreadName=false \
   -Dorg.slf4j.simpleLogger.showLogName=false \
   com.linkedin.hoptimator.mcp.server.HoptimatorMcpServer "jdbc:hoptimator://fun=mysql"
-
