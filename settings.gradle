@@ -14,6 +14,7 @@ include 'hoptimator-k8s'
 include 'hoptimator-kafka-controller'
 include 'hoptimator-kafka'
 include 'hoptimator-mcp-server'
+include 'hoptimator-mcp-server-app'
 include 'hoptimator-models'           // <-- marked for deletion
 include 'hoptimator-operator'
 include 'hoptimator-operator-integration'

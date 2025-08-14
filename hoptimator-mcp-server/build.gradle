@@ -1,6 +1,5 @@
 plugins {
   id 'java'
-  id 'application'
   id 'idea'
   id 'maven-publish'
 }
@@ -11,20 +10,12 @@ dependencies {
   implementation project(':hoptimator-util')
   implementation project(':hoptimator-k8s')
 
-  implementation project(':hoptimator-demodb')
-  implementation project(':hoptimator-kafka')
-  implementation project(':hoptimator-venice')
-
   implementation libs.slf4j.simple
   implementation libs.calcite.core
   implementation libs.gson
   implementation libs.jackson.databind
   implementation libs.jackson.dataformat.yaml
   implementation libs.mcp
-}
-
-application {
-  mainClassName  = 'com.linkedin.hoptimator.mcp.server.HoptimatorMcpServer'
 }
 
 tasks.withType(JavaCompile).configureEach {

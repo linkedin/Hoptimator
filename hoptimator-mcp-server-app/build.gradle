@@ -1,0 +1,23 @@
+plugins {
+  id 'java'
+  id 'application'
+  id 'idea'
+}
+
+dependencies {
+  implementation project(':hoptimator-mcp-server')
+
+  runtimeOnly project(':hoptimator-demodb')
+  runtimeOnly project(':hoptimator-kafka')
+  runtimeOnly project(':hoptimator-venice')
+}
+
+application {
+  mainClassName  = 'com.linkedin.hoptimator.mcp.server.HoptimatorMcpServer'
+}
+
+tasks.withType(JavaCompile).configureEach {
+  options.release = 17
+  options.compilerArgs << '-Xlint:deprecation'
+  options.compilerArgs << '-Xlint:unchecked'
+}
