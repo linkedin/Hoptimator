@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-
 import org.apache.avro.Schema;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
@@ -103,7 +102,7 @@ public class AvroConverterTest {
     assertNull(result.getKey()); // Key schema should be null
     assertNotNull(result.getValue()); // Payload schema should not be null
     assertEquals("payloadSchema", result.getValue().getName());
-    assertEquals("namespace", result.getValue().getNamespace());
+    assertEquals("namespace.payloadSchema", result.getValue().getNamespace());
     assertEquals("record", result.getValue().getType().getName());
     assertEquals(1, result.getValue().getFields().size());
     assertEquals("field1", result.getValue().getFields().get(0).name());
@@ -138,14 +137,14 @@ public class AvroConverterTest {
 
     assertNotNull(result.getKey()); // Key schema should not be null
     assertEquals("keySchema", result.getKey().getName());
-    assertEquals("namespace", result.getKey().getNamespace());
+    assertEquals("namespace.keySchema", result.getKey().getNamespace());
     assertEquals("record", result.getKey().getType().getName());
     assertEquals(1, result.getKey().getFields().size());
     assertEquals("field1", result.getKey().getFields().get(0).name()); // prefix should be stripped
     assertEquals("string", result.getKey().getFields().get(0).schema().getType().getName());
     assertNotNull(result.getValue()); // Payload schema should not be null
     assertEquals("payloadSchema", result.getValue().getName());
-    assertEquals("namespace", result.getValue().getNamespace());
+    assertEquals("namespace.payloadSchema", result.getValue().getNamespace());
     assertEquals("record", result.getValue().getType().getName());
     assertEquals(1, result.getValue().getFields().size());
     assertEquals("field2", result.getValue().getFields().get(0).name());
@@ -168,7 +167,7 @@ public class AvroConverterTest {
     assertEquals("int", result.getKey().getType().getName());
     assertNotNull(result.getValue()); // Payload schema should not be null
     assertEquals("payloadSchema", result.getValue().getName());
-    assertEquals("namespace", result.getValue().getNamespace());
+    assertEquals("namespace.payloadSchema", result.getValue().getNamespace());
     assertEquals("record", result.getValue().getType().getName());
     assertEquals(1, result.getValue().getFields().size());
     assertEquals("field1", result.getValue().getFields().get(0).name());
@@ -207,5 +206,56 @@ public class AvroConverterTest {
     assertEquals(2, structElementSchema.getFields().size());
     assertEquals("field1", structElementSchema.getFields().get(0).name());
     assertEquals("field2", structElementSchema.getFields().get(1).name());
+  }
+
+  @Test
+  public void handlesNamespaceInNestedArrayAndMapElements() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+
+    // Create a "location" record type that will be reused - this mimics the real scenario
+    RelDataType locationType1 = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.VARCHAR)),
+        List.of("countryCode", "postalCode"));
+
+    // Create another "location" record type with slightly different structure
+    RelDataType locationType2 = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
+        List.of("countryCode", "regionCode"));
+
+    // Create structures that use these location types in different contexts
+    // This simulates the real scenario where multiple fields have the same name but different contexts
+    RelDataType profileStruct = typeFactory.createStructType(
+        List.of(locationType1),
+        List.of("location"));
+
+    RelDataType positionStruct = typeFactory.createStructType(
+        List.of(locationType2),
+        List.of("location"));
+
+    // Put both in a map structure - this creates the collision scenario
+    // Both will try to generate records named "location" with the same namespace
+    RelDataType positionsMap = typeFactory.createMapType(
+        typeFactory.createSqlType(SqlTypeName.VARCHAR),
+        positionStruct);
+
+    // Create the main record that contains both location types
+    RelDataType mainRecord = typeFactory.createStructType(
+        List.of(profileStruct, positionsMap),
+        List.of("profile", "positions"));
+
+    // Schema creation should succeed
+    Schema schema = AvroConverter.avro("com.linkedin", "MemberProfile", mainRecord);
+    assertNotNull(schema);
+
+    // Without the namespace-appending behavior in AvroConverter, this would fail with error "Can't redefine: com.linkedin.location"
+    // The issue occurs because multiple records named "location" are created with the same namespace,
+    // causing a collision when schema.toString(true) tries to serialize them
+    String schemaJson = schema.toString(true);
+    assertNotNull("Schema toString(true) should succeed without 'Can't redefine' errors", schemaJson);
+
+    // Verify the schema can be parsed back
+    Schema.Parser parser = new Schema.Parser();
+    Schema reparsedSchema = parser.parse(schemaJson);
+    assertNotNull("Generated schema must be parseable", reparsedSchema);
   }
 }

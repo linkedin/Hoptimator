@@ -30,11 +30,14 @@ public final class AvroConverter {
   }
 
   public static Schema avro(String namespace, String name, RelDataType dataType) {
+    // TODO: Schema generation is overly verbose today and does not support reuse, hence why we always defined a new namespace for records.
+    // Ideally information should be extracted from the RelDataType to allow collapsing of records into one definition.
+    String newNamespace = namespace + "." + name;
     if (dataType.isStruct()) {
       List<Schema.Field> fields = dataType.getFieldList().stream()
-          .map(x -> new Schema.Field(sanitize(x.getName()), avro(namespace, x.getName(), x.getType()), describe(x), null))
+          .map(x -> new Schema.Field(sanitize(x.getName()), avro(newNamespace, x.getName(), x.getType()), describe(x), null))
           .collect(Collectors.toList());
-      return createAvroSchemaWithNullability(Schema.createRecord(sanitize(name), dataType.toString(), namespace, false, fields),
+      return createAvroSchemaWithNullability(Schema.createRecord(sanitize(name), dataType.toString(), newNamespace, false, fields),
           dataType.isNullable());
     } else {
       switch (dataType.getSqlTypeName()) {
@@ -52,7 +55,7 @@ public final class AvroConverter {
         case BINARY:
         case VARBINARY:
           if (dataType.getPrecision() != -1) {
-            return createAvroSchemaWithNullability(Schema.createFixed(sanitize(name), dataType.toString(), namespace,
+            return createAvroSchemaWithNullability(Schema.createFixed(sanitize(name), dataType.toString(), newNamespace,
                 dataType.getPrecision()), dataType.isNullable());
           } else {
             return createAvroTypeWithNullability(Schema.Type.BYTES, dataType.isNullable());
@@ -63,12 +66,12 @@ public final class AvroConverter {
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:
           return createAvroSchemaWithNullability(
-              Schema.createArray(avro(null, sanitize(name) + "ArrayElement",
+              Schema.createArray(avro(newNamespace, sanitize(name) + "ArrayElement",
                   Objects.requireNonNull(dataType.getComponentType()))),
               dataType.isNullable());
         case MAP:
           return createAvroSchemaWithNullability(
-              Schema.createMap(avro(null, sanitize(name) + "MapElement",
+              Schema.createMap(avro(newNamespace, sanitize(name) + "MapElement",
                   Objects.requireNonNull(dataType.getValueType()))),
               dataType.isNullable());
         case UNKNOWN:
