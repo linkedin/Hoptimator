@@ -48,6 +48,7 @@ public class K8sPipelineElementApi implements Api<K8sPipelineElement> {
         if (!elements.containsKey(key)) {
           elements.put(key, new K8sPipelineElement(pipeline, elementStatus, configurations));
         }
+        elements.get(key).addPipeline(pipeline);
       }
     }
     return elements.values();
