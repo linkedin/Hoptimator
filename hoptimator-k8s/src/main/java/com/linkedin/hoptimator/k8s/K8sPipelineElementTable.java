@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import org.apache.calcite.schema.Schema;
-
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
 import com.linkedin.hoptimator.util.RemoteTable;
+import org.apache.calcite.schema.Schema;
+import org.json.simple.JSONObject;
+
 
 public class K8sPipelineElementTable extends RemoteTable<K8sPipelineElement, K8sPipelineElementTable.Row> {
 
@@ -13,12 +13,14 @@ public class K8sPipelineElementTable extends RemoteTable<K8sPipelineElement, K8s
     public boolean READY;
     public boolean FAILED;
     public String MESSAGE;
+    public String CONFIGS;
 
-    public Row(String name, boolean ready, boolean failed, String message) {
+    public Row(String name, boolean ready, boolean failed, String message, String configs) {
       this.NAME = name;
       this.READY = ready;
       this.FAILED = failed;
       this.MESSAGE = message;
+      this.CONFIGS = configs;
     }
 
     @Override
@@ -34,8 +36,11 @@ public class K8sPipelineElementTable extends RemoteTable<K8sPipelineElement, K8s
 
   @Override
   public Row toRow(K8sPipelineElement k8sPipelineElement) {
-    K8sPipelineElementStatus status = k8sPipelineElement.status();
-    return new Row(status.getName(), status.isReady(), status.isFailed(), status.getMessage());
+    return new Row(k8sPipelineElement.name(),
+        k8sPipelineElement.status().isReady(),
+        k8sPipelineElement.status().isFailed(),
+        k8sPipelineElement.status().getMessage(),
+        JSONObject.toJSONString(k8sPipelineElement.configs()));
   }
 
   @Override
