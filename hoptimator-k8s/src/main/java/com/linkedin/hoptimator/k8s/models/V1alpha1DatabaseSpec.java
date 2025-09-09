@@ -28,7 +28,7 @@ import java.io.IOException;
  * Database spec.
  */
 @ApiModel(description = "Database spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-21T02:31:00.123Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-09-04T16:19:29.143Z[Etc/UTC]")
 public class V1alpha1DatabaseSpec {
   /**
    * SQL dialect the driver expects.

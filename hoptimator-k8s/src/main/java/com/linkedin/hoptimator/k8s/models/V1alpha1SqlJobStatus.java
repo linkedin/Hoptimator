@@ -31,7 +31,7 @@ import java.util.Map;
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-21T02:31:00.123Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-09-04T16:19:29.143Z[Etc/UTC]")
 public class V1alpha1SqlJobStatus {
   public static final String SERIALIZED_NAME_CONFIGS = "configs";
   @SerializedName(SERIALIZED_NAME_CONFIGS)
