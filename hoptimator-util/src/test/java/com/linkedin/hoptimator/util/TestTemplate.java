@@ -2,10 +2,11 @@ package com.linkedin.hoptimator.util;
 
 import java.util.Arrays;
 import java.util.List;
-
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 
 public class TestTemplate {
 
@@ -26,6 +27,7 @@ public class TestTemplate {
         + "{{nameLower toLowerCase}}\n"
         + "{{multiline concat}}\n"
         + "{{multilineUpper concat toUpperCase}}\n"
+        + "{{missing notPresent}}\n"
         + "{{other unknown}}\n";
 
     String renderedTemplate = new Template.SimpleTemplate(template).render(env);
@@ -39,5 +41,23 @@ public class TestTemplate {
     assertEquals("123", renderedTemplates.get(5));
     assertEquals("ABC", renderedTemplates.get(6));
     assertEquals("test", renderedTemplates.get(7));
+  }
+
+  @Test
+  public void missingProperty() {
+    Template.Environment env = new Template.SimpleEnvironment();
+    String template = "{{field}}";
+    String renderedTemplate = new Template.SimpleTemplate(template).render(env);
+    assertNull(renderedTemplate);
+  }
+
+  @Test
+  public void ignoreTemplateProperty() {
+    Template.Environment env = new Template.SimpleEnvironment()
+        .with("field", "true");
+    String template = "{{field notPresent}}";
+
+    String renderedTemplate = new Template.SimpleTemplate(template).render(env);
+    assertNull(renderedTemplate);
   }
 }

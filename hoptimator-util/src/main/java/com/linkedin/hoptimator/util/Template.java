@@ -210,8 +210,14 @@ public interface Template {
           if (value == null) {
             log.warn("Template variable '{}' resolved to null. Skipping template.", key);
             return null;
+          } else if (transform.contains("notPresent")) {
+            return null;
           }
         } catch (IllegalArgumentException e) {
+          if (transform.contains("notPresent")) {
+            m.appendReplacement(sb, "");
+            continue;
+          }
           log.warn("Missing template variable '{}' in environment: {}. Skipping template.", key, e.getMessage());
           return null;
         }
