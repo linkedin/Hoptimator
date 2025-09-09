@@ -230,7 +230,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(context, new HoptimatorDriver.Prepare(connection), plan, sql, pair);
       logger.info("Added view {} to schema {}", viewName, schemaPlus.getName());
       Pipeline pipeline = plan.pipeline(viewName, connection);
-      MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().sql(), pipeline);
+      MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().eval("sql"), pipeline);
       // TODO support CREATE ... WITH (options...)
       ValidationService.validateOrThrow(hook);
       deployers = DeploymentService.deployers(hook, connection);

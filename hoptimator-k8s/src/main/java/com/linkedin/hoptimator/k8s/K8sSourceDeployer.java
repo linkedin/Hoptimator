@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -39,7 +40,7 @@ class K8sSourceDeployer extends K8sYamlDeployer {
             .with(source.options())
             .with(DeploymentService.parseHints(connection.connectionProperties()));
 
-    return tableTemplateApi.list()
+    List<String> templates =  tableTemplateApi.list()
         .stream()
         .map(V1alpha1TableTemplate::getSpec)
         .filter(Objects::nonNull)
@@ -47,8 +48,14 @@ class K8sSourceDeployer extends K8sYamlDeployer {
         .filter(x -> x.getMethods() == null || x.getMethods().contains(K8sUtils.method(source)))
         .map(V1alpha1TableTemplateSpec::getYaml)
         .filter(Objects::nonNull)
-        .map(x -> new Template.SimpleTemplate(x).render(env))
-        .filter(Objects::nonNull) // Filter out null templates (which might have errored out due to missing hint expressions)
         .collect(Collectors.toList());
+    List<String> renderedTemplates = new ArrayList<>();
+    for (String template : templates) {
+      String renderedTemplate = new Template.SimpleTemplate(template).render(env);
+      if (renderedTemplate != null) {
+        renderedTemplates.add(renderedTemplate);
+      }
+    }
+    return renderedTemplates;
   }
 }

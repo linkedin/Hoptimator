@@ -1,15 +1,18 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.hoptimator.ThrowingFunction;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
+import org.apache.calcite.rel.rel2sql.SqlImplementor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.ImmutablePairList;
 
@@ -19,6 +22,12 @@ import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.ConnectionService;
+import org.apache.calcite.sql.SqlAsOperator;
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 
 /**
@@ -32,6 +41,7 @@ import com.linkedin.hoptimator.util.ConnectionService;
 public interface PipelineRel extends RelNode {
 
   Convention CONVENTION = new Convention.Impl("PIPELINE", PipelineRel.class);
+  ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   void implement(Implementor implementor) throws SQLException;
 
@@ -91,7 +101,12 @@ public interface PipelineRel extends RelNode {
 
     /** Combine deployables into a Pipeline */
     public Pipeline pipeline(String name, Connection connection) throws SQLException {
-      Job job = new Job(name, sink, sql(connection));
+      Map<String, ThrowingFunction<SqlDialect, String>> templateEvals = new HashMap<>();
+      templateEvals.put("sql", sql(connection));
+      templateEvals.put("query", query(connection));
+      templateEvals.put("fieldMap", fieldMap());
+
+      Job job = new Job(name, sink, templateEvals);
       return new Pipeline(sources.keySet(), sink, job);
     }
 
@@ -106,29 +121,97 @@ public interface PipelineRel extends RelNode {
     }
 
     /** SQL script ending in an INSERT INTO */
-    public Function<SqlDialect, String> sql(Connection connection) throws SQLException {
-      ScriptImplementor script = script(connection);
-      RelDataType targetRowType = sinkRowType;
-      if (targetRowType == null) {
-        targetRowType = query.getRowType();
-      } else {
-        // Assert target fields exist in the sink schema when the sink schema is known (partial view use case)
-        for (String fieldName : targetFields.rightList()) {
-          if (!targetRowType.getFieldNames().contains(fieldName)) {
-            throw new SQLNonTransientException("Field " + fieldName + " not found in sink schema");
-          }
+    public ThrowingFunction<SqlDialect, String> sql(Connection connection) throws SQLException {
+      return wrap(x -> {
+        ScriptImplementor script = script(connection);
+        RelDataType targetRowType = sinkRowType;
+        if (targetRowType == null) {
+          targetRowType = query.getRowType();
+        } else {
+          validateFieldMapping(targetRowType);
         }
-      }
-      Map<String, String> sinkConfigs = ConnectionService.configure(sink, connection);
-      script = script.database(sink.schema());
-      script = script.connector(sink.schema(), sink.table(), targetRowType, sinkConfigs);
-      script = script.insert(sink.schema(), sink.table(), query, targetFields);
-      return script.seal();
+        Map<String, String> sinkConfigs = ConnectionService.configure(sink, connection);
+        script = script.database(sink.schema());
+        script = script.connector(sink.schema(), sink.table(), targetRowType, sinkConfigs);
+        script = script.insert(sink.schema(), sink.table(), query, targetFields);
+        return script.sql(x);
+      });
     }
 
     /** SQL script ending in a SELECT */
-    public Function<SqlDialect, String> query(Connection connection) throws SQLException {
-      return script(connection).query(query).seal();
+    public ThrowingFunction<SqlDialect, String> query(Connection connection) throws SQLException {
+      return wrap(x -> script(connection).query(query).sql(x));
+    }
+
+    public ThrowingFunction<SqlDialect, String> fieldMap() {
+      return wrap(x -> {
+        if (!TrivialQueryChecker.isTrivialQuery(query)) {
+          throw new SQLNonTransientException("Field mapping is only supported for trivial queries with simple projections and aliasing.");
+        }
+
+        if (sinkRowType != null) {
+          validateFieldMapping(sinkRowType);
+        }
+
+        RelToSqlConverter converter = new RelToSqlConverter(x);
+        SqlImplementor.Result result = converter.visitRoot(query);
+        SqlNodeList nodeList = result.asSelect().getSelectList();
+
+        Map<String, String> fieldMap = new HashMap<>();
+        for (SqlNode node : nodeList) {
+          if (node instanceof SqlIdentifier) {
+            SqlIdentifier identifier = (SqlIdentifier) node;
+            if (identifier.isStar()) {
+              targetFields.rightList().forEach(f -> fieldMap.put(f, f));
+            } else {
+              fieldMap.put(identifier.toString(), identifier.toString());
+            }
+          } else if (node instanceof SqlBasicCall) {
+            SqlBasicCall call = (SqlBasicCall) node;
+            if (!(call.getOperator() instanceof SqlAsOperator)
+                || call.operandCount() != 2) {
+              throw new SQLNonTransientException(String.format("Field mapping does not support SQL operator %s with %d operands",
+                  call.getClass().getSimpleName(), call.operandCount()));
+            }
+            if (!(call.operand(0) instanceof SqlIdentifier)
+                || !(call.operand(1) instanceof SqlIdentifier)) {
+              throw new SQLNonTransientException(String.format("Field mapping does not support operand types %s and %s",
+                  call.operand(0).getKind(), call.operand(1).getKind()));
+            }
+            SqlIdentifier original = call.operand(0);
+            SqlIdentifier alias = call.operand(1);
+            fieldMap.put(original.toString(), alias.toString());
+          } else {
+            throw new SQLNonTransientException("Unsupported SQL node for field mapping: " + node);
+          }
+        }
+        try {
+          return OBJECT_MAPPER.writeValueAsString(fieldMap);
+        } catch (Exception e) {
+        throw new SQLNonTransientException("Failed to serialize field map to JSON", e);
+      }
+      });
+    }
+
+    private void validateFieldMapping(RelDataType targetRowType) throws SQLException {
+      // Assert target fields exist in the sink schema when the sink schema is known (partial view use case)
+      for (String fieldName : targetFields.rightList()) {
+        if (!targetRowType.getFieldNames().contains(fieldName)) {
+          throw new SQLNonTransientException("Field " + fieldName + " not found in sink schema");
+        }
+      }
+    }
+
+    ThrowingFunction<SqlDialect, String> wrap(ThrowingFunction<org.apache.calcite.sql.SqlDialect, String> innerFunction) {
+      return x -> {
+        switch (x) {
+          case ANSI:
+          case FLINK:
+            return innerFunction.apply(AnsiSqlDialect.DEFAULT);
+          default:
+            throw new IllegalStateException("Unknown SQL dialect: " + x);
+        }
+      };
     }
   }
 }

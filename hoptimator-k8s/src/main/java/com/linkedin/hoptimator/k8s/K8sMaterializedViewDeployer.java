@@ -98,7 +98,7 @@ class K8sMaterializedViewDeployer implements Deployer {
     return K8sUtils.canonicalizeName(view.path());
   }
 
-  String sql() {
+  String sql() throws SQLException {
     return view.pipelineSql().apply(SqlDialect.ANSI);
   }
 

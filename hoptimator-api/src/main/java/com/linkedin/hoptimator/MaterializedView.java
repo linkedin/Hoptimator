@@ -1,16 +1,15 @@
 package com.linkedin.hoptimator;
 
 import java.util.List;
-import java.util.function.Function;
 
 
 public class MaterializedView extends View implements Deployable {
 
   private final String database;
-  private final Function<SqlDialect, String> pipelineSql;
+  private final ThrowingFunction<SqlDialect, String> pipelineSql;
   private final Pipeline pipeline;
 
-  public MaterializedView(String database, List<String> path, String viewSql, Function<SqlDialect, String> pipelineSql,
+  public MaterializedView(String database, List<String> path, String viewSql, ThrowingFunction<SqlDialect, String> pipelineSql,
       Pipeline pipeline) {
     super(path, viewSql);
     this.database = database;
@@ -22,7 +21,7 @@ public class MaterializedView extends View implements Deployable {
     return pipeline;
   }
 
-  public Function<SqlDialect, String> pipelineSql() {
+  public ThrowingFunction<SqlDialect, String> pipelineSql() {
     return pipelineSql;
   }
 

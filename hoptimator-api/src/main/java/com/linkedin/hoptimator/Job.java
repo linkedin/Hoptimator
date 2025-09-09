@@ -1,18 +1,36 @@
 package com.linkedin.hoptimator;
 
-import java.util.function.Function;
+import java.util.Map;
 
 
+/**
+ * Represents a data pipeline job with lazy-evaluated template functions.
+ *
+ * <p>A Job encapsulates the configuration and execution logic for a data pipeline,
+ * including the destination sink and a collection of lazy-evaluated functions that
+ * generate SQL scripts, field mappings, and other template values on demand.
+ */
 public class Job implements Deployable {
 
   private final String name;
   private final Sink sink;
-  private final Function<SqlDialect, String> sql;
 
-  public Job(String name, Sink sink, Function<SqlDialect, String> sql) {
+  /**
+   * Lazy-evaluated template functions that generate various outputs for the job.
+   *
+   * <p>This map contains functions that are evaluated on-demand when specific
+   * template values are needed. Each function takes a {@link SqlDialect} parameter
+   * and returns a string representation of the requested output.
+   *
+   * @see ThrowingFunction
+   * @see SqlDialect
+   */
+  private final Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals;
+
+  public Job(String name, Sink sink, Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals) {
     this.name = name;
     this.sink = sink;
-    this.sql = sql;
+    this.lazyEvals = lazyEvals;
   }
 
   public String name() {
@@ -23,8 +41,28 @@ public class Job implements Deployable {
     return sink;
   }
 
-  public Function<SqlDialect, String> sql() {
-    return sql;
+  /**
+   * Retrieves a lazy-evaluated template function by key.
+   *
+   * <p>This method provides access to the template functions stored in {@link #lazyEvals}.
+   * The returned function can be called with a {@link SqlDialect} to generate the
+   * corresponding output string.
+   *
+   * <p><strong>Available Keys:</strong>
+   * <ul>
+   *   <li><code>"sql"</code> - Complete SQL script with INSERT INTO statements</li>
+   *   <li><code>"query"</code> - SELECT query portion only</li>
+   *   <li><code>"fieldMap"</code> - JSON mapping of source to destination fields</li>
+   * </ul>
+   *
+   * @param key The template function key to retrieve
+   * @return The lazy-evaluated function, or {@code null} if the key doesn't exist
+   *
+   * @see #lazyEvals
+   * @see ThrowingFunction#apply(Object)
+   */
+  public ThrowingFunction<SqlDialect, String> eval(String key) {
+    return lazyEvals.get(key);
   }
 
   @Override
