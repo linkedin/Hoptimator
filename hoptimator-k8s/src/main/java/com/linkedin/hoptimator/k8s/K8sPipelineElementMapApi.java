@@ -28,7 +28,7 @@ public class K8sPipelineElementMapApi implements Api<K8sPipelineElementMapEntry>
   }
 
   private static Stream<K8sPipelineElementMapEntry> mapEntriesFromElement(K8sPipelineElement element) {
-    String elementName = element.status().getName();
+    String elementName = element.name();
     return element.pipelineNames()
         .stream()
         .map(pipelineName -> new K8sPipelineElementMapEntry(elementName, pipelineName));
