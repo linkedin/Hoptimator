@@ -30,7 +30,6 @@ public class TestTemplate {
         + "{{nameLower toLowerCase}}\n"
         + "{{multiline concat}}\n"
         + "{{multilineUpper concat toUpperCase}}\n"
-        + "{{missing notPresent}}\n"
         + "{{other unknown}}\n"
         + "{{supplier}}\n";
 
@@ -57,12 +56,32 @@ public class TestTemplate {
   }
 
   @Test
-  public void ignoreTemplateProperty() throws SQLException {
+  public void templateEquality() throws SQLException {
     Template.Environment env = new Template.SimpleEnvironment()
-        .with("field", "true");
-    String template = "{{field notPresent}}";
+        .with("field1", "true");
+    String template = "{{name:default}}\n"
+        + "{{field1==true}}\n"
+        + "{{field1!=false}}\n";
 
     String renderedTemplate = new Template.SimpleTemplate(template).render(env);
+    List<String> renderedTemplates = Arrays.asList(renderedTemplate.split("\n"));
+    assertEquals(1, renderedTemplates.size());
+    assertEquals("default", renderedTemplates.get(0));
+  }
+
+  @Test
+  public void templateEqualityFailure() throws SQLException {
+    Template.Environment env = new Template.SimpleEnvironment()
+        .with("field1", "true");
+    String template1 = "{{name:default}}\n"
+        + "{{field1==false}}\n";
+
+    String renderedTemplate = new Template.SimpleTemplate(template1).render(env);
+    assertNull(renderedTemplate);
+
+    String template2 = "{{name:default}}\n"
+        + "{{field1!=true}}\n";
+    renderedTemplate = new Template.SimpleTemplate(template2).render(env);
     assertNull(renderedTemplate);
   }
 

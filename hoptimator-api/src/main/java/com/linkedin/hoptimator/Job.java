@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator;
 
 import java.util.Map;
+import java.util.Set;
 
 
 /**
@@ -13,6 +14,7 @@ import java.util.Map;
 public class Job implements Deployable {
 
   private final String name;
+  private final Set<Source> sources;
   private final Sink sink;
 
   /**
@@ -27,14 +29,19 @@ public class Job implements Deployable {
    */
   private final Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals;
 
-  public Job(String name, Sink sink, Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals) {
+  public Job(String name, Set<Source> sources, Sink sink, Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals) {
     this.name = name;
+    this.sources = sources;
     this.sink = sink;
     this.lazyEvals = lazyEvals;
   }
 
   public String name() {
     return name;
+  }
+
+  public Set<Source> sources() {
+    return sources;
   }
 
   public Sink sink() {

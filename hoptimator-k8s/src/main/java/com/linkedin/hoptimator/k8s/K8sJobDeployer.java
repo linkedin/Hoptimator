@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.ThrowingFunction;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -45,6 +46,9 @@ class K8sJobDeployer extends K8sYamlDeployer {
         .with("database", job.sink().database())
         .with("schema", job.sink().schema())
         .with("table", job.sink().table())
+        .with("sourceDatabases", () -> job.sources().stream().map(Source::database).collect(Collectors.joining(",")))
+        .with("sourceSchemas", () -> job.sources().stream().map(Source::schema).collect(Collectors.joining(",")))
+        .with("sourceTables", () -> job.sources().stream().map(Source::table).collect(Collectors.joining(",")))
         .with("sql", () -> sql.apply(SqlDialect.ANSI))
         .with("flinksql", () -> sql.apply(SqlDialect.FLINK))
         .with("flinkconfigs", properties)

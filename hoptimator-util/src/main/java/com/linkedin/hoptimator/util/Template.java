@@ -160,6 +160,8 @@ public interface Template {
    * <p>
    * Default values can be supplied with `{{var:default}}`.
    * <p>
+   * Conditional rendering of a template can be done with `{{var==value}}` or `{{var!=value}}`.
+   * <p>
    * Built-in transformations can be applied to variables, including:
    * <p>
    *   - `{{var toName}}`, `{{var:default toName}}`: canonicalize the
@@ -202,7 +204,7 @@ public interface Template {
     public String render(Environment env) throws SQLException {
       StringBuilder sb = new StringBuilder();
       Pattern p =
-          Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]*))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
+          Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*((:|==|!=)([\\w_\\-\\.]*))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
       Matcher m = p.matcher(template);
       while (m.find()) {
         String prefix = m.group(1);
@@ -210,22 +212,45 @@ public interface Template {
           prefix = "";
         }
         String key = m.group(2);
-        String defaultValue = m.group(4);
-        String transform = m.group(5);
+        String condition = m.group(4);
+        String conditionValue = m.group(5);
+        String transform = m.group(6);
         String value;
         try {
-          value = env.getOrDefault(key, () -> defaultValue);
+          if (condition == null) {
+            value = env.getOrDefault(key, () -> null);
+          } else {
+            switch (condition) {
+              case ":":
+                value = env.getOrDefault(key, () -> conditionValue);
+                break;
+              case "==":
+                value = env.getOrDefault(key, () -> null);
+                if (value.equals(conditionValue)) {
+                  m.appendReplacement(sb, "");
+                  continue;
+                } else {
+                  value = null;
+                }
+                break;
+              case "!=":
+                value = env.getOrDefault(key, () -> null);
+                if (!value.equals(conditionValue)) {
+                  m.appendReplacement(sb, "");
+                  continue;
+                } else {
+                  value = null;
+                }
+                break;
+              default:
+                throw new IllegalArgumentException("Invalid template condition: " + condition);
+            }
+          }
           if (value == null) {
             log.warn("Template variable '{}' resolved to null. Skipping template.", key);
             return null;
-          } else if (transform.contains("notPresent")) {
-            return null;
           }
         } catch (IllegalArgumentException e) {
-          if (transform.contains("notPresent")) {
-            m.appendReplacement(sb, "");
-            continue;
-          }
           log.warn("Missing template variable '{}' in environment: {}. Skipping template.", key, e.getMessage());
           return null;
         }

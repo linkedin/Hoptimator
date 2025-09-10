@@ -106,7 +106,7 @@ public interface PipelineRel extends RelNode {
       templateEvals.put("query", query(connection));
       templateEvals.put("fieldMap", fieldMap());
 
-      Job job = new Job(name, sink, templateEvals);
+      Job job = new Job(name, sources.keySet(), sink, templateEvals);
       return new Pipeline(sources.keySet(), sink, job);
     }
 
