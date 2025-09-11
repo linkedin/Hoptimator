@@ -69,6 +69,9 @@ public class Job implements Deployable {
    * @see ThrowingFunction#apply(Object)
    */
   public ThrowingFunction<SqlDialect, String> eval(String key) {
+    if (!lazyEvals.containsKey(key)) {
+      throw new IllegalArgumentException("Unknown eval key: " + key + ". Available keys: " + lazyEvals.keySet());
+    }
     return lazyEvals.get(key);
   }
 

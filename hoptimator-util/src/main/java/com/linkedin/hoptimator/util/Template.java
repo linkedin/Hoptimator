@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.util;
 
 import com.linkedin.hoptimator.ThrowingSupplier;
 import java.sql.SQLException;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +59,12 @@ public interface Template {
       properties.forEach((k, v) -> vars.put(k, () -> v));
     }
 
+    protected void exportAll(Properties properties) {
+      for (String key : properties.stringPropertyNames()) {
+        vars.put(key, () -> properties.getProperty(key));
+      }
+    }
+
     public SimpleEnvironment with(String key, String value) {
       return new SimpleEnvironment(vars) {{
         export(key, value);
@@ -70,15 +77,21 @@ public interface Template {
       }};
     }
 
+    public SimpleEnvironment with(Properties values) {
+      return new SimpleEnvironment(vars) {{
+        exportAll(values);
+      }};
+    }
+
     public SimpleEnvironment with(String key, Map<String, String> values) {
       return new SimpleEnvironment(vars) {{
-        export(key, formatMapAsString(values));
+        export(key, () -> formatMapAsString(values));
       }};
     }
 
     public SimpleEnvironment with(String key, Properties values) {
       return new SimpleEnvironment(vars) {{
-        export(key, formatPropertiesAsString(values));
+        export(key, () -> formatPropertiesAsString(values));
       }};
     }
 
@@ -107,19 +120,15 @@ public interface Template {
     }
 
     private String formatMapAsString(Map<String, String> configMap) {
-      StringBuilder stringBuilder = new StringBuilder();
-      for (Map.Entry<String, String> entry : configMap.entrySet()) {
-        stringBuilder.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-      }
-      return stringBuilder.toString();
+      return configMap.entrySet().stream()
+          .map(entry -> entry.getKey() + ": '" + entry.getValue() + "'")
+          .collect(Collectors.joining("\n"));
     }
 
     private String formatPropertiesAsString(Properties props) {
-      StringBuilder stringBuilder = new StringBuilder();
-      for (String key : props.stringPropertyNames()) {
-        stringBuilder.append(key).append(": '").append(props.getProperty(key)).append("'\n");
-      }
-      return stringBuilder.toString();
+      return props.stringPropertyNames().stream()
+          .map(key -> key + ": '" + props.getProperty(key) + "'")
+          .collect(Collectors.joining("\n"));
     }
   }
 

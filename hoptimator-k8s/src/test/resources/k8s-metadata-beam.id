@@ -1,0 +1,43 @@
+!set outputformat mysql
+!use k8s
+
+create or replace materialized view ads.pages as select page_urn from ads.page_views;
+(0 rows modified)
+
+!update
+
+select * from ads.pages;
++-------------------+
+| PAGE_URN          |
++-------------------+
+| urn:li:page:10000 |
+| urn:li:page:10001 |
++-------------------+
+(2 rows)
+
+!ok
+
+select name, failed from "k8s".pipeline_elements order by name;
++---------------------------+--------+
+| NAME                      | FAILED |
++---------------------------+--------+
+| SqlJob/ads-database-pages | false  |
++---------------------------+--------+
+(1 row)
+
+!ok
+
+select * from "k8s".pipeline_element_map order by element_name, pipeline_name;
++---------------------------+---------------+
+| ELEMENT_NAME              | PIPELINE_NAME |
++---------------------------+---------------+
+| SqlJob/ads-database-pages | ads-pages     |
++---------------------------+---------------+
+(1 row)
+
+!ok
+
+drop materialized view ads.pages;
+(0 rows modified)
+
+!update

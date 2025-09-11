@@ -13,4 +13,10 @@ public class TestSqlScripts extends QuidemTestBase {
   public void kafkaDdlScript() throws Exception {
     run("kafka-ddl.id", "hints=kafka.partitions=4,flink.parallelism=2,kafka.source.k1=v1,kafka.sink.k2=v2");
   }
+
+  @Test
+  @Tag("integration")
+  public void kafkaDdlScriptBeamJob() throws Exception {
+    run("kafka-ddl-beam.id", "hints=flink.app.type=BEAM");
+  }
 }

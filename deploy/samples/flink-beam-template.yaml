@@ -1,0 +1,26 @@
+## This template adds Flink Beam support.
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: JobTemplate
+metadata:
+  name: flink-beam-sqljob-template
+spec:
+  yaml: |
+    apiVersion: hoptimator.linkedin.com/v1alpha1
+    kind: SqlJob
+    metadata:
+      name: {{name}}
+    spec:
+      dialect: FlinkBeam
+      executionMode: Streaming
+      sql:
+        - PLACEHOLDER
+      configs:
+        {{flink.app.type==BEAM}}
+        source.group.id: hoptimator-flink-beam-{{pipeline}}
+        source.schemas: {{sourceSchemas}}
+        source.tables: {{sourceTables}}
+        sink.schema: {{schema}}
+        sink.table: {{table}}
+        fields: {{fieldMap}}
+        {{flinkconfigs}}

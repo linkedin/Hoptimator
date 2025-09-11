@@ -31,4 +31,10 @@ public class TestSqlScripts extends QuidemTestBase {
   public void k8sMetadataTables() throws Exception {
     run("k8s-metadata.id", "hints=offline.table.name=ads_offline");
   }
+
+  @Test
+  @Tag("integration")
+  public void k8sConditionalJobTemplate() throws Exception {
+    run("k8s-metadata-beam.id", "hints=flink.app.type=BEAM");
+  }
 }

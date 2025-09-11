@@ -52,8 +52,8 @@ class K8sJobDeployer extends K8sYamlDeployer {
         .with("sql", () -> sql.apply(SqlDialect.ANSI))
         .with("flinksql", () -> sql.apply(SqlDialect.FLINK))
         .with("flinkconfigs", properties)
-        .with("fieldMap", () -> fieldMap.apply(SqlDialect.ANSI))
-        .with(job.sink().options());
+        .with("fieldMap", () -> "'" + fieldMap.apply(SqlDialect.ANSI) + "'")
+        .with(properties);
     List<String> templates = jobTemplateApi.list()
         .stream()
         .map(V1alpha1JobTemplate::getSpec)
