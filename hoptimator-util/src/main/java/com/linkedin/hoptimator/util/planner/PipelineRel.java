@@ -25,8 +25,10 @@ import com.linkedin.hoptimator.util.ConnectionService;
 import org.apache.calcite.sql.SqlAsOperator;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.fun.SqlItemOperator;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 
@@ -157,34 +159,7 @@ public interface PipelineRel extends RelNode {
         SqlImplementor.Result result = converter.visitRoot(query);
         SqlNodeList nodeList = result.asSelect().getSelectList();
 
-        Map<String, String> fieldMap = new HashMap<>();
-        for (SqlNode node : nodeList) {
-          if (node instanceof SqlIdentifier) {
-            SqlIdentifier identifier = (SqlIdentifier) node;
-            if (identifier.isStar()) {
-              targetFields.rightList().forEach(f -> fieldMap.put(f, f));
-            } else {
-              fieldMap.put(identifier.toString(), identifier.toString());
-            }
-          } else if (node instanceof SqlBasicCall) {
-            SqlBasicCall call = (SqlBasicCall) node;
-            if (!(call.getOperator() instanceof SqlAsOperator)
-                || call.operandCount() != 2) {
-              throw new SQLNonTransientException(String.format("Field mapping does not support SQL operator %s with %d operands",
-                  call.getClass().getSimpleName(), call.operandCount()));
-            }
-            if (!(call.operand(0) instanceof SqlIdentifier)
-                || !(call.operand(1) instanceof SqlIdentifier)) {
-              throw new SQLNonTransientException(String.format("Field mapping does not support operand types %s and %s",
-                  call.operand(0).getKind(), call.operand(1).getKind()));
-            }
-            SqlIdentifier original = call.operand(0);
-            SqlIdentifier alias = call.operand(1);
-            fieldMap.put(original.toString(), alias.toString());
-          } else {
-            throw new SQLNonTransientException("Unsupported SQL node for field mapping: " + node);
-          }
-        }
+        Map<String, String> fieldMap = buildFieldMappingFromSqlNodes(nodeList);
         try {
           return OBJECT_MAPPER.writeValueAsString(fieldMap);
         } catch (Exception e) {
@@ -193,12 +168,90 @@ public interface PipelineRel extends RelNode {
       });
     }
 
-    private void validateFieldMapping(RelDataType targetRowType) throws SQLException {
+    void validateFieldMapping(RelDataType targetRowType) throws SQLException {
       // Assert target fields exist in the sink schema when the sink schema is known (partial view use case)
       for (String fieldName : targetFields.rightList()) {
         if (!targetRowType.getFieldNames().contains(fieldName)) {
           throw new SQLNonTransientException("Field " + fieldName + " not found in sink schema");
         }
+      }
+    }
+
+    /**
+     * Builds a field mapping from SQL node list, handling simple identifiers, aliases, and nested field access.
+     *
+     * @param nodeList The SQL node list from the SELECT clause
+     * @return A map from source field names to target field names
+     * @throws SQLNonTransientException if unsupported SQL constructs are encountered
+     */
+    Map<String, String> buildFieldMappingFromSqlNodes(SqlNodeList nodeList) throws SQLNonTransientException {
+      Map<String, String> fieldMap = new HashMap<>();
+      for (SqlNode node : nodeList) {
+        if (node instanceof SqlIdentifier) {
+          SqlIdentifier identifier = (SqlIdentifier) node;
+          if (identifier.isStar()) {
+            targetFields.rightList().forEach(f -> fieldMap.put(f, f));
+          } else {
+            fieldMap.put(identifier.toString(), identifier.toString());
+          }
+        } else if (node instanceof SqlBasicCall) {
+          SqlBasicCall call = (SqlBasicCall) node;
+          if (call.getOperator() instanceof SqlAsOperator && call.operandCount() == 2) {
+            // Handle AS operator (aliasing)
+            SqlNode original = call.operand(0);
+            SqlNode alias = call.operand(1);
+
+            if (!(alias instanceof SqlIdentifier)) {
+              throw new SQLNonTransientException(String.format("Field mapping alias must be an identifier, got: %s", alias.getKind()));
+            }
+
+            String originalFieldName = extractFieldName(original);
+            String aliasName = alias.toString();
+            fieldMap.put(originalFieldName, aliasName);
+          } else {
+            // Handle other operators like ITEM for nested field access
+            String fieldName = extractFieldName(call);
+            fieldMap.put(fieldName, fieldName);
+          }
+        } else {
+          throw new SQLNonTransientException("Unsupported SQL node for field mapping: " + node);
+        }
+      }
+      return fieldMap;
+    }
+
+    /**
+     * Extracts field name from SqlNode, handling nested field access with ITEM operator.
+     *
+     * @param node The SqlNode to extract field name from
+     * @return The field name, using dot notation for nested fields (e.g., "field.nestedField")
+     * @throws SQLNonTransientException if the node type is not supported
+     */
+    private String extractFieldName(SqlNode node) throws SQLNonTransientException {
+      if (node instanceof SqlIdentifier) {
+        return node.toString();
+      } else if (node instanceof SqlBasicCall) {
+        SqlBasicCall call = (SqlBasicCall) node;
+
+        // Handle ITEM operator for nested field access: ITEM($field, 'nestedField')
+        if (call.getOperator() instanceof SqlItemOperator && call.operandCount() == 2) {
+          SqlNode baseField = call.operand(0);
+          SqlNode nestedFieldLiteral = call.operand(1);
+
+          if (!(nestedFieldLiteral instanceof SqlLiteral)) {
+            throw new SQLNonTransientException("ITEM operator second operand must be a literal, got: " + nestedFieldLiteral.getKind());
+          }
+
+          String baseFieldName = extractFieldName(baseField);
+          String nestedFieldName = ((SqlLiteral) nestedFieldLiteral).getValueAs(String.class);
+
+          // Use dot notation for nested fields
+          return baseFieldName + "." + nestedFieldName;
+        } else {
+          throw new SQLNonTransientException("Unsupported SQL operator for field mapping: " + call.getOperator());
+        }
+      } else {
+        throw new SQLNonTransientException("Unsupported SQL node type for field extraction: " + node.getKind());
       }
     }
 

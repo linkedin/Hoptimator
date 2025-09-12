@@ -23,6 +23,13 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.ImmutablePairList;
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlLiteral;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.BeforeEach;
@@ -83,69 +90,6 @@ public class PipelineRelTest {
     }
 
     @Test
-    void testFieldMapSuccessForTrivialQuery() {
-        RelDataType rowType = createSimpleRowType();
-        RelNode trivialQuery = createTrivialQuery(rowType);
-        implementor.setQuery(trivialQuery);
-
-        ThrowingFunction<SqlDialect, String> fieldMapFunc = implementor.fieldMap();
-        assertNotNull(fieldMapFunc, "Field map function should be created");
-
-        assertThrows(Exception.class, () -> fieldMapFunc.apply(SqlDialect.ANSI),
-            "Field map function should attempt execution but fail due to mock limitations");
-    }
-
-    @Test
-    void testValidateFieldMappingWithSinkRowType() {
-        RelDataType sinkRowType = createRowTypeWithFields("dest_field1", "dest_field2", "extra_field");
-
-        // Set up the sink with proper field mapping
-        assertDoesNotThrow(() -> implementor.setSink("test_db", List.of("schema", "test_table"),
-            sinkRowType, Collections.emptyMap()));
-
-        // Create a trivial query and test field mapping
-        RelNode trivialQuery = createTrivialQuery(createSimpleRowType());
-        implementor.setQuery(trivialQuery);
-
-        ThrowingFunction<SqlDialect, String> fieldMapFunc = implementor.fieldMap();
-        assertNotNull(fieldMapFunc, "Field map function should be created");
-
-        assertThrows(Exception.class, () -> fieldMapFunc.apply(SqlDialect.ANSI),
-            "Field mapping should attempt execution but fail due to mock limitations");
-    }
-
-    @Test
-    void testValidateFieldMappingFailsForMissingField() {
-        // Create sink type missing one of the target fields
-        RelDataType sinkRowType = createRowTypeWithFields("dest_field1"); // missing dest_field2
-
-        implementor.setSink("test_db", List.of("schema", "test_table"), sinkRowType, Collections.emptyMap());
-
-        RelNode trivialQuery = createTrivialQuery(createSimpleRowType());
-        implementor.setQuery(trivialQuery);
-
-        ThrowingFunction<SqlDialect, String> fieldMapFunc = implementor.fieldMap();
-        assertNotNull(fieldMapFunc, "Field map function should be created");
-
-        SQLNonTransientException exception = assertThrows(SQLNonTransientException.class,
-            () -> fieldMapFunc.apply(SqlDialect.ANSI), "Missing target field should cause validation failure");
-        assertTrue(exception.getMessage().contains("dest_field2"));
-    }
-
-    @Test
-    void testQueryGeneration() throws SQLException {
-        RelNode trivialQuery = createTrivialQuery(createSimpleRowType());
-        implementor.setQuery(trivialQuery);
-        implementor.addSource("test_db", List.of("source_table"), createSimpleRowType(), Collections.emptyMap());
-
-        ThrowingFunction<SqlDialect, String> queryFunc = implementor.query(mockConnection);
-        assertNotNull(queryFunc, "Query function should be created");
-
-        assertThrows(Exception.class, () -> queryFunc.apply(SqlDialect.ANSI),
-            "Query function should attempt SQL generation but fail due to mock limitations");
-    }
-
-    @Test
     void testPipelineCreation() throws SQLException {
         RelNode trivialQuery = createTrivialQuery(createSimpleRowType());
         implementor.setQuery(trivialQuery);
@@ -168,18 +112,6 @@ public class PipelineRelTest {
         assertNotNull(sqlEval);
         assertNotNull(queryEval);
         assertNotNull(fieldMapEval);
-    }
-
-    @Test
-    void testFieldMapJsonSerialization() {
-        RelNode trivialQuery = createTrivialQuery(createSimpleRowType());
-        implementor.setQuery(trivialQuery);
-
-        ThrowingFunction<SqlDialect, String> fieldMapFunc = implementor.fieldMap();
-        assertNotNull(fieldMapFunc, "Field map function should be created");
-
-        assertThrows(Exception.class, () -> fieldMapFunc.apply(SqlDialect.ANSI),
-            "Field map function should attempt execution but may fail due to RelToSqlConverter limitations with test mocks");
     }
 
     @Test
@@ -210,19 +142,184 @@ public class PipelineRelTest {
     }
 
     @Test
-    void testFunctionErrorScenarios() {
-        // Test with malformed query setup
-        RelNode trivialQuery = createTrivialQuery(createSimpleRowType());
-        implementor.setQuery(trivialQuery);
+    void testValidateFieldMappingSuccess() {
+        // Create a row type that contains all target fields
+        RelDataType rowType = createRowTypeWithFields("dest_field1", "dest_field2", "extra_field");
 
-        // Test fieldMap without sink (should still work)
-        ThrowingFunction<SqlDialect, String> fieldMapFunc = implementor.fieldMap();
-        assertNotNull(fieldMapFunc, "Field map function should be created without sink");
-
-        assertThrows(Exception.class, () -> fieldMapFunc.apply(SqlDialect.ANSI),
-            "Field map should attempt execution but fail due to RelToSqlConverter limitations");
+        // Should not throw any exception
+        assertDoesNotThrow(() -> implementor.validateFieldMapping(rowType),
+            "Validation should pass when all target fields exist in row type");
     }
 
+    @Test
+    void testValidateFieldMappingFailsForMissingFields() {
+        // Create a row type missing some target fields
+        RelDataType rowType = createRowTypeWithFields("dest_field1"); // missing dest_field2
+
+        SQLNonTransientException exception = assertThrows(SQLNonTransientException.class,
+            () -> implementor.validateFieldMapping(rowType),
+            "Validation should fail when target fields are missing from row type");
+
+        assertTrue(exception.getMessage().contains("dest_field2"),
+            "Exception should mention the missing field");
+    }
+
+    @Test
+    void testBuildFieldMappingFromSqlNodesSimpleIdentifiers() throws SQLNonTransientException {
+        // Create SQL node list with simple identifiers
+        SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+        nodeList.add(new SqlIdentifier("field1", SqlParserPos.ZERO));
+        nodeList.add(new SqlIdentifier("field2", SqlParserPos.ZERO));
+
+        Map<String, String> result = implementor.buildFieldMappingFromSqlNodes(nodeList);
+
+        assertEquals(2, result.size(), "Should have mappings for both fields");
+        assertEquals("field1", result.get("field1"), "field1 should map to itself");
+        assertEquals("field2", result.get("field2"), "field2 should map to itself");
+    }
+
+    @Test
+    void testBuildFieldMappingFromSqlNodesStarProjection() throws SQLNonTransientException {
+        // Create SQL node list with star projection using the proper Calcite SINGLETON_STAR
+        SqlNodeList nodeList = SqlNodeList.SINGLETON_STAR;
+
+        Map<String, String> result = implementor.buildFieldMappingFromSqlNodes(nodeList);
+
+        // Should map all target fields to themselves
+        assertEquals(2, result.size(), "Should have mappings for all target fields");
+        assertEquals("dest_field1", result.get("dest_field1"), "dest_field1 should map to itself");
+        assertEquals("dest_field2", result.get("dest_field2"), "dest_field2 should map to itself");
+    }
+
+    @Test
+    void testBuildFieldMappingFromSqlNodesAliases() throws SQLNonTransientException {
+        // Create SQL node list with aliases (AS operator)
+        SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+
+        SqlIdentifier original = new SqlIdentifier("original_field", SqlParserPos.ZERO);
+        SqlIdentifier alias = new SqlIdentifier("alias_field", SqlParserPos.ZERO);
+        SqlBasicCall asCall = new SqlBasicCall(SqlStdOperatorTable.AS,
+            List.of(original, alias), SqlParserPos.ZERO);
+
+        nodeList.add(asCall);
+
+        Map<String, String> result = implementor.buildFieldMappingFromSqlNodes(nodeList);
+
+        assertEquals(1, result.size(), "Should have one mapping for the alias");
+        assertEquals("alias_field", result.get("original_field"), "original_field should map to alias_field");
+    }
+
+    @Test
+    void testBuildFieldMappingFromSqlNodesNestedFieldAccess() throws SQLNonTransientException {
+        // Create SQL node list with nested field access (ITEM operator)
+        SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+
+        SqlIdentifier baseField = new SqlIdentifier("baseField", SqlParserPos.ZERO);
+        SqlLiteral nestedFieldName = SqlLiteral.createCharString("nestedField", SqlParserPos.ZERO);
+        SqlBasicCall itemCall = new SqlBasicCall(SqlStdOperatorTable.ITEM,
+            List.of(baseField, nestedFieldName), SqlParserPos.ZERO);
+
+        nodeList.add(itemCall);
+
+        Map<String, String> result = implementor.buildFieldMappingFromSqlNodes(nodeList);
+
+        assertEquals(1, result.size(), "Should have one mapping for nested field");
+        assertEquals("baseField.nestedField", result.get("baseField.nestedField"),
+            "Nested field should map to itself with dot notation");
+    }
+
+    @Test
+    void testBuildFieldMappingFromSqlNodesNestedAlias() throws SQLNonTransientException {
+        // Create SQL node list with mixed field types and a nested alias
+        SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+
+        // Simple identifier
+        nodeList.add(new SqlIdentifier("simple_field", SqlParserPos.ZERO));
+
+        // Alias
+        SqlIdentifier original = new SqlIdentifier("original", SqlParserPos.ZERO);
+        SqlIdentifier alias = new SqlIdentifier("aliased", SqlParserPos.ZERO);
+        SqlBasicCall asCall = new SqlBasicCall(SqlStdOperatorTable.AS,
+            List.of(original, alias), SqlParserPos.ZERO);
+        nodeList.add(asCall);
+
+        // Aliased Nested field
+        SqlIdentifier baseField = new SqlIdentifier("nested", SqlParserPos.ZERO);
+        SqlLiteral nestedFieldName = SqlLiteral.createCharString("field", SqlParserPos.ZERO);
+        SqlBasicCall itemCall = new SqlBasicCall(SqlStdOperatorTable.ITEM,
+            new SqlNode[]{baseField, nestedFieldName}, SqlParserPos.ZERO);
+        SqlIdentifier itemAlias = new SqlIdentifier("item_alias", SqlParserPos.ZERO);
+        SqlBasicCall itemAsCall = new SqlBasicCall(SqlStdOperatorTable.AS,
+            List.of(itemCall, itemAlias), SqlParserPos.ZERO);
+        nodeList.add(itemAsCall);
+
+        Map<String, String> result = implementor.buildFieldMappingFromSqlNodes(nodeList);
+
+        assertEquals(3, result.size(), "Should have mappings for all three field types");
+        assertEquals("simple_field", result.get("simple_field"), "Simple field should map to itself");
+        assertEquals("aliased", result.get("original"), "Original should map to alias");
+        assertEquals("item_alias", result.get("nested.field"), "Nested field should map to itself");
+    }
+
+    @Test
+    void testBuildFieldMappingFromSqlNodesDeeplyNestedField() throws SQLNonTransientException {
+        // Create SQL node list with deeply nested field access (level1.level2.level3)
+        SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+
+        // Create nested ITEM calls: ITEM(ITEM(ITEM(baseField, 'level1'), 'level2'), 'level3')
+        SqlIdentifier baseField = new SqlIdentifier("baseField", SqlParserPos.ZERO);
+        SqlLiteral level1Name = SqlLiteral.createCharString("level1", SqlParserPos.ZERO);
+        SqlLiteral level2Name = SqlLiteral.createCharString("level2", SqlParserPos.ZERO);
+        SqlLiteral level3Name = SqlLiteral.createCharString("level3", SqlParserPos.ZERO);
+
+        // Build nested structure: baseField.level1.level2.level3
+        SqlBasicCall level1Call = new SqlBasicCall(SqlStdOperatorTable.ITEM,
+            List.of(baseField, level1Name), SqlParserPos.ZERO);
+        SqlBasicCall level2Call = new SqlBasicCall(SqlStdOperatorTable.ITEM,
+            List.of(level1Call, level2Name), SqlParserPos.ZERO);
+        SqlBasicCall level3Call = new SqlBasicCall(SqlStdOperatorTable.ITEM,
+            List.of(level2Call, level3Name), SqlParserPos.ZERO);
+
+        nodeList.add(level3Call);
+
+        Map<String, String> result = implementor.buildFieldMappingFromSqlNodes(nodeList);
+
+        assertEquals(1, result.size(), "Should have one mapping for deeply nested field");
+        assertEquals("baseField.level1.level2.level3", result.get("baseField.level1.level2.level3"),
+            "Deeply nested field should map to itself with dot notation");
+    }
+
+    @Test
+    void testBuildFieldMappingFromSqlNodesUnsupportedNode() {
+        // Create SQL node list with unsupported node type
+        SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+        SqlLiteral unsupportedNode = SqlLiteral.createCharString("literal", SqlParserPos.ZERO);
+        nodeList.add(unsupportedNode);
+
+        SQLNonTransientException exception = assertThrows(SQLNonTransientException.class,
+            () -> implementor.buildFieldMappingFromSqlNodes(nodeList),
+            "Should throw exception for unsupported SQL node types");
+
+        assertTrue(exception.getMessage().contains("Unsupported SQL node for field mapping"),
+            "Exception should mention unsupported node type");
+    }
+
+    @Test
+    void testBuildFieldMappingFromSqlNodesUnsupportedOperator() {
+        // Create SQL node list with unsupported operator
+        SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+        SqlIdentifier field = new SqlIdentifier("field", SqlParserPos.ZERO);
+        SqlBasicCall unsupportedCall = new SqlBasicCall(SqlStdOperatorTable.PLUS,
+            new SqlNode[]{field, field}, SqlParserPos.ZERO);
+        nodeList.add(unsupportedCall);
+
+        SQLNonTransientException exception = assertThrows(SQLNonTransientException.class,
+            () -> implementor.buildFieldMappingFromSqlNodes(nodeList),
+            "Should throw exception for unsupported operators");
+
+        assertTrue(exception.getMessage().contains("Unsupported SQL operator for field mapping"),
+            "Exception should mention unsupported operator");
+    }
 
     // Helper methods for creating test data
 

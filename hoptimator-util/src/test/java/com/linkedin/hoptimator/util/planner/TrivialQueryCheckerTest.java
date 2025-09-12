@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import org.apache.calcite.rel.RelNode;
@@ -12,8 +11,11 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,11 +37,12 @@ import static org.mockito.Mockito.when;
  *
  * A trivial query should only contain:
  * - Simple table scans
- * - Simple projections (field references only, no functions or calculations)
+ * - Simple projections (field references and nested field access only, no functions or calculations)
+ * - Nested field access using ITEM operator (e.g., ITEM($3, 'nestedField'))
  *
  * Non-trivial queries include:
  * - Joins, aggregations, filters, sorts, unions
- * - Complex expressions in projections
+ * - Complex expressions in projections (functions, calculations, etc.)
  * - Any other relational operations
  */
 @ExtendWith(MockitoExtension.class)
@@ -85,13 +88,13 @@ public class TrivialQueryCheckerTest {
     void testSimpleProjectionIsTrivial() {
         // Create simple field reference expressions
         RelDataType rowType = createRowType("field1", "field2");
-        List<RexNode> simpleProjections = Arrays.asList(
+        List<RexNode> simpleProjections = List.of(
             new RexInputRef(0, rowType.getFieldList().get(0).getType()),
             new RexInputRef(1, rowType.getFieldList().get(1).getType())
         );
 
         when(mockProject.getProjects()).thenReturn(simpleProjections);
-        when(mockProject.getInputs()).thenReturn(Arrays.asList(mockTableScan));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
         when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
@@ -110,8 +113,8 @@ public class TrivialQueryCheckerTest {
             rexBuilder.makeExactLiteral(java.math.BigDecimal.ONE)
         );
 
-        when(mockProject.getProjects()).thenReturn(Arrays.asList(complexExpression));
-        when(mockProject.getInputs()).thenReturn(Arrays.asList(mockTableScan));
+        when(mockProject.getProjects()).thenReturn(Collections.singletonList(complexExpression));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertFalse(result, "Projection with complex expressions should not be trivial");
@@ -119,8 +122,8 @@ public class TrivialQueryCheckerTest {
 
     @Test
     void testOtherNodesNotTrivial() {
-        when(mockFilter.getInputs()).thenReturn(Arrays.asList(mockTableScan));
-        when(mockJoin.getInputs()).thenReturn(Arrays.asList(mockTableScan, mockTableScan));
+        when(mockFilter.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+        when(mockJoin.getInputs()).thenReturn(List.of(mockTableScan, mockTableScan));
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockFilter);
         assertFalse(result, "Queries with filters should not be trivial");
@@ -132,9 +135,9 @@ public class TrivialQueryCheckerTest {
     @Test
     void testComplexQueryIsNotTrivial() {
         // Create a complex query: SELECT ... FROM table1 JOIN table2 WHERE ...
-        when(mockProject.getInputs()).thenReturn(Arrays.asList(mockFilter));
-        when(mockFilter.getInputs()).thenReturn(Arrays.asList(mockJoin));
-        when(mockJoin.getInputs()).thenReturn(Arrays.asList(mockTableScan, mockTableScan));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockFilter));
+        when(mockFilter.getInputs()).thenReturn(Collections.singletonList(mockJoin));
+        when(mockJoin.getInputs()).thenReturn(List.of(mockTableScan, mockTableScan));
         when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
@@ -156,21 +159,140 @@ public class TrivialQueryCheckerTest {
     @Test
     void testNestedTrivialOperationsAreTrivial() {
         RelDataType rowType = createRowType("field1", "field2");
-        List<RexNode> simpleProjections = Arrays.asList(
+        List<RexNode> simpleProjections = List.of(
             new RexInputRef(0, rowType.getFieldList().get(0).getType()),
             new RexInputRef(1, rowType.getFieldList().get(1).getType())
         );
 
         LogicalProject innerProject = mock(LogicalProject.class);
         when(innerProject.getProjects()).thenReturn(simpleProjections);
-        when(innerProject.getInputs()).thenReturn(Arrays.asList(mockTableScan));
+        when(innerProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
 
         when(mockProject.getProjects()).thenReturn(simpleProjections);
-        when(mockProject.getInputs()).thenReturn(Arrays.asList(innerProject));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(innerProject));
         when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertTrue(result, "Nested trivial operations should remain trivial");
+    }
+
+    @Test
+    void testNestedFieldAccessIsTrivial() {
+        // Create nested field access expression: ITEM($0, 'nestedField')
+        // First create a structured type (ROW) that contains nested fields
+        RelDataType nestedFieldType = typeFactory.createSqlType(SqlTypeName.VARCHAR);
+        RelDataType structType = typeFactory.builder()
+            .add("nestedField", nestedFieldType)
+            .add("anotherField", typeFactory.createSqlType(SqlTypeName.INTEGER))
+            .build();
+
+        RexInputRef baseField = rexBuilder.makeInputRef(structType, 0);
+        RexLiteral nestedFieldName = rexBuilder.makeLiteral("nestedField");
+
+        RexCall nestedFieldAccess = (RexCall) rexBuilder.makeCall(
+            SqlStdOperatorTable.ITEM,
+            baseField,
+            nestedFieldName
+        );
+
+        when(mockProject.getProjects()).thenReturn(Collections.singletonList(nestedFieldAccess));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
+
+        boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
+        assertTrue(result, "Projection with nested field access should be trivial");
+    }
+
+    @Test
+    void testMixedSimpleAndNestedFieldsIsTrivial() {
+        // Create mixed projections: simple field reference and nested field access
+        RelDataType simpleType = typeFactory.createSqlType(SqlTypeName.VARCHAR);
+        RexInputRef simpleField = rexBuilder.makeInputRef(simpleType, 0);
+
+        // Create structured type for nested field access
+        RelDataType structType = typeFactory.builder()
+            .add("nestedField", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+            .add("anotherField", typeFactory.createSqlType(SqlTypeName.INTEGER))
+            .build();
+
+        RexInputRef baseField = rexBuilder.makeInputRef(structType, 1);
+        RexLiteral nestedFieldName = rexBuilder.makeLiteral("nestedField");
+        RexCall nestedFieldAccess = (RexCall) rexBuilder.makeCall(
+            SqlStdOperatorTable.ITEM,
+            baseField,
+            nestedFieldName
+        );
+
+        List<RexNode> mixedProjections = List.of(simpleField, nestedFieldAccess);
+
+        when(mockProject.getProjects()).thenReturn(mixedProjections);
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
+
+        boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
+        assertTrue(result, "Projection with mixed simple and nested fields should be trivial");
+    }
+
+    @Test
+    void testDeeplyNestedFieldAccessIsTrivial() {
+        // Create deeply nested field access: ITEM(ITEM($0, 'level1'), 'level2')
+        // Create proper nested structure: root has level1 field, level1 field has level2 field
+        RelDataType level2Type = typeFactory.builder()
+            .add("level2", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+            .build();
+
+        RelDataType rootType = typeFactory.builder()
+            .add("level1", level2Type)
+            .build();
+
+        RexInputRef baseField = rexBuilder.makeInputRef(rootType, 0);
+        RexLiteral level1Name = rexBuilder.makeLiteral("level1");
+
+        RexCall level1Access = (RexCall) rexBuilder.makeCall(
+            SqlStdOperatorTable.ITEM,
+            baseField,
+            level1Name
+        );
+
+        RexLiteral level2Name = rexBuilder.makeLiteral("level2");
+        RexCall level2Access = (RexCall) rexBuilder.makeCall(
+            SqlStdOperatorTable.ITEM,
+            level1Access,
+            level2Name
+        );
+
+        when(mockProject.getProjects()).thenReturn(Collections.singletonList(level2Access));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
+
+        boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
+        assertTrue(result, "Projection with deeply nested field access should be trivial");
+    }
+
+    @Test
+    void testItemOperatorWithValidLiteralIsTrivial() {
+        // Test that ITEM operator with valid literal field name is considered trivial
+        // This verifies the core functionality we added to TrivialQueryChecker
+        RelDataType structType = typeFactory.builder()
+            .add("validField", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+            .add("anotherField", typeFactory.createSqlType(SqlTypeName.INTEGER))
+            .build();
+
+        RexInputRef baseField = rexBuilder.makeInputRef(structType, 0);
+        RexLiteral validFieldName = rexBuilder.makeLiteral("validField");
+
+        RexCall validItemCall = (RexCall) rexBuilder.makeCall(
+            SqlStdOperatorTable.ITEM,
+            baseField,
+            validFieldName
+        );
+
+        when(mockProject.getProjects()).thenReturn(Collections.singletonList(validItemCall));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
+
+        boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
+        assertTrue(result, "ITEM operator with valid literal field name should be trivial");
     }
 
     @Test

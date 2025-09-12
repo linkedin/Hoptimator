@@ -19,8 +19,11 @@ import org.apache.calcite.rel.logical.LogicalSort;
 import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.logical.LogicalUnion;
 import org.apache.calcite.rel.logical.LogicalValues;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.sql.fun.SqlItemOperator;
 
 
 /**
@@ -176,9 +179,30 @@ public class TrivialQueryChecker implements RelShuttle {
 
   /**
    * Checks if a RexNode represents a simple field reference (no functions, calculations, etc.)
+   * This includes:
+   * - Simple field references by index (RexInputRef)
+   * - Nested field access using ITEM operator (e.g., ITEM($3, 'nestedField'))
    */
   private boolean isSimpleFieldReference(RexNode expr) {
-    return expr instanceof RexInputRef; // Simple field reference by index
+    if (expr instanceof RexInputRef) {
+      return true; // Simple field reference by index
+    }
+
+    if (expr instanceof RexCall) {
+      RexCall call = (RexCall) expr;
+
+      // Handle ITEM operator for nested field access: ITEM($field, 'nestedField')
+      if (call.getOperator() instanceof SqlItemOperator && call.getOperands().size() == 2) {
+        RexNode baseField = call.getOperands().get(0);
+        RexNode nestedFieldLiteral = call.getOperands().get(1);
+
+        // The base field should be a simple field reference
+        // The nested field should be a string literal
+        return isSimpleFieldReference(baseField) && nestedFieldLiteral instanceof RexLiteral;
+      }
+    }
+
+    return false;
   }
 
   /**
