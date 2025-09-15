@@ -48,6 +48,18 @@ public class Job implements Deployable {
     return sink;
   }
 
+  public ThrowingFunction<SqlDialect, String> sql() {
+    return eval("sql");
+  }
+
+  public ThrowingFunction<SqlDialect, String> query() {
+    return eval("query");
+  }
+
+  public ThrowingFunction<SqlDialect, String> fieldMap() {
+    return eval("fieldMap");
+  }
+
   /**
    * Retrieves a lazy-evaluated template function by key.
    *
@@ -68,7 +80,7 @@ public class Job implements Deployable {
    * @see #lazyEvals
    * @see ThrowingFunction#apply(Object)
    */
-  public ThrowingFunction<SqlDialect, String> eval(String key) {
+  private ThrowingFunction<SqlDialect, String> eval(String key) {
     if (!lazyEvals.containsKey(key)) {
       throw new IllegalArgumentException("Unknown eval key: " + key + ". Available keys: " + lazyEvals.keySet());
     }

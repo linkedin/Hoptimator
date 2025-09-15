@@ -38,8 +38,8 @@ class K8sJobDeployer extends K8sYamlDeployer {
   public List<String> specify() throws SQLException {
     Properties properties = ConfigService.config(context.connection(), false, FLINK_CONFIG);
     properties.putAll(job.sink().options());
-    ThrowingFunction<SqlDialect, String> sql = job.eval("sql");
-    ThrowingFunction<SqlDialect, String> fieldMap = job.eval("fieldMap");
+    ThrowingFunction<SqlDialect, String> sql = job.sql();
+    ThrowingFunction<SqlDialect, String> fieldMap = job.fieldMap();
     String name = K8sUtils.canonicalizeName(job.sink().database(), job.name());
     Template.Environment env = new Template.SimpleEnvironment()
         .with("name", name)

@@ -105,9 +105,9 @@ public class PipelineRelTest {
         assertEquals("test-pipeline", job.name());
 
         // Test that lazy evaluations are properly set up
-        ThrowingFunction<SqlDialect, String> sqlEval = job.eval("sql");
-        ThrowingFunction<SqlDialect, String> queryEval = job.eval("query");
-        ThrowingFunction<SqlDialect, String> fieldMapEval = job.eval("fieldMap");
+        ThrowingFunction<SqlDialect, String> sqlEval = job.sql();
+        ThrowingFunction<SqlDialect, String> queryEval = job.query();
+        ThrowingFunction<SqlDialect, String> fieldMapEval = job.fieldMap();
 
         assertNotNull(sqlEval);
         assertNotNull(queryEval);
