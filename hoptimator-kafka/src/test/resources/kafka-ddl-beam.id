@@ -1,0 +1,52 @@
+!set outputformat mysql
+!use k8s
+
+insert into kafka."existing-topic-1" select * from kafka."existing-topic-2";
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: SqlJob
+metadata:
+  name: kafka-database-existing-topic-1
+spec:
+  dialect: FlinkBeam
+  executionMode: Streaming
+  sql:
+    - PLACEHOLDER
+  configs:
+    source.group.id: hoptimator-flink-beam-existing-topic-1
+    source.schemas: KAFKA
+    source.tables: existing-topic-2
+    sink.schema: KAFKA
+    sink.table: existing-topic-1
+    fields: '{"VALUE":"VALUE","KEY":"KEY"}'
+    pipeline: 'existing-topic-1'
+    flink.app.type: 'BEAM'
+    flink.app.name: 'hoptimator-flink-runner'
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafka-database-existing-topic-1
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: existing-topic-1
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafka-database-existing-topic-2
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: existing-topic-2
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+!specify existing-topic-1

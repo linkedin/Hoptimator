@@ -127,6 +127,8 @@ public class HoptimatorAppConfig extends Application {
         RelOptTable table = root.rel.getTable();
         if (table != null) {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
+        } else if (create != null) {
+          connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, create.name.toString());
         }
         PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
         if (create != null) {
@@ -301,6 +303,8 @@ public class HoptimatorAppConfig extends Application {
         RelOptTable table = root.rel.getTable();
         if (table != null) {
           connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
+        } else if (create != null) {
+          connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, create.name.toString());
         }
         PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
         if (create != null) {

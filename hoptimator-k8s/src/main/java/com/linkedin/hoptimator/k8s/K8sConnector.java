@@ -5,7 +5,9 @@ import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import java.io.IOException;
 import java.io.StringReader;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -52,7 +54,7 @@ class K8sConnector implements Connector {
             .with("database", source.database())
             .with("table", source.table())
             .with(options);
-    String configs = tableTemplateApi.list()
+    List<String> templates = tableTemplateApi.list()
         .stream()
         .map(V1alpha1TableTemplate::getSpec)
         .filter(Objects::nonNull)
@@ -60,8 +62,15 @@ class K8sConnector implements Connector {
         .filter(x -> x.getMethods() == null || x.getMethods().contains(K8sUtils.method(source)))
         .map(V1alpha1TableTemplateSpec::getConnector)
         .filter(Objects::nonNull)
-        .map(x -> new Template.SimpleTemplate(x).render(env))
-        .collect(Collectors.joining("\n"));
+        .collect(Collectors.toList());
+    List<String> renderedTemplates = new ArrayList<>();
+    for (String template : templates) {
+      String renderedTemplate = new Template.SimpleTemplate(template).render(env);
+      if (renderedTemplate != null) {
+        renderedTemplates.add(renderedTemplate);
+      }
+    }
+    String configs = String.join("\n", renderedTemplates);
     Properties props = new Properties();
     try {
       // Preload configs in order to check for 'connector'

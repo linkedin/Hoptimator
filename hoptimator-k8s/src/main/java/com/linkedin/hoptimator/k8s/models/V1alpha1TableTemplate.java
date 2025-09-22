@@ -30,7 +30,7 @@ import java.io.IOException;
  * Template to apply to matching tables.
  */
 @ApiModel(description = "Template to apply to matching tables.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-05-21T02:31:00.123Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-09-04T16:19:29.143Z[Etc/UTC]")
 public class V1alpha1TableTemplate implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

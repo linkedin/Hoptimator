@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.ThrowingSupplier;
+import java.sql.SQLException;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -7,7 +10,6 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -15,33 +17,33 @@ import java.util.regex.Pattern;
 /** A convenient way to generate K8s YAML. */
 public interface Template {
   Logger log = LoggerFactory.getLogger(Template.class);
-  String render(Environment env);
+  String render(Environment env) throws SQLException;
 
   /** Exposes environment variables to templates */
   interface Environment {
     SimpleEnvironment EMPTY = new SimpleEnvironment();
     Environment PROCESS = new ProcessEnvironment();
 
-    String getOrDefault(String key, Supplier<String> f);
+    String getOrDefault(String key, ThrowingSupplier<String> f) throws SQLException;
 
-    default Environment orElse(Environment other) {
+    default Environment orElse(Environment other) throws SQLException {
       return (k, f) -> getOrDefault(k, () -> other.getOrDefault(k, f));
     }
 
-    default Environment orIgnore() {
+    default Environment orIgnore() throws SQLException {
       return orElse(new DummyEnvironment());
     }
   }
 
   /** Basic Environment implementation */
   class SimpleEnvironment implements Environment {
-    private final Map<String, Supplier<String>> vars;
+    private final Map<String, ThrowingSupplier<String>> vars;
 
     public SimpleEnvironment() {
       this.vars = new LinkedHashMap<>();
     }
 
-    public SimpleEnvironment(Map<String, Supplier<String>> vars) {
+    public SimpleEnvironment(Map<String, ThrowingSupplier<String>> vars) {
       this.vars = vars;
     }
 
@@ -49,12 +51,18 @@ public interface Template {
       vars.put(key, () -> value);
     }
 
-    protected void export(String key, Supplier<String> supplier) {
+    protected void export(String key, ThrowingSupplier<String> supplier) {
       vars.put(key, supplier);
     }
 
     protected void exportAll(Map<String, String> properties) {
       properties.forEach((k, v) -> vars.put(k, () -> v));
+    }
+
+    protected void exportAll(Properties properties) {
+      for (String key : properties.stringPropertyNames()) {
+        vars.put(key, () -> properties.getProperty(key));
+      }
     }
 
     public SimpleEnvironment with(String key, String value) {
@@ -69,59 +77,68 @@ public interface Template {
       }};
     }
 
+    public SimpleEnvironment with(Properties values) {
+      return new SimpleEnvironment(vars) {{
+        exportAll(values);
+      }};
+    }
+
     public SimpleEnvironment with(String key, Map<String, String> values) {
       return new SimpleEnvironment(vars) {{
-        export(key, formatMapAsString(values));
+        export(key, () -> formatMapAsString(values));
       }};
     }
 
     public SimpleEnvironment with(String key, Properties values) {
       return new SimpleEnvironment(vars) {{
-        export(key, formatPropertiesAsString(values));
+        export(key, () -> formatPropertiesAsString(values));
       }};
     }
 
-    public SimpleEnvironment with(String key, Supplier<String> supplier) {
+    public SimpleEnvironment with(String key, ThrowingSupplier<String> supplier) {
       return new SimpleEnvironment(vars) {{
         export(key, supplier);
       }};
     }
 
     @Override
-    public String getOrDefault(String key, Supplier<String> f) {
-      if (!vars.containsKey(key) || vars.get(key).get() == null) {
-        if (f == null || f.get() == null) {
+    public String getOrDefault(String key, ThrowingSupplier<String> f) throws SQLException {
+      try {
+        String result = vars.containsKey(key) ? vars.get(key).get() : null;
+        if (result == null) {
           throw new IllegalArgumentException("No variable '" + key + "' found in the environment");
+        }
+        return result;
+      } catch (Exception e) {
+        String result = f != null ? f.get() : null;
+        if (result == null) {
+          throw e;
         } else {
-          return f.get();
+          return result;
         }
       }
-      return vars.get(key).get();
     }
 
     private String formatMapAsString(Map<String, String> configMap) {
-      StringBuilder stringBuilder = new StringBuilder();
-      for (Map.Entry<String, String> entry : configMap.entrySet()) {
-        stringBuilder.append(entry.getKey()).append(": ").append(entry.getValue()).append("\n");
-      }
-      return stringBuilder.toString();
+      return configMap.entrySet().stream()
+          .map(entry -> entry.getKey() + ": '" + entry.getValue() + "'")
+          .collect(Collectors.joining("\n"));
     }
 
     private String formatPropertiesAsString(Properties props) {
-      StringBuilder stringBuilder = new StringBuilder();
-      for (String key : props.stringPropertyNames()) {
-        stringBuilder.append(key).append(": '").append(props.getProperty(key)).append("'\n");
-      }
-      return stringBuilder.toString();
+      return props.stringPropertyNames().stream()
+          .map(key -> key + ": '" + props.getProperty(key) + "'")
+          .collect(Collectors.joining("\n"));
     }
   }
 
   /** Returns "{{key}}" for any key without a default */
   class DummyEnvironment implements Environment {
     @Override
-    public String getOrDefault(String key, Supplier<String> f) {
-      if (f != null && f.get() != null) {
-        return f.get();
+    public String getOrDefault(String key, ThrowingSupplier<String> f) throws SQLException {
+      String result = f != null ? f.get() : null;
+      if (result != null) {
+        return result;
       } else {
         return "{{" + key + "}}";
       }
@@ -132,7 +149,7 @@ public interface Template {
   class ProcessEnvironment implements Environment {
 
     @Override
-    public String getOrDefault(String key, Supplier<String> f) {
+    public String getOrDefault(String key, ThrowingSupplier<String> f) throws SQLException {
       String value = System.getenv(key);
       if (value == null) {
         value = System.getProperty(key);
@@ -151,6 +168,8 @@ public interface Template {
    * Replaces `{{var}}` in a template file with the corresponding variable.
    * <p>
    * Default values can be supplied with `{{var:default}}`.
+   * <p>
+   * Conditional rendering of a template can be done with `{{var==value}}` or `{{var!=value}}`.
    * <p>
    * Built-in transformations can be applied to variables, including:
    * <p>
@@ -191,10 +210,10 @@ public interface Template {
     }
 
     @Override
-    public String render(Environment env) {
+    public String render(Environment env) throws SQLException {
       StringBuilder sb = new StringBuilder();
       Pattern p =
-          Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*(:([\\w_\\-\\.]*))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
+          Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*((:|==|!=)([\\w_\\-\\.]*))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
       Matcher m = p.matcher(template);
       while (m.find()) {
         String prefix = m.group(1);
@@ -202,11 +221,40 @@ public interface Template {
           prefix = "";
         }
         String key = m.group(2);
-        String defaultValue = m.group(4);
-        String transform = m.group(5);
+        String condition = m.group(4);
+        String conditionValue = m.group(5);
+        String transform = m.group(6);
         String value;
         try {
-          value = env.getOrDefault(key, () -> defaultValue);
+          if (condition == null) {
+            value = env.getOrDefault(key, () -> null);
+          } else {
+            switch (condition) {
+              case ":":
+                value = env.getOrDefault(key, () -> conditionValue);
+                break;
+              case "==":
+                value = env.getOrDefault(key, () -> null);
+                if (value.equals(conditionValue)) {
+                  m.appendReplacement(sb, "");
+                  continue;
+                } else {
+                  value = null;
+                }
+                break;
+              case "!=":
+                value = env.getOrDefault(key, () -> null);
+                if (!value.equals(conditionValue)) {
+                  m.appendReplacement(sb, "");
+                  continue;
+                } else {
+                  value = null;
+                }
+                break;
+              default:
+                throw new IllegalArgumentException("Invalid template condition: " + condition);
+            }
+          }
           if (value == null) {
             log.warn("Template variable '{}' resolved to null. Skipping template.", key);
             return null;

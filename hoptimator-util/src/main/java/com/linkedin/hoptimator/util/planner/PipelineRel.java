@@ -1,15 +1,18 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.hoptimator.ThrowingFunction;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
-
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
+import org.apache.calcite.rel.rel2sql.SqlImplementor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.ImmutablePairList;
 
@@ -19,6 +22,14 @@ import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.ConnectionService;
+import org.apache.calcite.sql.SqlAsOperator;
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlLiteral;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.fun.SqlItemOperator;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 
 /**
@@ -32,6 +43,7 @@ import com.linkedin.hoptimator.util.ConnectionService;
 public interface PipelineRel extends RelNode {
 
   Convention CONVENTION = new Convention.Impl("PIPELINE", PipelineRel.class);
+  ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   void implement(Implementor implementor) throws SQLException;
 
@@ -91,7 +103,12 @@ public interface PipelineRel extends RelNode {
 
     /** Combine deployables into a Pipeline */
     public Pipeline pipeline(String name, Connection connection) throws SQLException {
-      Job job = new Job(name, sink, sql(connection));
+      Map<String, ThrowingFunction<SqlDialect, String>> templateEvals = new HashMap<>();
+      templateEvals.put("sql", sql(connection));
+      templateEvals.put("query", query(connection));
+      templateEvals.put("fieldMap", fieldMap());
+
+      Job job = new Job(name, sources.keySet(), sink, templateEvals);
       return new Pipeline(sources.keySet(), sink, job);
     }
 
@@ -106,29 +123,148 @@ public interface PipelineRel extends RelNode {
     }
 
     /** SQL script ending in an INSERT INTO */
-    public Function<SqlDialect, String> sql(Connection connection) throws SQLException {
-      ScriptImplementor script = script(connection);
-      RelDataType targetRowType = sinkRowType;
-      if (targetRowType == null) {
-        targetRowType = query.getRowType();
-      } else {
-        // Assert target fields exist in the sink schema when the sink schema is known (partial view use case)
-        for (String fieldName : targetFields.rightList()) {
-          if (!targetRowType.getFieldNames().contains(fieldName)) {
-            throw new SQLNonTransientException("Field " + fieldName + " not found in sink schema");
-          }
+    public ThrowingFunction<SqlDialect, String> sql(Connection connection) throws SQLException {
+      return wrap(x -> {
+        ScriptImplementor script = script(connection);
+        RelDataType targetRowType = sinkRowType;
+        if (targetRowType == null) {
+          targetRowType = query.getRowType();
+        } else {
+          validateFieldMapping(targetRowType);
         }
-      }
-      Map<String, String> sinkConfigs = ConnectionService.configure(sink, connection);
-      script = script.database(sink.schema());
-      script = script.connector(sink.schema(), sink.table(), targetRowType, sinkConfigs);
-      script = script.insert(sink.schema(), sink.table(), query, targetFields);
-      return script.seal();
+        Map<String, String> sinkConfigs = ConnectionService.configure(sink, connection);
+        script = script.database(sink.schema());
+        script = script.connector(sink.schema(), sink.table(), targetRowType, sinkConfigs);
+        script = script.insert(sink.schema(), sink.table(), query, targetFields);
+        return script.sql(x);
+      });
     }
 
     /** SQL script ending in a SELECT */
-    public Function<SqlDialect, String> query(Connection connection) throws SQLException {
-      return script(connection).query(query).seal();
+    public ThrowingFunction<SqlDialect, String> query(Connection connection) throws SQLException {
+      return wrap(x -> script(connection).query(query).sql(x));
+    }
+
+    public ThrowingFunction<SqlDialect, String> fieldMap() {
+      return wrap(x -> {
+        if (!TrivialQueryChecker.isTrivialQuery(query)) {
+          throw new SQLNonTransientException("Field mapping is only supported for trivial queries with simple projections and aliasing.");
+        }
+
+        if (sinkRowType != null) {
+          validateFieldMapping(sinkRowType);
+        }
+
+        RelToSqlConverter converter = new RelToSqlConverter(x);
+        SqlImplementor.Result result = converter.visitRoot(query);
+        SqlNodeList nodeList = result.asSelect().getSelectList();
+
+        Map<String, String> fieldMap = buildFieldMappingFromSqlNodes(nodeList);
+        try {
+          return OBJECT_MAPPER.writeValueAsString(fieldMap);
+        } catch (Exception e) {
+        throw new SQLNonTransientException("Failed to serialize field map to JSON", e);
+      }
+      });
+    }
+
+    void validateFieldMapping(RelDataType targetRowType) throws SQLException {
+      // Assert target fields exist in the sink schema when the sink schema is known (partial view use case)
+      for (String fieldName : targetFields.rightList()) {
+        if (!targetRowType.getFieldNames().contains(fieldName)) {
+          throw new SQLNonTransientException("Field " + fieldName + " not found in sink schema");
+        }
+      }
+    }
+
+    /**
+     * Builds a field mapping from SQL node list, handling simple identifiers, aliases, and nested field access.
+     *
+     * @param nodeList The SQL node list from the SELECT clause
+     * @return A map from source field names to target field names
+     * @throws SQLNonTransientException if unsupported SQL constructs are encountered
+     */
+    Map<String, String> buildFieldMappingFromSqlNodes(SqlNodeList nodeList) throws SQLNonTransientException {
+      Map<String, String> fieldMap = new HashMap<>();
+      for (SqlNode node : nodeList) {
+        if (node instanceof SqlIdentifier) {
+          SqlIdentifier identifier = (SqlIdentifier) node;
+          if (identifier.isStar()) {
+            targetFields.rightList().forEach(f -> fieldMap.put(f, f));
+          } else {
+            fieldMap.put(identifier.toString(), identifier.toString());
+          }
+        } else if (node instanceof SqlBasicCall) {
+          SqlBasicCall call = (SqlBasicCall) node;
+          if (call.getOperator() instanceof SqlAsOperator && call.operandCount() == 2) {
+            // Handle AS operator (aliasing)
+            SqlNode original = call.operand(0);
+            SqlNode alias = call.operand(1);
+
+            if (!(alias instanceof SqlIdentifier)) {
+              throw new SQLNonTransientException(String.format("Field mapping alias must be an identifier, got: %s", alias.getKind()));
+            }
+
+            String originalFieldName = extractFieldName(original);
+            String aliasName = alias.toString();
+            fieldMap.put(originalFieldName, aliasName);
+          } else {
+            // Handle other operators like ITEM for nested field access
+            String fieldName = extractFieldName(call);
+            fieldMap.put(fieldName, fieldName);
+          }
+        } else {
+          throw new SQLNonTransientException("Unsupported SQL node for field mapping: " + node);
+        }
+      }
+      return fieldMap;
+    }
+
+    /**
+     * Extracts field name from SqlNode, handling nested field access with ITEM operator.
+     *
+     * @param node The SqlNode to extract field name from
+     * @return The field name, using dot notation for nested fields (e.g., "field.nestedField")
+     * @throws SQLNonTransientException if the node type is not supported
+     */
+    private String extractFieldName(SqlNode node) throws SQLNonTransientException {
+      if (node instanceof SqlIdentifier) {
+        return node.toString();
+      } else if (node instanceof SqlBasicCall) {
+        SqlBasicCall call = (SqlBasicCall) node;
+
+        // Handle ITEM operator for nested field access: ITEM($field, 'nestedField')
+        if (call.getOperator() instanceof SqlItemOperator && call.operandCount() == 2) {
+          SqlNode baseField = call.operand(0);
+          SqlNode nestedFieldLiteral = call.operand(1);
+
+          if (!(nestedFieldLiteral instanceof SqlLiteral)) {
+            throw new SQLNonTransientException("ITEM operator second operand must be a literal, got: " + nestedFieldLiteral.getKind());
+          }
+
+          String baseFieldName = extractFieldName(baseField);
+          String nestedFieldName = ((SqlLiteral) nestedFieldLiteral).getValueAs(String.class);
+
+          // Use dot notation for nested fields
+          return baseFieldName + "." + nestedFieldName;
+        } else {
+          throw new SQLNonTransientException("Unsupported SQL operator for field mapping: " + call.getOperator());
+        }
+      } else {
+        throw new SQLNonTransientException("Unsupported SQL node type for field extraction: " + node.getKind());
+      }
+    }
+
+    ThrowingFunction<SqlDialect, String> wrap(ThrowingFunction<org.apache.calcite.sql.SqlDialect, String> innerFunction) {
+      return x -> {
+        switch (x) {
+          case ANSI:
+          case FLINK:
+            return innerFunction.apply(AnsiSqlDialect.DEFAULT);
+          default:
+            throw new IllegalStateException("Unknown SQL dialect: " + x);
+        }
+      };
     }
   }
 }

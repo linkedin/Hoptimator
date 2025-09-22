@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.stream.Collectors;
 
 import org.apache.calcite.rel.RelRoot;
@@ -90,7 +91,10 @@ public abstract class QuidemTestBase {
                 RelRoot root = HoptimatorDriver.convert(conn, sql).root;
                 String[] parts = line.split(" ", 2);
                 String pipelineName = parts.length == 2 ? parts[1] : "test";
-                Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList(), conn.connectionProperties())
+                Properties properties = new Properties();
+                properties.putAll(conn.connectionProperties());
+                properties.put(DeploymentService.PIPELINE_OPTION, pipelineName);
+                Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList(), properties)
                     .pipeline(pipelineName, conn);
                 List<String> specs = new ArrayList<>();
                 for (Source source : pipeline.sources()) {

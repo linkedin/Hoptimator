@@ -16,7 +16,8 @@ spec:
         entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
         args:
         - {{flinksql}}
-        jarURI: file:///opt/hoptimator-flink-runner.jar
+        jarURI: file:///opt/{{flink.app.name}}.jar
         parallelism: {{flink.parallelism:1}}
         upgradeMode: stateless
         state: running
+        {{flink.app.type==SQL}}

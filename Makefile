@@ -56,6 +56,7 @@ deploy-flink: deploy
 	kubectl apply -f ./deploy/dev/flink-session-cluster.yaml
 	kubectl apply -f ./deploy/dev/flink-sql-gateway.yaml
 	kubectl apply -f ./deploy/samples/flink-template.yaml
+	kubectl apply -f ./deploy/samples/flink-beam-template.yaml
 
 undeploy-flink:
 	kubectl delete flinksessionjobs.flink.apache.org --all || echo "skipping"

@@ -1,10 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.ThrowingFunction;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.linkedin.hoptimator.Job;
@@ -36,25 +38,37 @@ class K8sJobDeployer extends K8sYamlDeployer {
   public List<String> specify() throws SQLException {
     Properties properties = ConfigService.config(context.connection(), false, FLINK_CONFIG);
     properties.putAll(job.sink().options());
-    Function<SqlDialect, String> sql = job.sql();
+    ThrowingFunction<SqlDialect, String> sql = job.sql();
+    ThrowingFunction<SqlDialect, String> fieldMap = job.fieldMap();
     String name = K8sUtils.canonicalizeName(job.sink().database(), job.name());
     Template.Environment env = new Template.SimpleEnvironment()
         .with("name", name)
         .with("database", job.sink().database())
         .with("schema", job.sink().schema())
         .with("table", job.sink().table())
-        .with("sql", sql.apply(SqlDialect.ANSI))
-        .with("flinksql", sql.apply(SqlDialect.FLINK))
+        .with("sourceDatabases", () -> job.sources().stream().map(Source::database).collect(Collectors.joining(",")))
+        .with("sourceSchemas", () -> job.sources().stream().map(Source::schema).collect(Collectors.joining(",")))
+        .with("sourceTables", () -> job.sources().stream().map(Source::table).collect(Collectors.joining(",")))
+        .with("sql", () -> sql.apply(SqlDialect.ANSI))
+        .with("flinksql", () -> sql.apply(SqlDialect.FLINK))
         .with("flinkconfigs", properties)
-        .with(job.sink().options());
-    return jobTemplateApi.list()
+        .with("fieldMap", () -> "'" + fieldMap.apply(SqlDialect.ANSI) + "'")
+        .with(properties);
+    List<String> templates = jobTemplateApi.list()
         .stream()
         .map(V1alpha1JobTemplate::getSpec)
         .filter(Objects::nonNull)
         .filter(x -> x.getDatabases() == null || x.getDatabases().contains(job.sink().database()))
         .map(V1alpha1JobTemplateSpec::getYaml)
         .filter(Objects::nonNull)
-        .map(x -> new Template.SimpleTemplate(x).render(env))
         .collect(Collectors.toList());
+    List<String> renderedTemplates = new ArrayList<>();
+    for (String template : templates) {
+      String renderedTemplate = new Template.SimpleTemplate(template).render(env);
+      if (renderedTemplate != null) {
+        renderedTemplates.add(renderedTemplate);
+      }
+    }
+    return renderedTemplates;
   }
 }
