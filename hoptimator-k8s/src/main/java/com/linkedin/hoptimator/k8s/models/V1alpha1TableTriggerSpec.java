@@ -30,7 +30,7 @@ import java.util.List;
  * TableTrigger spec.
  */
 @ApiModel(description = "TableTrigger spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-09-04T16:19:29.143Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-06T15:34:49.495Z[Etc/UTC]")
 public class V1alpha1TableTriggerSpec {
   /**
    * Gets or Sets operations

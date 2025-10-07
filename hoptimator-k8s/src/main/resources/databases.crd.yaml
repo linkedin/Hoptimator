@@ -36,6 +36,9 @@ spec:
                 url:
                   description: JDBC connection URL
                   type: string
+                catalog:
+                  description: JDBC catalog name (optional, for hierarchical sources like MySQL).
+                  type: string
                 schema:
                   description: Schema name, as rendered in the catalog.
                   type: string
@@ -47,13 +50,13 @@ spec:
                   - MySQL
                   - Calcite
                 driver:
-                  description: Fully qualified class name of JDBD driver.
+                  description: Fully qualified class name of JDBC driver.
                   type: string
               required:
               - url
             status:
               type: object
-              properties: 
+              properties:
       subresources:
         status: {}
       additionalPrinterColumns:
