@@ -1,0 +1,25 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: mysql
+spec:
+  catalog: MYSQL
+  url: jdbc:mysql-hoptimator://url=jdbc:mysql://localhost:3306;user=hoptimator;password=hoptimatorpassword
+  dialect: Calcite
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTemplate
+metadata:
+  name: mysql-template
+spec:
+  databases:
+    - mysql
+  connector: |
+    connector = mysql
+    hostname = localhost
+    port = 3306
+    username = hoptimator
+    password = hoptimatorpassword
+    tables = {{table}}
