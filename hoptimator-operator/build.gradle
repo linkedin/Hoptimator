@@ -21,20 +21,7 @@ dependencies {
   implementation libs.avro
 
   testImplementation(testFixtures(project(':hoptimator-k8s')))
-  testImplementation(platform('org.junit:junit-bom:5.11.3'))
-  testImplementation 'org.junit.jupiter:junit-jupiter'
-  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
   testRuntimeOnly libs.slf4j.simple
-}
-
-test {
-  useJUnitPlatform {
-    excludeTags 'integration'
-  }
-  testLogging {
-    events "passed", "skipped", "failed"
-  }
 }
 
 publishing {

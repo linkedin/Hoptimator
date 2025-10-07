@@ -4,12 +4,12 @@ import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import com.linkedin.hoptimator.avro.AvroConverter;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public class ScriptImplementorTest {
@@ -31,11 +31,11 @@ public class ScriptImplementorTest {
     // Output isn't necessarily deterministic, but should be something like:
     //   CREATE TABLE IF NOT EXISTS "DATABASE"."TABLE1" ("idValue1" VARCHAR) WITH
     //   ('connector'='kafka', 'properties.bootstrap.servers'='localhost:9092', 'topic'='topic1')
-    assertTrue(out, out.contains("CREATE TABLE IF NOT EXISTS \"DATABASE\".\"TABLE1\" (\"idValue1\" VARCHAR) WITH "));
-    assertTrue(out, out.contains("'connector'='kafka'"));
-    assertTrue(out, out.contains("'properties.bootstrap.servers'='localhost:9092'"));
-    assertTrue(out, out.contains("'topic'='topic1'"));
-    assertFalse(out, out.contains("Row"));
+    assertTrue(out.contains("CREATE TABLE IF NOT EXISTS \"DATABASE\".\"TABLE1\" (\"idValue1\" VARCHAR) WITH "));
+    assertTrue(out.contains("'connector'='kafka'"));
+    assertTrue(out.contains("'properties.bootstrap.servers'='localhost:9092'"));
+    assertTrue(out.contains("'topic'='topic1'"));
+    assertFalse(out.contains("Row"));
   }
 
   @Test
@@ -45,7 +45,7 @@ public class ScriptImplementorTest {
     HopTable table = new HopTable("DATABASE", "TABLE1", rowType, ConfigProvider.empty().config("x"));
     table.implement(w);
     String out = w.toString();
-    assertTrue(out, out.contains("PRIMARY KEY (PRIMARY_KEY)"));
+    assertTrue(out.contains("PRIMARY KEY (PRIMARY_KEY)"));
   }
 
   @Test
@@ -55,7 +55,7 @@ public class ScriptImplementorTest {
     HopTable table = new HopTable("DATABASE", "TABLE1", rowType, ConfigProvider.empty().config("x"));
     table.implement(w);
     String out = w.toString();
-    assertTrue(out, out.contains("\"KEY\" BYTES")); // NULL fields are promoted to BYTES.
-    assertFalse(out, out.contains("\"KEY\" NULL")); // Without magic, this is what you'd get.
+    assertTrue(out.contains("\"KEY\" BYTES")); // NULL fields are promoted to BYTES.
+    assertFalse(out.contains("\"KEY\" NULL")); // Without magic, this is what you'd get.
   }
 }

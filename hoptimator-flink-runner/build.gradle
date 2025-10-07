@@ -16,7 +16,6 @@ dependencies {
   compileOnly libs.flink.clients
   compileOnly libs.flink.table.api.java.bridge
 
-  testImplementation libs.junit
   testImplementation libs.assertj
 }
 

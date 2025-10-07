@@ -11,7 +11,6 @@ dependencies {
   implementation libs.kubernetesClient
   implementation libs.kubernetesExtendedClient
 
-  testImplementation libs.junit
   testImplementation libs.assertj
 }
 

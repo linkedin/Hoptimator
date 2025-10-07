@@ -17,25 +17,12 @@ dependencies {
   testFixturesImplementation libs.calcite.core
   testFixturesImplementation project(':hoptimator-api')
   testFixturesImplementation project(':hoptimator-util')
-  testFixturesImplementation(platform('org.junit:junit-bom:5.11.3'))
-  testFixturesImplementation 'org.junit.jupiter:junit-jupiter'
+  testFixturesImplementation libs.junit.jupiter.api
 
   testRuntimeOnly project(':hoptimator-demodb')
-  testImplementation(platform('org.junit:junit-bom:5.11.3'))
-  testImplementation 'org.junit.jupiter:junit-jupiter'
-  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
 }
 
-test {
-  useJUnitPlatform {
-    excludeTags 'integration'
-  }
-	testLogging {
-		events "passed", "skipped", "failed"
-	}
-}
-
+// TODO: see if we can put this at the root build.gradle
 tasks.register('intTest', Test) {
   description = 'Runs integration tests.'
   group = 'verification'
