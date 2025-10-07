@@ -31,7 +31,7 @@ import java.util.Map;
  * Subscription spec
  */
 @ApiModel(description = "Subscription spec")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-06T15:34:49.495Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
 public class V1alpha1SubscriptionSpec {
   public static final String SERIALIZED_NAME_DATABASE = "database";
   @SerializedName(SERIALIZED_NAME_DATABASE)

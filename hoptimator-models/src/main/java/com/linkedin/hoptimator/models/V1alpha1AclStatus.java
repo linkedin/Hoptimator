@@ -28,7 +28,7 @@ import java.io.IOException;
  * Status, as set by the operator.
  */
 @ApiModel(description = "Status, as set by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-06T15:37:47.275Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:21:20.255Z[Etc/UTC]")
 public class V1alpha1AclStatus {
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)

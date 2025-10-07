@@ -31,6 +31,9 @@ spec:
               description: View spec.
               type: object
               properties:
+                catalog:
+                  description: Catalog name.
+                  type: string
                 schema:
                   description: Schema name.
                   type: string
@@ -48,7 +51,7 @@ spec:
               - sql
             status:
               type: object
-              properties: 
+              properties:
       subresources:
         status: {}
       additionalPrinterColumns:
@@ -64,4 +67,4 @@ spec:
         type: string
         description: View SQL.
         jsonPath: .spec.sql
- 
+

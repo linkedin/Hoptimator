@@ -30,7 +30,7 @@ import java.util.List;
  * JobTemplate spec.
  */
 @ApiModel(description = "JobTemplate spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-06T15:34:49.495Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
 public class V1alpha1JobTemplateSpec {
   public static final String SERIALIZED_NAME_DATABASES = "databases";
   @SerializedName(SERIALIZED_NAME_DATABASES)

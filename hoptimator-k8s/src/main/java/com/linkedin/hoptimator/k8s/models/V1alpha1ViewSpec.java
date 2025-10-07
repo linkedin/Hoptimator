@@ -28,8 +28,12 @@ import java.io.IOException;
  * View spec.
  */
 @ApiModel(description = "View spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-06T15:34:49.495Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
 public class V1alpha1ViewSpec {
+  public static final String SERIALIZED_NAME_CATALOG = "catalog";
+  @SerializedName(SERIALIZED_NAME_CATALOG)
+  private String catalog;
+
   public static final String SERIALIZED_NAME_MATERIALIZED = "materialized";
   @SerializedName(SERIALIZED_NAME_MATERIALIZED)
   private Boolean materialized;
@@ -45,6 +49,29 @@ public class V1alpha1ViewSpec {
   public static final String SERIALIZED_NAME_VIEW = "view";
   @SerializedName(SERIALIZED_NAME_VIEW)
   private String view;
+
+
+  public V1alpha1ViewSpec catalog(String catalog) {
+    
+    this.catalog = catalog;
+    return this;
+  }
+
+   /**
+   * Catalog name.
+   * @return catalog
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Catalog name.")
+
+  public String getCatalog() {
+    return catalog;
+  }
+
+
+  public void setCatalog(String catalog) {
+    this.catalog = catalog;
+  }
 
 
   public V1alpha1ViewSpec materialized(Boolean materialized) {
@@ -146,7 +173,8 @@ public class V1alpha1ViewSpec {
       return false;
     }
     V1alpha1ViewSpec v1alpha1ViewSpec = (V1alpha1ViewSpec) o;
-    return Objects.equals(this.materialized, v1alpha1ViewSpec.materialized) &&
+    return Objects.equals(this.catalog, v1alpha1ViewSpec.catalog) &&
+        Objects.equals(this.materialized, v1alpha1ViewSpec.materialized) &&
         Objects.equals(this.schema, v1alpha1ViewSpec.schema) &&
         Objects.equals(this.sql, v1alpha1ViewSpec.sql) &&
         Objects.equals(this.view, v1alpha1ViewSpec.view);
@@ -154,7 +182,7 @@ public class V1alpha1ViewSpec {
 
   @Override
   public int hashCode() {
-    return Objects.hash(materialized, schema, sql, view);
+    return Objects.hash(catalog, materialized, schema, sql, view);
   }
 
 
@@ -162,6 +190,7 @@ public class V1alpha1ViewSpec {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1ViewSpec {\n");
+    sb.append("    catalog: ").append(toIndentedString(catalog)).append("\n");
     sb.append("    materialized: ").append(toIndentedString(materialized)).append("\n");
     sb.append("    schema: ").append(toIndentedString(schema)).append("\n");
     sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
