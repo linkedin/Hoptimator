@@ -42,5 +42,20 @@ subprojects {
         events "passed", "skipped", "failed"
       }
     }
+
+    tasks.register('intTest', Test) {
+      description = 'Runs integration tests.'
+      group = 'verification'
+
+      shouldRunAfter test
+
+      useJUnitPlatform {
+        includeTags 'integration'
+      }
+
+      testLogging {
+        events "passed", "skipped", "failed"
+      }
+    }
   }
 }

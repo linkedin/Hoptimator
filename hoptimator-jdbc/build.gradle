@@ -22,22 +22,6 @@ dependencies {
   testRuntimeOnly project(':hoptimator-demodb')
 }
 
-// TODO: see if we can put this at the root build.gradle
-tasks.register('intTest', Test) {
-  description = 'Runs integration tests.'
-  group = 'verification'
-
-  shouldRunAfter test
-
-  useJUnitPlatform {
-    includeTags 'integration'
-  }
-
-  testLogging {
-    events "passed", "skipped", "failed"
-  }
-}
-
 java {
   sourceCompatibility = JavaVersion.VERSION_11
   targetCompatibility = JavaVersion.VERSION_11

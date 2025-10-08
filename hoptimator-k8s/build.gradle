@@ -17,26 +17,9 @@ dependencies {
 
   // These are included in case the respective Databases are installed
   testRuntimeOnly project(':hoptimator-demodb')
-  testRuntimeOnly project(':hoptimator-kafka')
-  testRuntimeOnly project(':hoptimator-venice')
 
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
   testRuntimeOnly libs.slf4j.simple
-}
-
-tasks.register('intTest', Test) {
-  description = 'Runs integration tests.'
-  group = 'verification'
-
-  shouldRunAfter test
-
-  useJUnitPlatform {
-    includeTags 'integration'
-  }
-
-  testLogging {
-    events "passed", "skipped", "failed"
-  }
 }
 
 publishing {

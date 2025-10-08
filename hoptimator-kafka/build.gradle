@@ -15,23 +15,7 @@ dependencies {
   testRuntimeOnly project(':hoptimator-kafka')
 
   testRuntimeOnly project(':hoptimator-k8s')
-  testRuntimeOnly project(':hoptimator-kafka')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
-}
-
-tasks.register('intTest', Test) {
-  description = 'Runs integration tests.'
-  group = 'verification'
-
-  shouldRunAfter test
-
-  useJUnitPlatform {
-    includeTags 'integration'
-  }
-
-  testLogging {
-    events "passed", "skipped", "failed"
-  }
 }
 
 publishing {
