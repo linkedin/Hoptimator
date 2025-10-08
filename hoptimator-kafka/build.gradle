@@ -1,5 +1,6 @@
 plugins {
   id 'java-library'
+  id 'maven-publish'
 }
 
 dependencies {
@@ -36,5 +37,50 @@ tasks.register('intTest', Test) {
 
   testLogging {
     events "passed", "skipped", "failed"
+  }
+}
+
+publishing {
+  repositories {
+    maven {
+      name 'GitHubPackages'
+      url = 'https://maven.pkg.github.com/linkedin/Hoptimator'
+      credentials {
+        username = System.getenv('GITHUB_ACTOR')
+        password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+    maven {
+      name 'LinkedInJFrog'
+      url 'https://linkedin.jfrog.io/artifactory/hoptimator'
+      credentials {
+        username = System.getenv('JFROG_USERNAME')
+        password = System.getenv('JFROG_API_KEY')
+      }
+    }
+  }
+  publications {
+    maven(MavenPublication) {
+      groupId = 'com.linkedin.hoptimator'
+      artifactId = 'hoptimator-kafka'
+      version = System.getenv('VERSION')
+      from components.java
+      pom {
+        name = 'LinkedIn Hoptimator'
+        description = 'Multi-hop declarative data pipelines'
+        url = 'https://github.com/linkedin/Hoptimator'
+        licenses {
+          license {
+            name = 'BSD 2-Clause'
+            url = 'https://raw.githubusercontent.com/linkedin/Hoptimator/main/LICENSE'
+          }
+        }
+        scm {
+          connection = 'scm:git:git://github.com:linkedin/Hoptimator.git'
+          developerConnection = 'scm:git:ssh://github.com:linkedin/Hoptimator.git'
+          url = 'https://github.com/linkedin/Hoptimator'
+        }
+      }
+    }
   }
 }
