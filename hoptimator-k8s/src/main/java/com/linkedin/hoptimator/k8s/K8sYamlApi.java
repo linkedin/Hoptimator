@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -58,7 +59,15 @@ public class K8sYamlApi implements Api<String> {
   public void createWithAnnotationsAndLabels(String yaml, Map<String, String> annotations,
       Map<String, String> labels) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
-    createWithAnnotationsAndLabels(obj, annotations, labels);
+    // Merge annotations and labels from existing yaml to the provided maps.
+    Map<String, String> mergedAnnotations = new HashMap<>();
+    Optional.ofNullable(obj.getMetadata().getAnnotations()).ifPresent(mergedAnnotations::putAll);
+    Optional.ofNullable(annotations).ifPresent(mergedAnnotations::putAll);
+
+    Map<String, String> mergedLabels = new HashMap<>();
+    Optional.ofNullable(obj.getMetadata().getLabels()).ifPresent(mergedLabels::putAll);
+    Optional.ofNullable(labels).ifPresent(mergedLabels::putAll);
+    createWithAnnotationsAndLabels(obj, mergedAnnotations, mergedLabels);
   }
 
   public void createWithAnnotationsAndLabels(DynamicKubernetesObject obj, Map<String, String> annotations,
