@@ -15,6 +15,7 @@ import org.apache.calcite.schema.Table;
 
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.ValidatorProvider;
+import org.apache.calcite.schema.lookup.LikePattern;
 
 
 public final class ValidationService {
@@ -34,11 +35,11 @@ public final class ValidationService {
 
   private static void walk(SchemaPlus schema, Validator.Issues issues) {
     validate(schema, issues);
-    for (String x : schema.getSubSchemaNames()) {
-      walk(schema.getSubSchema(x), issues.child(x));
+    for (String x : schema.subSchemas().getNames(LikePattern.any())) {
+      walk(schema.subSchemas().get(x), issues.child(x));
     }
-    for (String x : schema.getTableNames()) {
-      walk(schema.getTable(x), issues.child(x));
+    for (String x : schema.tables().getNames(LikePattern.any())) {
+      walk(schema.tables().get(x), issues.child(x));
     }
   }
 

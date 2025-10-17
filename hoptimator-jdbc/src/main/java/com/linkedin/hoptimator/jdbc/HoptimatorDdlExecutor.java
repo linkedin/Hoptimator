@@ -104,7 +104,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       throw new DdlException(create, "Schema for " + create.name + " not found.");
     }
     final SchemaPlus schemaPlus = pair.left.plus();
-    if (schemaPlus.getTable(pair.right) instanceof HoptimatorJdbcTable) {
+    if (schemaPlus.tables().get(pair.right) instanceof HoptimatorJdbcTable) {
       throw new DdlException(create,
           "Cannot overwrite physical table " + pair.right + " with a view.");
     }
@@ -172,8 +172,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       throw new DdlException(create, "Schema for " + create.name + " not found.");
     }
     final SchemaPlus schemaPlus = pair.left.plus();
-    if (schemaPlus.getTable(pair.right) != null) {
-      if (schemaPlus.getTable(pair.right) instanceof HoptimatorJdbcTable) {
+    if (schemaPlus.tables().get(pair.right) != null) {
+      if (schemaPlus.tables().get(pair.right) instanceof HoptimatorJdbcTable) {
         throw new DdlException(create,
             "Cannot overwrite physical table " + pair.right + " with a view.");
       }
@@ -277,7 +277,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     String viewName = pair.right;
 
     SchemaPlus schemaPlus = pair.left.plus();
-    Table table = schemaPlus.getTable(viewName);
+    Table table = schemaPlus.tables().get(viewName);
     if (table == null) {
       if (drop.ifExists) {
         return;

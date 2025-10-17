@@ -2,6 +2,8 @@ package com.linkedin.hoptimator.util.planner;
 
 import java.sql.Connection;
 import java.util.List;
+import java.util.Set;
+import javax.annotation.Nullable;
 import javax.sql.DataSource;
 
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
@@ -12,10 +14,14 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.SchemaVersion;
 import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.lookup.IgnoreCaseLookup;
+import org.apache.calcite.schema.lookup.LikePattern;
+import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.sql.SqlDialect;
 
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Engine;
+import org.apache.calcite.util.LazyReference;
 
 
 public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
@@ -23,6 +29,7 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   private final String database;
   private final List<Engine> engines;
   private final HoptimatorJdbcConvention convention;
+  private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
 
   public static HoptimatorJdbcSchema create(String database, String schema, DataSource dataSource,
       SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
@@ -48,13 +55,23 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
     return engines;
   }
 
-  @Override
-  public Table getTable(String name) {
-    JdbcTable table = (JdbcTable) super.getTable(name);
-    if (table == null) {
-      throw new RuntimeException("Could not find table " + name + " in database " + database);
-    }
-    return new HoptimatorJdbcTable(table, convention);
+  @Override public Lookup<Table> tables() {
+    Lookup<Table> jdbcTableLookup = super.tables();
+    return tables.getOrCompute(() -> new IgnoreCaseLookup<>() {
+      @Override
+      public @Nullable Table get(String name) {
+        Table jdbcTable = jdbcTableLookup.get(name);
+        if (jdbcTable == null) {
+          return null;
+        }
+        return new HoptimatorJdbcTable((JdbcTable) jdbcTable, convention);
+      }
+
+      @Override
+      public Set<String> getNames(LikePattern pattern) {
+        return jdbcTableLookup.getNames(pattern);
+      }
+    });
   }
 
   @Override

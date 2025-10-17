@@ -12,6 +12,7 @@ dependencies {
   implementation libs.calcite.core
   implementation libs.calcite.server
   implementation libs.slf4j.api
+  implementation libs.commons.dbcp2
 
   testFixturesImplementation libs.quidem
   testFixturesImplementation libs.calcite.core
