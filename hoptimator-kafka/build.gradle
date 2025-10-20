@@ -10,9 +10,6 @@ dependencies {
 
   testImplementation libs.assertj
 
-  // These are included in case the respective Databases are installed
-  testRuntimeOnly project(':hoptimator-demodb')
-
   testRuntimeOnly project(':hoptimator-k8s')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
 }
