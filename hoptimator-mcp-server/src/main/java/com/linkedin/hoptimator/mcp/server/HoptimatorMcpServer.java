@@ -109,9 +109,6 @@ public class HoptimatorMcpServer {
         new Tool("fetch_tables", "Fetches all Tables with optional catalog and schema arguments to filter tables", fetchTableSchema), (x, args2) -> {
           String catalog = (String) args2.get("catalog");
           String schema = (String) args2.get("schema");
-          if (schema == null) {
-            schema = "%";
-          }
           try {
             DatabaseMetaData metaData = conn.getMetaData();
             ResultSet rs = metaData.getTables(catalog, schema, "%", null);
