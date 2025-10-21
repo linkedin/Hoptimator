@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yaml.snakeyaml.Yaml;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -120,9 +121,7 @@ public interface Template {
     }
 
     private String formatMapAsString(Map<String, String> configMap) {
-      return configMap.entrySet().stream()
-          .map(entry -> entry.getKey() + ": '" + entry.getValue() + "'")
-          .collect(Collectors.joining("\n"));
+      return new Yaml().dump(configMap);
     }
 
     private String formatPropertiesAsString(Properties props) {

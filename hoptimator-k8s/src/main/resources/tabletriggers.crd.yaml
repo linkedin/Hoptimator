@@ -48,6 +48,11 @@ spec:
                 yaml:
                   description: Specifies the Job to re/create when the trigger fires.
                   type: string
+                jobProperties:
+                  description: Additional source specific properties for the runtime of the job.
+                  type: object
+                  additionalProperties:
+                    type: string
               required:
               - schema
               - table
