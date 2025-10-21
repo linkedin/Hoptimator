@@ -28,13 +28,15 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
   // CHECKSTYLE:OFF
   public static class Row {
     public String NAME;
+    public String CATALOG;
     public String SCHEMA;
     public String VIEW;
     public String SQL;
     public boolean MATERIALIZED;
 
-    public Row(String name, String schema, String view, String sql, boolean materialized) {
+    public Row(String name, String catalog, String schema, String view, String sql, boolean materialized) {
       this.NAME = name;
+      this.CATALOG = catalog;
       this.SCHEMA = schema;
       this.VIEW = view;
       this.SQL = sql;
@@ -49,6 +51,9 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
 
     public List<String> schemaPath() {
       List<String> path = new ArrayList<>();
+      if (CATALOG != null) {
+        path.add(CATALOG);
+      }
       if (SCHEMA != null) {
         path.add(SCHEMA);
       } else {
@@ -67,7 +72,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
 
     @Override
     public String toString() {
-      return String.join("\t", NAME, SCHEMA, VIEW, SQL, Boolean.toString(MATERIALIZED));
+      return String.join("\t", NAME, CATALOG, SCHEMA, VIEW, SQL, Boolean.toString(MATERIALIZED));
     }
   }
   // CHECKSTYLE:ON
@@ -96,8 +101,8 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     }
   }
 
-  public void add(String name, String schema, String view, String sql, boolean materialized) {
-    rows().add(new Row(name, schema, view, sql, materialized));
+  public void add(String name, String catalog, String schema, String view, String sql, boolean materialized) {
+    rows().add(new Row(name, catalog, schema, view, sql, materialized));
   }
 
   public Row find(String name) {
@@ -134,8 +139,9 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
 
   @Override
   public Row toRow(V1alpha1View obj) {
-    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getSpec()).getSchema(),
-        obj.getSpec().getView(), obj.getSpec().getSql(), Boolean.TRUE.equals(obj.getSpec().getMaterialized()));
+    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getSpec()).getCatalog(),
+        obj.getSpec().getSchema(), obj.getSpec().getView(), obj.getSpec().getSql(),
+        Boolean.TRUE.equals(obj.getSpec().getMaterialized()));
   }
 
   @Override

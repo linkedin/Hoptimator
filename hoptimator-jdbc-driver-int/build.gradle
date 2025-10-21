@@ -10,6 +10,7 @@ dependencies {
   implementation project(':hoptimator-avro')
   implementation project(':hoptimator-demodb')
   implementation project(":hoptimator-kafka")
+  implementation project(':hoptimator-mysql')
   implementation project(":hoptimator-venice")
   implementation libs.flink.jdbc
 

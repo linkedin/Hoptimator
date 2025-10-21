@@ -94,8 +94,8 @@ public class HoptimatorMcpServer {
             List<Map<String, String>> schemas = new ArrayList<>();
             while (rs.next()) {
               Map<String, String> schema = new HashMap<>();
-              schema.put("TABLE_CAT", rs.getString(1));
-              schema.put("TABLE_SCHEM", rs.getString(2));
+              schema.put("TABLE_SCHEM", rs.getString(1));
+              schema.put("TABLE_CAT", rs.getString(2));
               schemas.add(schema);
             }
             return new CallToolResult(gson.toJson(schemas), false);

@@ -60,6 +60,10 @@ spec:
       subresources:
         status: {}
       additionalPrinterColumns:
+      - name: CATALOG
+        type: string
+        description: Catalog name.
+        jsonPath: .spec.catalog
       - name: SCHEMA
         type: string
         description: Schema name.

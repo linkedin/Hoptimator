@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
 import java.sql.Connection;
 import java.util.Locale;
 import java.util.Objects;
@@ -12,6 +13,7 @@ import javax.sql.DataSource;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
@@ -31,13 +33,15 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   public static class Row {
     public String NAME;
     public String URL;
+    public String CATALOG;
     public String SCHEMA;
     public String DIALECT;
     public String DRIVER;
 
-    public Row(String name, String url, String schema, String dialect, String driver) {
+    public Row(String name, String url, String catalog, String schema, String dialect, String driver) {
       this.NAME = name;
       this.URL = url;
+      this.CATALOG = catalog;
       this.SCHEMA = schema;
       this.DIALECT = dialect;
       this.DRIVER = driver;
@@ -54,17 +58,32 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
 
   public void addDatabases(SchemaPlus parentSchema, Connection connection) {
     for (Row row : rows()) {
-      parentSchema.add(schemaName(row),
-          HoptimatorJdbcSchema.create(row.NAME, row.SCHEMA, dataSource(row,
-                  ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
-              dialect(row), engines.forDatabase(row.NAME), connection));
+      if (row.CATALOG != null) {
+        Schema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
+                ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
+            dialect(row), engines.forDatabase(row.NAME), connection);
+
+        // Need to explicitly register the sub schemas within the catalog schema otherwise there are unintended side
+        // effects related to Calcite mutable vs non-mutable schema handling as it relates to explicit and implicit
+        // schema resolution
+        SchemaPlus schema = parentSchema.add(row.CATALOG.toUpperCase(Locale.ROOT), catalogSchema);
+        for (String subSchemaName : catalogSchema.subSchemas().getNames(LikePattern.any())) {
+            schema.add(subSchemaName, Objects.requireNonNull(catalogSchema.subSchemas().get(subSchemaName)));
+        }
+      } else {
+        Schema schema = HoptimatorJdbcSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
+                ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
+            dialect(row), engines.forDatabase(row.NAME), connection);
+        parentSchema.add(schemaName(row), schema);
+      }
     }
   }
 
   @Override
   public Row toRow(V1alpha1Database obj) {
     return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getSpec()).getUrl(),
-        obj.getSpec().getSchema(), Optional.ofNullable(obj.getSpec().getDialect()).map(V1alpha1DatabaseSpec.DialectEnum::toString).orElse(null),
+        obj.getSpec().getCatalog(), obj.getSpec().getSchema(),
+        Optional.ofNullable(obj.getSpec().getDialect()).map(V1alpha1DatabaseSpec.DialectEnum::toString).orElse(null),
         obj.getSpec().getDriver());
   }
 
@@ -75,6 +94,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
         .apiVersion(K8sApiEndpoints.DATABASES.apiVersion())
         .metadata(new V1ObjectMeta().name(row.NAME))
         .spec(new V1alpha1DatabaseSpec().url(row.URL)
+            .catalog(row.CATALOG)
             .schema(row.SCHEMA)
             .driver(row.DRIVER)
             .dialect(V1alpha1DatabaseSpec.DialectEnum.fromValue(row.DIALECT)));

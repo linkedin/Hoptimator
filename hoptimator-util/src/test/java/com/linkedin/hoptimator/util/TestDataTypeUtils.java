@@ -42,13 +42,13 @@ public class TestDataTypeUtils {
         flattenedNames);
     RelDataType unflattenedType = DataTypeUtils.unflatten(flattenedType, typeFactory);
     RelOptUtil.eq("original", rowType, "flattened-unflattened", unflattenedType, Litmus.THROW);
-    String originalConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+    String originalConnector = new ScriptImplementor.ConnectorImplementor("C", "S", "T1",
         rowType, Collections.emptyMap()).sql();
-    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor("C", "S", "T1",
         unflattenedType, Collections.emptyMap()).sql();
     Assertions.assertEquals(originalConnector, unflattenedConnector,
         "Flattening and unflattening data types should have no impact on connector");
-    Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` (`FOO` ROW(`QUX` VARCHAR, "
+    Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `C`.`S`.`T1` (`FOO` ROW(`QUX` VARCHAR, "
         + "`QIZ` VARCHAR), `BAR` ROW(`BAZ` VARCHAR)) WITH ();", unflattenedConnector,
         "Flattened-unflattened connector should be correct");
   }
@@ -77,7 +77,7 @@ public class TestDataTypeUtils {
         .collect(Collectors.toList());
     Assertions.assertIterableEquals(Arrays.asList("FOO", "FOO$QUX", "FOO$QIZ", "BAR", "BAR$BAZ", "CAR", "DAY",
             "DAY$__ARRTYPE__", "DAY$__ARRTYPE__$__ARRTYPE__"), flattenedNames);
-    String flattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+    String flattenedConnector = new ScriptImplementor.ConnectorImplementor(null, "S", "T1",
         flattenedType, Collections.emptyMap()).sql();
     Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` ("
             + "`FOO` ANY ARRAY, `FOO_QUX` VARCHAR, `FOO_QIZ` VARCHAR ARRAY, "
@@ -88,9 +88,9 @@ public class TestDataTypeUtils {
 
     RelDataType unflattenedType = DataTypeUtils.unflatten(flattenedType, typeFactory);
     RelOptUtil.eq("original", rowType, "flattened-unflattened", unflattenedType, Litmus.THROW);
-    String originalConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+    String originalConnector = new ScriptImplementor.ConnectorImplementor(null, "S", "T1",
         rowType, Collections.emptyMap()).sql();
-    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor(null, "S", "T1",
         unflattenedType, Collections.emptyMap()).sql();
     Assertions.assertEquals(originalConnector, unflattenedConnector,
         "Flattening and unflattening data types should have no impact on connector");
@@ -123,7 +123,7 @@ public class TestDataTypeUtils {
     List<String> flattenedNames = flattenedType.getFieldList().stream().map(RelDataTypeField::getName)
         .collect(Collectors.toList());
     Assertions.assertIterableEquals(Arrays.asList("FOO$__MAPKEYTYPE__", "FOO$__MAPVALUETYPE__$QIZ$BAR", "FOO$__MAPVALUETYPE__$QIZ$CAR"), flattenedNames);
-    String flattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+    String flattenedConnector = new ScriptImplementor.ConnectorImplementor(null, "S", "T1",
         flattenedType, Collections.emptyMap()).sql();
     Assertions.assertEquals("CREATE TABLE IF NOT EXISTS `S`.`T1` ("
             + "`FOO___MAPKEYTYPE__` ROW(`QUX` VARCHAR), "
@@ -133,9 +133,9 @@ public class TestDataTypeUtils {
 
     RelDataType unflattenedType = DataTypeUtils.unflatten(flattenedType, typeFactory);
     RelOptUtil.eq("original", rowType, "flattened-unflattened", unflattenedType, Litmus.THROW);
-    String originalConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+    String originalConnector = new ScriptImplementor.ConnectorImplementor(null, "S", "T1",
         rowType, Collections.emptyMap()).sql();
-    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor("S", "T1",
+    String unflattenedConnector = new ScriptImplementor.ConnectorImplementor(null, "S", "T1",
         unflattenedType, Collections.emptyMap()).sql();
     Assertions.assertEquals(originalConnector, unflattenedConnector,
         "Flattening and unflattening data types should have no impact on connector");
