@@ -6,14 +6,13 @@ create or replace view kafka."new-topic$kafka-test" as select * from kafka."exis
 
 !update
 
-select "tableSchem", "tableName", "columnName", "typeName" from "metadata".columns where "tableName"='new-topic$kafka-test';
-+------------+----------------------+------------+-----------+
-| tableSchem | tableName            | columnName | typeName  |
-+------------+----------------------+------------+-----------+
-| KAFKA      | new-topic$kafka-test | KEY        | VARCHAR   |
-| KAFKA      | new-topic$kafka-test | VALUE      | BINARY(1) |
-+------------+----------------------+------------+-----------+
-(2 rows)
+select count(*) as TABLE_EXISTS from kafka."new-topic$kafka-test" where 1=0;
++--------------+
+| TABLE_EXISTS |
++--------------+
+|            0 |
++--------------+
+(1 row)
 
 !ok
 

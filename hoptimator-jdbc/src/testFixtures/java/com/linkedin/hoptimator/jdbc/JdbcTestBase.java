@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -9,6 +8,12 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.util.Map;
+import java.util.Objects;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -16,11 +21,11 @@ import org.junit.jupiter.api.BeforeAll;
 
 public abstract class JdbcTestBase {
 
-  private static Connection conn;
+  private static HoptimatorConnection conn;
 
   @BeforeAll
   public static void connect() throws Exception {
-    conn = DriverManager.getConnection("jdbc:hoptimator://");
+    conn = (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://");
   }
 
   @AfterAll
@@ -92,5 +97,48 @@ public abstract class JdbcTestBase {
       results.add(row);
     }
     return results;
+  }
+
+  /**
+   * Validates that a table exists in the specified schema with expected columns.
+   * This avoids querying metadata.columns which requires loading all drivers.
+   *
+   * @param path the path to the table (e.g., ["KAFKA", "my_table"])
+   * @param expectedColumns map of column name to expected SQL type name
+   */
+  protected void validateTableSchema(List<String> path, Map<String, String> expectedColumns) {
+    Schema rootSchema = conn.calciteConnection().getRootSchema();
+
+    String tableName = path.get(path.size() - 1);
+
+    // Navigate to the target schema
+    Schema schema = rootSchema;
+    for (int i = 0; i < path.size() - 1; i++) {
+      schema = Objects.requireNonNull(schema.subSchemas().get(path.get(i)));
+    }
+    Assertions.assertNotNull(schema, "Schema '" + path + "' should exist");
+
+    // Get the table
+    Table table = schema.tables().get(tableName);
+    Assertions.assertNotNull(table, "Table '" + tableName + "' should exist in schema '" + schema + "'");
+
+    // Validate table structure
+    RelDataType rowType = table.getRowType(conn.calciteConnection().getTypeFactory());
+    List<RelDataTypeField> fields = rowType.getFieldList();
+
+    Assertions.assertEquals(expectedColumns.size(), fields.size(),
+        "Table should have " + expectedColumns.size() + " columns");
+
+    for (RelDataTypeField field : fields) {
+      String columnName = field.getName();
+      String actualType = field.getType().getSqlTypeName().getName();
+
+      Assertions.assertTrue(expectedColumns.containsKey(columnName),
+          "Unexpected column: " + columnName);
+
+      String expectedType = expectedColumns.get(columnName);
+      Assertions.assertEquals(expectedType, actualType,
+          "Column '" + columnName + "' should have type '" + expectedType + "'");
+    }
   }
 }

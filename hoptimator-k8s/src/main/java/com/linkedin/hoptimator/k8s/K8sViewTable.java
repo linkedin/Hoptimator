@@ -85,10 +85,10 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
       // build schema path, filling in any missing schemas
       SchemaPlus schema = parentSchema;
       for (String pos : row.schemaPath()) {
-        SchemaPlus next = Objects.requireNonNull(schema).getSubSchema(pos);
+        SchemaPlus next = Objects.requireNonNull(schema).subSchemas().get(pos);
         if (next == null) {
           schema.add(pos, new AbstractSchema());
-          next = schema.getSubSchema(pos);
+          next = schema.subSchemas().get(pos);
         }
         schema = next;
       }

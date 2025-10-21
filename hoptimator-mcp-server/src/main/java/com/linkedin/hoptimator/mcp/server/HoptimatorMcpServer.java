@@ -84,33 +84,37 @@ public class HoptimatorMcpServer {
 
     StdioServerTransportProvider transportProvider = new StdioServerTransportProvider();
 
-    String fetchSchemaSchema = "{\"type\" : \"object\", \"properties\" : {}}";
+    String fetchSchemaSchema = "{\"type\" : \"object\", \"properties\" : {\"catalog\" : {\"type\" : \"string\"}}}";
     SyncToolSpecification fetchSchemas = new SyncToolSpecification(
         new Tool("fetch_schemas", "Fetches all catalogs and schemas", fetchSchemaSchema), (x, args2) -> {
+          String catalog = (String) args2.get("catalog");
           try {
             DatabaseMetaData metaData = conn.getMetaData();
-            List<String> result = new ArrayList<>();
-            ResultSet rs = metaData.getSchemas();
+            ResultSet rs = metaData.getSchemas(catalog, null);
+            List<Map<String, String>> schemas = new ArrayList<>();
             while (rs.next()) {
-              result.add(rs.getString(1)); //"TABLE_CAT"));
+              Map<String, String> schema = new HashMap<>();
+              schema.put("TABLE_CAT", rs.getString(1));
+              schema.put("TABLE_SCHEM", rs.getString(2));
+              schemas.add(schema);
             }
-            return new CallToolResult(gson.toJson(result), false);
+            return new CallToolResult(gson.toJson(schemas), false);
           } catch (Exception e) {
             return new CallToolResult("ERROR: " + e, true);
           }
         });
 
-    String fetchTableSchema = "{\"type\" : \"object\", \"properties\" : {\"schema\" : {\"type\" : \"string\"}}}";
+    String fetchTableSchema = "{\"type\" : \"object\", \"properties\" : {\"catalog\" : {\"type\" : \"string\"}, \"schema\" : {\"type\" : \"string\"}}}";
     SyncToolSpecification fetchTables = new SyncToolSpecification(
-        new Tool("fetch_tables", "Fetches all Tables with an optional schema argument to only "
-            + "fetch tables of that schema type", fetchTableSchema), (x, args2) -> {
+        new Tool("fetch_tables", "Fetches all Tables with optional catalog and schema arguments to filter tables", fetchTableSchema), (x, args2) -> {
+          String catalog = (String) args2.get("catalog");
           String schema = (String) args2.get("schema");
           if (schema == null) {
             schema = "%";
           }
           try {
             DatabaseMetaData metaData = conn.getMetaData();
-            ResultSet rs = metaData.getTables(null, schema, "%", null);
+            ResultSet rs = metaData.getTables(catalog, schema, "%", null);
             List<Map<String, String>> tables = new ArrayList<>();
             while (rs.next()) {
               Map<String, String> table = new HashMap<>();
@@ -161,32 +165,35 @@ public class HoptimatorMcpServer {
             } catch (Exception e) {
               return new CallToolResult("ERROR: " + e, true);
             }
+          } else {
+            return new CallToolResult(String.format("ERROR: Pipeline %s not found.", name), true);
           }
           return new CallToolResult(gson.toJson(status), false);
         });
 
-    String describeTableSchema = "{\"type\" : \"object\", \"properties\" : {\"schema\" : {\"type\" : \"string\"},"
+    String describeTableSchema = "{\"type\" : \"object\", \"properties\" : {\"catalog\" : {\"type\" : \"string\"}, \"schema\" : {\"type\" : \"string\"},"
         + "\"table\" : {\"type\" : \"string\"}}, \"required\" : [\"table\"]}";
     SyncToolSpecification describeTable = new SyncToolSpecification(
         new Tool("describe_table", "Describes the columns of a specified table", describeTableSchema),
         (x, args2) -> {
           String table = (String) args2.get("table");
+          String catalog = (String) args2.get("catalog");
           String schema = (String) args2.get("schema");
-          if (schema == null) {
-            schema = "%";
-          }
-          Map<String, Object> tableDefinition = new HashMap<>();
+          List<Map<String, Object>> tableDefinitions = new ArrayList<>();
 
           try {
             DatabaseMetaData metaData = conn.getMetaData();
-            ResultSet rs = metaData.getTables(null, schema, table, null);
+            ResultSet rs = metaData.getTables(catalog, schema, table, null);
 
             if (rs.next()) {
-              tableDefinition = getTableInfo(conn, rs.getString(1),
+              tableDefinitions.add(getTableInfo(conn, rs.getString(1),
                   rs.getString(2), rs.getString(3),
-                  rs.getString(4));
+                  rs.getString(4)));
             }
-            return new CallToolResult(gson.toJson(tableDefinition), false);
+            if (tableDefinitions.isEmpty()) {
+              return new CallToolResult(String.format("ERROR: Table %s not found.", table), true);
+            }
+            return new CallToolResult(gson.toJson(tableDefinitions), false);
           } catch (Exception e) {
             return new CallToolResult("ERROR: " + e, true);
           }
@@ -201,7 +208,11 @@ public class HoptimatorMcpServer {
           try (PreparedStatement stmt = conn.prepareStatement(PIPELINE_DESCRIBE_QUERY)) {
             stmt.setString(1, pipeline);
             ResultSet rs = stmt.executeQuery();
-            return new CallToolResult(gson.toJson(collect(rs)), false);
+            List<Map<String, String>> pipelineDescription = collect(rs);
+            if (pipelineDescription.isEmpty()) {
+              return new CallToolResult(String.format("ERROR: Pipeline %s not found.", pipeline), true);
+            }
+            return new CallToolResult(gson.toJson(pipelineDescription), false);
           } catch (Exception e) {
             return new CallToolResult("ERROR: " + e, true);
           }

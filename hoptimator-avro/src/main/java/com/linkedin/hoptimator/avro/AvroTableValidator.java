@@ -17,6 +17,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 
 import com.linkedin.hoptimator.Validator;
+import org.apache.calcite.schema.lookup.LikePattern;
 
 
 /** Validates that tables follow Avro schema evolution rules.  */
@@ -35,9 +36,9 @@ class AvroTableValidator implements Validator {
       if (originalSchema == null || originalSchema.schema == null) {
         throw new IllegalArgumentException("Null original schema (BUG)");
       }
-      for (String x : schema.getTableNames()) {
-        Table table = schema.getTable(x);
-        Table originalTable = originalSchema.schema.getTable(x);
+      for (String x : schema.tables().getNames(LikePattern.any())) {
+        Table table = schema.tables().get(x);
+        Table originalTable = originalSchema.schema.tables().get(x);
         if (table == null) {
           throw new IllegalArgumentException("Null table (BUG)");
         }

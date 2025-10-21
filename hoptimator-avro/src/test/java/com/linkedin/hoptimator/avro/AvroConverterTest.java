@@ -13,13 +13,13 @@ import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 public class AvroConverterTest {
@@ -33,27 +33,27 @@ public class AvroConverterTest {
 
     Schema avroSchema1 = (new Schema.Parser()).parse(schemaString);
     RelDataType rel1 = AvroConverter.rel(avroSchema1);
-    assertEquals(rel1.toString(), rel1.getFieldCount(), avroSchema1.getFields().size());
-    assertNotNull(rel1.toString(), rel1.getField("h", false, false));
+    assertEquals(rel1.getFieldCount(), avroSchema1.getFields().size());
+    assertNotNull(rel1.getField("h", false, false));
     RelDataType rel2 = Objects.requireNonNull(rel1.getField("h", false, false)).getType();
-    assertTrue(rel2.toString(), rel2.isNullable());
+    assertTrue(rel2.isNullable());
     Schema avroSchema2 = avroSchema1.getField("h").schema().getTypes().get(1);
-    assertEquals(rel2.toString(), rel2.getFieldCount(), avroSchema2.getFields().size());
-    assertNotNull(rel2.toString(), rel2.getField("A", false, false));
+    assertEquals(rel2.getFieldCount(), avroSchema2.getFields().size());
+    assertNotNull(rel2.getField("A", false, false));
     RelDataType rel3 = Objects.requireNonNull(rel2.getField("A", false, false)).getType();
-    assertTrue(rel3.toString(), rel3.isNullable());
+    assertTrue(rel3.isNullable());
     Schema avroSchema3 = avroSchema2.getField("A").schema().getTypes().get(1);
-    assertEquals(rel3.toString(), rel3.getFieldCount(), avroSchema3.getFields().size());
+    assertEquals(rel3.getFieldCount(), avroSchema3.getFields().size());
     Schema avroSchema4 = AvroConverter.avro("NS", "R", rel1);
-    assertFalse("!avroSchema4.isNullable()", avroSchema4.isNullable());
-    assertEquals(avroSchema4.toString(), avroSchema4.getFields().size(), rel1.getFieldCount());
+    assertFalse(avroSchema4.isNullable());
+    assertEquals(avroSchema4.getFields().size(), rel1.getFieldCount());
     Schema avroSchema5 = AvroConverter.avro("NS", "R", rel2);
-    assertTrue("avroSchema5.isNullable()", avroSchema5.isNullable());
-    assertEquals(avroSchema5.toString(), avroSchema5.getTypes().get(1).getFields().size(), rel2.getFieldCount());
+    assertTrue(avroSchema5.isNullable());
+    assertEquals(avroSchema5.getTypes().get(1).getFields().size(), rel2.getFieldCount());
     Schema avroSchema6 = AvroConverter.avro("NS", "R", rel3);
-    assertEquals(avroSchema6.toString(), avroSchema6.getTypes().get(1).getFields().size(), rel3.getFieldCount());
+    assertEquals(avroSchema6.getTypes().get(1).getFields().size(), rel3.getFieldCount());
     RelDataType rel4 = AvroConverter.rel(avroSchema4);
-    assertTrue("types match", RelOptUtil.eq("rel4", rel4, "rel1", rel1, Litmus.THROW));
+    assertTrue(RelOptUtil.eq("rel4", rel4, "rel1", rel1, Litmus.THROW));
   }
 
   @Test
@@ -66,18 +66,18 @@ public class AvroConverterTest {
 
     Schema avroSchema1 = (new Schema.Parser()).parse(schemaString);
     RelDataType rel1 = AvroConverter.rel(avroSchema1);
-    assertEquals(rel1.toString(), rel1.getFieldCount(), avroSchema1.getFields().size());
-    assertNotNull(rel1.toString(), rel1.getField("event", false, false));
+    assertEquals(rel1.getFieldCount(), avroSchema1.getFields().size());
+    assertNotNull(rel1.getField("event", false, false));
     RelDataType rel2 = Objects.requireNonNull(rel1.getField("event", false, false)).getType();
     assertTrue(rel2.isStruct());
     Schema avroSchema2 = avroSchema1.getField("event").schema();
-    assertEquals(rel2.toString(), rel2.getFieldCount(), avroSchema2.getTypes().size());
+    assertEquals(rel2.getFieldCount(), avroSchema2.getTypes().size());
     RelDataType rel3 = Objects.requireNonNull(rel2.getField("record_event1", false, false)).getType();
     Schema avroSchema3 = avroSchema2.getTypes().get(0);
-    assertEquals(rel3.toString(), rel3.getFieldCount(), avroSchema3.getFields().size());
+    assertEquals(rel3.getFieldCount(), avroSchema3.getFields().size());
     Schema avroSchema4 = AvroConverter.avro("NS", "R", rel1);
-    assertFalse("!avroSchema4.isNullable()", avroSchema4.isNullable());
-    assertEquals(avroSchema4.toString(), avroSchema4.getFields().size(), rel1.getFieldCount());
+    assertFalse(avroSchema4.isNullable());
+    assertEquals(avroSchema4.getFields().size(), rel1.getFieldCount());
   }
 
   @Test
@@ -87,7 +87,7 @@ public class AvroConverterTest {
         Collections.singletonList("field1"));
 
     Schema avroSchema = AvroConverter.avro("NS", "R", rel);
-    assertEquals(avroSchema.toString(), avroSchema.getFields().size(), rel.getFieldCount());
+    assertEquals(avroSchema.getFields().size(), rel.getFieldCount());
   }
 
   @Test
@@ -256,6 +256,6 @@ public class AvroConverterTest {
     // Verify the schema can be parsed back
     Schema.Parser parser = new Schema.Parser();
     Schema reparsedSchema = parser.parse(schemaJson);
-    assertNotNull("Generated schema must be parseable", reparsedSchema);
+    assertNotNull(reparsedSchema);
   }
 }

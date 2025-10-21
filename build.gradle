@@ -22,4 +22,40 @@ subprojects {
     includeFilter = file("$rootDir/config/spotbugs/include.xml")
     excludeFilter = file("$rootDir/config/spotbugs/exclude.xml")
   }
+
+  plugins.withType(JavaPlugin) {
+    dependencies {
+      testImplementation libs.assertj
+      testImplementation libs.junit.jupiter.api
+      testImplementation libs.junit.jupiter.params
+      testImplementation libs.junit.platform.launcher
+      testImplementation libs.mockito.inline
+      testImplementation libs.mockito.junit.jupiter
+      testRuntimeOnly libs.junit.jupiter.engine
+    }
+
+    test {
+      useJUnitPlatform {
+        excludeTags 'integration'
+      }
+      testLogging {
+        events "passed", "skipped", "failed"
+      }
+    }
+
+    tasks.register('intTest', Test) {
+      description = 'Runs integration tests.'
+      group = 'verification'
+
+      shouldRunAfter test
+
+      useJUnitPlatform {
+        includeTags 'integration'
+      }
+
+      testLogging {
+        events "passed", "skipped", "failed"
+      }
+    }
+  }
 }

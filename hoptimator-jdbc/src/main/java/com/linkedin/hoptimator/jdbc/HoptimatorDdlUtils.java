@@ -115,7 +115,7 @@ public final class HoptimatorDdlUtils {
     RelDataType viewRowType = materializedViewTable.getRowType(typeFactory);
 
     final SchemaPlus schemaPlus = schemaPair.left.plus();
-    Table sink = schemaPlus.getTable(sinkName);
+    Table sink = schemaPlus.tables().get(sinkName);
     final RelDataType rowType;
     if (sink != null) {
       // For "partial views", the sink may already exist. Use the existing row type.
@@ -125,7 +125,7 @@ public final class HoptimatorDdlUtils {
       rowType = viewRowType;
     }
 
-    Table currentViewTable = schemaPlus.getTable(viewName);
+    Table currentViewTable = schemaPlus.tables().get(viewName);
     // Need to add the view table to the connection so that the ConnectorService can find it when resolving options.
     schemaPlus.add(viewName, materializedViewTable);
     plan.setSink(database, sinkPath, rowType, Collections.emptyMap());

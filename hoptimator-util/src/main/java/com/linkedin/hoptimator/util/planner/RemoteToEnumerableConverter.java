@@ -31,6 +31,7 @@ import java.util.Properties;
 import java.util.TimeZone;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nullable;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
 import org.apache.calcite.adapter.enumerable.EnumerableRelImplementor;
@@ -64,7 +65,6 @@ import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlString;
 import org.apache.calcite.util.BuiltInMethod;
-import org.checkerframework.checker.nullness.qual.Nullable;
 
 import com.google.common.collect.ImmutableList;
 

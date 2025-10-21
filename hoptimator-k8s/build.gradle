@@ -17,42 +17,9 @@ dependencies {
 
   // These are included in case the respective Databases are installed
   testRuntimeOnly project(':hoptimator-demodb')
-  testRuntimeOnly project(':hoptimator-kafka')
-  testRuntimeOnly project(':hoptimator-venice')
 
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
-  testImplementation(platform('org.junit:junit-bom:5.11.3'))
-  testImplementation 'org.junit.jupiter:junit-jupiter'
-  testImplementation 'org.mockito:mockito-junit-jupiter:5.+'
-  testImplementation 'org.mockito:mockito-core:5.+'
-  testImplementation 'org.junit.jupiter:junit-jupiter-params:5.+'
-  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-  testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine'
   testRuntimeOnly libs.slf4j.simple
-}
-
-test {
-  useJUnitPlatform {
-    excludeTags 'integration'
-  }
-  testLogging {
-    events "passed", "skipped", "failed"
-  }
-}
-
-tasks.register('intTest', Test) {
-  description = 'Runs integration tests.'
-  group = 'verification'
-
-  shouldRunAfter test
-
-  useJUnitPlatform {
-    includeTags 'integration'
-  }
-
-  testLogging {
-    events "passed", "skipped", "failed"
-  }
 }
 
 publishing {

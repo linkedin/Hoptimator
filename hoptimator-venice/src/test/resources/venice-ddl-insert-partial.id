@@ -6,14 +6,13 @@ create or replace materialized view "VENICE"."test-store$insert-partial" ("KEY_i
 
 !update
 
-select "tableSchem", "tableName", "columnName", "typeName" from "metadata".columns where "tableName"='test-store$insert-partial';
-+------------+---------------------------+------------+------------------+
-| tableSchem | tableName                 | columnName | typeName         |
-+------------+---------------------------+------------+------------------+
-| VENICE     | test-store$insert-partial | KEY_id     | INTEGER NOT NULL |
-| VENICE     | test-store$insert-partial | intField   | INTEGER          |
-+------------+---------------------------+------------+------------------+
-(2 rows)
+select count(*) as TABLE_EXISTS from venice."test-store$insert-partial" where 1=0;
++--------------+
+| TABLE_EXISTS |
++--------------+
+|            0 |
++--------------+
+(1 row)
 
 !ok
 

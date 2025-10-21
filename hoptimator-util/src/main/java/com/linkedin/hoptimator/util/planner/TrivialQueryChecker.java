@@ -6,6 +6,7 @@ import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.TableFunctionScan;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalAggregate;
+import org.apache.calcite.rel.logical.LogicalAsofJoin;
 import org.apache.calcite.rel.logical.LogicalCalc;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalExchange;
@@ -15,6 +16,7 @@ import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.logical.LogicalMatch;
 import org.apache.calcite.rel.logical.LogicalMinus;
 import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.calcite.rel.logical.LogicalRepeatUnion;
 import org.apache.calcite.rel.logical.LogicalSort;
 import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.logical.LogicalUnion;
@@ -145,6 +147,18 @@ public class TrivialQueryChecker implements RelShuttle {
   public RelNode visit(LogicalTableModify modify) {
     trivial = false; // Not allowed in trivial queries
     return modify;
+  }
+
+  @Override
+  public RelNode visit(LogicalAsofJoin logicalAsofJoin) {
+    trivial = false; // Not allowed in trivial queries
+    return logicalAsofJoin;
+  }
+
+  @Override
+  public RelNode visit(LogicalRepeatUnion logicalRepeatUnion) {
+    trivial = false; // Not allowed in trivial queries
+    return logicalRepeatUnion;
   }
 
   @Override

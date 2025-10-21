@@ -26,7 +26,6 @@ import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
-import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
@@ -247,7 +246,7 @@ public class PipelineRelTest {
         SqlIdentifier baseField = new SqlIdentifier("nested", SqlParserPos.ZERO);
         SqlLiteral nestedFieldName = SqlLiteral.createCharString("field", SqlParserPos.ZERO);
         SqlBasicCall itemCall = new SqlBasicCall(SqlStdOperatorTable.ITEM,
-            new SqlNode[]{baseField, nestedFieldName}, SqlParserPos.ZERO);
+            List.of(baseField, nestedFieldName), SqlParserPos.ZERO);
         SqlIdentifier itemAlias = new SqlIdentifier("item_alias", SqlParserPos.ZERO);
         SqlBasicCall itemAsCall = new SqlBasicCall(SqlStdOperatorTable.AS,
             List.of(itemCall, itemAlias), SqlParserPos.ZERO);
@@ -310,7 +309,7 @@ public class PipelineRelTest {
         SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
         SqlIdentifier field = new SqlIdentifier("field", SqlParserPos.ZERO);
         SqlBasicCall unsupportedCall = new SqlBasicCall(SqlStdOperatorTable.PLUS,
-            new SqlNode[]{field, field}, SqlParserPos.ZERO);
+            List.of(field, field), SqlParserPos.ZERO);
         nodeList.add(unsupportedCall);
 
         SQLNonTransientException exception = assertThrows(SQLNonTransientException.class,

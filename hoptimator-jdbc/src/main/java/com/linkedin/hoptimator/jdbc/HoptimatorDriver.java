@@ -168,10 +168,10 @@ public class HoptimatorDriver implements java.sql.Driver {
     String name = source.table();
     SchemaPlus schema = Objects.requireNonNull(connection.calciteConnection().getRootSchema());
     for (String p : path) {
-      schema = Objects.requireNonNull(schema.getSubSchema(p));
+      schema = Objects.requireNonNull(schema.subSchemas().get(p));
     }
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    Table table = schema.getTable(name);
+    Table table = schema.tables().get(name);
     if (table == null) {
       throw new SQLException("Table " + name + " not found in schema " + schema.getName() + ".");
     }
