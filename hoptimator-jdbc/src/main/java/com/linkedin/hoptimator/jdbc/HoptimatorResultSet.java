@@ -8,6 +8,7 @@ import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
+import java.sql.JDBCType;
 import java.sql.NClob;
 import java.sql.Ref;
 import java.sql.ResultSet;
@@ -1157,8 +1158,7 @@ class HoptimatorResultSet implements ResultSet {
 
     @Override
     public String getColumnTypeName(int j) throws SQLException {
-      Object obj = value(j);
-      return null == obj ? null : obj.getClass().getTypeName();
+      return JDBCType.valueOf(columnList.get(j - 1).right).getName();
     }
 
     @Override
