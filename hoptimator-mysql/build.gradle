@@ -1,0 +1,16 @@
+plugins {
+  id 'java-library'
+}
+
+dependencies {
+  implementation project(':hoptimator-api')
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-util')
+  implementation libs.calcite.core
+  implementation 'mysql:mysql-connector-java:8.0.33'
+
+  testImplementation libs.assertj
+
+  testRuntimeOnly project(':hoptimator-k8s')
+  testImplementation(testFixtures(project(':hoptimator-jdbc')))
+}

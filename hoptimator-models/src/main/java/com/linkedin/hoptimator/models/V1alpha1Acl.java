@@ -31,7 +31,7 @@ import java.io.IOException;
  * Access control rule (colloquially, an Acl)
  */
 @ApiModel(description = "Access control rule (colloquially, an Acl)")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-21T21:15:02.597Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:21:20.255Z[Etc/UTC]")
 public class V1alpha1Acl implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

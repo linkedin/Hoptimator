@@ -10,6 +10,7 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import javax.annotation.Nullable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
@@ -88,18 +89,23 @@ public interface ScriptImplementor {
   }
 
   /** Append a connector definition, e.g. `CREATE TABLE ... WITH (...)` */
-  default ScriptImplementor connector(String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
-    return with(new ConnectorImplementor(schema, table, rowType, connectorConfig));
+  default ScriptImplementor connector(@Nullable String catalog, String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
+    return with(new ConnectorImplementor(catalog, schema, table, rowType, connectorConfig));
+  }
+
+  /** Append a database definition, e.g. `CREATE CATALOG ...` */
+  default ScriptImplementor catalog(@Nullable String catalog) {
+    return with(new CatalogImplementor(catalog));
   }
 
   /** Append a database definition, e.g. `CREATE DATABASE ...` */
-  default ScriptImplementor database(String database) {
-    return with(new DatabaseImplementor(database));
+  default ScriptImplementor database(@Nullable String catalog, String database) {
+    return with(new DatabaseImplementor(catalog, database));
   }
 
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
-  default ScriptImplementor insert(String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
-    return with(new InsertImplementor(schema, table, relNode, targetFields));
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
+    return with(new InsertImplementor(catalog, schema, table, relNode, targetFields));
   }
 
   /** Render the script as DDL/SQL in the default dialect */
@@ -192,12 +198,14 @@ public interface ScriptImplementor {
    *  - NULL fields are promoted to BYTES
    */
   class ConnectorImplementor implements ScriptImplementor {
+    private final String catalog;
     private final String schema;
     private final String table;
     private final RelDataType rowType;
     private final Map<String, String> connectorConfig;
 
-    public ConnectorImplementor(String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
+    public ConnectorImplementor(String catalog, String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
+      this.catalog = catalog;
       this.schema = schema;
       this.table = table;
       this.rowType = rowType;
@@ -207,7 +215,7 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       w.keyword("CREATE TABLE IF NOT EXISTS");
-      (new CompoundIdentifierImplementor(schema, table)).implement(w);
+      (new CompoundIdentifierImplementor(catalog, schema, table)).implement(w);
       SqlWriter.Frame frame1 = w.startList("(", ")");
       (new RowTypeSpecImplementor(rowType)).implement(w);
       if (rowType.getField("PRIMARY_KEY", true, false) != null) {
@@ -251,12 +259,14 @@ public interface ScriptImplementor {
    * <p>
    * */
   class InsertImplementor implements ScriptImplementor {
+    private final String catalog;
     private final String schema;
     private final String table;
     private final RelNode relNode;
     private final ImmutablePairList<Integer, String> targetFields;
 
-    public InsertImplementor(String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
+    public InsertImplementor(@Nullable String catalog, String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
+      this.catalog = catalog;
       this.schema = schema;
       this.table = table;
       this.relNode = relNode;
@@ -266,7 +276,7 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       w.keyword("INSERT INTO");
-      (new CompoundIdentifierImplementor(schema, table)).implement(w);
+      (new CompoundIdentifierImplementor(catalog, schema, table)).implement(w);
       RelNode project = dropFields(relNode, targetFields);
       (new ColumnListImplementor(project.getRowType())).implement(w);
       (new QueryImplementor(project)).implement(w);
@@ -332,18 +342,43 @@ public interface ScriptImplementor {
         .build();
   }
 
+  /** Implements a CREATE CATALOG IF NOT EXISTS statement */
+  class CatalogImplementor implements ScriptImplementor {
+    private final String catalog;
+
+    public CatalogImplementor(@Nullable String catalog) {
+      this.catalog = catalog;
+    }
+
+    @Override
+    public void implement(SqlWriter w) {
+      if (catalog == null) {
+        return;
+      }
+
+      w.keyword("CREATE CATALOG IF NOT EXISTS");
+      w.identifier(catalog, true);
+      w.keyword("WITH");
+      SqlWriter.Frame parens = w.startList("(", ")");
+      w.endList(parens);
+      w.literal(";");
+    }
+  }
+
   /** Implements a CREATE DATABASE IF NOT EXISTS statement */
   class DatabaseImplementor implements ScriptImplementor {
     private final String database;
+    private final String catalog;
 
-    public DatabaseImplementor(String database) {
+    public DatabaseImplementor(@Nullable String catalog, String database) {
+      this.catalog = catalog;
       this.database = database;
     }
 
     @Override
     public void implement(SqlWriter w) {
       w.keyword("CREATE DATABASE IF NOT EXISTS");
-      w.identifier(database, true);
+      (new CompoundIdentifierImplementor(catalog, database, null)).implement(w);
       w.keyword("WITH");
       SqlWriter.Frame parens = w.startList("(", ")");
       w.endList(parens);
@@ -353,18 +388,37 @@ public interface ScriptImplementor {
 
   /** Implements an identifier like TRACKING.'PageViewEvent' */
   class CompoundIdentifierImplementor implements ScriptImplementor {
+    private final String catalog;
     private final String schema;
     private final String table;
 
-    public CompoundIdentifierImplementor(String schema, String table) {
+    public CompoundIdentifierImplementor(@Nullable String catalog, @Nullable String schema, @Nullable String table) {
+      this.catalog = catalog;
       this.schema = schema;
       this.table = table;
     }
 
     @Override
     public void implement(SqlWriter w) {
-      SqlIdentifier identifier = new SqlIdentifier(Arrays.asList(schema, table), SqlParserPos.ZERO);
-      identifier.unparse(w, 0, 0);
+      SqlIdentifier identifier = null;
+      if (catalog != null && schema != null && table != null) {
+        identifier = new SqlIdentifier(Arrays.asList(catalog, schema, table), SqlParserPos.ZERO);
+      } else if (catalog != null && schema != null) {
+        identifier = new SqlIdentifier(Arrays.asList(catalog, schema), SqlParserPos.ZERO);
+      } else if (catalog != null && table != null) {
+        identifier = new SqlIdentifier(Arrays.asList(catalog, table), SqlParserPos.ZERO);
+      } else if (schema != null && table != null) {
+        identifier = new SqlIdentifier(Arrays.asList(schema, table), SqlParserPos.ZERO);
+      } else if (catalog != null) {
+        w.identifier(catalog, true);
+      } else if (schema != null) {
+        w.identifier(schema, true);
+      } else if (table != null) {
+        w.identifier(table, true);
+      }
+      if (identifier != null) {
+        identifier.unparse(w, 0, 0);
+      }
     }
   }
 

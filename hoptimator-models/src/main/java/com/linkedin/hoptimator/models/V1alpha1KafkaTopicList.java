@@ -32,7 +32,7 @@ import java.util.List;
  * KafkaTopicList is a list of KafkaTopic
  */
 @ApiModel(description = "KafkaTopicList is a list of KafkaTopic")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-01-21T21:15:02.597Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:21:20.255Z[Etc/UTC]")
 public class V1alpha1KafkaTopicList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

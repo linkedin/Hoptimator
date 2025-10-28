@@ -30,7 +30,7 @@ import java.util.List;
  * Engine spec.
  */
 @ApiModel(description = "Engine spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-09-04T16:19:29.143Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
 public class V1alpha1EngineSpec {
   public static final String SERIALIZED_NAME_DATABASES = "databases";
   @SerializedName(SERIALIZED_NAME_DATABASES)

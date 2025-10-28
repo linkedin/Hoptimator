@@ -31,16 +31,16 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   private final HoptimatorJdbcConvention convention;
   private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
 
-  public static HoptimatorJdbcSchema create(String database, String schema, DataSource dataSource,
+  public static HoptimatorJdbcSchema create(String database, String catalog, String schema, DataSource dataSource,
       SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
     Expression expression = Schemas.subSchemaExpression(parentSchema, schema, HoptimatorJdbcSchema.class);
     HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(dialect, expression, database, engines, connection);
-    return new HoptimatorJdbcSchema(database, schema, dataSource, dialect, convention, engines);
+    return new HoptimatorJdbcSchema(database, catalog, schema, dataSource, dialect, convention, engines);
   }
 
-  public HoptimatorJdbcSchema(String database, String schema, DataSource dataSource, SqlDialect dialect,
+  public HoptimatorJdbcSchema(String database, String catalog, String schema, DataSource dataSource, SqlDialect dialect,
       HoptimatorJdbcConvention convention, List<Engine> engines) {
-    super(dataSource, dialect, convention, null, schema);
+    super(dataSource, dialect, convention, catalog, schema);
     this.database = database;
     this.engines = engines;
     this.convention = convention;

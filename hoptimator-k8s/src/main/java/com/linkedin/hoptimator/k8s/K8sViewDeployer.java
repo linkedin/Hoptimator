@@ -34,6 +34,7 @@ class K8sViewDeployer extends K8sDeployer<V1alpha1View, V1alpha1ViewList> {
         .spec(new V1alpha1ViewSpec()
             .view(q.pollLast())
             .schema(q.pollLast())
+            .catalog(q.pollLast())
             .sql(view.viewSql())
             .materialized(materialized));
   }

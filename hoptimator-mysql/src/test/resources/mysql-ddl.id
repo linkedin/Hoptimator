@@ -1,0 +1,45 @@
+!set outputformat mysql
+!use k8s
+
+create or replace materialized view mysql."testdb"."users$partial" as select "user_id" from mysql."testdb"."orders";
+(0 rows modified)
+
+!update
+
+select count(*) as TABLE_EXISTS from mysql."testdb"."users$partial" where 1=0;
++--------------+
+| TABLE_EXISTS |
++--------------+
+|            0 |
++--------------+
+(1 row)
+
+!ok
+
+drop materialized view "MYSQL"."testdb"."users$partial";
+(0 rows modified)
+
+!update
+
+insert into mysql."testdb"."users" ("user_id", "username", "email") select "user_id", 'a' as "username", 'b' as "email" from mysql."testdb"."orders";
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: mysql-users
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE CATALOG IF NOT EXISTS `MYSQL` WITH ()
+    - CREATE DATABASE IF NOT EXISTS `MYSQL`.`testdb` WITH ()
+    - CREATE TABLE IF NOT EXISTS `MYSQL`.`testdb`.`orders` (`order_id` INTEGER, `user_id` INTEGER, `product_name` VARCHAR, `quantity` INTEGER, `price` DECIMAL, `order_date` TIMESTAMP, `status` VARCHAR) WITH ('connector'='mysql', 'hostname'='localhost', 'password'='hoptimatorpassword', 'port'='3306', 'tables'='orders', 'username'='hoptimator')
+    - CREATE CATALOG IF NOT EXISTS `MYSQL` WITH ()
+    - CREATE DATABASE IF NOT EXISTS `MYSQL`.`testdb` WITH ()
+    - CREATE TABLE IF NOT EXISTS `MYSQL`.`testdb`.`users` (`user_id` INTEGER, `username` VARCHAR, `email` VARCHAR, `created_at` TIMESTAMP, `is_active` BOOLEAN) WITH ('connector'='mysql', 'hostname'='localhost', 'password'='hoptimatorpassword', 'port'='3306', 'tables'='users', 'username'='hoptimator')
+    - INSERT INTO `MYSQL`.`testdb`.`users` (`user_id`, `username`, `email`) SELECT `user_id`, 'a' AS `username`, 'b' AS `email` FROM `MYSQL`.`testdb`.`orders`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify users

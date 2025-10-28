@@ -86,6 +86,15 @@ undeploy-kafka:
 	kubectl delete -f ./deploy/samples/kafkadb.yaml || echo "skipping"
 	kubectl delete namespace kafka || echo "skipping"
 
+# Deploys MySQL cluster in docker with a few databases and tables.
+deploy-mysql: deploy deploy-flink
+	docker compose -f ./deploy/docker/mysql/docker-compose.yaml up -d --wait
+	kubectl apply -f ./deploy/samples/mysqldb.yaml
+
+undeploy-mysql:
+	kubectl delete -f ./deploy/samples/mysqldb.yaml || echo "skipping"
+	docker compose -f ./deploy/docker/mysql/docker-compose.yaml down
+
 # Deploys Venice cluster in docker and creates two stores in Venice. Stores are not managed via K8s for now.
 deploy-venice: deploy deploy-flink
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml up -d --wait
@@ -97,9 +106,9 @@ undeploy-venice:
 	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml down
 
-deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-venice
+deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-mysql deploy-venice
 
-undeploy-dev-environment: undeploy-venice undeploy-kafka undeploy-flink undeploy-demo undeploy
+undeploy-dev-environment: undeploy-venice undeploy-mysql undeploy-kafka undeploy-flink undeploy-demo undeploy
 	kubectl delete -f ./deploy/dev || echo "skipping"
 
 # Integration test setup intended to be run locally
@@ -137,4 +146,4 @@ run-zeppelin: build-zeppelin
 	  --name hoptimator-zeppelin \
 	  hoptimator-zeppelin
 
-.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release

@@ -12,6 +12,10 @@ dependencies {
 
   testRuntimeOnly project(':hoptimator-k8s')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
+
+  // These are included in case the respective Databases are installed
+  testRuntimeOnly project(':hoptimator-demodb')
+  testRuntimeOnly project(':hoptimator-mysql')
 }
 
 publishing {

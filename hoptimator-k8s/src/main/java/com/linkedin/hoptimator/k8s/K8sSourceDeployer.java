@@ -35,6 +35,7 @@ class K8sSourceDeployer extends K8sYamlDeployer {
         new Template.SimpleEnvironment()
             .with("name", name)
             .with("database", source.database())
+            .with("catalog", source.catalog())
             .with("schema", source.schema())
             .with("table", source.table())
             .with(source.options())

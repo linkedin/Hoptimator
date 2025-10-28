@@ -103,6 +103,38 @@ class HoptimatorMcpServerTest {
     }
 
     /**
+     * Test the fetch_schemas MCP tool with a catalog filter
+     */
+    @Test
+    void testFetchSchemasToolWithCatalog() throws Exception {
+        JsonObject args = new JsonObject();
+        args.addProperty("catalog", "MYSQL");
+        JsonObject response = callMcpTool("fetch_schemas", args);
+
+        assertNotNull(response);
+        assertFalse(response.has("error"));
+        assertTrue(response.has("result"));
+
+        JsonObject result = response.getAsJsonObject("result");
+        assertTrue(result.has("content"), "Result missing 'content' field");
+
+        JsonArray content = result.getAsJsonArray("content");
+        assertNotNull(content, "Content is null");
+        assertFalse(content.isEmpty(), "Content is empty");
+
+        String text = content.get(0).getAsJsonObject().get("text").getAsString();
+        assertNotNull(text, "Text is null");
+        assertFalse(text.isEmpty(), "Text is empty");
+        assertFalse(text.contains("ERROR"));
+
+        @SuppressWarnings("unchecked")
+        List<Object> schemas = gson.fromJson(text, List.class);
+        assertNotNull(schemas, "Schemas is null");
+        assertFalse(schemas.isEmpty(), "Schemas are empty");
+        System.out.println("Schemas in MYSQL catalog: " + schemas);
+    }
+
+    /**
      * Test the fetch_tables MCP tool
      */
     @Test
@@ -156,6 +188,65 @@ class HoptimatorMcpServerTest {
         List<Object> tables = gson.fromJson(text, List.class);
         assertFalse(tables.isEmpty());
         System.out.println("Tables in ADS schema: " + tables);
+    }
+
+    /**
+     * Test the fetch_tables MCP tool with a catalog filter
+     */
+    @Test
+    void testFetchTablesToolWithCatalog() throws Exception {
+        JsonObject args = new JsonObject();
+        args.addProperty("catalog", "MYSQL");
+        JsonObject response = callMcpTool("fetch_tables", args);
+
+        assertNotNull(response);
+        assertFalse(response.has("error"));
+        assertTrue(response.has("result"));
+
+        JsonObject result = response.getAsJsonObject("result");
+        JsonArray content = result.get("content").getAsJsonArray();
+        assertNotNull(content, "Content is null");
+        assertFalse(content.isEmpty(), "Content is empty");
+
+        String text = content.get(0).getAsJsonObject().get("text").getAsString();
+        assertNotNull(text, "Text is null");
+        assertFalse(text.isEmpty(), "Text is empty");
+        assertFalse(text.contains("ERROR"));
+
+        @SuppressWarnings("unchecked")
+        List<Object> tables = gson.fromJson(text, List.class);
+        assertFalse(tables.isEmpty());
+        System.out.println("Tables in MYSQL catalog: " + tables);
+    }
+
+    /**
+     * Test the fetch_tables MCP tool with a schema and catalog filter
+     */
+    @Test
+    void testFetchTablesToolWithSchemaAndCatalog() throws Exception {
+        JsonObject args = new JsonObject();
+        args.addProperty("catalog", "MYSQL");
+        args.addProperty("schema", "testdb");
+        JsonObject response = callMcpTool("fetch_tables", args);
+
+        assertNotNull(response);
+        assertFalse(response.has("error"));
+        assertTrue(response.has("result"));
+
+        JsonObject result = response.getAsJsonObject("result");
+        JsonArray content = result.get("content").getAsJsonArray();
+        assertNotNull(content, "Content is null");
+        assertFalse(content.isEmpty(), "Content is empty");
+
+        String text = content.get(0).getAsJsonObject().get("text").getAsString();
+        assertNotNull(text, "Text is null");
+        assertFalse(text.isEmpty(), "Text is empty");
+        assertFalse(text.contains("ERROR"));
+
+        @SuppressWarnings("unchecked")
+        List<Object> tables = gson.fromJson(text, List.class);
+        assertFalse(tables.isEmpty());
+        System.out.println("Tables in MYSQL.testdb: " + tables);
     }
 
     /**
@@ -234,7 +325,7 @@ class HoptimatorMcpServerTest {
         @SuppressWarnings("unchecked")
         List<Object> tableDefinitions = gson.fromJson(text, List.class);
         assertFalse(tableDefinitions.isEmpty());
-        System.out.println("Table definitions: " + tableDefinitions);
+        System.out.println("Table definitions for AD_CLICKS: " + tableDefinitions);
     }
 
     /**

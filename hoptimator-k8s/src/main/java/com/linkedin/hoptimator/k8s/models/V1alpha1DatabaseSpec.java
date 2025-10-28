@@ -28,8 +28,12 @@ import java.io.IOException;
  * Database spec.
  */
 @ApiModel(description = "Database spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-09-04T16:19:29.143Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
 public class V1alpha1DatabaseSpec {
+  public static final String SERIALIZED_NAME_CATALOG = "catalog";
+  @SerializedName(SERIALIZED_NAME_CATALOG)
+  private String catalog;
+
   /**
    * SQL dialect the driver expects.
    */
@@ -96,6 +100,29 @@ public class V1alpha1DatabaseSpec {
   private String url;
 
 
+  public V1alpha1DatabaseSpec catalog(String catalog) {
+    
+    this.catalog = catalog;
+    return this;
+  }
+
+   /**
+   * JDBC catalog name (optional, for hierarchical sources like MySQL).
+   * @return catalog
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "JDBC catalog name (optional, for hierarchical sources like MySQL).")
+
+  public String getCatalog() {
+    return catalog;
+  }
+
+
+  public void setCatalog(String catalog) {
+    this.catalog = catalog;
+  }
+
+
   public V1alpha1DatabaseSpec dialect(DialectEnum dialect) {
     
     this.dialect = dialect;
@@ -126,11 +153,11 @@ public class V1alpha1DatabaseSpec {
   }
 
    /**
-   * Fully qualified class name of JDBD driver.
+   * Fully qualified class name of JDBC driver.
    * @return driver
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Fully qualified class name of JDBD driver.")
+  @ApiModelProperty(value = "Fully qualified class name of JDBC driver.")
 
   public String getDriver() {
     return driver;
@@ -196,7 +223,8 @@ public class V1alpha1DatabaseSpec {
       return false;
     }
     V1alpha1DatabaseSpec v1alpha1DatabaseSpec = (V1alpha1DatabaseSpec) o;
-    return Objects.equals(this.dialect, v1alpha1DatabaseSpec.dialect) &&
+    return Objects.equals(this.catalog, v1alpha1DatabaseSpec.catalog) &&
+        Objects.equals(this.dialect, v1alpha1DatabaseSpec.dialect) &&
         Objects.equals(this.driver, v1alpha1DatabaseSpec.driver) &&
         Objects.equals(this.schema, v1alpha1DatabaseSpec.schema) &&
         Objects.equals(this.url, v1alpha1DatabaseSpec.url);
@@ -204,7 +232,7 @@ public class V1alpha1DatabaseSpec {
 
   @Override
   public int hashCode() {
-    return Objects.hash(dialect, driver, schema, url);
+    return Objects.hash(catalog, dialect, driver, schema, url);
   }
 
 
@@ -212,6 +240,7 @@ public class V1alpha1DatabaseSpec {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1DatabaseSpec {\n");
+    sb.append("    catalog: ").append(toIndentedString(catalog)).append("\n");
     sb.append("    dialect: ").append(toIndentedString(dialect)).append("\n");
     sb.append("    driver: ").append(toIndentedString(driver)).append("\n");
     sb.append("    schema: ").append(toIndentedString(schema)).append("\n");

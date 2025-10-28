@@ -94,8 +94,8 @@ public class HoptimatorMcpServer {
             List<Map<String, String>> schemas = new ArrayList<>();
             while (rs.next()) {
               Map<String, String> schema = new HashMap<>();
-              schema.put("TABLE_CAT", rs.getString(1));
-              schema.put("TABLE_SCHEM", rs.getString(2));
+              schema.put("TABLE_SCHEM", rs.getString(1));
+              schema.put("TABLE_CAT", rs.getString(2));
               schemas.add(schema);
             }
             return new CallToolResult(gson.toJson(schemas), false);
@@ -109,9 +109,6 @@ public class HoptimatorMcpServer {
         new Tool("fetch_tables", "Fetches all Tables with optional catalog and schema arguments to filter tables", fetchTableSchema), (x, args2) -> {
           String catalog = (String) args2.get("catalog");
           String schema = (String) args2.get("schema");
-          if (schema == null) {
-            schema = "%";
-          }
           try {
             DatabaseMetaData metaData = conn.getMetaData();
             ResultSet rs = metaData.getTables(catalog, schema, "%", null);

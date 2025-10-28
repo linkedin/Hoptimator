@@ -6,6 +6,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.hoptimator.util.DelegatingConnection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -71,6 +72,12 @@ public class HoptimatorConnection extends DelegatingConnection {
   @Override
   public PreparedStatement prepareStatement(String sql) throws SQLException {
     return connection.prepareStatement(sql);
+  }
+
+  @Override
+  public DatabaseMetaData getMetaData() throws SQLException {
+    DatabaseMetaData metaData = connection.getMetaData();
+    return new HoptimatorDatabaseMetaData(this, metaData);
   }
 
   public Properties connectionProperties() {
