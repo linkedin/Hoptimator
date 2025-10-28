@@ -8,5 +8,5 @@ $BASEDIR/hoptimator-cli/build/install/hoptimator-cli/bin/hoptimator-cli \
   sqlline.SqlLine \
   -ac sqlline.HoptimatorAppConfig \
   --verbose \
-  -u "jdbc:hoptimator://fun=mysql;hints=offline.table.name=ads_offline" -n "" -p "" -nn "Hoptimator" $@
+  -u "jdbc:hoptimator://fun=mysql;hints=offline.table.name=ads_offline,job.properties.account=foo" -n "" -p "" -nn "Hoptimator" $@
 

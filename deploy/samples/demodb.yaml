@@ -68,6 +68,7 @@ spec:
     spec:
       schema: KAFKA
       table: {{offline.table.name}}
+      jobProperties: {{job.properties}}
       yaml: |
         apiVersion: batch/v1
         kind: Job

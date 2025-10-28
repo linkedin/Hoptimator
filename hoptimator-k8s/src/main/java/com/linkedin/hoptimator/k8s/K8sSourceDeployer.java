@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.k8s;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -16,6 +17,7 @@ import com.linkedin.hoptimator.util.Template;
 
 /** Specifies an abstract Source with concrete YAML by applying TableTemplates. */
 class K8sSourceDeployer extends K8sYamlDeployer {
+  private static final String JOB_PROPERTIES_PREFIX = "job.properties";
   private final K8sContext context;
   private final Source source;
   private final K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> tableTemplateApi;
@@ -39,6 +41,7 @@ class K8sSourceDeployer extends K8sYamlDeployer {
             .with("schema", source.schema())
             .with("table", source.table())
             .with(source.options())
+            .with(JOB_PROPERTIES_PREFIX, getJobPropertiesFromOptions(source.options()))
             .with(DeploymentService.parseHints(connection.connectionProperties()));
 
     List<String> templates =  tableTemplateApi.list()
@@ -58,5 +61,12 @@ class K8sSourceDeployer extends K8sYamlDeployer {
       }
     }
     return renderedTemplates;
+  }
+
+  // Extract job properties from source options
+  private Map<String, String> getJobPropertiesFromOptions(Map<String, String> options) {
+    return options.entrySet().stream()
+        .filter(entry -> entry.getKey().startsWith(JOB_PROPERTIES_PREFIX))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 }
