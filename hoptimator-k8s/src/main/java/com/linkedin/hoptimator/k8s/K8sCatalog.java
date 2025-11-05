@@ -36,6 +36,10 @@ class K8sCatalog implements Catalog {
     schemaPlus.add("k8s", metadata);
     metadata.databaseTable().addDatabases(schemaPlus, conn);
     metadata.viewTable().addViews(schemaPlus);
-    metadata.viewTable().registerMaterializations(conn);
+
+    // TODO: Explore adding back materializations, but they should not cause backend calls, we may need to
+    // introduce schemas into the view object itself such that all tables that make up a view do not need to be
+    // evaluated every time.
+    // metadata.viewTable().registerMaterializations(conn);
   }
 }
