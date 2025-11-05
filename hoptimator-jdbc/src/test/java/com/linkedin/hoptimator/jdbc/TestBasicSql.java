@@ -53,4 +53,19 @@ public class TestBasicSql extends JdbcTestBase {
         "[HoptimatorDdlExecutor] CREATE VIEW V completed");
     Assertions.assertEquals(expectedLogs, logs);
   }
+
+  @Test
+  public void dropNonExistentViewHandlesNullSchema() throws Exception {
+    // Should not throw when using IF EXISTS on a non-existent view
+    sql("DROP VIEW IF EXISTS non_existing_schema.non_existing_view");
+
+    // Should throw an Exception when dropping non-existent view without IF EXISTS
+    Exception ex = Assertions.assertThrows(Exception.class, () -> {
+      sql("DROP VIEW non_existing_schema.non_existing_view");
+    });
+    Assertions.assertTrue(
+        ex.getMessage().matches("(?s).*Cannot DROP VIEW .*?: View .*? not found\\..*"),
+        "Error message should match regex, but was: " + ex.getMessage()
+    );
+  }
 }

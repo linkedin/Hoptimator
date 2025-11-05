@@ -276,7 +276,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final Pair<CalciteSchema, String> pair = HoptimatorDdlUtils.schema(context, false, drop.name);
     String viewName = pair.right;
 
-    SchemaPlus schemaPlus = pair.left.plus();
+    SchemaPlus schemaPlus = pair.left != null ? pair.left.plus() : context.getRootSchema().plus();
     Table table = schemaPlus.tables().get(viewName);
     if (table == null) {
       if (drop.ifExists) {
