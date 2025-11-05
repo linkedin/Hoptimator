@@ -28,7 +28,7 @@ import java.io.IOException;
  * Database spec.
  */
 @ApiModel(description = "Database spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
 public class V1alpha1DatabaseSpec {
   public static final String SERIALIZED_NAME_CATALOG = "catalog";
   @SerializedName(SERIALIZED_NAME_CATALOG)

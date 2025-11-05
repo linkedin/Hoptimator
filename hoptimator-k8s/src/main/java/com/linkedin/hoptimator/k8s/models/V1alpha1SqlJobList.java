@@ -32,7 +32,7 @@ import java.util.List;
  * SqlJobList is a list of SqlJob
  */
 @ApiModel(description = "SqlJobList is a list of SqlJob")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
 public class V1alpha1SqlJobList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

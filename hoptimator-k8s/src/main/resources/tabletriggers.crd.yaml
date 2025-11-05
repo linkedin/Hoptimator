@@ -36,15 +36,6 @@ spec:
                 table:
                   description: The table name, e.g. PageViewEvent.
                   type: string
-                operations:
-                  description: Specific operations this trigger matches. If null, matches all operations.
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                    - Delete
-                    - Insert
-                    - Update
                 yaml:
                   description: Specifies the Job to re/create when the trigger fires.
                   type: string

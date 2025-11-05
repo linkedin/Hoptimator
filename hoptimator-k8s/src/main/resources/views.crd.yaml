@@ -52,6 +52,10 @@ spec:
             status:
               type: object
               properties:
+                watermark:
+                  description: Timestamp of last data change event affecting this view.
+                  type: string
+                  format: date-time
       subresources:
         status: {}
       additionalPrinterColumns:
@@ -67,8 +71,10 @@ spec:
         type: string
         description: View name.
         jsonPath: .spec.view
-      - name: SQL
+      - name: WATERMARK
         type: string
-        description: View SQL.
-        jsonPath: .spec.sql
+        description: Watermark timestamp.
+        type: string
+        type: date
+        jsonPath: .status.watermark
 

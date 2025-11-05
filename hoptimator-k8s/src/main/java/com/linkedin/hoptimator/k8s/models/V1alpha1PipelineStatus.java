@@ -31,7 +31,7 @@ import java.util.Map;
  * Pipeline status.
  */
 @ApiModel(description = "Pipeline status.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
 public class V1alpha1PipelineStatus {
   public static final String SERIALIZED_NAME_FAILED = "failed";
   @SerializedName(SERIALIZED_NAME_FAILED)

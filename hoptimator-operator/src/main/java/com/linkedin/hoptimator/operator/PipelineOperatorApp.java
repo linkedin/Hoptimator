@@ -24,6 +24,7 @@ import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
 import com.linkedin.hoptimator.operator.trigger.TableTriggerReconciler;
+import com.linkedin.hoptimator.operator.trigger.ViewReconciler;
 
 
 public class PipelineOperatorApp {
@@ -72,11 +73,13 @@ public class PipelineOperatorApp {
     // register informers
     context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5));
     context.registerInformer(K8sApiEndpoints.TABLE_TRIGGERS, Duration.ofMinutes(5));
+    context.registerInformer(K8sApiEndpoints.VIEWS, Duration.ofMinutes(5));
 
     List<Controller> controllers = new ArrayList<>(initialControllers);
     controllers.addAll(ControllerService.controllers(context));
     controllers.add(PipelineReconciler.controller(context));
     controllers.add(TableTriggerReconciler.controller(context));
+    controllers.add(ViewReconciler.controller(context));
 
     ControllerManager controllerManager =
         new ControllerManager(context.informerFactory(), controllers.toArray(new Controller[0]));
