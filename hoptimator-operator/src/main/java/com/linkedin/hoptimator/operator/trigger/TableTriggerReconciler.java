@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -60,9 +61,9 @@ import com.linkedin.hoptimator.util.Template;
  *
  */
 public final class TableTriggerReconciler implements Reconciler {
-  private final static Logger log = LoggerFactory.getLogger(TableTriggerReconciler.class);
-  private final static String TRIGGER_KEY = "trigger";
-  private final static String TRIGGER_TIMESTAMP_KEY = "triggerTimestamp";
+  private static final Logger log = LoggerFactory.getLogger(TableTriggerReconciler.class);
+  static final String TRIGGER_KEY = "trigger";
+  static final String TRIGGER_TIMESTAMP_KEY = "triggerTimestamp";
 
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi;
   private final K8sApi<V1Job, V1JobList> jobApi;
@@ -146,6 +147,7 @@ public final class TableTriggerReconciler implements Reconciler {
           jobApi.delete(job);
           return new Result(true);  // retry
         } else {
+          maybeUpdateJobAnnotation(job, status.getTimestamp());
           log.info("Job for TableTrigger {} still running from a previous trigger event.", name);
           return new Result(true, pendingRetryDuration());  // retry later
         }
@@ -194,6 +196,19 @@ public final class TableTriggerReconciler implements Reconciler {
         .withWorkerCount(1)
         .watch(x -> ControllerBuilder.controllerWatchBuilder(V1alpha1TableTrigger.class, x).build())
         .build();
+  }
+
+  void maybeUpdateJobAnnotation(V1Job job, OffsetDateTime timestamp) throws SQLException {
+    Map<String, String> annotations = Objects.requireNonNull(job.getMetadata()).getAnnotations();
+    if (annotations != null) {
+      String existing = annotations.get(TRIGGER_TIMESTAMP_KEY);
+      if (existing != null && timestamp.isAfter(OffsetDateTime.parse(existing))) {
+        annotations.put(TRIGGER_TIMESTAMP_KEY, timestamp.toString());
+        job.getMetadata().setAnnotations(annotations);
+        jobApi.update(job);
+        log.info("Updated {} in Job {} annotation to {}", TRIGGER_TIMESTAMP_KEY, job.getMetadata().getName(), timestamp);
+      }
+    }
   }
 }
 
