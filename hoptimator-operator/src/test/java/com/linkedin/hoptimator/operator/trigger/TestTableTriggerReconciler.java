@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,5 +97,29 @@ class TestTableTriggerReconciler {
     Result result =  reconciler.reconcile(new Request("namespace", "table-trigger"));
     Assertions.assertTrue(result.isRequeue());
     Assertions.assertNotNull(trigger.getStatus().getWatermark(), "Watermark was not set");
+  }
+
+  @Test
+  void reconcileTriggersAnnotationUpdate() {
+    OffsetDateTime oldTimestamp = OffsetDateTime.parse("2024-01-01T12:00:00Z");
+    OffsetDateTime newTimestamp = OffsetDateTime.parse("2024-01-03T12:00:00Z");
+    Map<String, String> annotations = new HashMap<>();
+    annotations.put(TableTriggerReconciler.TRIGGER_KEY, "table-trigger");
+    annotations.put(TableTriggerReconciler.TRIGGER_TIMESTAMP_KEY, oldTimestamp.toString());
+    V1Job job = new V1Job()
+        .metadata(new V1ObjectMeta().name("running-table-trigger-job").annotations(annotations))
+        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Running").status("True")));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+      .metadata(new V1ObjectMeta().name("table-trigger"))
+      .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
+      .status(new V1alpha1TableTriggerStatus().timestamp(newTimestamp));
+    triggers.add(trigger);
+    jobs.add(job);
+    reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertEquals(
+      newTimestamp.toString(),
+      Objects.requireNonNull(Objects.requireNonNull(job.getMetadata()).getAnnotations()).get(TableTriggerReconciler.TRIGGER_TIMESTAMP_KEY),
+      "The annotation should be updated through reconcile when job is still running and if the trigger timestamp has advanced."
+    );
   }
 }
