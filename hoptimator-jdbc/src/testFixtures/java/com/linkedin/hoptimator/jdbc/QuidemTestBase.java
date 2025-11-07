@@ -61,13 +61,13 @@ public abstract class QuidemTestBase {
     Assertions.assertFalse(input.isEmpty(), "input script is empty");
     Assertions.assertFalse(output.isEmpty(), "script output is empty");
     // This check is necessary because on error, the input is echo'd to the output along with the error message
-    Assertions.assertEquals(input.size(), output.size(), "input and output have different number of lines");
     for (String line : output) {
       System.out.println(line);
     }
-    for (int i = 0; i < input.size(); i++) {
-      String line = output.get(i);
-      String expected = input.get(i);
+    int n = Math.max(input.size(), output.size());
+    for (int i = 0; i < n; i++) {
+      String line = i < output.size() ? output.get(i) : "";
+      String expected = i < input.size() ? input.get(i) : "";
       Assertions.assertEquals(expected, line,
         "Context:\n" + String.join("\n", output.subList(i, Math.min(i + 10, output.size() - 1))));
     }

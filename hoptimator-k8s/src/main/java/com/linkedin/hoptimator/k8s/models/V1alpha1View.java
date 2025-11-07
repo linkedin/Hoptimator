@@ -21,6 +21,7 @@ import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1ViewStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
@@ -30,7 +31,7 @@ import java.io.IOException;
  * A SQL view.
  */
 @ApiModel(description = "A SQL view.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:18:59.412Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
 public class V1alpha1View implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
@@ -50,7 +51,7 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
 
   public static final String SERIALIZED_NAME_STATUS = "status";
   @SerializedName(SERIALIZED_NAME_STATUS)
-  private Object status;
+  private V1alpha1ViewStatus status;
 
 
   public V1alpha1View apiVersion(String apiVersion) {
@@ -145,7 +146,7 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
   }
 
 
-  public V1alpha1View status(Object status) {
+  public V1alpha1View status(V1alpha1ViewStatus status) {
     
     this.status = status;
     return this;
@@ -158,12 +159,12 @@ public class V1alpha1View implements io.kubernetes.client.common.KubernetesObjec
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public Object getStatus() {
+  public V1alpha1ViewStatus getStatus() {
     return status;
   }
 
 
-  public void setStatus(Object status) {
+  public void setStatus(V1alpha1ViewStatus status) {
     this.status = status;
   }
 

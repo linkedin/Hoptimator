@@ -26,55 +26,27 @@ import java.io.IOException;
 import java.time.OffsetDateTime;
 
 /**
- * TableTrigger status.
+ * V1alpha1ViewStatus
  */
-@ApiModel(description = "TableTrigger status.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
-public class V1alpha1TableTriggerStatus {
-  public static final String SERIALIZED_NAME_TIMESTAMP = "timestamp";
-  @SerializedName(SERIALIZED_NAME_TIMESTAMP)
-  private OffsetDateTime timestamp;
-
+public class V1alpha1ViewStatus {
   public static final String SERIALIZED_NAME_WATERMARK = "watermark";
   @SerializedName(SERIALIZED_NAME_WATERMARK)
   private OffsetDateTime watermark;
 
 
-  public V1alpha1TableTriggerStatus timestamp(OffsetDateTime timestamp) {
-    
-    this.timestamp = timestamp;
-    return this;
-  }
-
-   /**
-   * Time at which the trigger was last fired.
-   * @return timestamp
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "Time at which the trigger was last fired.")
-
-  public OffsetDateTime getTimestamp() {
-    return timestamp;
-  }
-
-
-  public void setTimestamp(OffsetDateTime timestamp) {
-    this.timestamp = timestamp;
-  }
-
-
-  public V1alpha1TableTriggerStatus watermark(OffsetDateTime watermark) {
+  public V1alpha1ViewStatus watermark(OffsetDateTime watermark) {
     
     this.watermark = watermark;
     return this;
   }
 
    /**
-   * Timestamp of the last successfully processed trigger event.
+   * Timestamp of last data change event affecting this view.
    * @return watermark
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Timestamp of the last successfully processed trigger event.")
+  @ApiModelProperty(value = "Timestamp of last data change event affecting this view.")
 
   public OffsetDateTime getWatermark() {
     return watermark;
@@ -94,22 +66,20 @@ public class V1alpha1TableTriggerStatus {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1TableTriggerStatus v1alpha1TableTriggerStatus = (V1alpha1TableTriggerStatus) o;
-    return Objects.equals(this.timestamp, v1alpha1TableTriggerStatus.timestamp) &&
-        Objects.equals(this.watermark, v1alpha1TableTriggerStatus.watermark);
+    V1alpha1ViewStatus v1alpha1ViewStatus = (V1alpha1ViewStatus) o;
+    return Objects.equals(this.watermark, v1alpha1ViewStatus.watermark);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(timestamp, watermark);
+    return Objects.hash(watermark);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1TableTriggerStatus {\n");
-    sb.append("    timestamp: ").append(toIndentedString(timestamp)).append("\n");
+    sb.append("class V1alpha1ViewStatus {\n");
     sb.append("    watermark: ").append(toIndentedString(watermark)).append("\n");
     sb.append("}");
     return sb.toString();
