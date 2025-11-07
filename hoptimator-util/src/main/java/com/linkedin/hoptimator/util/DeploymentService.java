@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -113,13 +115,21 @@ public final class DeploymentService {
   }
 
   // User provided hints will be passed through the "hints" field as KEY=VALUE pairs separated by commas.
+  // Values containing commas or other special characters should be URL-encoded.
+  // Both keys and values are automatically URL-decoded to support special characters.
   // We can also configure additional properties to pass through as hints to the deployer.
   public static Map<String, String> parseHints(Properties connectionProperties) {
     Map<String, String> hints = new LinkedHashMap<>();
     if (connectionProperties.containsKey(HINT_OPTION)) {
       String property = connectionProperties.getProperty(HINT_OPTION);
       if (property != null && !property.isEmpty()) {
-        hints.putAll(Splitter.on(',').withKeyValueSeparator('=').split(property));
+        Map<String, String> rawHints = Splitter.on(',').withKeyValueSeparator('=').split(property);
+        // URL-decode both keys and values to support special characters
+        for (Map.Entry<String, String> entry : rawHints.entrySet()) {
+          String key = urlDecode(entry.getKey());
+          String value = urlDecode(entry.getValue());
+          hints.put(key, value);
+        }
       }
     }
 
@@ -131,5 +141,21 @@ public final class DeploymentService {
     }
 
     return hints;
+  }
+
+  /**
+   * URL-decodes a string, returning the original string if decoding fails.
+   * This allows both encoded and non-encoded values to work.
+   *
+   * @param value the string to decode
+   * @return the decoded string, or the original if decoding fails
+   */
+  private static String urlDecode(String value) {
+    try {
+      return URLDecoder.decode(value, "UTF-8");
+    } catch (UnsupportedEncodingException | IllegalArgumentException e) {
+      // If decoding fails, return the original value (backward compatibility)
+      return value;
+    }
   }
 }
