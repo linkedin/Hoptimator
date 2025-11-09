@@ -1,3 +1,22 @@
+/*
+ * N.B. much of this code is copy-pasted from the base class in
+ * upstream Apache Calcite.
+ *
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to you under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
@@ -6,8 +25,10 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Map;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
@@ -21,6 +42,7 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlSelect;
@@ -38,7 +60,7 @@ public final class HoptimatorDdlUtils {
   // N.B. copy-pasted from Apache Calcite
   /** Returns the schema in which to create an object;
    * the left part is null if the schema does not exist. */
-  public static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context, boolean mutable, SqlIdentifier id) {
+  static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context, boolean mutable, SqlIdentifier id) {
     final String name;
     final List<String> path;
     if (id.isSimple()) {
@@ -70,7 +92,7 @@ public final class HoptimatorDdlUtils {
   }
 
   // N.B. copy-pasted from Apache Calcite
-  public static ViewTable viewTable(CalcitePrepare.Context context, String sql, CalcitePrepareImpl impl,
+  static ViewTable viewTable(CalcitePrepare.Context context, String sql, CalcitePrepareImpl impl,
       List<String> schemaPath, List<String> viewPath) {
     CalcitePrepare.AnalyzeViewResult analyzed = impl.analyzeView(context, sql, false);
     RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);
@@ -130,5 +152,17 @@ public final class HoptimatorDdlUtils {
     schemaPlus.add(viewName, materializedViewTable);
     plan.setSink(database, sinkPath, rowType, Collections.emptyMap());
     return Pair.of(schemaPlus, currentViewTable);
+  }
+
+  static Map<String, String> options(SqlNodeList optionList) {
+    Map<String, String> options = new HashMap<>();
+    if (optionList != null) {
+      for (int i = 0; i < optionList.size() - 1; i += 2) {
+        SqlIdentifier k = (SqlIdentifier) optionList.get(i);
+        SqlLiteral v = (SqlLiteral) optionList.get(i + 1);
+        options.put(k.getSimple(), v.getValueAs(String.class));
+      }
+    }
+    return options;
   }
 }
