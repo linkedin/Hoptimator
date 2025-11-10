@@ -42,6 +42,7 @@ public class SqlCreateTrigger extends SqlCreate {
   public final SqlIdentifier view;
   public final SqlNode job;
   public final SqlNode namespace;
+  public final SqlNode cron;
   public final SqlNodeList options;
 
   // In lieu CREATE_TRIGGER, re-use similar CREATE_FUNCTION as operator kind.
@@ -50,19 +51,20 @@ public class SqlCreateTrigger extends SqlCreate {
       SqlKind.CREATE_FUNCTION);
 
   public SqlCreateTrigger(SqlParserPos pos, boolean replace, boolean ifNotExists,
-      SqlIdentifier name, SqlIdentifier view, SqlNode job, SqlNode namespace,
+      SqlIdentifier name, SqlIdentifier view, SqlNode job, SqlNode namespace, SqlNode cron,
       SqlNodeList options) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = requireNonNull(name, "name");
     this.view = requireNonNull(view, "view");
     this.job = requireNonNull(job, "job");
     this.namespace = namespace;
+    this.cron = cron;
     this.options = options;
   }
 
   @SuppressWarnings("nullness")
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableNullableList.of(name, view, job, namespace, options);
+    return ImmutableNullableList.of(name, view, job, namespace, cron, options);
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
@@ -79,6 +81,10 @@ public class SqlCreateTrigger extends SqlCreate {
     if (namespace != null) {
       writer.keyword("IN");
       namespace.unparse(writer, 0, 0);
+    }
+    if (cron != null) {
+      writer.keyword("SCHEDULED");
+      cron.unparse(writer, 0, 0);
     }
     if (options != null) {
       writer.keyword("WITH");
