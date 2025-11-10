@@ -50,13 +50,13 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     } else {
       resp = context.generic(endpoint).get(context.namespace(), name);
     }
-    K8sUtils.checkResponse("Error getting " + name, resp);
+    K8sUtils.checkResponse("Error getting " + endpoint().kind() + " " + name, resp);
     return resp.getObject();
   }
 
   public T get(String namespace, String name) throws SQLException {
     KubernetesApiResponse<T> resp = context.generic(endpoint).get(namespace, name);
-    K8sUtils.checkResponse("Error getting " + name, resp);
+    K8sUtils.checkResponse("Error getting " + endpoint().kind() + " " + name, resp);
     return resp.getObject();
   }
 

@@ -23,9 +23,12 @@ import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Trigger;
+import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.jdbc.ddl.HoptimatorDdlParserImpl;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -35,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
+import java.util.Map;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.RelRoot;
@@ -45,6 +49,7 @@ import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.server.DdlExecutor;
 import org.apache.calcite.server.ServerDdlExecutor;
 import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlCreateView;
 import org.apache.calcite.sql.ddl.SqlDropObject;
@@ -260,6 +265,67 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     logger.info("CREATE MATERIALIZED VIEW {} completed", viewName);
   }
 
+  /** Executes a {@code CREATE TRIGGER} command. */
+  public void execute(SqlCreateTrigger create, CalcitePrepare.Context context) {
+    logger.info("Validating statement: {}", create);
+    try {
+      ValidationService.validateOrThrow(create);
+    } catch (SQLException e) {
+      throw new DdlException(create, e.getMessage(), e);
+    }
+
+    if (create.name.names.size() > 1) {
+      throw new DdlException(create, "Triggers cannot belong to a schema or database.");
+    }
+    String name = create.name.names.get(0);
+
+    Pair<CalciteSchema, String> pair = HoptimatorDdlUtils.schema(context, true, create.target);
+    if (pair.left == null) {
+      throw new DdlException(create, "Schema for " + create.target + " not found.");
+    }
+    SchemaPlus schemaPlus = pair.left.plus();
+    Table target = schemaPlus.tables().get(pair.right);
+    if (target == null) {
+      throw new DdlException(create, "View/table " + create.target + " not found.");
+    }
+
+    List<String> targetSchemaPath = pair.left.path(null);
+    String targetName = pair.right;
+    List<String> targetPath = new ArrayList<>(targetSchemaPath);
+    targetPath.add(targetName);
+
+    Map<String, String> options = HoptimatorDdlUtils.options(create.options);
+
+    String jobName = ((SqlLiteral) create.job).getValueAs(String.class);
+    String jobNamespace = create.namespace != null
+        ? ((SqlLiteral) create.namespace).getValueAs(String.class) : null;
+    UserJob job = new UserJob(jobNamespace, jobName);
+    Trigger trigger = new Trigger(name, job, targetPath, options);
+
+    Collection<Deployer> deployers = null;
+    try {
+      logger.info("Validating trigger {} with deployers", name);
+      ValidationService.validateOrThrow(trigger);
+      deployers = DeploymentService.deployers(trigger, connection);
+      ValidationService.validateOrThrow(deployers);
+      logger.info("Validated trigger {}", name);
+      if (create.getReplace()) {
+        logger.info("Updating trigger {}", name);
+        DeploymentService.update(deployers);
+      } else {
+        logger.info("Creating trigger {}", name);
+        DeploymentService.create(deployers);
+      }
+      logger.info("Deployed trigger {}", name);
+      logger.info("CREATE TRIGGER {} completed", name);
+    } catch (Exception e) {
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+      }
+      throw new DdlException(create, e.getMessage(), e);
+    }
+  }
+ 
   // N.B. largely copy-pasted from Apache Calcite
 
   /** Executes {@code DROP FUNCTION}, {@code DROP TABLE}, {@code DROP MATERIALIZED VIEW}, {@code DROP TYPE},

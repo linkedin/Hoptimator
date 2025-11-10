@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-mp
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: JobTemplate
+metadata:
+  name: my-app
+  namespace: my-mp
+spec:
+  yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: {{name}}
+      namespace: my-mp
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: alpine/k8s:1.33.0
+            command: ["bash",  "-c", "echo {{trigger}} fired at `date`"]
+          restartPolicy: Never
+      backoffLimit: 4
+
