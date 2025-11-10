@@ -730,73 +730,74 @@ public interface HoptimatorDdlParserImplConstants {
   int FILE = 724;
   int ARCHIVE = 725;
   int REFRESHED = 726;
-  int UNSIGNED_INTEGER_LITERAL = 727;
-  int APPROX_NUMERIC_LITERAL = 728;
-  int DECIMAL_NUMERIC_LITERAL = 729;
-  int EXPONENT = 730;
-  int HEXDIGIT = 731;
-  int WHITESPACE = 732;
-  int BINARY_STRING_LITERAL = 733;
-  int QUOTED_STRING = 734;
-  int PREFIXED_STRING_LITERAL = 735;
-  int UNICODE_STRING_LITERAL = 736;
-  int C_STYLE_ESCAPED_STRING_LITERAL = 737;
-  int CHARSETNAME = 738;
-  int BIG_QUERY_DOUBLE_QUOTED_STRING = 739;
-  int BIG_QUERY_QUOTED_STRING = 740;
-  int UNICODE_QUOTED_ESCAPE_CHAR = 741;
-  int LPAREN = 742;
-  int RPAREN = 743;
-  int LBRACE_D = 744;
-  int LBRACE_T = 745;
-  int LBRACE_TS = 746;
-  int LBRACE_FN = 747;
-  int LBRACE = 748;
-  int RBRACE = 749;
-  int LBRACKET = 750;
-  int RBRACKET = 751;
-  int SEMICOLON = 752;
-  int DOT = 753;
-  int COMMA = 754;
-  int EQ = 755;
-  int GT = 756;
-  int LT = 757;
-  int HOOK = 758;
-  int COLON = 759;
-  int LE = 760;
-  int GE = 761;
-  int NE = 762;
-  int NE2 = 763;
-  int PLUS = 764;
-  int MINUS = 765;
-  int LAMBDA = 766;
-  int STAR = 767;
-  int SLASH = 768;
-  int PERCENT_REMAINDER = 769;
-  int CONCAT = 770;
-  int NAMED_ARGUMENT_ASSIGNMENT = 771;
-  int DOUBLE_PERIOD = 772;
-  int QUOTE = 773;
-  int DOUBLE_QUOTE = 774;
-  int VERTICAL_BAR = 775;
-  int CARET = 776;
-  int DOLLAR = 777;
-  int HINT_BEG = 783;
-  int COMMENT_END = 784;
-  int SINGLE_LINE_COMMENT = 787;
-  int FORMAL_COMMENT = 788;
-  int MULTI_LINE_COMMENT = 789;
-  int BRACKET_QUOTED_IDENTIFIER = 791;
-  int QUOTED_IDENTIFIER = 792;
-  int BACK_QUOTED_IDENTIFIER = 793;
-  int BIG_QUERY_BACK_QUOTED_IDENTIFIER = 794;
-  int HYPHENATED_IDENTIFIER = 795;
-  int IDENTIFIER = 796;
-  int COLLATION_ID = 797;
-  int UNICODE_QUOTED_IDENTIFIER = 798;
-  int LETTER = 799;
-  int DIGIT = 800;
-  int BEL = 801;
+  int SCHEDULED = 727;
+  int UNSIGNED_INTEGER_LITERAL = 728;
+  int APPROX_NUMERIC_LITERAL = 729;
+  int DECIMAL_NUMERIC_LITERAL = 730;
+  int EXPONENT = 731;
+  int HEXDIGIT = 732;
+  int WHITESPACE = 733;
+  int BINARY_STRING_LITERAL = 734;
+  int QUOTED_STRING = 735;
+  int PREFIXED_STRING_LITERAL = 736;
+  int UNICODE_STRING_LITERAL = 737;
+  int C_STYLE_ESCAPED_STRING_LITERAL = 738;
+  int CHARSETNAME = 739;
+  int BIG_QUERY_DOUBLE_QUOTED_STRING = 740;
+  int BIG_QUERY_QUOTED_STRING = 741;
+  int UNICODE_QUOTED_ESCAPE_CHAR = 742;
+  int LPAREN = 743;
+  int RPAREN = 744;
+  int LBRACE_D = 745;
+  int LBRACE_T = 746;
+  int LBRACE_TS = 747;
+  int LBRACE_FN = 748;
+  int LBRACE = 749;
+  int RBRACE = 750;
+  int LBRACKET = 751;
+  int RBRACKET = 752;
+  int SEMICOLON = 753;
+  int DOT = 754;
+  int COMMA = 755;
+  int EQ = 756;
+  int GT = 757;
+  int LT = 758;
+  int HOOK = 759;
+  int COLON = 760;
+  int LE = 761;
+  int GE = 762;
+  int NE = 763;
+  int NE2 = 764;
+  int PLUS = 765;
+  int MINUS = 766;
+  int LAMBDA = 767;
+  int STAR = 768;
+  int SLASH = 769;
+  int PERCENT_REMAINDER = 770;
+  int CONCAT = 771;
+  int NAMED_ARGUMENT_ASSIGNMENT = 772;
+  int DOUBLE_PERIOD = 773;
+  int QUOTE = 774;
+  int DOUBLE_QUOTE = 775;
+  int VERTICAL_BAR = 776;
+  int CARET = 777;
+  int DOLLAR = 778;
+  int HINT_BEG = 784;
+  int COMMENT_END = 785;
+  int SINGLE_LINE_COMMENT = 788;
+  int FORMAL_COMMENT = 789;
+  int MULTI_LINE_COMMENT = 790;
+  int BRACKET_QUOTED_IDENTIFIER = 792;
+  int QUOTED_IDENTIFIER = 793;
+  int BACK_QUOTED_IDENTIFIER = 794;
+  int BIG_QUERY_BACK_QUOTED_IDENTIFIER = 795;
+  int HYPHENATED_IDENTIFIER = 796;
+  int IDENTIFIER = 797;
+  int COLLATION_ID = 798;
+  int UNICODE_QUOTED_IDENTIFIER = 799;
+  int LETTER = 800;
+  int DIGIT = 801;
+  int BEL = 802;
 
   int DEFAULT = 0;
   int DQID = 1;
@@ -1534,6 +1535,7 @@ public interface HoptimatorDdlParserImplConstants {
     "\"FILE\"",
     "\"ARCHIVE\"",
     "\"REFRESHED\"",
+    "\"SCHEDULED\"",
     "<UNSIGNED_INTEGER_LITERAL>",
     "<APPROX_NUMERIC_LITERAL>",
     "<DECIMAL_NUMERIC_LITERAL>",
@@ -1592,12 +1594,12 @@ public interface HoptimatorDdlParserImplConstants {
     "\"\\f\"",
     "\"/*+\"",
     "\"*/\"",
-    "<token of kind 785>",
+    "<token of kind 786>",
     "\"/*\"",
     "<SINGLE_LINE_COMMENT>",
     "<FORMAL_COMMENT>",
     "<MULTI_LINE_COMMENT>",
-    "<token of kind 790>",
+    "<token of kind 791>",
     "<BRACKET_QUOTED_IDENTIFIER>",
     "<QUOTED_IDENTIFIER>",
     "<BACK_QUOTED_IDENTIFIER>",
