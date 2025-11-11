@@ -9,12 +9,15 @@ public class Trigger implements Deployable {
   private final String name;
   private final UserJob job;
   private final List<String> path;
+  private final String cronSchedule;
   private final Map<String, String> options;
 
-  public Trigger(String name, UserJob job, List<String> path, Map<String, String> options) {
+  public Trigger(String name, UserJob job, List<String> path, String cronSchedule,
+      Map<String, String> options) {
     this.name = name;
     this.job = job;
     this.path = path;
+    this.cronSchedule = cronSchedule;
     this.options = options;
   }
 
@@ -28,6 +31,10 @@ public class Trigger implements Deployable {
 
   public UserJob job() {
     return job;
+  }
+
+  public String cronSchedule() {
+    return cronSchedule;
   }
 
   public String table() {

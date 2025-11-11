@@ -32,7 +32,7 @@ import java.util.Map;
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-11T16:22:11.274Z[Etc/UTC]")
 public class V1alpha1SubscriptionStatus {
   public static final String SERIALIZED_NAME_ATTRIBUTES = "attributes";
   @SerializedName(SERIALIZED_NAME_ATTRIBUTES)

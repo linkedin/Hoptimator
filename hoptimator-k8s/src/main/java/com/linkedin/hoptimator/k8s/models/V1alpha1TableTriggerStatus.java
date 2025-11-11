@@ -29,7 +29,7 @@ import java.time.OffsetDateTime;
  * TableTrigger status.
  */
 @ApiModel(description = "TableTrigger status.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-11T16:22:11.274Z[Etc/UTC]")
 public class V1alpha1TableTriggerStatus {
   public static final String SERIALIZED_NAME_TIMESTAMP = "timestamp";
   @SerializedName(SERIALIZED_NAME_TIMESTAMP)
