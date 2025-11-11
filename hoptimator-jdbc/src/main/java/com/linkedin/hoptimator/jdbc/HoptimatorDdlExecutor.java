@@ -299,8 +299,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     String jobName = ((SqlLiteral) create.job).getValueAs(String.class);
     String jobNamespace = create.namespace != null
         ? ((SqlLiteral) create.namespace).getValueAs(String.class) : null;
+    String cronSchedule = create.cron != null
+        ? ((SqlLiteral) create.cron).getValueAs(String.class) : null;
     UserJob job = new UserJob(jobNamespace, jobName);
-    Trigger trigger = new Trigger(name, job, targetPath, options);
+    Trigger trigger = new Trigger(name, job, targetPath, cronSchedule, options);
 
     Collection<Deployer> deployers = null;
     try {

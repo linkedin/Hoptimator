@@ -31,11 +31,15 @@ import java.util.Map;
  * TableTrigger spec.
  */
 @ApiModel(description = "TableTrigger spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-11T16:22:11.274Z[Etc/UTC]")
 public class V1alpha1TableTriggerSpec {
   public static final String SERIALIZED_NAME_JOB_PROPERTIES = "jobProperties";
   @SerializedName(SERIALIZED_NAME_JOB_PROPERTIES)
   private Map<String, String> jobProperties = null;
+
+  public static final String SERIALIZED_NAME_SCHEDULE = "schedule";
+  @SerializedName(SERIALIZED_NAME_SCHEDULE)
+  private String schedule;
 
   public static final String SERIALIZED_NAME_SCHEMA = "schema";
   @SerializedName(SERIALIZED_NAME_SCHEMA)
@@ -78,6 +82,29 @@ public class V1alpha1TableTriggerSpec {
 
   public void setJobProperties(Map<String, String> jobProperties) {
     this.jobProperties = jobProperties;
+  }
+
+
+  public V1alpha1TableTriggerSpec schedule(String schedule) {
+    
+    this.schedule = schedule;
+    return this;
+  }
+
+   /**
+   * Cron schedule, which causes the trigger to fire on a schedule.
+   * @return schedule
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Cron schedule, which causes the trigger to fire on a schedule.")
+
+  public String getSchedule() {
+    return schedule;
+  }
+
+
+  public void setSchedule(String schedule) {
+    this.schedule = schedule;
   }
 
 
@@ -158,6 +185,7 @@ public class V1alpha1TableTriggerSpec {
     }
     V1alpha1TableTriggerSpec v1alpha1TableTriggerSpec = (V1alpha1TableTriggerSpec) o;
     return Objects.equals(this.jobProperties, v1alpha1TableTriggerSpec.jobProperties) &&
+        Objects.equals(this.schedule, v1alpha1TableTriggerSpec.schedule) &&
         Objects.equals(this.schema, v1alpha1TableTriggerSpec.schema) &&
         Objects.equals(this.table, v1alpha1TableTriggerSpec.table) &&
         Objects.equals(this.yaml, v1alpha1TableTriggerSpec.yaml);
@@ -165,7 +193,7 @@ public class V1alpha1TableTriggerSpec {
 
   @Override
   public int hashCode() {
-    return Objects.hash(jobProperties, schema, table, yaml);
+    return Objects.hash(jobProperties, schedule, schema, table, yaml);
   }
 
 
@@ -174,6 +202,7 @@ public class V1alpha1TableTriggerSpec {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1TableTriggerSpec {\n");
     sb.append("    jobProperties: ").append(toIndentedString(jobProperties)).append("\n");
+    sb.append("    schedule: ").append(toIndentedString(schedule)).append("\n");
     sb.append("    schema: ").append(toIndentedString(schema)).append("\n");
     sb.append("    table: ").append(toIndentedString(table)).append("\n");
     sb.append("    yaml: ").append(toIndentedString(yaml)).append("\n");

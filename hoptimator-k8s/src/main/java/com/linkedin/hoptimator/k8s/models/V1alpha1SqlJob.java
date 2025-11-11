@@ -31,7 +31,7 @@ import java.io.IOException;
  * Hoptimator generic SQL job
  */
 @ApiModel(description = "Hoptimator generic SQL job")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-06T19:55:05.553Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-11T16:22:11.274Z[Etc/UTC]")
 public class V1alpha1SqlJob implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

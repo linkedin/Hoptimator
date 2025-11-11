@@ -61,4 +61,11 @@ public class FakeK8sYamlApi extends K8sYamlApi {
   public void update(DynamicKubernetesObject obj) throws SQLException {
     nameToYaml.put(obj.getMetadata().getName(), Yaml.dump(obj));
   }
+
+  @Override
+  public DynamicKubernetesObject objFromYaml(String yaml) {
+    // The concrete class uses K8sContext to override the namespace, but
+    // this fake class has no context.
+    return Dynamics.newFromYaml(yaml);
+  }
 }

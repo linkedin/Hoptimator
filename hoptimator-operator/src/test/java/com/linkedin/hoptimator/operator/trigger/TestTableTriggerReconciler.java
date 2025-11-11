@@ -122,4 +122,32 @@ class TestTableTriggerReconciler {
       "The annotation should be updated through reconcile when job is still running and if the trigger timestamp has advanced."
     );
   }
+
+  @Test
+  void firesTriggerOnSchedule() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("cron-trigger-job").namespace("namespace"));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("cron-trigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)).schedule("@hourly"));
+    triggers.add(trigger);
+    Result result = reconciler.reconcile(new Request("namespace", "cron-trigger"));
+    Assertions.assertTrue(result.isRequeue());
+    Assertions.assertNotNull(trigger.getStatus(), "Trigger was not fired: status null");
+    Assertions.assertNotNull(trigger.getStatus().getTimestamp(), "Trigger was not fired");
+  }
+
+  @Test
+  void doesNotFireTriggerWhenNoSchedule() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("cron-trigger-job").namespace("namespace"));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("cron-trigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)));
+    triggers.add(trigger);
+    Result result = reconciler.reconcile(new Request("namespace", "cron-trigger"));
+    Assertions.assertFalse(result.isRequeue());
+    Assertions.assertTrue(trigger.getStatus() == null || trigger.getStatus().getTimestamp() == null,
+        "Trigger was fired when it shouldn't have been");
+  }
 }
