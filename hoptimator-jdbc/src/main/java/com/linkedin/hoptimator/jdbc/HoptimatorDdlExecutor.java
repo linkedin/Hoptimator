@@ -24,6 +24,8 @@ import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.View;
+import com.linkedin.hoptimator.jdbc.ddl.HoptimatorDdlParserImpl;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -44,14 +46,12 @@ import org.apache.calcite.server.DdlExecutor;
 import org.apache.calcite.server.ServerDdlExecutor;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.ddl.SqlCreateMaterializedView;
 import org.apache.calcite.sql.ddl.SqlCreateView;
 import org.apache.calcite.sql.ddl.SqlDropObject;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
 import org.apache.calcite.sql.parser.SqlParserImplFactory;
 import org.apache.calcite.sql.parser.SqlParserPos;
-import org.apache.calcite.sql.parser.ddl.SqlDdlParserImpl;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
 
@@ -76,7 +76,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
     @Override
     public SqlAbstractParserImpl getParser(Reader stream) {
-      SqlAbstractParserImpl parser = SqlDdlParserImpl.FACTORY.getParser(stream);
+      SqlAbstractParserImpl parser = HoptimatorDdlParserImpl.FACTORY.getParser(stream);
       parser.setConformance(SqlConformanceEnum.BABEL);
       return parser;
     }
@@ -158,7 +158,6 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   // N.B. copy-pasted from Apache Calcite
 
   /** Executes a {@code CREATE MATERIALIZED VIEW} command. */
-  @Override
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", create);
     try {

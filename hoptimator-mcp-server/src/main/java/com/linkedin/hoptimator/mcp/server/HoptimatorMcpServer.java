@@ -7,6 +7,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import java.sql.Connection;
@@ -33,7 +34,6 @@ import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.ddl.SqlCreateMaterializedView;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.util.Pair;
 

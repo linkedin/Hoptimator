@@ -7,6 +7,9 @@
   <Match>
     <Class name="~.*models.*"/>
   </Match>
+  <Match>
+    <Class name="~.*ddl.*"/>
+  </Match>
 
   <!--
     Allow a class to hold or return mutable objects. While this has obvious risks, it is much too
