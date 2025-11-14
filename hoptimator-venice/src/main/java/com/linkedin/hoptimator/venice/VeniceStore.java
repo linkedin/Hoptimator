@@ -10,6 +10,9 @@ import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.util.DataTypeUtils;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 
+import java.util.Objects;
+import java.util.Properties;
+
 
 /** A batch of records from a Venice store. */
 public class VeniceStore extends AbstractTable {
@@ -17,15 +20,31 @@ public class VeniceStore extends AbstractTable {
   private static final String KEY_PREFIX = "KEY_";
 
   private final StoreSchemaFetcher storeSchemaFetcher;
+  private Integer valueSchemaId = null;
 
-  public VeniceStore(StoreSchemaFetcher storeSchemaFetcher) {
+  public VeniceStore(StoreSchemaFetcher storeSchemaFetcher, Properties properties) {
     this.storeSchemaFetcher = storeSchemaFetcher;
+    if (Objects.nonNull(properties)) {
+      String schemaIdStr = properties.getProperty("valueSchemaId");
+      if (schemaIdStr != null) {
+        try {
+          valueSchemaId = Integer.parseInt(schemaIdStr);
+        } catch (NumberFormatException e) {
+          throw new IllegalArgumentException("Invalid valueSchemaId: " + schemaIdStr, e);
+        }
+      }
+    }
   }
 
   @Override
   public RelDataType getRowType(RelDataTypeFactory typeFactory) {
     Schema keySchema = storeSchemaFetcher.getKeySchema();
-    Schema valueSchema = storeSchemaFetcher.getLatestValueSchema();
+    Schema valueSchema;
+    if (valueSchemaId != null) {
+      valueSchema = storeSchemaFetcher.getValueSchema(valueSchemaId);
+    } else {
+      valueSchema = storeSchemaFetcher.getLatestValueSchema();
+    }
 
     // Venice contains both a key schema and a value schema. Since we need to pass back one joint schema,
     // and to avoid name collisions, all key fields are flattened as "KEY_foo".

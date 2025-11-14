@@ -79,7 +79,7 @@ public class ClusterSchema extends AbstractSchema {
   }
 
   protected VeniceStore createVeniceStore(StoreSchemaFetcher storeSchemaFetcher) {
-    return new VeniceStore(storeSchemaFetcher);
+    return new VeniceStore(storeSchemaFetcher, properties);
   }
 
   @Override
