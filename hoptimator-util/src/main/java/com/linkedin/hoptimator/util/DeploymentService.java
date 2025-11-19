@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.util;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -152,8 +152,8 @@ public final class DeploymentService {
    */
   private static String urlDecode(String value) {
     try {
-      return URLDecoder.decode(value, "UTF-8");
-    } catch (UnsupportedEncodingException | IllegalArgumentException e) {
+      return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    } catch (IllegalArgumentException e) {
       // If decoding fails, return the original value (backward compatibility)
       return value;
     }

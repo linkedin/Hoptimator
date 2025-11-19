@@ -78,4 +78,12 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   public Schema snapshot(SchemaVersion version) {
     return this;
   }
+
+  /**
+   * Clears the table cache, forcing tables to be re-discovered from the database.
+   * This is useful after DDL operations like CREATE TABLE.
+   */
+  public void clearTableCache() {
+    tables.reset();
+  }
 }

@@ -45,12 +45,20 @@ public class TestBasicSql extends JdbcTestBase {
     var expectedLogs = List.of(
         "[HoptimatorDdlExecutor] Validating statement: CREATE VIEW `V` AS\nSELECT *\nFROM `T`",
         "[HoptimatorDdlExecutor] Validated sql statement. The view is named V and has path [DEFAULT, V]",
-        "[HoptimatorDdlExecutor] Validating view V with deployers",
+        "[HoptimatorDdlExecutor] Validating deployable resources for view V",
         "[HoptimatorDdlExecutor] Validated view V",
         "[HoptimatorDdlExecutor] Deploying create view V",
         "[HoptimatorDdlExecutor] Deployed view V",
         "[HoptimatorDdlExecutor] Added view V to schema DEFAULT",
-        "[HoptimatorDdlExecutor] CREATE VIEW V completed");
+        "[HoptimatorDdlExecutor] CREATE VIEW V completed",
+        "[HoptimatorDdlExecutor] Validating statement: DROP VIEW `V`",
+        "[HoptimatorDdlExecutor] Deleting view V",
+        "[HoptimatorDdlExecutor] Removed view V from schema DEFAULT",
+        "[HoptimatorDdlExecutor] DROP VIEW `V` completed",
+        "[HoptimatorDdlExecutor] Validating statement: DROP TABLE `T`",
+        "[HoptimatorDdlExecutor] Deleting table T",
+        "[HoptimatorDdlExecutor] Removed table T from schema DEFAULT",
+        "[HoptimatorDdlExecutor] DROP TABLE `T` completed");
     Assertions.assertEquals(expectedLogs, logs);
   }
 
@@ -64,7 +72,7 @@ public class TestBasicSql extends JdbcTestBase {
       sql("DROP VIEW non_existing_schema.non_existing_view");
     });
     Assertions.assertTrue(
-        ex.getMessage().matches("(?s).*Cannot DROP VIEW .*?: View .*? not found\\..*"),
+        ex.getMessage().matches("(?s).*Cannot DROP VIEW .*?: Element .*? not found\\..*"),
         "Error message should match regex, but was: " + ex.getMessage()
     );
   }
