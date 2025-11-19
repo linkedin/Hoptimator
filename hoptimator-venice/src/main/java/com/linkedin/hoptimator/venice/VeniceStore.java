@@ -10,9 +10,6 @@ import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.util.DataTypeUtils;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 
-import java.util.Objects;
-import java.util.Properties;
-
 
 /** A batch of records from a Venice store. */
 public class VeniceStore extends AbstractTable {
@@ -20,20 +17,11 @@ public class VeniceStore extends AbstractTable {
   private static final String KEY_PREFIX = "KEY_";
 
   private final StoreSchemaFetcher storeSchemaFetcher;
-  private Integer valueSchemaId = null;
+  private final Integer valueSchemaId;
 
-  public VeniceStore(StoreSchemaFetcher storeSchemaFetcher, Properties properties) {
+  public VeniceStore(StoreSchemaFetcher storeSchemaFetcher, VeniceStoreConfig storeConfig) {
     this.storeSchemaFetcher = storeSchemaFetcher;
-    if (Objects.nonNull(properties)) {
-      String schemaIdStr = properties.getProperty("valueSchemaId");
-      if (schemaIdStr != null) {
-        try {
-          valueSchemaId = Integer.parseInt(schemaIdStr);
-        } catch (NumberFormatException e) {
-          throw new IllegalArgumentException("Invalid valueSchemaId: " + schemaIdStr, e);
-        }
-      }
-    }
+    this.valueSchemaId = storeConfig.getValueSchemaId();
   }
 
   @Override
