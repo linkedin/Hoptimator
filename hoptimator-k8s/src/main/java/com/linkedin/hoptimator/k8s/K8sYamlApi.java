@@ -1,14 +1,17 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;
@@ -49,17 +52,17 @@ public class K8sYamlApi implements Api<String> {
 
   @Override
   public void create(String yaml) throws SQLException {
-    createWithAnnotationsAndLabels(yaml, null, null);
+    createWithMetadata(yaml, null, null, null);
   }
 
   public void create(DynamicKubernetesObject obj) throws SQLException {
-    createWithAnnotationsAndLabels(obj, null, null);
+    createWithMetadata(obj, null, null, null);
   }
 
-  public void createWithAnnotationsAndLabels(String yaml, Map<String, String> annotations,
-      Map<String, String> labels) throws SQLException {
+  public void createWithMetadata(String yaml, Map<String, String> annotations,
+      Map<String, String> labels, List<V1OwnerReference> ownerReferences) throws SQLException {
     DynamicKubernetesObject obj = objFromYaml(yaml);
-    // Merge annotations and labels from existing yaml to the provided maps.
+    // Merge annotations, labels and owner references from existing yaml to the provided maps.
     Map<String, String> mergedAnnotations = new HashMap<>();
     Optional.ofNullable(obj.getMetadata().getAnnotations()).ifPresent(mergedAnnotations::putAll);
     Optional.ofNullable(annotations).ifPresent(mergedAnnotations::putAll);
@@ -67,13 +70,17 @@ public class K8sYamlApi implements Api<String> {
     Map<String, String> mergedLabels = new HashMap<>();
     Optional.ofNullable(obj.getMetadata().getLabels()).ifPresent(mergedLabels::putAll);
     Optional.ofNullable(labels).ifPresent(mergedLabels::putAll);
-    createWithAnnotationsAndLabels(obj, mergedAnnotations, mergedLabels);
+
+    List<V1OwnerReference> mergedOwnerReferences = new ArrayList<>();
+    Optional.ofNullable(obj.getMetadata().getOwnerReferences()).ifPresent(mergedOwnerReferences::addAll);
+    Optional.ofNullable(ownerReferences).ifPresent(mergedOwnerReferences::addAll);
+    createWithMetadata(obj, mergedAnnotations, mergedLabels, mergedOwnerReferences);
   }
 
-  public void createWithAnnotationsAndLabels(DynamicKubernetesObject obj, Map<String, String> annotations,
-      Map<String, String> labels) throws SQLException {
+  public void createWithMetadata(DynamicKubernetesObject obj, Map<String, String> annotations,
+      Map<String, String> labels, List<V1OwnerReference> ownerReferences) throws SQLException {
+    obj.setMetadata(obj.getMetadata().annotations(annotations).labels(labels).ownerReferences(ownerReferences));
     context.own(obj);
-    obj.setMetadata(obj.getMetadata().annotations(annotations).labels(labels));
     KubernetesApiResponse<DynamicKubernetesObject> resp =
         context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
     K8sUtils.checkResponse(String.format("Error creating K8s obj: %s:%s", obj.getKind(), obj.getMetadata().getName()), resp);

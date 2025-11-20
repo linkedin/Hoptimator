@@ -1,8 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Map;
 
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.Yaml;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;
@@ -24,8 +26,8 @@ public class FakeK8sYamlApi extends K8sYamlApi {
   }
 
   @Override
-  public void createWithAnnotationsAndLabels(DynamicKubernetesObject obj, Map<String, String> annotations,
-      Map<String, String> labels) throws SQLException {
+  public void createWithMetadata(DynamicKubernetesObject obj, Map<String, String> annotations,
+      Map<String, String> labels, List<V1OwnerReference> ownerReferences) throws SQLException {
     if (annotations != null) {
       if (obj.getMetadata().getAnnotations() == null) {
         obj.getMetadata().setAnnotations(annotations);

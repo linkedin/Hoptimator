@@ -225,7 +225,7 @@ public final class TableTriggerReconciler implements Reconciler {
     annotations.put(TRIGGER_TIMESTAMP_KEY, trigger.getStatus().getTimestamp().toString());
     Map<String, String> labels = new HashMap<>();
     labels.put(TRIGGER_KEY, trigger.getMetadata().getName());
-    yamlApi.createWithAnnotationsAndLabels(yaml, annotations, labels);
+    yamlApi.createWithMetadata(yaml, annotations, labels, trigger.getMetadata().getOwnerReferences());
   }
 
   private ExecutionTime scheduledExecution(V1alpha1TableTrigger object) {

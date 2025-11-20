@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -22,6 +23,7 @@ import com.linkedin.venice.controllerapi.ControllerClientFactory;
 import com.linkedin.venice.security.SSLFactory;
 import com.linkedin.venice.utils.SslUtils;
 
+import static com.linkedin.hoptimator.util.DeploymentService.parseHints;
 
 public class ClusterSchema extends AbstractSchema {
   private static final Logger log = LoggerFactory.getLogger(ClusterSchema.class);
@@ -30,6 +32,7 @@ public class ClusterSchema extends AbstractSchema {
   protected static final String DEFAULT_SSL_FACTORY_CLASS_NAME = "com.linkedin.venice.security.DefaultSSLFactory";
   protected final Properties properties;
   protected final Map<String, Table> tableMap = new HashMap<>();
+  private static final String STORE_HINT_KEY_PREFIX = "venice.%s.";
 
   public ClusterSchema(Properties properties) {
     this.properties = properties;
@@ -57,7 +60,7 @@ public class ClusterSchema extends AbstractSchema {
         log.info("Loaded {} Venice stores.", stores.length);
         for (String store : stores) {
           StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(store);
-          tableMap.put(store, createVeniceStore(storeSchemaFetcher));
+          tableMap.put(store, createVeniceStore(store, storeSchemaFetcher));
         }
       }
     }
@@ -78,8 +81,19 @@ public class ClusterSchema extends AbstractSchema {
             .setVeniceURL(properties.getProperty("router.url")));
   }
 
-  protected VeniceStore createVeniceStore(StoreSchemaFetcher storeSchemaFetcher) {
-    return new VeniceStore(storeSchemaFetcher);
+  protected VeniceStore createVeniceStore(String store, StoreSchemaFetcher storeSchemaFetcher) {
+    Map<String, String> filteredHints = filterStoreHints(store, parseHints(properties));
+    return new VeniceStore(storeSchemaFetcher, new VeniceStoreConfig(filteredHints));
+  }
+
+  protected Map<String, String> filterStoreHints(String store, Map<String, String> allHints) {
+    String prefix = String.format(STORE_HINT_KEY_PREFIX, store);
+    return allHints.entrySet().stream()
+        .filter(e -> e.getKey().startsWith(prefix))
+        .collect(Collectors.toMap(
+            e -> e.getKey().substring(prefix.length()),
+            Map.Entry::getValue
+        ));
   }
 
   @Override
