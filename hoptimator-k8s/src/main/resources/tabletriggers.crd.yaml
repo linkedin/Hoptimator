@@ -45,7 +45,7 @@ spec:
                   additionalProperties:
                     type: string
                 schedule:
-                  description: Cron schedule, which causes the trigger to fire on a schedule.
+                  description: Cron schedule, e.g. "@hourly", which causes the trigger to fire on a schedule.
                   type: string
               required:
               - schema

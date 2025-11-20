@@ -31,7 +31,7 @@ import java.util.Map;
  * TableTrigger spec.
  */
 @ApiModel(description = "TableTrigger spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-11T16:22:11.274Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-20T18:46:28.037Z[Etc/UTC]")
 public class V1alpha1TableTriggerSpec {
   public static final String SERIALIZED_NAME_JOB_PROPERTIES = "jobProperties";
   @SerializedName(SERIALIZED_NAME_JOB_PROPERTIES)
@@ -92,11 +92,11 @@ public class V1alpha1TableTriggerSpec {
   }
 
    /**
-   * Cron schedule, which causes the trigger to fire on a schedule.
+   * Cron schedule, e.g. \&quot;@hourly\&quot;, which causes the trigger to fire on a schedule.
    * @return schedule
   **/
   @javax.annotation.Nullable
-  @ApiModelProperty(value = "Cron schedule, which causes the trigger to fire on a schedule.")
+  @ApiModelProperty(value = "Cron schedule, e.g. \"@hourly\", which causes the trigger to fire on a schedule.")
 
   public String getSchedule() {
     return schedule;
