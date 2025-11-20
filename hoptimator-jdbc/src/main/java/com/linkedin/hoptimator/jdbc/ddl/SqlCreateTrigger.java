@@ -39,7 +39,7 @@ import static java.util.Objects.requireNonNull;
  */
 public class SqlCreateTrigger extends SqlCreate {
   public final SqlIdentifier name;
-  public final SqlIdentifier view;
+  public final SqlIdentifier target;
   public final SqlNode job;
   public final SqlNode namespace;
   public final SqlNode cron;
@@ -51,11 +51,11 @@ public class SqlCreateTrigger extends SqlCreate {
       SqlKind.CREATE_FUNCTION);
 
   public SqlCreateTrigger(SqlParserPos pos, boolean replace, boolean ifNotExists,
-      SqlIdentifier name, SqlIdentifier view, SqlNode job, SqlNode namespace, SqlNode cron,
+      SqlIdentifier name, SqlIdentifier target, SqlNode job, SqlNode namespace, SqlNode cron,
       SqlNodeList options) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = requireNonNull(name, "name");
-    this.view = requireNonNull(view, "view");
+    this.target = requireNonNull(target, "target");
     this.job = requireNonNull(job, "job");
     this.namespace = namespace;
     this.cron = cron;
@@ -64,7 +64,7 @@ public class SqlCreateTrigger extends SqlCreate {
 
   @SuppressWarnings("nullness")
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableNullableList.of(name, view, job, namespace, cron, options);
+    return ImmutableNullableList.of(name, target, job, namespace, cron, options);
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
@@ -75,7 +75,7 @@ public class SqlCreateTrigger extends SqlCreate {
     }
     name.unparse(writer, leftPrec, rightPrec);
     writer.keyword("ON");
-    view.unparse(writer, leftPrec, rightPrec);
+    target.unparse(writer, leftPrec, rightPrec);
     writer.keyword("AS");
     job.unparse(writer, 0, 0);
     if (namespace != null) {
