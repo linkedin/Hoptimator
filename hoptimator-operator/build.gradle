@@ -19,6 +19,7 @@ dependencies {
   implementation libs.slf4j.api
   implementation libs.commons.cli
   implementation libs.avro
+  implementation libs.cron.utils
 
   testImplementation(testFixtures(project(':hoptimator-k8s')))
   testRuntimeOnly libs.slf4j.simple

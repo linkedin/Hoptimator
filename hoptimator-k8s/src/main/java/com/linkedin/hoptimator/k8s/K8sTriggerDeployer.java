@@ -43,6 +43,7 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
         .with("name", name)
         .with("trigger", triggerName)
         .with("job", jobName)
+        .with("schedule", trigger.cronSchedule())
         .with("table", trigger.table())
         .with("schema", trigger.schema())
         .with(properties);
@@ -58,6 +59,7 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
         .spec(new V1alpha1TableTriggerSpec()
         .schema(trigger.schema())
         .table(trigger.table())
+        .schedule(trigger.cronSchedule())
         .yaml(rendered));
   }
 }

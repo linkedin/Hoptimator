@@ -44,6 +44,9 @@ spec:
                   type: object
                   additionalProperties:
                     type: string
+                schedule:
+                  description: Cron schedule, e.g. "@hourly", which causes the trigger to fire on a schedule.
+                  type: string
               required:
               - schema
               - table
@@ -70,6 +73,10 @@ spec:
         type: string
         description: Table name.
         jsonPath: .spec.table
+      - name: SCHEDULE
+        type: string
+        description: Cron schedule.
+        jsonPath: .spec.schedule
       - name: TIMESTAMP
         type: string
         description: Time last fired.

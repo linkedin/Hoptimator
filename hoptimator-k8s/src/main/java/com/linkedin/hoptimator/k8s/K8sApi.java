@@ -60,6 +60,15 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     return resp.getObject();
   }
 
+  public T getIfExists(String namespace, String name) throws SQLException {
+    KubernetesApiResponse<T> resp = context.generic(endpoint).get(namespace, name);
+    if (resp.getHttpStatusCode() == 404) {
+      return null;
+    }
+    K8sUtils.checkResponse("Error getting " + endpoint().kind() + " " + name, resp);
+    return resp.getObject();
+  }
+
   public T get(T obj) throws SQLException {
     if (obj.getMetadata().getNamespace() == null && !endpoint.clusterScoped()) {
       obj.getMetadata().namespace(context.namespace());

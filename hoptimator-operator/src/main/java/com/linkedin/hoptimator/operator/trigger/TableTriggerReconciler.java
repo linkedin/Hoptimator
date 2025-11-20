@@ -3,7 +3,7 @@ package com.linkedin.hoptimator.operator.trigger;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
-import java.util.Collection;
+import java.time.ZonedDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,6 +21,7 @@ import io.kubernetes.client.extended.controller.reconciler.Result;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1JobCondition;
 import io.kubernetes.client.openapi.models.V1JobList;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
@@ -30,6 +31,11 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 import com.linkedin.hoptimator.util.Template;
+
+import com.cronutils.parser.CronParser;
+import com.cronutils.model.definition.CronDefinition;
+import com.cronutils.model.definition.CronDefinitionBuilder;
+import com.cronutils.model.time.ExecutionTime;
 
 
 /**
@@ -64,6 +70,21 @@ public final class TableTriggerReconciler implements Reconciler {
   private static final Logger log = LoggerFactory.getLogger(TableTriggerReconciler.class);
   static final String TRIGGER_KEY = "trigger";
   static final String TRIGGER_TIMESTAMP_KEY = "triggerTimestamp";
+  static final CronDefinition CRON_DEFINITION = CronDefinitionBuilder.defineCron()
+      .withMinutes().withValidRange(0, 59).withStrictRange().and()
+      .withHours().withValidRange(0, 23).withStrictRange().and()
+      .withDayOfMonth().withValidRange(1, 31).withStrictRange().and()
+      .withMonth().withValidRange(1, 12).withStrictRange().and()
+      .withDayOfWeek().withValidRange(0, 7).withMondayDoWValue(1).withIntMapping(7, 0).withStrictRange().and()
+      .withSupportedNicknameHourly()
+      .withSupportedNicknameDaily()
+      .withSupportedNicknameWeekly()
+      .withSupportedNicknameMonthly()
+      .withSupportedNicknameYearly()
+      .withSupportedNicknameAnnually()
+      .withSupportedNicknameMidnight()
+      .instance();
+
 
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi;
   private final K8sApi<V1Job, V1JobList> jobApi;
@@ -100,27 +121,49 @@ public final class TableTriggerReconciler implements Reconciler {
         throw e;
       }
 
-      V1alpha1TableTriggerStatus status = object.getStatus();
-      if (status == null || status.getTimestamp() == null) {
-        log.info("Trigger {} has not been fired yet. Skipping.", name);
-        return new Result(false);
-      }
-
-      log.info("TableTrigger {} was last fired at {}.", name, status.getTimestamp());
-
       if (object.getSpec().getYaml() == null) {
         log.info("Trigger {} has no Job YAML. Will take no action.", name);
         return new Result(false);
       }
 
+      V1alpha1TableTriggerStatus status = object.getStatus();
+      if (status == null && object.getSpec().getSchedule() == null) {
+        log.info("Trigger {} has not been fired yet. Skipping.", name);
+        return new Result(false);
+      } else if (status == null) {
+        status = new V1alpha1TableTriggerStatus();
+        object.status(status);
+      }
+ 
+      if (status.getTimestamp() != null) {
+        log.info("TableTrigger {} was last fired at {}.", name, status.getTimestamp());
+      }
+
       // Find corresponding Job.
-      Collection<V1Job> jobs = jobApi.select(TRIGGER_KEY + " = " + name);
-      V1Job job = jobs.stream().findFirst().orElse(null);  // assume only one job.
+      String jobYaml = jobYaml(object);
+      DynamicKubernetesObject expectedJob = yamlApi.objFromYaml(jobYaml);
+      V1Job job = jobApi.getIfExists(expectedJob.getMetadata().getNamespace(), expectedJob.getMetadata().getName());
+
+      ExecutionTime scheduled = scheduledExecution(object);
+      ZonedDateTime now = ZonedDateTime.now();
+
+      if (job == null && scheduled != null && (status.getTimestamp() == null
+          || status.getTimestamp().isBefore(scheduled.lastExecution(now).get().toOffsetDateTime()))) {
+        log.info("Firing TableTrigger {} per cron schedule.", name);
+        status.setTimestamp(scheduled.lastExecution(now).get().toOffsetDateTime());
+        tableTriggerApi.updateStatus(object, status);
+        return new Result(true);
+      }
+
+      // sanity check
+      if (status.getTimestamp() == null && object.getStatus().getTimestamp() != null) {
+        throw new IllegalStateException("Trigger has no timestamp.");
+      }
 
       if (job == null
           && (status.getWatermark() == null || status.getTimestamp().isAfter(status.getWatermark()))) {
         log.info("Launching Job for TableTrigger {}. ", name);
-        createJob(object);
+        createJob(jobYaml, object);
         return new Result(true, pendingRetryDuration());
       } else if (job != null && job.getStatus() != null && job.getStatus().getConditions() != null) {
         List<V1JobCondition> conditions = job.getStatus().getConditions();
@@ -151,6 +194,9 @@ public final class TableTriggerReconciler implements Reconciler {
           log.info("Job for TableTrigger {} still running from a previous trigger event.", name);
           return new Result(true, pendingRetryDuration());  // retry later
         }
+      } else if (job == null && scheduled != null) {
+        log.info("TableTrigger {} sleeping until next scheduled execution.", name);
+        return new Result(true, scheduled.timeToNextExecution(now).get());
       } else {
         log.info("Job for TableTrigger {} has no status yet.", name);
         return new Result(true, pendingRetryDuration());  // retry later
@@ -161,21 +207,34 @@ public final class TableTriggerReconciler implements Reconciler {
     }
   }
 
-  private void createJob(V1alpha1TableTrigger trigger) throws SQLException {
+  private String jobYaml(V1alpha1TableTrigger trigger) throws SQLException {
     Template.Environment env = new Template.SimpleEnvironment()
         .with("trigger", trigger.getMetadata().getName())
         .with("schema", trigger.getSpec().getSchema())
         .with("table", trigger.getSpec().getTable())
-        .with("timestamp", trigger.getStatus().getTimestamp().toString())
+        .with("timestamp", Optional.ofNullable(trigger.getStatus().getTimestamp())
+            .map(x -> x.toString()).orElse(null))
         .with("watermark", Optional.ofNullable(trigger.getStatus().getWatermark())
             .map(x -> x.toString()).orElse(null));
-    String yaml = new Template.SimpleTemplate(trigger.getSpec().getYaml()).render(env);
+    return new Template.SimpleTemplate(trigger.getSpec().getYaml()).render(env);
+  }
+
+  private void createJob(String yaml, V1alpha1TableTrigger trigger) throws SQLException {
     Map<String, String> annotations = new HashMap<>();
     annotations.put(TRIGGER_KEY, trigger.getMetadata().getName());
     annotations.put(TRIGGER_TIMESTAMP_KEY, trigger.getStatus().getTimestamp().toString());
     Map<String, String> labels = new HashMap<>();
     labels.put(TRIGGER_KEY, trigger.getMetadata().getName());
     yamlApi.createWithMetadata(yaml, annotations, labels, trigger.getMetadata().getOwnerReferences());
+  }
+
+  private ExecutionTime scheduledExecution(V1alpha1TableTrigger object) {
+    if (object.getSpec().getSchedule() == null) {
+      return null;
+    } else {
+      CronParser parser = new CronParser(CRON_DEFINITION);
+      return ExecutionTime.forCron(parser.parse(object.getSpec().getSchedule()));
+    }
   }
 
   // TODO load from configuration
