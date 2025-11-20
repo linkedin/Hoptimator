@@ -86,7 +86,7 @@ public class ClusterSchema extends AbstractSchema {
     return new VeniceStore(storeSchemaFetcher, new VeniceStoreConfig(filteredHints));
   }
 
-  private Map<String, String> filterStoreHints(String store, Map<String, String> allHints) {
+  protected Map<String, String> filterStoreHints(String store, Map<String, String> allHints) {
     String prefix = String.format(STORE_HINT_KEY_PREFIX, store);
     return allHints.entrySet().stream()
         .filter(e -> e.getKey().startsWith(prefix))
