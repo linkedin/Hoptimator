@@ -1,7 +1,4 @@
 <#--
-//
-// Copy-pasted from Apache Calcite with modifications.
-//
 // Licensed to the Apache Software Foundation (ASF) under one or more
 // contributor license agreements.  See the NOTICE file distributed with
 // this work for additional information regarding copyright ownership.
@@ -402,5 +399,174 @@ SqlDrop SqlDropFunction(Span s, boolean replace) :
     <FUNCTION> ifExists = IfExistsOpt()
     id = CompoundIdentifier() {
         return SqlDdlNodes.dropFunction(s.end(this), ifExists, id);
+    }
+}
+
+SqlRefresh SqlRefresh() :
+{
+    final Span s;
+    final SqlRefresh refresh;
+}
+{
+    <REFRESH> { s = span(); }
+    (
+        refresh = SqlRefreshMaterializedView(s)
+    )
+    {
+        return refresh;
+    }
+}
+
+SqlRefresh SqlRefreshMaterializedView(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <MATERIALIZED> <VIEW> id = CompoundIdentifier()
+    {
+        return new SqlRefreshMaterializedView(s.end(this), id);
+    }
+}
+
+SqlFire SqlFire() :
+{
+    final Span s;
+    final SqlFire fire;
+}
+{
+    <FIRE> { s = span(); }
+    (
+        fire = SqlFireMaterializedView(s)
+    |
+        fire = SqlFireTable(s)
+    |
+        fire = SqlFireTrigger(s)
+    |
+        fire = SqlFireView(s)
+    )
+    {
+        return fire;
+    }
+}
+
+SqlFire SqlFireTable(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <TABLE> id = CompoundIdentifier()
+    {
+        return new SqlFireTable(s.end(this), id);
+    }
+}
+
+SqlFire SqlFireTrigger(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <TRIGGER> id = CompoundIdentifier()
+    {
+        return new SqlFireTrigger(s.end(this), id);
+    }
+}
+
+SqlFire SqlFireView(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <VIEW> id = CompoundIdentifier()
+    {
+        return new SqlFireView(s.end(this), id);
+    }
+}
+
+SqlFire SqlFireMaterializedView(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <MATERIALIZED> <VIEW> id = CompoundIdentifier()
+    {
+        return new SqlFireMaterializedView(s.end(this), id);
+    }
+}
+
+SqlPause SqlPause() :
+{
+    final Span s;
+    final SqlPause pause;
+}
+{
+    <PAUSE> { s = span(); }
+    (
+        pause = SqlPauseMaterializedView(s)
+    |
+        pause = SqlPauseTrigger(s)
+    )
+    {
+        return pause;
+    }
+}
+
+SqlResume SqlResume() :
+{
+    final Span s;
+    final SqlResume resume;
+}
+{
+    <RESUME> { s = span(); }
+    (
+        resume = SqlResumeMaterializedView(s)
+    |
+        resume = SqlResumeTrigger(s)
+    )
+    {
+        return resume;
+    }
+}
+
+SqlPause SqlPauseMaterializedView(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <MATERIALIZED> <VIEW> id = CompoundIdentifier()
+    {
+        return new SqlPauseMaterializedView(s.end(this), id);
+    }
+}
+
+SqlPause SqlPauseTrigger(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <TRIGGER> id = CompoundIdentifier()
+    {
+        return new SqlPauseTrigger(s.end(this), id);
+    }
+}
+
+SqlResume SqlResumeMaterializedView(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <MATERIALIZED> <VIEW> id = CompoundIdentifier()
+    {
+        return new SqlResumeMaterializedView(s.end(this), id);
+    }
+}
+
+SqlResume SqlResumeTrigger(Span s) :
+{
+    final SqlIdentifier id;
+}
+{
+    <TRIGGER> id = CompoundIdentifier()
+    {
+        return new SqlResumeTrigger(s.end(this), id);
     }
 }

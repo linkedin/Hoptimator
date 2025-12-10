@@ -731,73 +731,77 @@ public interface HoptimatorDdlParserImplConstants {
   int ARCHIVE = 725;
   int REFRESHED = 726;
   int SCHEDULED = 727;
-  int UNSIGNED_INTEGER_LITERAL = 728;
-  int APPROX_NUMERIC_LITERAL = 729;
-  int DECIMAL_NUMERIC_LITERAL = 730;
-  int EXPONENT = 731;
-  int HEXDIGIT = 732;
-  int WHITESPACE = 733;
-  int BINARY_STRING_LITERAL = 734;
-  int QUOTED_STRING = 735;
-  int PREFIXED_STRING_LITERAL = 736;
-  int UNICODE_STRING_LITERAL = 737;
-  int C_STYLE_ESCAPED_STRING_LITERAL = 738;
-  int CHARSETNAME = 739;
-  int BIG_QUERY_DOUBLE_QUOTED_STRING = 740;
-  int BIG_QUERY_QUOTED_STRING = 741;
-  int UNICODE_QUOTED_ESCAPE_CHAR = 742;
-  int LPAREN = 743;
-  int RPAREN = 744;
-  int LBRACE_D = 745;
-  int LBRACE_T = 746;
-  int LBRACE_TS = 747;
-  int LBRACE_FN = 748;
-  int LBRACE = 749;
-  int RBRACE = 750;
-  int LBRACKET = 751;
-  int RBRACKET = 752;
-  int SEMICOLON = 753;
-  int DOT = 754;
-  int COMMA = 755;
-  int EQ = 756;
-  int GT = 757;
-  int LT = 758;
-  int HOOK = 759;
-  int COLON = 760;
-  int LE = 761;
-  int GE = 762;
-  int NE = 763;
-  int NE2 = 764;
-  int PLUS = 765;
-  int MINUS = 766;
-  int LAMBDA = 767;
-  int STAR = 768;
-  int SLASH = 769;
-  int PERCENT_REMAINDER = 770;
-  int CONCAT = 771;
-  int NAMED_ARGUMENT_ASSIGNMENT = 772;
-  int DOUBLE_PERIOD = 773;
-  int QUOTE = 774;
-  int DOUBLE_QUOTE = 775;
-  int VERTICAL_BAR = 776;
-  int CARET = 777;
-  int DOLLAR = 778;
-  int HINT_BEG = 784;
-  int COMMENT_END = 785;
-  int SINGLE_LINE_COMMENT = 788;
-  int FORMAL_COMMENT = 789;
-  int MULTI_LINE_COMMENT = 790;
-  int BRACKET_QUOTED_IDENTIFIER = 792;
-  int QUOTED_IDENTIFIER = 793;
-  int BACK_QUOTED_IDENTIFIER = 794;
-  int BIG_QUERY_BACK_QUOTED_IDENTIFIER = 795;
-  int HYPHENATED_IDENTIFIER = 796;
-  int IDENTIFIER = 797;
-  int COLLATION_ID = 798;
-  int UNICODE_QUOTED_IDENTIFIER = 799;
-  int LETTER = 800;
-  int DIGIT = 801;
-  int BEL = 802;
+  int FIRE = 728;
+  int REFRESH = 729;
+  int PAUSE = 730;
+  int RESUME = 731;
+  int UNSIGNED_INTEGER_LITERAL = 732;
+  int APPROX_NUMERIC_LITERAL = 733;
+  int DECIMAL_NUMERIC_LITERAL = 734;
+  int EXPONENT = 735;
+  int HEXDIGIT = 736;
+  int WHITESPACE = 737;
+  int BINARY_STRING_LITERAL = 738;
+  int QUOTED_STRING = 739;
+  int PREFIXED_STRING_LITERAL = 740;
+  int UNICODE_STRING_LITERAL = 741;
+  int C_STYLE_ESCAPED_STRING_LITERAL = 742;
+  int CHARSETNAME = 743;
+  int BIG_QUERY_DOUBLE_QUOTED_STRING = 744;
+  int BIG_QUERY_QUOTED_STRING = 745;
+  int UNICODE_QUOTED_ESCAPE_CHAR = 746;
+  int LPAREN = 747;
+  int RPAREN = 748;
+  int LBRACE_D = 749;
+  int LBRACE_T = 750;
+  int LBRACE_TS = 751;
+  int LBRACE_FN = 752;
+  int LBRACE = 753;
+  int RBRACE = 754;
+  int LBRACKET = 755;
+  int RBRACKET = 756;
+  int SEMICOLON = 757;
+  int DOT = 758;
+  int COMMA = 759;
+  int EQ = 760;
+  int GT = 761;
+  int LT = 762;
+  int HOOK = 763;
+  int COLON = 764;
+  int LE = 765;
+  int GE = 766;
+  int NE = 767;
+  int NE2 = 768;
+  int PLUS = 769;
+  int MINUS = 770;
+  int LAMBDA = 771;
+  int STAR = 772;
+  int SLASH = 773;
+  int PERCENT_REMAINDER = 774;
+  int CONCAT = 775;
+  int NAMED_ARGUMENT_ASSIGNMENT = 776;
+  int DOUBLE_PERIOD = 777;
+  int QUOTE = 778;
+  int DOUBLE_QUOTE = 779;
+  int VERTICAL_BAR = 780;
+  int CARET = 781;
+  int DOLLAR = 782;
+  int HINT_BEG = 788;
+  int COMMENT_END = 789;
+  int SINGLE_LINE_COMMENT = 792;
+  int FORMAL_COMMENT = 793;
+  int MULTI_LINE_COMMENT = 794;
+  int BRACKET_QUOTED_IDENTIFIER = 796;
+  int QUOTED_IDENTIFIER = 797;
+  int BACK_QUOTED_IDENTIFIER = 798;
+  int BIG_QUERY_BACK_QUOTED_IDENTIFIER = 799;
+  int HYPHENATED_IDENTIFIER = 800;
+  int IDENTIFIER = 801;
+  int COLLATION_ID = 802;
+  int UNICODE_QUOTED_IDENTIFIER = 803;
+  int LETTER = 804;
+  int DIGIT = 805;
+  int BEL = 806;
 
   int DEFAULT = 0;
   int DQID = 1;
@@ -1536,6 +1540,10 @@ public interface HoptimatorDdlParserImplConstants {
     "\"ARCHIVE\"",
     "\"REFRESHED\"",
     "\"SCHEDULED\"",
+    "\"FIRE\"",
+    "\"REFRESH\"",
+    "\"PAUSE\"",
+    "\"RESUME\"",
     "<UNSIGNED_INTEGER_LITERAL>",
     "<APPROX_NUMERIC_LITERAL>",
     "<DECIMAL_NUMERIC_LITERAL>",
@@ -1594,12 +1602,12 @@ public interface HoptimatorDdlParserImplConstants {
     "\"\\f\"",
     "\"/*+\"",
     "\"*/\"",
-    "<token of kind 786>",
+    "<token of kind 790>",
     "\"/*\"",
     "<SINGLE_LINE_COMMENT>",
     "<FORMAL_COMMENT>",
     "<MULTI_LINE_COMMENT>",
-    "<token of kind 791>",
+    "<token of kind 795>",
     "<BRACKET_QUOTED_IDENTIFIER>",
     "<QUOTED_IDENTIFIER>",
     "<BACK_QUOTED_IDENTIFIER>",
