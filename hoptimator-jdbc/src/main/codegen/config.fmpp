@@ -1,6 +1,3 @@
-#
-# Copy-pasted from Apache Calcite with minor modifications.
-#
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -38,6 +35,18 @@ data: {
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlFire"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlFireMaterializedView"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlFireTrigger"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlFireView"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlPause"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlPauseMaterializedView"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlResume"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlResumeMaterializedView"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlRefresh"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlRefreshMaterializedView"
     ]
 
     # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is
@@ -52,6 +61,10 @@ data: {
       "ARCHIVE"
       "REFRESHED"
       "SCHEDULED"
+      "FIRE"
+      "REFRESH"
+      "PAUSE"
+      "RESUME"
     ]
 
     # List of non-reserved keywords to add;
@@ -67,6 +80,10 @@ data: {
       "ARCHIVE"
       "REFRESHED"
       "SCHEDULED"
+      "FIRE"
+      "REFRESH"
+      "PAUSE"
+      "RESUME"
     ]
 
     # List of methods for parsing extensions to "CREATE [OR REPLACE]" calls.
@@ -91,11 +108,14 @@ data: {
       "SqlDropFunction"
     ]
 
-  # List of methods for parsing extensions to "TRUNCATE" calls.
-  # Each must accept arguments "(SqlParserPos pos)".
-  # Example: "SqlTruncateTable".
-  truncateStatementParserMethods: [
-  ]
+    # Extensions to top-level statement parser
+    # N.B.: parens required here due to apparent bug in parser template
+    statementParserMethods: [
+      "SqlRefresh()"
+      "SqlFire()"
+      "SqlPause()"
+      "SqlResume()"
+    ]
 
     # List of files in @includes directory that have parser method
     # implementations for parsing custom SQL statements, literals or types
