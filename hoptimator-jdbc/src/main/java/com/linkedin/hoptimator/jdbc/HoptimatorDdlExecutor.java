@@ -67,7 +67,10 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlCreateTable;
 import org.apache.calcite.sql.ddl.SqlCreateView;
+import org.apache.calcite.sql.ddl.SqlDropMaterializedView;
 import org.apache.calcite.sql.ddl.SqlDropObject;
+import org.apache.calcite.sql.ddl.SqlDropTable;
+import org.apache.calcite.sql.ddl.SqlDropView;
 import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.parser.SqlAbstractParserImpl;
@@ -519,6 +522,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     try {
       if (table instanceof MaterializedViewTable) {
+        if (!(drop instanceof SqlDropMaterializedView)) {
+          throw new DdlException(drop,
+              "Element " + tableName + " is a materialized view and does not correspond to " + drop.getOperator());
+        }
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
         View view = new View(tablePath, materializedViewTable.viewSql());
         deployers = DeploymentService.deployers(view, connection);
@@ -527,6 +534,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         schemaPlus.removeTable(tableName);
         logger.info("Removed materialized table {} from schema {}", tableName, schemaPlus.getName());
       } else if (table instanceof ViewTable) {
+        if (!(drop instanceof SqlDropView)) {
+          throw new DdlException(drop,
+              "Element " + tableName + " is a view and does not correspond to " + drop.getOperator());
+        }
         ViewTable viewTable = (ViewTable) table;
         View view = new View(tablePath, viewTable.getViewSql());
         deployers = DeploymentService.deployers(view, connection);
@@ -534,18 +545,20 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         DeploymentService.delete(deployers);
         schemaPlus.removeTable(tableName);
         logger.info("Removed view {} from schema {}", tableName, schemaPlus.getName());
-      } else if (table instanceof HoptimatorJdbcTable) {
-        HoptimatorJdbcTable jdbcTable = (HoptimatorJdbcTable) table;
-        HoptimatorJdbcSchema jdbcSchema = (HoptimatorJdbcSchema) jdbcTable.jdbcTable().jdbcSchema;
-        Source source = new Source(jdbcSchema.databaseName(), tablePath, Collections.emptyMap());
-        deployers = DeploymentService.deployers(source, connection);
-        logger.info("Deleting table {}", tableName);
-        DeploymentService.delete(deployers);
-        schemaPlus.removeTable(tableName);
-        logger.info("Removed table {} from schema {}", tableName, schemaPlus.getName());
-      } else if (table instanceof TemporaryTable) {
-        TemporaryTable temporaryTable = (TemporaryTable) table;
-        Source source = new Source(temporaryTable.databaseName(), tablePath, Collections.emptyMap());
+      } else if (table instanceof HoptimatorJdbcTable || table instanceof TemporaryTable) {
+        if (!(drop instanceof SqlDropTable)) {
+          throw new DdlException(drop,
+              "Element " + tableName + " is a table and does not correspond to " + drop.getOperator());
+        }
+        Source source;
+        if (table instanceof HoptimatorJdbcTable) {
+          HoptimatorJdbcTable jdbcTable = (HoptimatorJdbcTable) table;
+          HoptimatorJdbcSchema jdbcSchema = (HoptimatorJdbcSchema) jdbcTable.jdbcTable().jdbcSchema;
+          source = new Source(jdbcSchema.databaseName(), tablePath, Collections.emptyMap());
+        } else {
+          TemporaryTable temporaryTable = (TemporaryTable) table;
+          source = new Source(temporaryTable.databaseName(), tablePath, Collections.emptyMap());
+        }
         deployers = DeploymentService.deployers(source, connection);
         logger.info("Deleting table {}", tableName);
         DeploymentService.delete(deployers);

@@ -115,12 +115,12 @@ drop materialized view ads.pages;
 
 !update
 
-drop materialized view ads.audience;
+drop materialized view ads.audience2;
 (0 rows modified)
 
 !update
 
-drop materialized view ads.audience2;
+drop view ads.audience;
 (0 rows modified)
 
 !update
