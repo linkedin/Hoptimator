@@ -118,6 +118,25 @@ select * from ads."PAGE_VIEWS$filter";
 
 !ok
 
+create or replace table ads."newtable" ("i" int, "s" VARCHAR);
+(0 rows modified)
+
+!update
+
+select * from ads."newtable";
++---+---+
+| i | s |
++---+---+
++---+---+
+(0 rows)
+
+!ok
+
+drop table ads."newtable";
+(0 rows modified)
+
+!update
+
 drop materialized view ads."PAGE_VIEWS$filter";
 (0 rows modified)
 

@@ -82,30 +82,29 @@ public abstract class QuidemTestBase {
           @Override
           public void execute(Context context, boolean execute) throws Exception {
             if (execute) {
-              try (Connection connection = context.connection()) {
-                if (!(connection instanceof HoptimatorConnection)) {
-                  throw new IllegalArgumentException("This connection doesn't support `!specify`.");
-                }
-                String sql = context.previousSqlCommand().sql;
-                HoptimatorConnection conn = (HoptimatorConnection) connection;
-                RelRoot root = HoptimatorDriver.convert(conn, sql).root;
-                String[] parts = line.split(" ", 2);
-                String pipelineName = parts.length == 2 ? parts[1] : "test";
-                Properties properties = new Properties();
-                properties.putAll(conn.connectionProperties());
-                properties.put(DeploymentService.PIPELINE_OPTION, pipelineName);
-                Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList(), properties)
-                    .pipeline(pipelineName, conn);
-                List<String> specs = new ArrayList<>();
-                for (Source source : pipeline.sources()) {
-                  specs.addAll(DeploymentService.specify(source, conn));
-                }
-                specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-                specs.addAll(DeploymentService.specify(pipeline.job(), conn));
-                String joined = specs.stream().sorted().collect(Collectors.joining("---\n"));
-                String[] lines = joined.replaceAll(";\n", "\n").split("\n");
-                context.echo(Arrays.asList(lines));
+              Connection connection = context.connection();
+              if (!(connection instanceof HoptimatorConnection)) {
+                throw new IllegalArgumentException("This connection doesn't support `!specify`.");
               }
+              String sql = context.previousSqlCommand().sql;
+              HoptimatorConnection conn = (HoptimatorConnection) connection;
+              RelRoot root = HoptimatorDriver.convert(conn, sql).root;
+              String[] parts = line.split(" ", 2);
+              String pipelineName = parts.length == 2 ? parts[1] : "test";
+              Properties properties = new Properties();
+              properties.putAll(conn.connectionProperties());
+              properties.put(DeploymentService.PIPELINE_OPTION, pipelineName);
+              Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList(), properties)
+                  .pipeline(pipelineName, conn);
+              List<String> specs = new ArrayList<>();
+              for (Source source : pipeline.sources()) {
+                specs.addAll(DeploymentService.specify(source, conn));
+              }
+              specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
+              specs.addAll(DeploymentService.specify(pipeline.job(), conn));
+              String joined = specs.stream().sorted().collect(Collectors.joining("---\n"));
+              String[] lines = joined.replaceAll(";\n", "\n").split("\n");
+              context.echo(Arrays.asList(lines));
             } else {
               context.echo(content);
             }

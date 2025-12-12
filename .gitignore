@@ -3,6 +3,7 @@
 /build
 */build/
 */*.iml
+*bin/
 ./models/external/
 .DS_Store
 

@@ -119,7 +119,7 @@ public class HoptimatorPlanner {
     if (rootName == null || rootName.isEmpty()) {
       rootName = "ROOT";
     }
-    Schema subSchema = schema.getSubSchema(name);
+    Schema subSchema = schema.subSchemas().get(name);
     if (subSchema == null) {
       throw new NoSuchElementException("No database '" + name + "' found in schema '" + rootName + "'");
     }
