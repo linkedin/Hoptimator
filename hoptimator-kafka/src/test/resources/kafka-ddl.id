@@ -16,7 +16,7 @@ select count(*) as TABLE_EXISTS from kafka."new-topic$kafka-test" where 1=0;
 
 !ok
 
-drop materialized view kafka."new-topic$kafka-test";
+drop view kafka."new-topic$kafka-test";
 (0 rows modified)
 
 !update

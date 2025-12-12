@@ -20,7 +20,7 @@ insert into "VENICE"."integration-test-store" ("KEY_id", "i") select "KEY", "int
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
-  name: venice-sink
+  name: venice-integration-test-store
 spec:
   deploymentName: basic-session-deployment
   job:

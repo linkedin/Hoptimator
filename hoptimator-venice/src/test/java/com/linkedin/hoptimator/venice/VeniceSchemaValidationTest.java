@@ -26,6 +26,6 @@ public class VeniceSchemaValidationTest extends JdbcTestBase {
         );
         validateTableSchema(List.of("VENICE", "test-store$insert-partial"), expectedColumns);
 
-        sql("drop view venice.\"test-store$insert-partial\"");
+        sql("drop materialized view venice.\"test-store$insert-partial\"");
     }
 }
