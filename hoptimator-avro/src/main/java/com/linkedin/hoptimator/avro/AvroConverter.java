@@ -35,7 +35,15 @@ public final class AvroConverter {
     String newNamespace = namespace + "." + name;
     if (dataType.isStruct()) {
       List<Schema.Field> fields = dataType.getFieldList().stream()
-          .map(x -> new Schema.Field(sanitize(x.getName()), avro(newNamespace, x.getName(), x.getType()), describe(x), null))
+          .map(x -> {
+            Schema innerField = avro(newNamespace, x.getName(), x.getType());
+            Object defaultValue = null;
+            // For unions containing null, defaults are specified in a specific way
+            if (innerField.isUnion() && innerField.isNullable()) {
+              defaultValue = Schema.Field.NULL_DEFAULT_VALUE;
+            }
+            return new Schema.Field(sanitize(x.getName()), innerField, describe(x), defaultValue);
+          })
           .collect(Collectors.toList());
       return createAvroSchemaWithNullability(Schema.createRecord(sanitize(name), dataType.toString(), newNamespace, false, fields),
           dataType.isNullable());
@@ -150,6 +158,7 @@ public final class AvroConverter {
   /** Converts Avro Schema to RelDataType.
    * Nullability is preserved except for array types, JDBC is incapable of interpreting e.g. "FLOAT NOT NULL ARRAY"
    * causing "NOT NULL" arrays to get demoted to "ANY ARRAY" which is not desired.
+   * TODO: default field values are lost when converting from Avro to RelDataType
    */
   public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory, boolean nullable) {
     RelDataType unknown = typeFactory.createUnknownType();

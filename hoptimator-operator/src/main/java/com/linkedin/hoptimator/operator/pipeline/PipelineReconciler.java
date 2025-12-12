@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.operator.pipeline;
 import java.sql.SQLException;
 import java.time.Duration;
 
+import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,8 +66,9 @@ public final class PipelineReconciler implements Reconciler {
 
       log.info("Checking status of Pipeline {}...", name);
 
-      boolean ready =
-          elementStatusEstimator.estimateStatuses(object).stream().allMatch(K8sPipelineElementStatus::isReady);
+      List<K8sPipelineElementStatus> elementStatuses = elementStatusEstimator.estimateStatuses(object);
+      boolean ready = elementStatuses.stream().allMatch(K8sPipelineElementStatus::isReady);
+      boolean failed = elementStatuses.stream().allMatch(K8sPipelineElementStatus::isFailed);
 
       if (ready) {
         status.setReady(true);
@@ -74,6 +76,11 @@ public final class PipelineReconciler implements Reconciler {
         status.setMessage("Ready.");
         log.info("Pipeline {} is ready.", name);
         result = new Result(false);
+      } else if (failed) {
+        status.setReady(false);
+        status.setFailed(true);
+        status.setMessage("Failed.");
+        log.info("Pipeline {} failed.", name);
       } else {
         status.setReady(false);
         status.setFailed(false);
