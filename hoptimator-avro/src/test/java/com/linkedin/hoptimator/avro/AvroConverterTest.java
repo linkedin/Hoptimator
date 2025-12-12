@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
@@ -47,6 +48,7 @@ public class AvroConverterTest {
     Schema avroSchema4 = AvroConverter.avro("NS", "R", rel1);
     assertFalse(avroSchema4.isNullable());
     assertEquals(avroSchema4.getFields().size(), rel1.getFieldCount());
+    assertEquals(JsonProperties.NULL_VALUE, avroSchema4.getField("h").defaultVal());
     Schema avroSchema5 = AvroConverter.avro("NS", "R", rel2);
     assertTrue(avroSchema5.isNullable());
     assertEquals(avroSchema5.getTypes().get(1).getFields().size(), rel2.getFieldCount());
