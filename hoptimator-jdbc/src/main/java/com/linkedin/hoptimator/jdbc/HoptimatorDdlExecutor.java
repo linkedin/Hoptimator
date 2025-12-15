@@ -118,6 +118,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
   };
 
+  // N.B. originally copy-pasted from Apache Calcite
+
   /** Executes a {@code CREATE VIEW} command. */
   @Override
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
@@ -185,6 +187,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     logger.info("CREATE VIEW {} completed", viewName);
   }
+
+  // N.B. originally copy-pasted from Apache Calcite
 
   /** Executes a {@code CREATE MATERIALIZED VIEW} command. */
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
@@ -356,6 +360,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
   }
 
+  // N.B. originally copy-pasted from Apache Calcite
+
   /** Executes a {@code CREATE TABLE} command. */
   public void execute(SqlCreateTable create, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", create);
@@ -483,6 +489,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     logger.info("CREATE TABLE {} completed", tableName);
   }
+
+  // N.B. originally copy-pasted from Apache Calcite
 
   /** Executes {@code DROP FUNCTION}, {@code DROP TABLE}, {@code DROP MATERIALIZED VIEW}, {@code DROP TYPE},
    * {@code DROP VIEW} commands. */
