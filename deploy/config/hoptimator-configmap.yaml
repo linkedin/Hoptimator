@@ -22,3 +22,7 @@ data:
   flink.config: |
     flink.app.name=hoptimator-flink-runner
     flink.app.type=SQL
+
+  venice.config: |
+    router.url=http://localhost:7777
+    clusters=venice-cluster0

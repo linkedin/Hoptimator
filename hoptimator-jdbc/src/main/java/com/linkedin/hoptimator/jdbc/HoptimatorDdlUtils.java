@@ -60,7 +60,7 @@ public final class HoptimatorDdlUtils {
   // N.B. copy-pasted from Apache Calcite
   /** Returns the schema in which to create an object;
    * the left part is null if the schema does not exist. */
-  static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context, boolean mutable, SqlIdentifier id) {
+  public static Pair<CalciteSchema, String> schema(CalcitePrepare.Context context, boolean mutable, SqlIdentifier id) {
     final String name;
     final List<String> path;
     if (id.isSimple()) {
@@ -92,7 +92,7 @@ public final class HoptimatorDdlUtils {
   }
 
   // N.B. copy-pasted from Apache Calcite
-  static ViewTable viewTable(CalcitePrepare.Context context, String sql, CalcitePrepareImpl impl,
+  public static ViewTable viewTable(CalcitePrepare.Context context, String sql, CalcitePrepareImpl impl,
       List<String> schemaPath, List<String> viewPath) {
     CalcitePrepare.AnalyzeViewResult analyzed = impl.analyzeView(context, sql, false);
     RelProtoDataType protoType = RelDataTypeImpl.proto(analyzed.rowType);

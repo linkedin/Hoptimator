@@ -1,0 +1,47 @@
+!set outputformat mysql
+!use k8s
+
+create or replace table "VENICE"."integration-test-store" ("KEY_id" int, "i" int, "s" VARCHAR);
+(0 rows modified)
+
+!update
+
+select count(*) as TABLE_EXISTS from venice."integration-test-store" where 1=0;
++--------------+
+| TABLE_EXISTS |
++--------------+
+|            0 |
++--------------+
+(1 row)
+
+!ok
+
+insert into "VENICE"."integration-test-store" ("KEY_id", "i") select "KEY", "intField" AS "i" from "VENICE"."test-store-primitive";
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: venice-integration-test-store
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store-primitive` (`KEY` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY', 'key.fields-prefix'='', 'key.type'='PRIMITIVE', 'partial-update-mode'='true', 'storeName'='test-store-primitive', 'value.fields-include'='EXCEPT_KEY')
+    - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `VENICE`.`integration-test-store` (`KEY_id` INTEGER, `i` INTEGER, `s` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_id', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='integration-test-store', 'value.fields-include'='EXCEPT_KEY')
+    - INSERT INTO `VENICE`.`integration-test-store` (`KEY_id`, `i`) SELECT `KEY` AS `KEY_id`, `intField` AS `i` FROM `VENICE`.`test-store-primitive`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify integration-test-store
+
+drop table "VENICE"."integration-test-store";
+(0 rows modified)
+
+!update
+
+select count(*) as TABLE_EXISTS from venice."integration-test-store" where 1=0;
+Object 'integration-test-store' not found within 'VENICE'
+!error

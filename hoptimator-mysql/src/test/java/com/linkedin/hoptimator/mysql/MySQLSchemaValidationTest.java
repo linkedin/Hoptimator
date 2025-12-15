@@ -24,6 +24,6 @@ public class MySQLSchemaValidationTest extends JdbcTestBase {
         );
         validateTableSchema(List.of("MYSQL", "testdb", "users$partial"), expectedColumns);
 
-        sql("drop view MYSQL.\"testdb\".\"users$partial\"");
+        sql("drop materialized view MYSQL.\"testdb\".\"users$partial\"");
     }
 }
