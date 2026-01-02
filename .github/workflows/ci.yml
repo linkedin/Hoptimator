@@ -26,17 +26,8 @@ jobs:
     - name: Validate Gradle wrapper
       uses: gradle/wrapper-validation-action@v1
     
-    - name: Build with Gradle
+    - name: Build and run unit tests
       run: ./gradlew build -x intTest -x shadowJar
-    
-    - name: Run unit tests
-      run: ./gradlew test
-    
-    - name: Run Checkstyle
-      run: ./gradlew checkstyleMain checkstyleTest
-    
-    - name: Run SpotBugs
-      run: ./gradlew spotbugsMain
     
     - name: Upload test results
       if: failure()
@@ -46,6 +37,14 @@ jobs:
         path: |
           **/build/reports/tests/test/
           **/build/test-results/test/
+    
+    - name: Upload Checkstyle results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: checkstyle-results
+        path: |
+          **/build/reports/checkstyle/
     
     - name: Upload SpotBugs results
       if: failure()
