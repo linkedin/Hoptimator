@@ -5,8 +5,12 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.ImmutablePairList;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.tools.RelBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -46,9 +50,8 @@ public class ScriptImplementorSuffixTest {
   public void testInsertWithSuffix() {
     // Create a simple RelNode for testing
     RelBuilder builder = RelBuilder.create(
-        org.apache.calcite.tools.Frameworks.newConfigBuilder()
-            .defaultSchema(
-                org.apache.calcite.tools.Frameworks.createRootSchema(true))
+        Frameworks.newConfigBuilder()
+            .defaultSchema(Frameworks.createRootSchema(true))
             .build());
 
     RelNode scan = builder
@@ -70,15 +73,33 @@ public class ScriptImplementorSuffixTest {
 
   @Test
   public void testTableNameReplacements() {
-    // Create a simple RelNode that references a table
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+
+    // Create a schema with a table to scan from
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus adsSchema = rootSchema.add("ADS", new AbstractSchema());
+
+    // Add a mock table
+    RelDataType tableType = typeFactory.builder()
+        .add("CAMPAIGN_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("MEMBER_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    adsSchema.add("AD_CLICKS", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+        return tableType;
+      }
+    });
+
     RelBuilder builder = RelBuilder.create(
-        org.apache.calcite.tools.Frameworks.newConfigBuilder()
-            .defaultSchema(
-                org.apache.calcite.tools.Frameworks.createRootSchema(true))
+        Frameworks.newConfigBuilder()
+            .defaultSchema(rootSchema)
             .build());
 
+    // Create a scan that references ADS.AD_CLICKS
     RelNode scan = builder
-        .values(new String[]{"CAMPAIGN_URN", "MEMBER_URN"}, "urn1", "urn2")
+        .scan("ADS", "AD_CLICKS")
         .build();
 
     ImmutablePairList<Integer, String> targetFields = ImmutablePairList.copyOf(Arrays.asList(
@@ -86,6 +107,7 @@ public class ScriptImplementorSuffixTest {
         new AbstractMap.SimpleEntry<>(1, "MEMBER_URN")
     ));
 
+    // Test that table name replacement works in the SELECT query
     Map<String, String> tableReplacements = new HashMap<>();
     tableReplacements.put("ADS.AD_CLICKS", "AD_CLICKS_source");
 
@@ -95,6 +117,8 @@ public class ScriptImplementorSuffixTest {
 
     assertTrue(sql.contains("INSERT INTO `ADS`.`AD_CLICKS_sink`"),
         "Should insert into table with _sink suffix. Got: " + sql);
+    assertTrue(sql.contains("FROM `ADS`.`AD_CLICKS_source`"),
+        "Should select from table with _source suffix (table name replaced). Got: " + sql);
   }
 
   @Test
@@ -114,9 +138,8 @@ public class ScriptImplementorSuffixTest {
 
     // Create a simple RelNode
     RelBuilder builder = RelBuilder.create(
-        org.apache.calcite.tools.Frameworks.newConfigBuilder()
-            .defaultSchema(
-                org.apache.calcite.tools.Frameworks.createRootSchema(true))
+        Frameworks.newConfigBuilder()
+            .defaultSchema(Frameworks.createRootSchema(true))
             .build());
 
     RelNode scan = builder
