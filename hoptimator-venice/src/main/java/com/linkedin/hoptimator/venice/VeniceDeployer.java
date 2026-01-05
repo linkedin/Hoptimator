@@ -105,6 +105,7 @@ public class VeniceDeployer implements Deployer {
   @Override
   public void restore() {
     // TODO: Restoration can be complicated
+    log.warn("Restoring Venice store is currently not supported");
   }
 
   protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
