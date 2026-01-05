@@ -9,6 +9,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
@@ -114,13 +115,35 @@ public interface PipelineRel extends RelNode {
 
     private ScriptImplementor script(Connection connection) throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
+      // Check if we need to add suffixes to avoid table name collisions
+      boolean needsSuffixes = hasTableNameCollision();
+
       for (Map.Entry<Source, RelDataType> source : sources.entrySet()) {
         script = script.catalog(source.getKey().catalog());
         script = script.database(source.getKey().catalog(), source.getKey().schema());
         Map<String, String> configs = ConnectionService.configure(source.getKey(), connection);
-        script = script.connector(source.getKey().catalog(), source.getKey().schema(), source.getKey().table(), source.getValue(), configs);
+        String suffix = needsSuffixes ? "_source" : null;
+        script = script.connector(source.getKey().catalog(), source.getKey().schema(), source.getKey().table(), suffix, source.getValue(), configs);
       }
       return script;
+    }
+
+    /**
+     * Checks if there's a collision between source and sink table names.
+     * A collision occurs when a source table has the same catalog, schema, and table name as the sink.
+     */
+    private boolean hasTableNameCollision() {
+      if (sink == null) {
+        return false;
+      }
+      for (Source source : sources.keySet()) {
+        if (Objects.equals(source.catalog(), sink.catalog())
+            && Objects.equals(source.schema(), sink.schema())
+            && Objects.equals(source.table(), sink.table())) {
+          return true;
+        }
+      }
+      return false;
     }
 
     /** SQL script ending in an INSERT INTO */
@@ -136,8 +159,22 @@ public interface PipelineRel extends RelNode {
         Map<String, String> sinkConfigs = ConnectionService.configure(sink, connection);
         script = script.catalog(sink.catalog());
         script = script.database(sink.catalog(), sink.schema());
-        script = script.connector(sink.catalog(), sink.schema(), sink.table(), targetRowType, sinkConfigs);
-        script = script.insert(sink.catalog(), sink.schema(), sink.table(), query, targetFields);
+        // Check if we need to add suffixes to avoid table name collisions
+        boolean needsSuffixes = hasTableNameCollision();
+        String sinkSuffix = needsSuffixes ? "_sink" : null;
+        script = script.connector(sink.catalog(), sink.schema(), sink.table(), sinkSuffix, targetRowType, sinkConfigs);
+
+        // Build table name replacement map for the query
+        Map<String, String> tableNameReplacements = new HashMap<>();
+        if (needsSuffixes) {
+          for (Source source : sources.keySet()) {
+            String qualifiedName = source.pathString();
+            String suffixedTable = source.table() + "_source";
+            tableNameReplacements.put(qualifiedName, suffixedTable);
+          }
+        }
+
+        script = script.insert(sink.catalog(), sink.schema(), sink.table(), sinkSuffix, query, targetFields, tableNameReplacements);
         return script.sql(x);
       });
     }

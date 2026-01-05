@@ -85,12 +85,23 @@ public interface ScriptImplementor {
 
   /** Append a query */
   default ScriptImplementor query(RelNode relNode) {
-    return with(new QueryImplementor(relNode));
+    return query(relNode, Collections.emptyMap());
+  }
+
+  /** Append a query with table name replacements */
+  default ScriptImplementor query(RelNode relNode, Map<String, String> tableNameReplacements) {
+    return with(new QueryImplementor(relNode, tableNameReplacements));
   }
 
   /** Append a connector definition, e.g. `CREATE TABLE ... WITH (...)` */
   default ScriptImplementor connector(@Nullable String catalog, String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
-    return with(new ConnectorImplementor(catalog, schema, table, rowType, connectorConfig));
+    return connector(catalog, schema, table, null, rowType, connectorConfig);
+  }
+
+  /** Append a connector definition with an optional suffix, e.g. `CREATE TABLE ... WITH (...)` */
+  default ScriptImplementor connector(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelDataType rowType,
+      Map<String, String> connectorConfig) {
+    return with(new ConnectorImplementor(catalog, schema, table, suffix, rowType, connectorConfig));
   }
 
   /** Append a database definition, e.g. `CREATE CATALOG ...` */
@@ -105,7 +116,19 @@ public interface ScriptImplementor {
 
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
   default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
-    return with(new InsertImplementor(catalog, schema, table, relNode, targetFields));
+    return insert(catalog, schema, table, null, relNode, targetFields, Collections.emptyMap());
+  }
+
+  /** Append an insert statement with an optional suffix for the target table, e.g. `INSERT INTO ... SELECT ...` */
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
+      ImmutablePairList<Integer, String> targetFields) {
+    return insert(catalog, schema, table, suffix, relNode, targetFields, Collections.emptyMap());
+  }
+
+  /** Append an insert statement with an optional suffix and table name replacements for the query, e.g. `INSERT INTO ... SELECT ...` */
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
+      ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements) {
+    return with(new InsertImplementor(catalog, schema, table, suffix, relNode, targetFields, tableNameReplacements));
   }
 
   /** Render the script as DDL/SQL in the default dialect */
@@ -155,9 +178,15 @@ public interface ScriptImplementor {
   /** Implements an arbitrary RelNode as a query */
   class QueryImplementor implements ScriptImplementor {
     private final RelNode relNode;
+    private final Map<String, String> tableNameReplacements;
 
     public QueryImplementor(RelNode relNode) {
+      this(relNode, Collections.emptyMap());
+    }
+
+    public QueryImplementor(RelNode relNode, Map<String, String> tableNameReplacements) {
       this.relNode = relNode;
+      this.tableNameReplacements = tableNameReplacements;
     }
 
     @Override
@@ -168,6 +197,10 @@ public interface ScriptImplementor {
       if (node instanceof SqlSelect && ((SqlSelect) node).getSelectList() != null) {
         SqlSelect select = (SqlSelect) node;
         select.setSelectList((SqlNodeList) Objects.requireNonNull(select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR)));
+      }
+      // Apply table name replacements if any
+      if (!tableNameReplacements.isEmpty()) {
+        node = node.accept(new TableNameReplacer(tableNameReplacements));
       }
       node.unparse(w, 0, 0);
     }
@@ -191,6 +224,33 @@ public interface ScriptImplementor {
   }
 
   /**
+   * A SqlShuttle that replaces table names in SQL nodes.
+   * Used to add suffixes to table names when there are source/sink collisions.
+   */
+  class TableNameReplacer extends SqlShuttle {
+    private final Map<String, String> replacements;
+
+    public TableNameReplacer(Map<String, String> replacements) {
+      this.replacements = replacements;
+    }
+
+    @Override
+    public SqlNode visit(SqlIdentifier id) {
+      if (id.names.size() >= 2) {
+        // Build the qualified name to check for replacement
+        String qualifiedName = String.join(".", id.names);
+        if (replacements.containsKey(qualifiedName)) {
+          // Replace the last component (table name) with the suffixed version
+          List<String> newNames = new ArrayList<>(id.names);
+          newNames.set(newNames.size() - 1, replacements.get(qualifiedName));
+          return new SqlIdentifier(newNames, id.getParserPosition());
+        }
+      }
+      return id;
+    }
+  }
+
+  /**
    * Implements a CREATE TABLE...WITH... DDL statement.
    * <p>
    * N.B. the following magic:
@@ -201,13 +261,15 @@ public interface ScriptImplementor {
     private final String catalog;
     private final String schema;
     private final String table;
+    private final String suffix;
     private final RelDataType rowType;
     private final Map<String, String> connectorConfig;
 
-    public ConnectorImplementor(String catalog, String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
+    public ConnectorImplementor(String catalog, String schema, String table, String suffix, RelDataType rowType, Map<String, String> connectorConfig) {
       this.catalog = catalog;
       this.schema = schema;
       this.table = table;
+      this.suffix = suffix;
       this.rowType = rowType;
       this.connectorConfig = connectorConfig;
     }
@@ -215,7 +277,8 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       w.keyword("CREATE TABLE IF NOT EXISTS");
-      (new CompoundIdentifierImplementor(catalog, schema, table)).implement(w);
+      String effectiveTable = suffix != null ? table + suffix : table;
+      (new CompoundIdentifierImplementor(catalog, schema, effectiveTable)).implement(w);
       SqlWriter.Frame frame1 = w.startList("(", ")");
       (new RowTypeSpecImplementor(rowType)).implement(w);
       if (rowType.getField("PRIMARY_KEY", true, false) != null) {
@@ -262,24 +325,30 @@ public interface ScriptImplementor {
     private final String catalog;
     private final String schema;
     private final String table;
+    private final String suffix;
     private final RelNode relNode;
     private final ImmutablePairList<Integer, String> targetFields;
+    private final Map<String, String> tableNameReplacements;
 
-    public InsertImplementor(@Nullable String catalog, String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
+    public InsertImplementor(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
+        ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements) {
       this.catalog = catalog;
       this.schema = schema;
       this.table = table;
+      this.suffix = suffix;
       this.relNode = relNode;
       this.targetFields = targetFields;
+      this.tableNameReplacements = tableNameReplacements;
     }
 
     @Override
     public void implement(SqlWriter w) {
       w.keyword("INSERT INTO");
-      (new CompoundIdentifierImplementor(catalog, schema, table)).implement(w);
+      String effectiveTable = suffix != null ? table + suffix : table;
+      (new CompoundIdentifierImplementor(catalog, schema, effectiveTable)).implement(w);
       RelNode project = dropFields(relNode, targetFields);
       (new ColumnListImplementor(project.getRowType())).implement(w);
-      (new QueryImplementor(project)).implement(w);
+      (new QueryImplementor(project, tableNameReplacements)).implement(w);
       w.literal(";");
     }
 

@@ -1,0 +1,151 @@
+package com.linkedin.hoptimator.util.planner;
+
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.runtime.ImmutablePairList;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.tools.RelBuilder;
+import org.junit.jupiter.api.Test;
+
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Tests for ScriptImplementor suffix functionality to handle source/sink table name collisions.
+ */
+public class ScriptImplementorSuffixTest {
+  @Test
+  public void testConnectorWithSuffix() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("CAMPAIGN_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("MEMBER_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    Map<String, String> config = new HashMap<>();
+    config.put("connector", "datagen");
+    config.put("number-of-rows", "10");
+
+    String sql = ScriptImplementor.empty()
+        .connector(null, "ADS", "AD_CLICKS", "_source", rowType, config)
+        .sql();
+
+    assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS_source`"),
+        "Should create table with _source suffix. Got: " + sql);
+    assertTrue(sql.contains("'connector'='datagen'"),
+        "Should include connector config. Got: " + sql);
+  }
+
+  @Test
+  public void testInsertWithSuffix() {
+    // Create a simple RelNode for testing
+    RelBuilder builder = RelBuilder.create(
+        org.apache.calcite.tools.Frameworks.newConfigBuilder()
+            .defaultSchema(
+                org.apache.calcite.tools.Frameworks.createRootSchema(true))
+            .build());
+
+    RelNode scan = builder
+        .values(new String[]{"CAMPAIGN_URN", "MEMBER_URN"}, "urn1", "urn2")
+        .build();
+
+    ImmutablePairList<Integer, String> targetFields = ImmutablePairList.copyOf(Arrays.asList(
+        new AbstractMap.SimpleEntry<>(0, "CAMPAIGN_URN"),
+        new AbstractMap.SimpleEntry<>(1, "MEMBER_URN")
+    ));
+
+    String sql = ScriptImplementor.empty()
+        .insert(null, "ADS", "AD_CLICKS", "_sink", scan, targetFields)
+        .sql();
+
+    assertTrue(sql.contains("INSERT INTO `ADS`.`AD_CLICKS_sink`"),
+        "Should insert into table with _sink suffix. Got: " + sql);
+  }
+
+  @Test
+  public void testTableNameReplacements() {
+    // Create a simple RelNode that references a table
+    RelBuilder builder = RelBuilder.create(
+        org.apache.calcite.tools.Frameworks.newConfigBuilder()
+            .defaultSchema(
+                org.apache.calcite.tools.Frameworks.createRootSchema(true))
+            .build());
+
+    RelNode scan = builder
+        .values(new String[]{"CAMPAIGN_URN", "MEMBER_URN"}, "urn1", "urn2")
+        .build();
+
+    ImmutablePairList<Integer, String> targetFields = ImmutablePairList.copyOf(Arrays.asList(
+        new AbstractMap.SimpleEntry<>(0, "CAMPAIGN_URN"),
+        new AbstractMap.SimpleEntry<>(1, "MEMBER_URN")
+    ));
+
+    Map<String, String> tableReplacements = new HashMap<>();
+    tableReplacements.put("ADS.AD_CLICKS", "AD_CLICKS_source");
+
+    String sql = ScriptImplementor.empty()
+        .insert(null, "ADS", "AD_CLICKS", "_sink", scan, targetFields, tableReplacements)
+        .sql();
+
+    assertTrue(sql.contains("INSERT INTO `ADS`.`AD_CLICKS_sink`"),
+        "Should insert into table with _sink suffix. Got: " + sql);
+  }
+
+  @Test
+  public void testFullPipelineWithCollision() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("CAMPAIGN_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("MEMBER_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    Map<String, String> sourceConfig = new HashMap<>();
+    sourceConfig.put("connector", "datagen");
+    sourceConfig.put("number-of-rows", "10");
+
+    Map<String, String> sinkConfig = new HashMap<>();
+    sinkConfig.put("connector", "blackhole");
+
+    // Create a simple RelNode
+    RelBuilder builder = RelBuilder.create(
+        org.apache.calcite.tools.Frameworks.newConfigBuilder()
+            .defaultSchema(
+                org.apache.calcite.tools.Frameworks.createRootSchema(true))
+            .build());
+
+    RelNode scan = builder
+        .values(new String[]{"CAMPAIGN_URN", "MEMBER_URN"}, "urn1", "urn2")
+        .build();
+
+    ImmutablePairList<Integer, String> targetFields = ImmutablePairList.copyOf(Arrays.asList(
+        new AbstractMap.SimpleEntry<>(0, "CAMPAIGN_URN"),
+        new AbstractMap.SimpleEntry<>(1, "MEMBER_URN")
+    ));
+
+    String sql = ScriptImplementor.empty()
+        .database(null, "ADS")
+        .connector(null, "ADS", "AD_CLICKS", "_source", rowType, sourceConfig)
+        .database(null, "ADS")
+        .connector(null, "ADS", "AD_CLICKS", "_sink", rowType, sinkConfig)
+        .insert(null, "ADS", "AD_CLICKS", "_sink", scan, targetFields)
+        .sql();
+
+    // Verify both tables are created with different suffixes
+    assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS_source`"),
+        "Should create source table with suffix. Got: " + sql);
+    assertTrue(sql.contains("CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS_sink`"),
+        "Should create sink table with suffix. Got: " + sql);
+    assertTrue(sql.contains("'connector'='datagen'"),
+        "Should include datagen connector. Got: " + sql);
+    assertTrue(sql.contains("'connector'='blackhole'"),
+        "Should include blackhole connector. Got: " + sql);
+    assertTrue(sql.contains("INSERT INTO `ADS`.`AD_CLICKS_sink`"),
+        "Should insert into sink table. Got: " + sql);
+  }
+}
