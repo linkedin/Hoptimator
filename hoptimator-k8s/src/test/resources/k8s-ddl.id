@@ -163,3 +163,24 @@ spec:
     upgradeMode: stateless
     state: running
 !specify PAGE_VIEWS
+
+insert into ads.ad_clicks select * from ads.ad_clicks;
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: ads-database-adclicks
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS_source` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS_sink` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`AD_CLICKS_sink` (`CAMPAIGN_URN`, `MEMBER_URN`) SELECT * FROM `ADS`.`AD_CLICKS_source`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify AD_CLICKS
