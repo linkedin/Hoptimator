@@ -32,6 +32,8 @@ import com.linkedin.hoptimator.jdbc.ddl.HoptimatorDdlParserImpl;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
 import com.linkedin.hoptimator.util.ArrayTable;
+import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
+import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
@@ -41,6 +43,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -61,6 +64,7 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.server.DdlExecutor;
 import org.apache.calcite.server.ServerDdlExecutor;
+import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
@@ -490,8 +494,48 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     logger.info("CREATE TABLE {} completed", tableName);
   }
 
-  // N.B. originally copy-pasted from Apache Calcite
+  /** Executes a {@code PAUSE TRIGGER} command. */
+  public void execute(SqlPauseTrigger pause, CalcitePrepare.Context context) {
+    updateTriggerPausedState(pause, pause.name, true);
+  }
 
+  /** Executes a {@code RESUME TRIGGER} command. */
+  public void execute(SqlResumeTrigger resume, CalcitePrepare.Context context) {
+    updateTriggerPausedState(resume, resume.name, false);
+  }
+
+  private void updateTriggerPausedState(SqlNode sqlNode, SqlIdentifier triggerName, boolean paused) {
+    logger.info("Validating statement: {}", sqlNode);
+    try {
+      ValidationService.validateOrThrow(sqlNode);
+    } catch (SQLException e) {
+      throw new DdlException(sqlNode, e.getMessage(), e);
+    }
+
+    if (triggerName.names.size() > 1) {
+      throw new DdlException(sqlNode, "Triggers cannot belong to a schema or database.");
+    }
+    String name = triggerName.names.get(0);
+
+    Map<String, String> options = new HashMap<>();
+    options.put(Trigger.PAUSED_OPTION, String.valueOf(paused));
+    Trigger trigger = new Trigger(name, null, new ArrayList<>(), null, options);
+
+    Collection<Deployer> deployers = null;
+    try {
+      logger.info("Updating trigger {} with paused state: {}", name, paused);
+      deployers = DeploymentService.deployers(trigger, connection);
+      DeploymentService.update(deployers);
+      logger.info("Successfully updated trigger {} with paused state: {}", name, paused);
+    } catch (Exception e) {
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+      }
+      throw new DdlException(sqlNode, e.getMessage(), e);
+    }
+  }
+
+  // N.B. largely copy-pasted from Apache Calcite
   /** Executes {@code DROP FUNCTION}, {@code DROP TABLE}, {@code DROP MATERIALIZED VIEW}, {@code DROP TYPE},
    * {@code DROP VIEW} commands. */
   @Override

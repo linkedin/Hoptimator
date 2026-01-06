@@ -1,0 +1,52 @@
+!set outputformat mysql
+!use k8s
+
+create trigger test on ads.ad_clicks as 'my-app' in 'my-mp' with (key 'value');
+(0 rows modified)
+
+!update
+
+select name, schema, "TABLE", paused from "k8s".table_triggers where name = 'test';
++------+--------+-----------+--------+
+| NAME | SCHEMA | TABLE     | PAUSED |
++------+--------+-----------+--------+
+| test | ADS    | AD_CLICKS |        |
++------+--------+-----------+--------+
+(1 row)
+
+!ok
+
+pause trigger test;
+(0 rows modified)
+
+!update
+
+select name, schema, "TABLE", paused from "k8s".table_triggers where name = 'test';
++------+--------+-----------+--------+
+| NAME | SCHEMA | TABLE     | PAUSED |
++------+--------+-----------+--------+
+| test | ADS    | AD_CLICKS | true   |
++------+--------+-----------+--------+
+(1 row)
+
+!ok
+
+resume trigger test;
+(0 rows modified)
+
+!update
+
+select name, schema, "TABLE", paused from "k8s".table_triggers where name = 'test';
++------+--------+-----------+--------+
+| NAME | SCHEMA | TABLE     | PAUSED |
++------+--------+-----------+--------+
+| test | ADS    | AD_CLICKS | false  |
++------+--------+-----------+--------+
+(1 row)
+
+!ok
+
+delete from "k8s".table_triggers where name = 'test';
+(1 row modified)
+
+!update

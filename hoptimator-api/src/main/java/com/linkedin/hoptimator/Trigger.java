@@ -6,6 +6,7 @@ import java.util.Map;
 
 public class Trigger implements Deployable {
 
+  public static final String PAUSED_OPTION = "paused";
   private final String name;
   private final UserJob job;
   private final List<String> path;

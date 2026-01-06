@@ -126,6 +126,22 @@ public final class TableTriggerReconciler implements Reconciler {
         return new Result(false);
       }
 
+      if (Boolean.TRUE.equals(object.getSpec().getPaused())) {
+        log.info("Trigger {} is paused. Skipping job creation.", name);
+        V1alpha1TableTriggerStatus status = object.getStatus();
+        if (status != null) {
+          DynamicKubernetesObject expectedJob = yamlApi.objFromYaml(jobYaml(object));
+          V1Job job = jobApi.getIfExists(expectedJob.getMetadata().getNamespace(),
+              expectedJob.getMetadata().getName());
+          if (job != null) {
+            log.info("Trigger {} is paused but existing job {} is still running. Monitoring it.",
+                name, job.getMetadata().getName());
+            return handleExistingJob(job, status, object);
+          }
+        }
+        return new Result(false);
+      }
+
       V1alpha1TableTriggerStatus status = object.getStatus();
       if (status == null && object.getSpec().getSchedule() == null) {
         log.info("Trigger {} has not been fired yet. Skipping.", name);
@@ -134,7 +150,7 @@ public final class TableTriggerReconciler implements Reconciler {
         status = new V1alpha1TableTriggerStatus();
         object.status(status);
       }
- 
+
       if (status.getTimestamp() != null) {
         log.info("TableTrigger {} was last fired at {}.", name, status.getTimestamp());
       }
@@ -165,35 +181,8 @@ public final class TableTriggerReconciler implements Reconciler {
         log.info("Launching Job for TableTrigger {}. ", name);
         createJob(jobYaml, object);
         return new Result(true, pendingRetryDuration());
-      } else if (job != null && job.getStatus() != null && job.getStatus().getConditions() != null) {
-        List<V1JobCondition> conditions = job.getStatus().getConditions();
-        boolean failed = conditions.stream()
-            .anyMatch(x -> "Failed".equals(x.getType()) && "True".equals(x.getStatus()));
-        boolean complete = conditions.stream()
-            .anyMatch(x -> "Complete".equals(x.getType()) && "True".equals(x.getStatus()));
-        if (failed) {
-          log.warn("Job {} has FAILED.", name);
-          jobApi.delete(job);
-          return new Result(true);  // retry
-        } else if (complete) {
-          log.info("Job {} completed successfully.", name);
-          // We get the watermark from the job itself. We annotate the job when launching it.
-          if (job.getMetadata().getAnnotations() == null || job.getMetadata().getAnnotations()
-              .get(TRIGGER_TIMESTAMP_KEY) == null) {
-            log.error("Job {} has no timestamp annotation. Unable to advance the watermark.", name);
-          } else {
-            String watermark = job.getMetadata().getAnnotations().get(TRIGGER_TIMESTAMP_KEY);
-            status.setWatermark(OffsetDateTime.parse(watermark));
-            tableTriggerApi.updateStatus(object, status);
-            log.info("Trigger {} watermark advanced to {}.", name, watermark);
-          }
-          jobApi.delete(job);
-          return new Result(true);  // retry
-        } else {
-          maybeUpdateJobAnnotation(job, status.getTimestamp());
-          log.info("Job for TableTrigger {} still running from a previous trigger event.", name);
-          return new Result(true, pendingRetryDuration());  // retry later
-        }
+      } else if (job != null) {
+        return handleExistingJob(job, status, object);
       } else if (job == null && scheduled != null) {
         log.info("TableTrigger {} sleeping until next scheduled execution.", name);
         return new Result(true, scheduled.timeToNextExecution(now).get());
@@ -267,6 +256,48 @@ public final class TableTriggerReconciler implements Reconciler {
         jobApi.update(job);
         log.info("Updated {} in Job {} annotation to {}", TRIGGER_TIMESTAMP_KEY, job.getMetadata().getName(), timestamp);
       }
+    }
+  }
+
+  private Result handleExistingJob(V1Job job, V1alpha1TableTriggerStatus status,
+      V1alpha1TableTrigger trigger) throws SQLException {
+    String name = trigger.getMetadata().getName();
+
+    if (job.getStatus() != null && job.getStatus().getConditions() != null) {
+      List<V1JobCondition> conditions = job.getStatus().getConditions();
+      boolean failed = conditions.stream()
+          .anyMatch(x -> "Failed".equals(x.getType()) && "True".equals(x.getStatus()));
+      boolean complete = conditions.stream()
+          .anyMatch(x -> "Complete".equals(x.getType()) && "True".equals(x.getStatus()));
+
+      if (failed) {
+        log.warn("Job {} has FAILED.", name);
+        jobApi.delete(job);
+        return new Result(true);  // retry
+      } else if (complete) {
+        log.info("Job {} completed successfully.", name);
+        // We get the watermark from the job itself. We annotate the job when launching it.
+        if (job.getMetadata().getAnnotations() == null
+            || job.getMetadata().getAnnotations().get(TRIGGER_TIMESTAMP_KEY) == null) {
+          log.error("Job {} has no timestamp annotation. Unable to advance the watermark.", name);
+        } else {
+          String watermark = job.getMetadata().getAnnotations().get(TRIGGER_TIMESTAMP_KEY);
+          status.setWatermark(OffsetDateTime.parse(watermark));
+          tableTriggerApi.updateStatus(trigger, status);
+          log.info("Trigger {} watermark advanced to {}.", name, watermark);
+        }
+        jobApi.delete(job);
+        return new Result(true);  // retry
+      } else {
+        if (status.getTimestamp() != null) {
+          maybeUpdateJobAnnotation(job, status.getTimestamp());
+        }
+        log.info("Job for TableTrigger {} still running.", name);
+        return new Result(true, pendingRetryDuration());  // retry later
+      }
+    } else {
+      log.info("Job for TableTrigger {} has no status yet.", name);
+      return new Result(true, pendingRetryDuration());  // retry later
     }
   }
 }
