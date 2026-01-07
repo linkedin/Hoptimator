@@ -13,4 +13,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void veniceDdlInsertPartialScript() throws Exception {
     run("venice-ddl-insert-partial.id");
   }
+
+  @Test
+  public void veniceDdlCreateTableScript() throws Exception {
+    run("venice-ddl-create-table.id");
+  }
 }

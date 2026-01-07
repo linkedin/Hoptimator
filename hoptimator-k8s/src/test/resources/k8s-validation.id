@@ -5,6 +5,10 @@ create or replace materialized view ads.page_views as select first_name, last_na
 Cannot overwrite physical table PAGE_VIEWS with a view.
 !error
 
+create table ads.page_views ("i" int);
+Table PAGE_VIEWS already exists.
+!error
+
 create or replace materialized view invalid.page_views as select first_name, last_name from profile.members;
 Schema for INVALID.PAGE_VIEWS not found.
 !error
@@ -18,10 +22,22 @@ create materialized view ads.audience as select first_name, last_name from ads.p
 View AUDIENCE already exists. Use CREATE OR REPLACE to update.
 !error
 
+drop table ads.audience;
+AUDIENCE is a materialized view and does not correspond to DROP TABLE
+!error
+
 drop materialized view ads.audience;
 (0 rows modified)
 
 !update
+
+drop materialized view ads.audience;
+Element AUDIENCE not found
+!error
+
+drop materialized view ads.page_views;
+PAGE_VIEWS is a table and does not correspond to DROP MATERIALIZED VIEW
+!error
 
 create or replace materialized view ads."PAGE_VIEWS$myview" as select first_name from profile.members;
 Field FIRST_NAME not found in sink schema

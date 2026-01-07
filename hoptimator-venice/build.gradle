@@ -4,7 +4,9 @@ plugins {
 }
 
 dependencies {
+  implementation project(':hoptimator-api')
   implementation project(':hoptimator-avro')
+  implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
   implementation libs.calcite.core
   implementation(libs.venice) {
