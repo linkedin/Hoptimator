@@ -47,6 +47,9 @@ spec:
                 schedule:
                   description: Cron schedule, e.g. "@hourly", which causes the trigger to fire on a schedule.
                   type: string
+                paused:
+                  description: Whether the trigger is paused.
+                  type: boolean
               required:
               - schema
               - table
@@ -65,6 +68,10 @@ spec:
       subresources:
         status: {}
       additionalPrinterColumns:
+      - name: PAUSED
+        type: boolean
+        description: Whether trigger is paused.
+        jsonPath: .spec.paused
       - name: SCHEMA
         type: string
         description: Schema name.

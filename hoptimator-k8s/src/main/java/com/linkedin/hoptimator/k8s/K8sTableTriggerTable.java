@@ -15,13 +15,15 @@ public class K8sTableTriggerTable extends K8sTable<V1alpha1TableTrigger, V1alpha
     public String NAME;
     public String SCHEMA;
     public String TABLE;
+    public Boolean PAUSED;
     public String TIMESTAMP;
     public String WATERMARK;
 
-    public Row(String name, String schema, String table, String timestamp, String watermark) {
+    public Row(String name, String schema, String table, Boolean paused, String timestamp, String watermark) {
       this.NAME = name;
       this.SCHEMA = schema;
       this.TABLE = table;
+      this.PAUSED = paused;
       this.TIMESTAMP = timestamp;
       this.WATERMARK = watermark;
     }
@@ -35,6 +37,7 @@ public class K8sTableTriggerTable extends K8sTable<V1alpha1TableTrigger, V1alpha
   @Override
   public Row toRow(V1alpha1TableTrigger obj) {
     return new Row(obj.getMetadata().getName(), obj.getSpec().getSchema(), obj.getSpec().getTable(),
+        obj.getSpec().getPaused(),
         Optional.ofNullable(obj.getStatus())
             .flatMap(x -> Optional.ofNullable(x.getTimestamp()))
             .map(x -> x.toString()).orElse(null),

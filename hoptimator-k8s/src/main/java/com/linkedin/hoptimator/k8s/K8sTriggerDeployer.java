@@ -20,13 +20,48 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
 
   private final K8sContext context;
   private final Trigger trigger;
+  private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> triggerApi;
   private final K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> jobTemplateApi;
 
   K8sTriggerDeployer(Trigger trigger, K8sContext context) {
     super(context, K8sApiEndpoints.TABLE_TRIGGERS);
     this.context = context;
     this.trigger = trigger;
+    this.triggerApi = new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS);
     this.jobTemplateApi = new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
+  }
+
+  @Override
+  public void update() throws SQLException {
+    if (trigger.options().containsKey(Trigger.PAUSED_OPTION)) {
+      String pauseValue = trigger.options().get(Trigger.PAUSED_OPTION);
+      String canonicalName = K8sUtils.canonicalizeName(trigger.name());
+      V1alpha1TableTrigger existingTrigger = triggerApi.get(canonicalName);
+
+      if (existingTrigger == null) {
+        throw new SQLException("Trigger " + trigger.name() + " not found.");
+      }
+
+      V1alpha1TableTriggerSpec spec = existingTrigger.getSpec();
+      if (spec == null) {
+        spec = new V1alpha1TableTriggerSpec();
+        existingTrigger.spec(spec);
+      }
+      spec.setPaused("true".equals(pauseValue));
+      triggerApi.update(existingTrigger);
+      return;
+    }
+    super.update();
+  }
+
+  @Override
+  public void delete() throws SQLException {
+    String canonicalName = K8sUtils.canonicalizeName(trigger.name());
+    V1alpha1TableTrigger existingTrigger = triggerApi.get(canonicalName);
+    if (existingTrigger == null) {
+      throw new SQLException("Trigger " + trigger.name() + " not found.");
+    }
+    triggerApi.delete(existingTrigger);
   }
 
   @Override

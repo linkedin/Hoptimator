@@ -33,4 +33,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void k8sConditionalJobTemplate() throws Exception {
     run("k8s-metadata-beam.id", "hints=flink.app.type=BEAM");
   }
+
+  @Test
+  public void k8sTriggerPauseResume() throws Exception {
+    run("k8s-trigger-pause.id");
+  }
 }

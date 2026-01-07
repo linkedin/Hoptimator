@@ -150,4 +150,99 @@ class TestTableTriggerReconciler {
     Assertions.assertTrue(trigger.getStatus() == null || trigger.getStatus().getTimestamp() == null,
         "Trigger was fired when it shouldn't have been");
   }
+
+  @Test
+  void pausedTriggerDoesNotCreateNewJob() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("paused-trigger-job").namespace("namespace"));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("paused-trigger"))
+        .spec(new V1alpha1TableTriggerSpec()
+            .yaml(Yaml.dump(job))
+            .paused(true))
+        .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
+    triggers.add(trigger);
+    Result result = reconciler.reconcile(new Request("namespace", "paused-trigger"));
+    Assertions.assertFalse(result.isRequeue(), "Paused trigger should not requeue");
+    Assertions.assertTrue(yamls.isEmpty(), "Paused trigger should not create job");
+  }
+
+  @Test
+  void pausedTriggerDoesNotFireOnSchedule() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("paused-cron-trigger-job").namespace("namespace"));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("paused-cron-trigger"))
+        .spec(new V1alpha1TableTriggerSpec()
+            .yaml(Yaml.dump(job))
+            .schedule("@hourly")
+            .paused(true));
+    triggers.add(trigger);
+    Result result = reconciler.reconcile(new Request("namespace", "paused-cron-trigger"));
+    Assertions.assertFalse(result.isRequeue(), "Paused trigger should not requeue for schedule");
+    Assertions.assertTrue(trigger.getStatus() == null || trigger.getStatus().getTimestamp() == null,
+        "Paused trigger should not be fired on schedule");
+    Assertions.assertTrue(yamls.isEmpty(), "Paused trigger should not create job on schedule");
+  }
+
+  @Test
+  void pausedTriggerMonitorsExistingRunningJob() {
+    Map<String, String> annotations = new HashMap<>();
+    annotations.put(TableTriggerReconciler.TRIGGER_KEY, "paused-trigger-with-job");
+    annotations.put(TableTriggerReconciler.TRIGGER_TIMESTAMP_KEY, OffsetDateTime.now().toString());
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("paused-trigger-running-job").annotations(annotations))
+        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Running").status("True")));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("paused-trigger-with-job"))
+        .spec(new V1alpha1TableTriggerSpec()
+            .yaml(Yaml.dump(job))
+            .paused(true))
+        .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
+    triggers.add(trigger);
+    jobs.add(job);
+    Result result = reconciler.reconcile(new Request("namespace", "paused-trigger-with-job"));
+    Assertions.assertTrue(result.isRequeue(), "Paused trigger should requeue to monitor existing job");
+    Assertions.assertFalse(jobs.isEmpty(), "Existing job should still be running");
+  }
+
+  @Test
+  void pausedTriggerDeletesCompletedJob() {
+    Map<String, String> annotations = new HashMap<>();
+    annotations.put(TableTriggerReconciler.TRIGGER_KEY, "paused-trigger-completed");
+    annotations.put(TableTriggerReconciler.TRIGGER_TIMESTAMP_KEY, OffsetDateTime.now().toString());
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("paused-trigger-completed-job").annotations(annotations))
+        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Complete").status("True")));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("paused-trigger-completed"))
+        .spec(new V1alpha1TableTriggerSpec()
+            .yaml(Yaml.dump(job))
+            .paused(true))
+        .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
+    triggers.add(trigger);
+    jobs.add(job);
+    Result result = reconciler.reconcile(new Request("namespace", "paused-trigger-completed"));
+    Assertions.assertTrue(result.isRequeue(), "Should requeue after handling completed job");
+    Assertions.assertTrue(jobs.isEmpty(), "Completed job should be deleted even when trigger is paused");
+    Assertions.assertNotNull(trigger.getStatus().getWatermark(), "Watermark should be updated for completed job");
+  }
+
+  @Test
+  void unpausedTriggerCreatesJobAfterBeingPaused() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("unpaused-trigger-job").namespace("namespace"));
+    OffsetDateTime triggerTime = OffsetDateTime.now().minusHours(1);
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("unpaused-trigger"))
+        .spec(new V1alpha1TableTriggerSpec()
+            .yaml(Yaml.dump(job))
+            .paused(false))
+        .status(new V1alpha1TableTriggerStatus()
+            .timestamp(triggerTime));  // Has timestamp but no watermark (was paused)
+    triggers.add(trigger);
+    Result result = reconciler.reconcile(new Request("namespace", "unpaused-trigger"));
+    Assertions.assertTrue(result.isRequeue(), "Unpaused trigger should requeue");
+    Assertions.assertFalse(yamls.isEmpty(), "Unpaused trigger should create job for pending trigger event");
+  }
 }
