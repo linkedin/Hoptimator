@@ -32,6 +32,7 @@ import com.linkedin.hoptimator.jdbc.ddl.HoptimatorDdlParserImpl;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
 import com.linkedin.hoptimator.util.ArrayTable;
+import com.linkedin.hoptimator.jdbc.ddl.SqlDropTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
@@ -502,6 +503,42 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code RESUME TRIGGER} command. */
   public void execute(SqlResumeTrigger resume, CalcitePrepare.Context context) {
     updateTriggerPausedState(resume, resume.name, false);
+  }
+
+  /** Executes a {@code DROP TRIGGER} command. */
+  public void execute(SqlDropTrigger drop, CalcitePrepare.Context context) {
+    logger.info("Validating statement: {}", drop);
+    try {
+      ValidationService.validateOrThrow(drop);
+    } catch (SQLException e) {
+      throw new DdlException(drop, e.getMessage(), e);
+    }
+
+    if (drop.name.names.size() > 1) {
+      throw new DdlException(drop, "Triggers cannot belong to a schema or database.");
+    }
+    String name = drop.name.names.get(0);
+
+    Trigger trigger = new Trigger(name, null, new ArrayList<>(), null, new HashMap<>());
+
+    Collection<Deployer> deployers = null;
+    try {
+      logger.info("Deleting trigger {}", name);
+      deployers = DeploymentService.deployers(trigger, connection);
+      DeploymentService.delete(deployers);
+      logger.info("Deleted trigger {}", name);
+      logger.info("DROP TRIGGER {} completed", name);
+    } catch (Exception e) {
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+      }
+      // Handle IF EXISTS
+      if (drop.ifExists && e.getMessage() != null && e.getMessage().contains("Error getting TableTrigger")) {
+        logger.info("Trigger {} does not exist (IF EXISTS specified)", name);
+        return;
+      }
+      throw new DdlException(drop, e.getMessage(), e);
+    }
   }
 
   private void updateTriggerPausedState(SqlNode sqlNode, SqlIdentifier triggerName, boolean paused) {

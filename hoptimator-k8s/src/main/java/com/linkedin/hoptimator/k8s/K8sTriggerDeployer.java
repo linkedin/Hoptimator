@@ -55,6 +55,16 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
   }
 
   @Override
+  public void delete() throws SQLException {
+    String canonicalName = K8sUtils.canonicalizeName(trigger.name());
+    V1alpha1TableTrigger existingTrigger = triggerApi.get(canonicalName);
+    if (existingTrigger == null) {
+      throw new SQLException("Trigger " + trigger.name() + " not found.");
+    }
+    triggerApi.delete(existingTrigger);
+  }
+
+  @Override
   protected V1alpha1TableTrigger toK8sObject() throws SQLException {
     String name = K8sUtils.canonicalizeName(trigger.name(), trigger.job().name());
     String triggerName = K8sUtils.canonicalizeName(trigger.name());

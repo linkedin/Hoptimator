@@ -46,7 +46,12 @@ select name, schema, "TABLE", paused from "k8s".table_triggers where name = 'tes
 
 !ok
 
-delete from "k8s".table_triggers where name = 'test';
-(1 row modified)
+drop trigger test;
+(0 rows modified)
+
+!update
+
+drop trigger if exists test;
+(0 rows modified)
 
 !update
