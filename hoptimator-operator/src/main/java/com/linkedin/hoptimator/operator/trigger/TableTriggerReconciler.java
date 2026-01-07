@@ -183,7 +183,7 @@ public final class TableTriggerReconciler implements Reconciler {
         return new Result(true, pendingRetryDuration());
       } else if (job != null) {
         return handleExistingJob(job, status, object);
-      } else if (job == null && scheduled != null) {
+      } else if (scheduled != null) {
         log.info("TableTrigger {} sleeping until next scheduled execution.", name);
         return new Result(true, scheduled.timeToNextExecution(now).get());
       } else {
