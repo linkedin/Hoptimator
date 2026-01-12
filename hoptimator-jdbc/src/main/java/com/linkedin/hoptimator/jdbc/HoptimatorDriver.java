@@ -17,7 +17,6 @@ import java.util.logging.LogManager;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
-import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -121,7 +120,7 @@ public class HoptimatorDriver implements java.sql.Driver {
       // to return our Prepare. But our Prepare requires a HoptimatorConnection, which
       // we cannot construct yet.
       ConnectionHolder holder = new ConnectionHolder();
-      connection = new Driver().withPrepareFactory(() -> new Prepare(holder))
+      connection = new CalciteDriver().withPrepareFactory(() -> new Prepare(holder))
           .connect("jdbc:calcite:", properties);
       if (connection == null) {
         throw new IOException("Could not connect to " + url + ": Could not create Calcite connection.");

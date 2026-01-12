@@ -13,7 +13,7 @@ dependencies {
   implementation libs.calcite.server
   implementation libs.slf4j.api
   implementation libs.commons.dbcp2
-  compileOnly libs.findbugs 
+  compileOnly libs.findbugs
 
   testFixturesImplementation libs.quidem
   testFixturesImplementation libs.calcite.core
@@ -22,6 +22,7 @@ dependencies {
   testFixturesImplementation libs.junit.jupiter.api
 
   testRuntimeOnly project(':hoptimator-demodb')
+  testCompileOnly libs.findbugs
 }
 
 java {

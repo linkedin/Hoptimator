@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.venice.controllerapi.ControllerResponse;
+import com.linkedin.venice.exceptions.ErrorType;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -7,14 +9,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.lookup.Lookup;
+import org.apache.calcite.util.LazyReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import com.linkedin.venice.client.store.ClientConfig;
 import com.linkedin.venice.client.store.ClientFactory;
@@ -31,39 +36,11 @@ public class ClusterSchema extends AbstractSchema {
   protected static final String SSL_FACTORY_CLASS_NAME = "ssl.factory.class.name";
   protected static final String DEFAULT_SSL_FACTORY_CLASS_NAME = "com.linkedin.venice.security.DefaultSSLFactory";
   protected final Properties properties;
-  protected final Map<String, Table> tableMap = new HashMap<>();
   private static final String STORE_HINT_KEY_PREFIX = "venice.%s.";
+  private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
 
   public ClusterSchema(Properties properties) {
     this.properties = properties;
-  }
-
-  public void populate() throws InterruptedException, ExecutionException, IOException {
-    tableMap.clear();
-    String clusterStr = properties.getProperty("clusters");
-    List<String> clusters = Arrays.asList(clusterStr.split(","));
-
-    log.info("Loading Venice stores for cluster {}", clusters);
-
-    String sslConfigPath = properties.getProperty("ssl-config-path");
-    Optional<SSLFactory> sslFactory = Optional.empty();
-    if (sslConfigPath != null) {
-      log.info("Using ssl configs at {}", sslConfigPath);
-      Properties sslProperties = SslUtils.loadSSLConfig(sslConfigPath);
-      String sslFactoryClassName = sslProperties.getProperty(SSL_FACTORY_CLASS_NAME, DEFAULT_SSL_FACTORY_CLASS_NAME);
-      sslFactory = Optional.of(SslUtils.getSSLFactory(sslProperties, sslFactoryClassName));
-    }
-
-    for (String cluster : clusters) {
-      try (ControllerClient controllerClient = createControllerClient(cluster, sslFactory)) {
-        String[] stores = controllerClient.queryStoreList(false).getStores();
-        log.info("Loaded {} Venice stores.", stores.length);
-        for (String store : stores) {
-          StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(store);
-          tableMap.put(store, createVeniceStore(store, storeSchemaFetcher));
-        }
-      }
-    }
   }
 
   protected ControllerClient createControllerClient(String cluster, Optional<SSLFactory> sslFactory) {
@@ -97,7 +74,70 @@ public class ClusterSchema extends AbstractSchema {
   }
 
   @Override
-  public Map<String, Table> getTableMap() {
-    return tableMap;
+  public Lookup<Table> tables() {
+    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+
+      @Override
+      protected Map<String, Table> loadAllTables() throws Exception {
+        Map<String, Table> tableMap = new HashMap<>();
+        String clusterStr = properties.getProperty("clusters");
+        List<String> clusters = Arrays.asList(clusterStr.split(","));
+
+        for (String cluster : clusters) {
+          try (ControllerClient controllerClient = createControllerClient(cluster, getSslFactory())) {
+            String[] stores = controllerClient.queryStoreList(false).getStores();
+            for (String store : stores) {
+              StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(store);
+              tableMap.put(store, createVeniceStore(store, storeSchemaFetcher));
+            }
+          }
+        }
+        return tableMap;
+      }
+
+      @Override
+      protected @Nullable Table loadTable(String name) throws Exception {
+        String clusterStr = properties.getProperty("clusters");
+        List<String> clusters = Arrays.asList(clusterStr.split(","));
+
+        try (ControllerClient controllerClient = createControllerClient(clusters.get(0), getSslFactory())) {
+          ControllerResponse controllerResponse = controllerClient.getStore(name);
+          if (controllerResponse.isError() && controllerResponse.getErrorType().equals(ErrorType.STORE_NOT_FOUND)) {
+            return null;
+          } else if (controllerResponse.isError()) {
+            throw new RuntimeException(String.format("Error fetching store errorType=%s, error=%s",
+                controllerResponse.getErrorType(), controllerResponse.getError()));
+          }
+
+          // Venice does not currently have the ability to list all clusters so the "clusters" property
+          // is required as part of the JDBC driver. To keep loadTable and loadAllTables consistent, we
+          // check that the fetched store actually belongs to one of these clusters, otherwise we could end up
+          // with different results.
+          if (!clusters.contains(controllerResponse.getCluster())) {
+            return null;
+          }
+        }
+
+        StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(name);
+        return createVeniceStore(name, storeSchemaFetcher);
+      }
+
+      @Override
+      protected String getSchemaDescription() {
+        return "Venice clusters " + properties.getProperty("clusters");
+      }
+
+      private Optional<SSLFactory> getSslFactory() throws IOException {
+        String sslConfigPath = properties.getProperty("ssl-config-path");
+        if (sslConfigPath != null) {
+          log.debug("Using ssl configs at {}", sslConfigPath);
+          Properties sslProperties = SslUtils.loadSSLConfig(sslConfigPath);
+          String sslFactoryClassName =
+              sslProperties.getProperty(SSL_FACTORY_CLASS_NAME, DEFAULT_SSL_FACTORY_CLASS_NAME);
+          return Optional.of(SslUtils.getSSLFactory(sslProperties, sslFactoryClassName));
+        }
+        return Optional.empty();
+      }
+    });
   }
 }

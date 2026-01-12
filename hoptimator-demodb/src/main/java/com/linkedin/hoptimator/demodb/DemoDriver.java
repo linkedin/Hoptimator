@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.demodb;
 
+import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -14,12 +15,11 @@ import java.util.stream.Collectors;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
 
 
 /** JDBC driver with fake in-memory data. */
-public class DemoDriver extends Driver {
+public class DemoDriver extends CalciteDriver {
 
   static {
     new DemoDriver().register();
