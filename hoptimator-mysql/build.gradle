@@ -8,6 +8,7 @@ dependencies {
   implementation project(':hoptimator-util')
   implementation libs.calcite.core
   implementation 'mysql:mysql-connector-java:8.0.33'
+  compileOnly libs.findbugs
 
   testImplementation libs.assertj
 

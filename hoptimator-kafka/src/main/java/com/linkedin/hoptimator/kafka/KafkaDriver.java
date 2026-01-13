@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.kafka;
 
+import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -10,12 +11,11 @@ import java.util.Properties;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
 
 
 /** JDBC driver for Kafka topics. */
-public class KafkaDriver extends Driver {
+public class KafkaDriver extends CalciteDriver {
 
   static {
     new KafkaDriver().register();
@@ -48,7 +48,6 @@ public class KafkaDriver extends Driver {
       CalciteConnection calciteConnection = (CalciteConnection) connection;
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
       ClusterSchema schema = new ClusterSchema(properties);
-      schema.populate();
       rootSchema.add("KAFKA", schema);
       return connection;
     } catch (IOException e) {

@@ -16,6 +16,7 @@ import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.lookup.IgnoreCaseLookup;
 import org.apache.calcite.schema.lookup.LikePattern;
+import org.apache.calcite.schema.lookup.LoadingCacheLookup;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.sql.SqlDialect;
 
@@ -57,7 +58,7 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
 
   @Override public Lookup<Table> tables() {
     Lookup<Table> jdbcTableLookup = super.tables();
-    return tables.getOrCompute(() -> new IgnoreCaseLookup<>() {
+    return tables.getOrCompute(() -> new LoadingCacheLookup<>(new IgnoreCaseLookup<>() {
       @Override
       public @Nullable Table get(String name) {
         Table jdbcTable = jdbcTableLookup.get(name);
@@ -71,7 +72,7 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
       public Set<String> getNames(LikePattern pattern) {
         return jdbcTableLookup.getNames(pattern);
       }
-    });
+    }));
   }
 
   @Override

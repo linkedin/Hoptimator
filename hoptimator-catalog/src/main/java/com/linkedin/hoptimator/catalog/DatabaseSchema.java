@@ -2,28 +2,23 @@ package com.linkedin.hoptimator.catalog;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.lookup.Lookup;
+import org.apache.calcite.util.LazyReference;
+
+import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
 
 
 /** Exposes a Database to Apache Calcite. */
 public class DatabaseSchema extends AbstractSchema {
   private final Database database;
-  private final Map<String, Table> tableMap;
+  private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
 
-  public DatabaseSchema(Database database, Map<String, Table> tableMap) {
+  public DatabaseSchema(Database database) {
     this.database = database;
-    this.tableMap = tableMap;
-  }
-
-  public static DatabaseSchema create(Database database) {
-    try {
-      Map<String, Table> tableMap = database.tables().stream().collect(Collectors.toMap(x -> x, x -> new ProtoTable(x, database)));
-      return new DatabaseSchema(database, tableMap);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
   }
 
   public Database database() {
@@ -31,7 +26,26 @@ public class DatabaseSchema extends AbstractSchema {
   }
 
   @Override
-  public Map<String, Table> getTableMap() {
-    return tableMap;
+  public Lookup<Table> tables() {
+    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+
+      @Override
+      protected Map<String, Table> loadAllTables() throws Exception {
+        return database.tables().stream().collect(Collectors.toMap(x -> x, x -> new ProtoTable(x, database)));
+      }
+
+      @Override
+      protected @Nullable Table loadTable(String name) throws Exception {
+        if (database.tables().contains(name)) {
+          return new ProtoTable(name, database);
+        }
+        return null;
+      }
+
+      @Override
+      protected String getSchemaDescription() {
+        return "Database: " + database.toString();
+      }
+    });
   }
 }

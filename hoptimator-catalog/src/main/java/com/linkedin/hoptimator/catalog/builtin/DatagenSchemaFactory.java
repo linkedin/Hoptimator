@@ -44,6 +44,6 @@ public class DatagenSchemaFactory implements SchemaFactory {
         .with("fields.NAME.length", "5")
         .with("fields.CEO.length", "5")
         .config("COMPANY")));
-    return DatabaseSchema.create(new Database(name, datagenTables));
+    return new DatabaseSchema(new Database(name, datagenTables));
   }
 }

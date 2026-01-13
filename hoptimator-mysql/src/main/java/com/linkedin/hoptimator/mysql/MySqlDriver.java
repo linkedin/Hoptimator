@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.mysql;
 
+import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -12,7 +13,6 @@ import java.util.Properties;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.schema.SchemaPlus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 /**
  * JDBC driver for MySQL databases.
  */
-public class MySqlDriver extends Driver {
+public class MySqlDriver extends CalciteDriver {
   private static final String CATALOG_NAME = "MYSQL";
 
   private static final Logger log = LoggerFactory.getLogger(MySqlDriver.class);
@@ -73,7 +73,6 @@ public class MySqlDriver extends Driver {
           while (rs.next()) {
             String schemaName = rs.getString("TABLE_CAT");
             TableSchema tableSchema = new TableSchema(properties, schemaName);
-            tableSchema.populate();
             rootSchema.add(schemaName, tableSchema);
             log.debug("Registered MySQL schema: {}", schemaName);
           }

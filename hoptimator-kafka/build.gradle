@@ -4,9 +4,11 @@ plugins {
 }
 
 dependencies {
+  implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
   implementation libs.calcite.core
   implementation libs.kafka.clients
+  compileOnly libs.findbugs
 
   testImplementation libs.assertj
 
