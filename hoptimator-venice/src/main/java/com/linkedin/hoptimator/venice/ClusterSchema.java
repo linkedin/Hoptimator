@@ -101,7 +101,7 @@ public class ClusterSchema extends AbstractSchema {
         List<String> clusters = Arrays.asList(clusterStr.split(","));
 
         try (ControllerClient controllerClient = createControllerClient(clusters.get(0), getSslFactory())) {
-          ControllerResponse controllerResponse = controllerClient.getStore(name);
+          ControllerResponse controllerResponse = controllerClient.discoverCluster(name);
           if (controllerResponse.isError() && controllerResponse.getErrorType().equals(ErrorType.STORE_NOT_FOUND)) {
             return null;
           } else if (controllerResponse.isError()) {
