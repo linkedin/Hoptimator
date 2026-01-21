@@ -178,22 +178,18 @@ public class AvroConverterTest {
 
   @Test
   public void convertsNestedArray() {
-    // Create a RelDataType with an array of structs
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-
-    // Create a struct type for array elements
-    RelDataTypeFactory.Builder elementBuilder = new RelDataTypeFactory.Builder(typeFactory);
-    elementBuilder.add("field1", typeFactory.createSqlType(SqlTypeName.VARCHAR));
-    elementBuilder.add("field2", typeFactory.createSqlType(SqlTypeName.INTEGER));
-    RelDataType structType = elementBuilder.build();
-
-    // Create array of structs type
-    RelDataType arrayOfStructsType = typeFactory.createArrayType(structType, -1);
-
-    // Test with a struct containing an array of structs field
-    RelDataTypeFactory.Builder containerBuilder = new RelDataTypeFactory.Builder(typeFactory);
-    containerBuilder.add("arrayOfStructsField", arrayOfStructsType);
-    RelDataType containerType = containerBuilder.build();
+    String schemaString =
+        "{\"type\":\"record\",\"name\":\"record\",\"namespace\":\"ns\",\"fields\":["
+            + "{\"name\":\"arrayOfStructsField\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"record\",\"name\":\"record_event1\",\"fields\":["
+            + "{\"name\":\"field1\",\"type\":\"string\"},{\"name\":\"field2\",\"type\":\"int\"}]}}}]}";
+    Schema avroSchema = (new Schema.Parser()).parse(schemaString);
+    RelDataType containerType = AvroConverter.rel(avroSchema); // Ensure parsing works
+    // Calcite does not support inner array fields as NOT NULL.
+    assertEquals(1, containerType.getFieldList().size());
+    assertFalse(containerType.getFieldList().get(0).getType().isNullable());
+    assertEquals(2, containerType.getFieldList().get(0).getType().getComponentType().getFieldList().size());
+    assertTrue(containerType.getFieldList().get(0).getType().getComponentType().getFieldList().get(0).getType().isNullable());
+    assertEquals("RecordType(RecordType(VARCHAR field1, INTEGER field2) ARRAY arrayOfStructsField) NOT NULL", containerType.getFullTypeString());
 
     Schema containerSchema = AvroConverter.avro("test", "Record", containerType);
     assertNotNull(containerSchema);
@@ -204,10 +200,21 @@ public class AvroConverterTest {
     assertEquals(Schema.Type.ARRAY, arrayFieldSchema.getType());
 
     Schema structElementSchema = arrayFieldSchema.getElementType();
-    assertEquals(Schema.Type.RECORD, structElementSchema.getType());
-    assertEquals(2, structElementSchema.getFields().size());
-    assertEquals("field1", structElementSchema.getFields().get(0).name());
-    assertEquals("field2", structElementSchema.getFields().get(1).name());
+    assertEquals(Schema.Type.UNION, structElementSchema.getType());
+    assertEquals(2, structElementSchema.getTypes().size());
+    assertEquals(Schema.Type.NULL, structElementSchema.getTypes().get(0).getType());
+    assertEquals(Schema.Type.RECORD, structElementSchema.getTypes().get(1).getType());
+
+    Schema innerRecord = structElementSchema.getTypes().get(1);
+    assertEquals(2, innerRecord.getFields().size());
+    assertEquals("field1", innerRecord.getFields().get(0).name());
+    assertEquals("field2", innerRecord.getFields().get(1).name());
+    assertEquals(2, innerRecord.getFields().size());
+
+    Schema innermostField = innerRecord.getFields().get(0).schema();
+    assertEquals(2, innermostField.getTypes().size());
+    assertEquals(Schema.Type.NULL, innermostField.getTypes().get(0).getType());
+    assertEquals(Schema.Type.STRING, innermostField.getTypes().get(1).getType());
   }
 
   @Test
