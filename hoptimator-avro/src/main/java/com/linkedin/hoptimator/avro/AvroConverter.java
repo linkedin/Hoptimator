@@ -157,7 +157,9 @@ public final class AvroConverter {
 
   /** Converts Avro Schema to RelDataType.
    * Nullability is preserved except for array types, JDBC is incapable of interpreting e.g. "FLOAT NOT NULL ARRAY"
-   * causing "NOT NULL" arrays to get demoted to "ANY ARRAY" which is not desired.
+   * causing "NOT NULL" arrays to get demoted to "ANY ARRAY" which is not desired. See HoptimatorArraySqlType for
+   * more details.
+   *
    * TODO: default field values are lost when converting from Avro to RelDataType
    */
   public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory, boolean nullable) {
@@ -187,8 +189,7 @@ public final class AvroConverter {
       case BOOLEAN:
         return createRelType(typeFactory, SqlTypeName.BOOLEAN, nullable);
       case ARRAY:
-        return typeFactory.createTypeWithNullability(
-            typeFactory.createArrayType(rel(schema.getElementType(), typeFactory, true), -1), nullable);
+        return new HoptimatorArraySqlType(rel(schema.getElementType(), typeFactory, true), nullable);
       case MAP:
         return typeFactory.createTypeWithNullability(
             typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory, nullable)), nullable);
