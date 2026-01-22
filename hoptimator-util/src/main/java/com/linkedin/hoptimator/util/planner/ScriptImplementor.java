@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
@@ -347,7 +348,16 @@ public interface ScriptImplementor {
       String effectiveTable = suffix != null ? table + suffix : table;
       (new CompoundIdentifierImplementor(catalog, schema, effectiveTable)).implement(w);
       RelNode project = dropFields(relNode, targetFields);
-      (new ColumnListImplementor(project.getRowType())).implement(w);
+
+      // If the relNode is a Project (or subclass), the field names should already match the sink.
+      // Otherwise, like in SELECT * situations, the relNode fields will match the source field names, so
+      // we need to directly use targetFields to map correctly.
+      if (relNode instanceof Project) {
+        (new ColumnListImplementor(project.getRowType().getFieldNames())).implement(w);
+      } else {
+        (new ColumnListImplementor(targetFields.rightList())).implement(w);
+      }
+
       (new QueryImplementor(project, tableNameReplacements)).implement(w);
       w.literal(";");
     }
@@ -356,15 +366,35 @@ public interface ScriptImplementor {
     // Drops non-target columns, for use case: INSERT INTO (col1, col2) SELECT * FROM ...
     private static RelNode dropFields(RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
       List<Integer> cols = new ArrayList<>();
-      int i = 0;
       List<String> targetFieldNames = targetFields.rightList();
-      for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
-        if (targetFieldNames.contains(field.getName())
-            && !field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
-          cols.add(i);
+      List<RelDataTypeField> sourceFields = relNode.getRowType().getFieldList();
+
+      // If the relNode is a Project (or subclass), the field names should already match the target
+      // because the projection explicitly renamed them. Use name-based matching.
+      if (relNode instanceof Project) {
+        for (int i = 0; i < sourceFields.size(); i++) {
+          RelDataTypeField field = sourceFields.get(i);
+          if (targetFieldNames.contains(field.getName())
+              && !field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
+            cols.add(i);
+          }
         }
-        i++;
+
+        return createForceProject(relNode, cols);
       }
+
+      // Otherwise (e.g., TableScan), the projection was optimized away.
+      // Use index-based matching from targetFields to select the right columns.
+      for (int i = 0; i < targetFields.size(); i++) {
+        int fieldIndex = targetFields.leftList().get(i);
+        if (fieldIndex < sourceFields.size()) {
+          RelDataTypeField field = sourceFields.get(fieldIndex);
+          if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
+            cols.add(fieldIndex);
+          }
+        }
+      }
+
       return createForceProject(relNode, cols);
     }
   }
@@ -605,25 +635,20 @@ public interface ScriptImplementor {
 
   /** Implements column lists, e.g. `NAME, AGE` */
   class ColumnListImplementor implements ScriptImplementor {
-    private final List<RelDataTypeField> fields;
+    private final List<String> fieldNames;
 
-    public ColumnListImplementor(RelDataType dataType) {
-      this(dataType.getFieldList());
-    }
-
-    public ColumnListImplementor(List<RelDataTypeField> fields) {
-      this.fields = fields;
+    ColumnListImplementor(List<String> fieldNames) {
+      this.fieldNames = fieldNames;
     }
 
     @Override
     public void implement(SqlWriter w) {
       SqlWriter.Frame frame1 = w.startList("(", ")");
-      List<SqlIdentifier> fieldNames = fields.stream()
-          .map(RelDataTypeField::getName)
+      List<SqlIdentifier> identifiers = fieldNames.stream()
           .map(x -> x.replaceAll("\\$", "_"))  // support FOO$BAR columns as FOO_BAR
           .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
           .collect(Collectors.toList());
-      for (SqlIdentifier fieldName : fieldNames) {
+      for (SqlIdentifier fieldName : identifiers) {
         w.sep(",");
         fieldName.unparse(w, 0, 0);
       }
