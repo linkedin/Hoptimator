@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -20,7 +22,11 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.junit.jupiter.api.Assertions;
 
 import net.hydromatic.quidem.AbstractCommand;
@@ -88,14 +94,38 @@ public abstract class QuidemTestBase {
               }
               String sql = context.previousSqlCommand().sql;
               HoptimatorConnection conn = (HoptimatorConnection) connection;
-              RelRoot root = HoptimatorDriver.convert(conn, sql).root;
+
               String[] parts = line.split(" ", 2);
-              String pipelineName = parts.length == 2 ? parts[1] : "test";
-              Properties properties = new Properties();
-              properties.putAll(conn.connectionProperties());
-              properties.put(DeploymentService.PIPELINE_OPTION, pipelineName);
-              Pipeline pipeline = DeploymentService.plan(root, Collections.emptyList(), properties)
-                  .pipeline(pipelineName, conn);
+              String viewName = parts.length == 2 ? parts[1] : "test";
+              String querySql = sql;
+              SqlCreateMaterializedView create = null;
+              SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
+              if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
+                if (sqlNode instanceof SqlCreateMaterializedView) {
+                  create = (SqlCreateMaterializedView) sqlNode;
+                  final SqlNode q = HoptimatorDdlUtils.renameColumns(create.columnList, create.query);
+                  querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
+                  viewName = HoptimatorDdlUtils.viewName(create.name);
+                } else {
+                  throw new RuntimeException("Unsupported DDL statement.");
+                }
+              }
+
+              RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
+              Properties connectionProperties = conn.connectionProperties();
+              RelOptTable table = root.rel.getTable();
+              if (table != null) {
+                connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
+              } else if (create != null) {
+                connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, create.name.toString());
+              }
+
+              PipelineRel.Implementor plan = DeploymentService.plan(root, Collections.emptyList(), connectionProperties);
+              if (create != null) {
+                HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
+                    new HoptimatorDriver.Prepare(conn), plan, create, querySql);
+              }
+              Pipeline pipeline = plan.pipeline(viewName, conn);
               List<String> specs = new ArrayList<>();
               for (Source source : pipeline.sources()) {
                 specs.addAll(DeploymentService.specify(source, conn));

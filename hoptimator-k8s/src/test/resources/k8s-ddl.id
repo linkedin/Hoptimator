@@ -204,42 +204,42 @@ spec:
     state: running
 !specify AD_CLICKS
 
-insert into ads.page_views select CAMPAIGN_URN as PAGE_URN, MEMBER_URN as MEMBER_URN from ads.ad_clicks;
+create or replace materialized view ads."PAGE_VIEWS$forward-field-order" as select CAMPAIGN_URN as PAGE_URN, MEMBER_URN as MEMBER_URN from ads.ad_clicks;
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
-  name: ads-database-pageviews
+  name: ads-database-pageviews-forward-field-order
 spec:
   deploymentName: basic-session-deployment
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:
-    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ();
-    - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10');
-    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ();
-    - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole');
-    - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT * FROM `ADS`.`AD_CLICKS`;
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT * FROM `ADS`.`AD_CLICKS`
     jarURI: file:///opt/hoptimator-flink-runner.jar
     parallelism: 1
     upgradeMode: stateless
     state: running
 !specify PAGE_VIEWS
 
-insert into ads.page_views select MEMBER_URN as MEMBER_URN, CAMPAIGN_URN as PAGE_URN from ads.ad_clicks;
+create or replace materialized view ads."PAGE_VIEWS$reverse-field-order" as select MEMBER_URN as MEMBER_URN, CAMPAIGN_URN as PAGE_URN from ads.ad_clicks;
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
-  name: ads-database-pageviews
+  name: ads-database-pageviews-reverse-field-order
 spec:
   deploymentName: basic-session-deployment
   job:
     entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
     args:
-    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ();
-    - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10');
-    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ();
-    - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole');
-    - INSERT INTO `ADS`.`PAGE_VIEWS` (`MEMBER_URN`, `PAGE_URN`) SELECT `MEMBER_URN`, `CAMPAIGN_URN` AS `PAGE_URN` FROM `ADS`.`AD_CLICKS`;
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`PAGE_VIEWS` (`MEMBER_URN`, `PAGE_URN`) SELECT `MEMBER_URN`, `CAMPAIGN_URN` AS `PAGE_URN` FROM `ADS`.`AD_CLICKS`
     jarURI: file:///opt/hoptimator-flink-runner.jar
     parallelism: 1
     upgradeMode: stateless
