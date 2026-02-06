@@ -42,7 +42,6 @@ import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.tools.RelBuilder;
-import org.apache.calcite.util.Util;
 
 
 /**
@@ -198,6 +197,20 @@ public interface ScriptImplementor {
       if (node instanceof SqlSelect && ((SqlSelect) node).getSelectList() != null) {
         SqlSelect select = (SqlSelect) node;
         select.setSelectList((SqlNodeList) Objects.requireNonNull(select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR)));
+        SqlNodeList selectList = select.getSelectList();
+
+        // Check if this is a SELECT * and replace with explicit columns
+        if (selectList.size() == 1 && selectList.get(0) instanceof SqlIdentifier) {
+          SqlIdentifier id = (SqlIdentifier) selectList.get(0);
+          if (id.isStar()) {
+            // Replace SELECT * with explicit column list
+            List<SqlNode> explicitColumns = new ArrayList<>();
+            for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
+              explicitColumns.add(new SqlIdentifier(field.getName(), SqlParserPos.ZERO));
+            }
+            select.setSelectList(new SqlNodeList(explicitColumns, SqlParserPos.ZERO));
+          }
+        }
       }
       // Apply table name replacements if any
       if (!tableNameReplacements.isEmpty()) {
@@ -366,6 +379,7 @@ public interface ScriptImplementor {
     // Drops non-target columns, for use case: INSERT INTO (col1, col2) SELECT * FROM ...
     private static RelNode dropFields(RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
       List<Integer> cols = new ArrayList<>();
+      List<String> aliases = new ArrayList<>();
       List<String> targetFieldNames = targetFields.rightList();
       List<RelDataTypeField> sourceFields = relNode.getRowType().getFieldList();
 
@@ -377,10 +391,11 @@ public interface ScriptImplementor {
           if (targetFieldNames.contains(field.getName())
               && !field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
             cols.add(i);
+            aliases.add(field.getName());
           }
         }
 
-        return createForceProject(relNode, cols);
+        return createForceProject(relNode, cols, aliases);
       }
 
       // Otherwise (e.g., TableScan), the projection was optimized away.
@@ -391,16 +406,17 @@ public interface ScriptImplementor {
           RelDataTypeField field = sourceFields.get(fieldIndex);
           if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
             cols.add(fieldIndex);
+            aliases.add(targetFields.rightList().get(i));
           }
         }
       }
 
-      return createForceProject(relNode, cols);
+      return createForceProject(relNode, cols, aliases);
     }
   }
 
-  static RelNode createForceProject(final RelNode child, final List<Integer> posList) {
-    return createForceProject(RelFactories.DEFAULT_PROJECT_FACTORY, child, posList);
+  static RelNode createForceProject(final RelNode child, final List<Integer> posList, final List<String> aliases) {
+    return createForceProject(RelFactories.DEFAULT_PROJECT_FACTORY, child, posList, aliases);
   }
 
   // By default, "projectNamed" will try to provide an optimization by not creating a new project if the
@@ -417,9 +433,7 @@ public interface ScriptImplementor {
   // This implementation is largely a duplicate of RelOptUtil.createProject(relNode, cols); which does not allow
   // overriding the "force" argument of "projectNamed".
   static RelNode createForceProject(final RelFactories.ProjectFactory factory,
-      final RelNode child, final List<Integer> posList) {
-    RelDataType rowType = child.getRowType();
-    final List<String> fieldNames = rowType.getFieldNames();
+      final RelNode child, final List<Integer> posList, final List<String> aliases) {
     final RelBuilder relBuilder =
         RelBuilder.proto(factory).create(child.getCluster(), null);
     final List<RexNode> exprs = new AbstractList<>() {
@@ -434,10 +448,9 @@ public interface ScriptImplementor {
         return relBuilder.getRexBuilder().makeInputRef(child, pos);
       }
     };
-    final List<String> names = Util.select(fieldNames, posList);
     return relBuilder
         .push(child)
-        .projectNamed(exprs, names, true)
+        .projectNamed(exprs, aliases, true)
         .build();
   }
 

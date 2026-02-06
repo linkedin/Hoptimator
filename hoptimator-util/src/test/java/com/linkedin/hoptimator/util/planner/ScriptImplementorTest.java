@@ -18,12 +18,14 @@ import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Tests for ScriptImplementor suffix functionality to handle source/sink table name collisions.
+ * Tests for ScriptImplementor
  */
-public class ScriptImplementorSuffixTest {
+public class ScriptImplementorTest {
   @Test
   public void testConnectorWithSuffix() {
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
@@ -170,5 +172,61 @@ public class ScriptImplementorSuffixTest {
         "Should include blackhole connector. Got: " + sql);
     assertTrue(sql.contains("INSERT INTO `ADS`.`AD_CLICKS_sink`"),
         "Should insert into sink table. Got: " + sql);
+  }
+
+  @Test
+  public void testExplicitColumnEnumeration() {
+    // Test for Flink 1.20 regression where INSERT with SELECT * fails
+    // when sink has more columns than source
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+
+    // Source table: 2 columns
+    RelDataType sourceType = typeFactory.builder()
+        .add("KEY_source", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("nestedValue_source", typeFactory.builder()
+            .add("innerInt_source", typeFactory.createSqlType(SqlTypeName.INTEGER))
+            .add("innerArray_source", typeFactory.createArrayType(
+                typeFactory.createSqlType(SqlTypeName.INTEGER), -1))
+            .build())
+        .build();
+
+    // Create schema with source table
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus sourceSchema = rootSchema.add("source", new AbstractSchema());
+    sourceSchema.add("table", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+        return sourceType;
+      }
+    });
+
+    RelBuilder builder = RelBuilder.create(
+        Frameworks.newConfigBuilder()
+            .defaultSchema(rootSchema)
+            .build());
+
+    // Create a query: SELECT KEY_source as KEY_sink, nestedValue_source as nestedValue_sink FROM source
+    // This simulates the materialized view query
+    RelNode query = builder
+        .scan("source", "table")
+        .project(
+            builder.field("KEY_source"),
+            builder.field("nestedValue_source"))
+        .build();
+
+    // Target fields for INSERT - only the 2 columns we're actually inserting
+    ImmutablePairList<Integer, String> targetFields = ImmutablePairList.copyOf(Arrays.asList(
+        new AbstractMap.SimpleEntry<>(0, "KEY_sink"),
+        new AbstractMap.SimpleEntry<>(1, "nestedValue_sink")
+    ));
+
+    String sql = ScriptImplementor.empty()
+        .insert(null, "sink", "mypipeline", null, query, targetFields)
+        .sql();
+
+    assertEquals(
+        "INSERT INTO `sink`.`mypipeline` (`KEY_sink`, `nestedValue_sink`) "
+            + "SELECT `KEY_source` AS `KEY_sink`, `nestedValue_source` AS `nestedValue_sink` "
+            + "FROM `source`.`table`;", sql);
   }
 }
