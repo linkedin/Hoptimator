@@ -197,7 +197,7 @@ spec:
     - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS_source` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
     - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
     - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS_sink` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
-    - INSERT INTO `ADS`.`AD_CLICKS_sink` (`CAMPAIGN_URN`, `MEMBER_URN`) SELECT * FROM `ADS`.`AD_CLICKS_source`
+    - INSERT INTO `ADS`.`AD_CLICKS_sink` (`CAMPAIGN_URN`, `MEMBER_URN`) SELECT `CAMPAIGN_URN`, `MEMBER_URN` FROM `ADS`.`AD_CLICKS_source`
     jarURI: file:///opt/hoptimator-flink-runner.jar
     parallelism: 1
     upgradeMode: stateless
@@ -218,7 +218,7 @@ spec:
     - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
     - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
     - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
-    - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT * FROM `ADS`.`AD_CLICKS`
+    - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT `CAMPAIGN_URN` AS `PAGE_URN`, `MEMBER_URN` FROM `ADS`.`AD_CLICKS`
     jarURI: file:///opt/hoptimator-flink-runner.jar
     parallelism: 1
     upgradeMode: stateless
@@ -245,3 +245,24 @@ spec:
     upgradeMode: stateless
     state: running
 !specify PAGE_VIEWS
+
+create or replace materialized view PROFILE."MEMBERS$test" AS SELECT "PAGE_URN" AS "COMPANY_URN", "MEMBER_URN" FROM ADS.PAGE_VIEWS;
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: profile-database-members-test
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='blackhole')
+    - INSERT INTO `PROFILE`.`MEMBERS` (`COMPANY_URN`, `MEMBER_URN`) SELECT `PAGE_URN` AS `COMPANY_URN`, `MEMBER_URN` FROM `ADS`.`PAGE_VIEWS`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify MEMBERS
