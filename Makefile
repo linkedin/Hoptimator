@@ -52,7 +52,7 @@ undeploy-demo: undeploy
 deploy-flink: deploy
 	kubectl create namespace flink || echo "skipping"
 	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
-	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.11.0/
+	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.13.0/
 	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest --set-json='watchNamespaces=["default","flink"]' flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
 	kubectl apply -f ./deploy/dev/flink-session-cluster.yaml
 	kubectl apply -f ./deploy/dev/flink-sql-gateway.yaml
