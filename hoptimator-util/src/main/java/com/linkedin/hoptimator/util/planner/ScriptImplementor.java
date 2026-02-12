@@ -11,6 +11,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
+
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.RelFactories;
@@ -115,13 +117,19 @@ public interface ScriptImplementor {
   }
 
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
-  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode) {
+    return insert(catalog, schema, table, null, relNode, null, Collections.emptyMap());
+  }
+
+  /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode,
+      @Nullable ImmutablePairList<Integer, String> targetFields) {
     return insert(catalog, schema, table, null, relNode, targetFields, Collections.emptyMap());
   }
 
   /** Append an insert statement with an optional suffix for the target table, e.g. `INSERT INTO ... SELECT ...` */
   default ScriptImplementor insert(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
-      ImmutablePairList<Integer, String> targetFields) {
+      @Nullable ImmutablePairList<Integer, String> targetFields) {
     return insert(catalog, schema, table, suffix, relNode, targetFields, Collections.emptyMap());
   }
 
@@ -345,7 +353,7 @@ public interface ScriptImplementor {
     private final Map<String, String> tableNameReplacements;
 
     public InsertImplementor(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
-        ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements) {
+        @Nullable ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements) {
       this.catalog = catalog;
       this.schema = schema;
       this.table = table;
@@ -360,12 +368,12 @@ public interface ScriptImplementor {
       w.keyword("INSERT INTO");
       String effectiveTable = suffix != null ? table + suffix : table;
       (new CompoundIdentifierImplementor(catalog, schema, effectiveTable)).implement(w);
-      RelNode project = dropFields(relNode, targetFields);
+      RelNode project = targetFields == null ? dropNullFields(relNode) : dropFields(relNode, targetFields);
 
       // If the relNode is a Project (or subclass), the field names should already match the sink.
       // Otherwise, like in SELECT * situations, the relNode fields will match the source field names, so
       // we need to directly use targetFields to map correctly.
-      if (relNode instanceof Project) {
+      if (relNode instanceof Project || targetFields == null) {
         (new ColumnListImplementor(project.getRowType().getFieldNames())).implement(w);
       } else {
         (new ColumnListImplementor(targetFields.rightList())).implement(w);
@@ -373,6 +381,19 @@ public interface ScriptImplementor {
 
       (new QueryImplementor(project, tableNameReplacements)).implement(w);
       w.literal(";");
+    }
+
+    // Drops NULL fields
+    private static RelNode dropNullFields(RelNode relNode) {
+      List<Integer> cols = new ArrayList<>();
+      int i = 0;
+      for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
+        if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
+          cols.add(i);
+        }
+        i++;
+      }
+      return RelOptUtil.createProject(relNode, cols);
     }
 
     // Drops NULL fields

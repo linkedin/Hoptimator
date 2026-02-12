@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.catalog;
 import java.util.Collections;
 import java.util.stream.Collectors;
 
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;

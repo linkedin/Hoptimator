@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
@@ -46,7 +47,7 @@ public class HopTable extends AbstractTable implements ScriptImplementor, Transl
   public HopTable(String database, String name, RelDataType rowType, Collection<Resource> readResources,
       Collection<Resource> writeResources, Map<String, String> connectorConfig) {
     this(database, name, rowType, readResources, writeResources,
-        new ScriptImplementor.ConnectorImplementor(database, name, rowType, connectorConfig));
+        new ScriptImplementor.ConnectorImplementor(null, database, name, null, rowType, connectorConfig));
   }
 
   /** Convenience constructor for HopTables that only need a connector config. */

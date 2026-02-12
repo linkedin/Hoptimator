@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.catalog;
 
 import java.util.Collections;
 
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.rel.type.RelDataType;
 
 
@@ -37,7 +38,7 @@ public interface TableFactory {
     public HopTable table(String database, String name, RelDataType rowType) {
       return new HopTable(database, name, rowType, resourceProvider.readResources(name),
           resourceProvider.writeResources(name),
-          ScriptImplementor.empty().connector(database, name, rowType, configProvider.config(name)));
+          ScriptImplementor.empty().connector(null, database, name, rowType, configProvider.config(name)));
     }
   }
 }
