@@ -37,9 +37,19 @@ public class K8sPipelineTable extends K8sTable<V1alpha1Pipeline, V1alpha1Pipelin
 
   @Override
   public Row toRow(V1alpha1Pipeline obj) {
-    V1alpha1PipelineStatus status = Objects.requireNonNull(obj.getStatus());
-    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Boolean.TRUE.equals(status.getReady()),
-        Boolean.TRUE.equals(status.getFailed()), status.getMessage());
+    final boolean ready;
+    final boolean failed;
+    final String msg;
+    if (obj.getStatus() != null) {
+      ready = Boolean.TRUE.equals(obj.getStatus().getReady());
+      failed = Boolean.TRUE.equals(obj.getStatus().getFailed());
+      msg = obj.getStatus().getMessage();
+    } else {
+      ready = false;
+      failed = false;
+      msg = null;
+    }
+    return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), ready, failed, msg);
   }
 
   @Override
