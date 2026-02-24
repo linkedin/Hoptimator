@@ -30,6 +30,7 @@ import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.jdbc.ddl.HoptimatorDdlParserImpl;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
 import com.linkedin.hoptimator.util.ArrayTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlDropTrigger;
@@ -70,7 +71,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
-import org.apache.calcite.sql.ddl.SqlCreateTable;
 import org.apache.calcite.sql.ddl.SqlCreateView;
 import org.apache.calcite.sql.ddl.SqlDropMaterializedView;
 import org.apache.calcite.sql.ddl.SqlDropObject;
@@ -461,7 +461,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       List<String> tablePath = new ArrayList<>(schemaPath);
       tablePath.add(tableName);
 
-      Source source = new Source(database, tablePath, Collections.emptyMap());
+      Map<String, String> tableOptions = HoptimatorDdlUtils.options(create.options);
+
+      Source source = new Source(database, tablePath, tableOptions);
       logger.info("Validating new table {}", source);
       ValidationService.validateOrThrow(source);
       deployers = DeploymentService.deployers(source, connection);

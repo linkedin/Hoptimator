@@ -166,6 +166,7 @@ public class VeniceDeployer implements Deployer {
   private ControllerClient createControllerClient() throws SQLException {
     Properties veniceProperties = ConfigService.config(connection, false, VENICE_CONFIG);
     veniceProperties.putAll(connection.connectionProperties());
+    veniceProperties.putAll(source.options());
     String routerUrl = veniceProperties.getProperty("router.url");
 
     String clusterStr = veniceProperties.getProperty("clusters");

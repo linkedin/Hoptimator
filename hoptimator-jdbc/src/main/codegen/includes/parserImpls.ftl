@@ -192,6 +192,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final boolean ifNotExists;
     final SqlIdentifier id;
     SqlNodeList tableElementList = null;
+    SqlNodeList optionList = null;
     SqlNode query = null;
 
     SqlCreate createTableLike = null;
@@ -204,9 +205,10 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
         }
     |
         [ tableElementList = TableElementList() ]
+        [ optionList = Options() ]
         [ <AS> query = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY) ]
         {
-            return SqlDdlNodes.createTable(s.end(this), replace, ifNotExists, id, tableElementList, query);
+            return new SqlCreateTable(s.end(this), replace, ifNotExists, id, tableElementList, optionList, query);
         }
     )
 }
