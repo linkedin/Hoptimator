@@ -91,6 +91,10 @@ class K8sConnector implements Connector {
     Map<String, String> map = new LinkedHashMap<>();
     props.stringPropertyNames().stream().sorted().forEach(k ->
         map.put(k, props.getProperty(k)));
+    // Source options override template-derived config (WITH wins)
+    if (!source.options().isEmpty()) {
+      map.putAll(source.options());
+    }
     return map;
   }
 

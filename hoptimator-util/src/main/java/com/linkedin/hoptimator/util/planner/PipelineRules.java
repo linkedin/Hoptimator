@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -12,6 +13,7 @@ import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.prepare.Prepare;
@@ -30,6 +32,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.core.Uncollect;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.logical.LogicalAggregate;
+
 import org.apache.calcite.rel.logical.LogicalCalc;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalJoin;
@@ -46,6 +49,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 
 import com.google.common.collect.ImmutableSet;
 
+import com.linkedin.hoptimator.ConnectorConfigurable;
 import com.linkedin.hoptimator.util.DataTypeUtils;
 
 
@@ -56,7 +60,8 @@ public final class PipelineRules {
 
   public static Collection<RelOptRule> rules() {
     return Arrays.asList(PipelineFilterRule.INSTANCE, PipelineProjectRule.INSTANCE, PipelineJoinRule.INSTANCE,
-        PipelineCalcRule.INSTANCE, PipelineAggregateRule.INSTANCE, PipelineUncollectRule.INSTANCE);
+        PipelineCalcRule.INSTANCE, PipelineAggregateRule.INSTANCE, PipelineUncollectRule.INSTANCE,
+        StoredTableScanRule.INSTANCE);
   }
 
   public static class PipelineTableScanRule extends ConverterRule {
@@ -85,17 +90,60 @@ public final class PipelineRules {
   static class PipelineTableScan extends TableScan implements PipelineRel {
 
     private final String database;
+    private final Map<String, String> options;
 
-    PipelineTableScan(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, String database, RelOptTable table) {
+    PipelineTableScan(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, String database,
+        RelOptTable table) {
+      this(cluster, traitSet, hints, database, table, Collections.emptyMap());
+    }
+
+    PipelineTableScan(RelOptCluster cluster, RelTraitSet traitSet, List<RelHint> hints, String database,
+        RelOptTable table, Map<String, String> options) {
       super(cluster, traitSet, hints, table);
       assert getConvention() == PipelineRel.CONVENTION;
       this.database = database;
+      this.options = options;
     }
 
     @Override
     public void implement(Implementor implementor) throws SQLException {
-      implementor.addSource(database, table.getQualifiedName(), table.getRowType(),
-          Collections.emptyMap()); // TODO pass in table scan hints
+      implementor.addSource(database, table.getQualifiedName(), table.getRowType(), options);
+    }
+  }
+
+  /** Converts a TableScan on a ConnectorConfigurable table to PipelineTableScan. */
+  public static final class StoredTableScanRule extends RelOptRule {
+    public static final StoredTableScanRule INSTANCE = new StoredTableScanRule();
+
+    private StoredTableScanRule() {
+      super(operand(TableScan.class, any()), "StoredTableScanRule");
+    }
+
+    @Override
+    public boolean matches(RelOptRuleCall call) {
+      TableScan scan = call.rel(0);
+      RelOptTable table = scan.getTable();
+      if (table == null) {
+        return false;
+      }
+      return table.unwrap(ConnectorConfigurable.class) != null;
+    }
+
+    @Override
+    public void onMatch(RelOptRuleCall call) {
+      TableScan scan = call.rel(0);
+      RelOptTable table = scan.getTable();
+      if (table == null) {
+        return;
+      }
+      ConnectorConfigurable cc = table.unwrap(ConnectorConfigurable.class);
+      if (cc == null) {
+        return;
+      }
+      RelTraitSet traits = scan.getTraitSet().replace(PipelineRel.CONVENTION);
+      call.transformTo(new PipelineTableScan(
+          scan.getCluster(), traits, scan.getHints(),
+          cc.databaseName(), table, cc.connectorOptions()));
     }
   }
 

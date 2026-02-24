@@ -135,7 +135,11 @@ public class HoptimatorAppConfig extends Application {
           schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
               new HoptimatorDriver.Prepare(conn), plan, create, querySql);
         }
-        sqlline.output(plan.sql(conn).apply(SqlDialect.ANSI));
+        if (create != null) {
+          sqlline.output(plan.sql(conn).apply(SqlDialect.ANSI));
+        } else {
+          sqlline.output(plan.query(conn).apply(SqlDialect.ANSI));
+        }
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();

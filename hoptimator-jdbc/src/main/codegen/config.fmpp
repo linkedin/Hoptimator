@@ -34,6 +34,7 @@ data: {
       "org.apache.calcite.sql.ddl.SqlDdlNodes"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger"
       "com.linkedin.hoptimator.jdbc.ddl.SqlFire"
       "com.linkedin.hoptimator.jdbc.ddl.SqlFireMaterializedView"
