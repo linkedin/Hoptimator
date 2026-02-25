@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'gradle'
+    
+    - name: Validate Gradle wrapper
+      uses: gradle/wrapper-validation-action@v1
+    
+    - name: Build and run unit tests
+      run: ./gradlew build -x intTest -x shadowJar
+    
+    - name: Upload test results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: |
+          **/build/reports/tests/test/
+          **/build/test-results/test/
+    
+    - name: Upload Checkstyle results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: checkstyle-results
+        path: |
+          **/build/reports/checkstyle/
+    
+    - name: Upload SpotBugs results
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: spotbugs-results
+        path: |
+          **/build/reports/spotbugs/
