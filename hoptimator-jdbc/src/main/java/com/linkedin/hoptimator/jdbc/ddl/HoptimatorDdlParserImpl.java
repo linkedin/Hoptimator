@@ -9,6 +9,7 @@ import org.apache.calcite.sql.ddl.SqlCreateTableLike;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlFire;
 import com.linkedin.hoptimator.jdbc.ddl.SqlFireMaterializedView;
@@ -6126,6 +6127,7 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
     final boolean ifNotExists;
     final SqlIdentifier id;
     SqlNodeList tableElementList = null;
+    SqlNodeList optionList = null;
     SqlNode query = null;
 
     SqlCreate createTableLike = null;
@@ -6149,6 +6151,13 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
         ;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+      case WITH:
+        optionList = Options();
+        break;
+      default:
+        ;
+      }
+      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case AS:
         jj_consume_token(AS);
         query = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY);
@@ -6157,7 +6166,7 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
         jj_la1[45] = jj_gen;
         ;
       }
-            {if (true) return SqlDdlNodes.createTable(s.end(this), replace, ifNotExists, id, tableElementList, query);}
+            {if (true) return new SqlCreateTable(s.end(this), replace, ifNotExists, id, tableElementList, optionList, query);}
     }
     throw new Error("Missing return statement in function");
   }

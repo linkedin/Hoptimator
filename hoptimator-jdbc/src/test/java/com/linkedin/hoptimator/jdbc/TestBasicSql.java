@@ -63,6 +63,12 @@ public class TestBasicSql extends JdbcTestBase {
   }
 
   @Test
+  public void createTableWithOptions() throws Exception {
+    sql("CREATE TABLE T (X VARCHAR, Y VARCHAR) WITH (connector 'kafka', topic 'test')");
+    sql("DROP TABLE T");
+  }
+
+  @Test
   public void dropNonExistentViewHandlesNullSchema() throws Exception {
     // Should not throw when using IF EXISTS on a non-existent view
     sql("DROP VIEW IF EXISTS non_existing_schema.non_existing_view");

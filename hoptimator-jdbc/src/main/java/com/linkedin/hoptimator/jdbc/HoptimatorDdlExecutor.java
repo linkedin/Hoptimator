@@ -25,6 +25,7 @@ import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.TableSource;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.View;
@@ -70,7 +71,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
-import org.apache.calcite.sql.ddl.SqlCreateTable;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import org.apache.calcite.sql.ddl.SqlCreateView;
 import org.apache.calcite.sql.ddl.SqlDropMaterializedView;
 import org.apache.calcite.sql.ddl.SqlDropObject;
@@ -406,7 +407,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       if (pair.left.schema instanceof Database) {
         database = ((Database) pair.left.schema).databaseName();
       } else {
-        database = connection.getSchema();
+        database = null;
       }
 
       final JavaTypeFactory typeFactory = context.getTypeFactory();
@@ -461,7 +462,20 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       List<String> tablePath = new ArrayList<>(schemaPath);
       tablePath.add(tableName);
 
-      Source source = new Source(database, tablePath, Collections.emptyMap());
+      Map<String, String> options = HoptimatorDdlUtils.options(create.options);
+      Source source;
+      if (!options.isEmpty()) {
+        List<TableSource.ColumnDefinition> columnDefs = new ArrayList<>();
+        for (org.apache.calcite.rel.type.RelDataTypeField field : rowType.getFieldList()) {
+          columnDefs.add(new TableSource.ColumnDefinition(
+              field.getName(),
+              field.getType().getSqlTypeName().getName(),
+              field.getType().isNullable()));
+        }
+        source = new TableSource(database, tablePath, options, columnDefs);
+      } else {
+        source = new Source(database, tablePath, Collections.emptyMap());
+      }
       logger.info("Validating new table {}", source);
       ValidationService.validateOrThrow(source);
       deployers = DeploymentService.deployers(source, connection);

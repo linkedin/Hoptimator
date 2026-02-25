@@ -11,6 +11,7 @@ import com.linkedin.hoptimator.DeployerProvider;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.TableSource;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.View;
 
@@ -29,6 +30,9 @@ public class K8sDeployerProvider implements DeployerProvider {
       list.add(new K8sJobDeployer((Job) obj, context));
     } else if (obj instanceof Source) {
       list.add(new K8sSourceDeployer((Source) obj, context));
+      if (obj instanceof TableSource) {
+        list.add(new K8sTableDeployer((TableSource) obj, context));
+      }
     } else if (obj instanceof Trigger) {
       list.add(new K8sTriggerDeployer((Trigger) obj, context));
     }

@@ -32,6 +32,10 @@ public class K8sMetadata extends AbstractSchema {
     return (K8sViewTable) tables().get("VIEWS");
   }
 
+  public K8sTableTable tableTable() {
+    return (K8sTableTable) tables().get("TABLES");
+  }
+
   @Override
   public Lookup<Table> tables() {
     return tables.getOrCompute(() -> new LazyTableLookup<>() {
@@ -48,6 +52,7 @@ public class K8sMetadata extends AbstractSchema {
         tableMap.put("PIPELINES", new K8sPipelineTable(context));
         tableMap.put("PIPELINE_ELEMENTS",  new K8sPipelineElementTable(pipelineElementApi));
         tableMap.put("PIPELINE_ELEMENT_MAP",  new K8sPipelineElementMapTable(pipelineElementMapApi));
+        tableMap.put("TABLES", new K8sTableTable(context));
         tableMap.put("TABLE_TRIGGERS",  new K8sTableTriggerTable(context));
         tableMap.put("VIEWS", new K8sViewTable(connection, context));
         return tableMap;
@@ -70,6 +75,8 @@ public class K8sMetadata extends AbstractSchema {
             K8sPipelineElementApi api = new K8sPipelineElementApi(context);
             K8sPipelineElementMapApi mapApi = new K8sPipelineElementMapApi(api);
             return new K8sPipelineElementMapTable(mapApi);
+          case "TABLES":
+            return new K8sTableTable(context);
           case "TABLE_TRIGGERS":
             return new K8sTableTriggerTable(context);
           case "VIEWS":
