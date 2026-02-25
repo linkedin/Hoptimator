@@ -50,7 +50,9 @@ class K8sConnector implements Connector {
 
     Template.Environment env =
         new Template.SimpleEnvironment()
-            .with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
+            .with("name", K8sUtils.canonicalizeName(
+                source.database() != null ? source.database() : source.schema(),
+                source.table()))
             .with("database", source.database())
             .with("table", source.table())
             .with(options);

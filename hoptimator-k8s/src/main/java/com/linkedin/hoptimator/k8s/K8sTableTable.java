@@ -74,7 +74,7 @@ class K8sTableTable extends K8sTable<V1alpha1Table, V1alpha1TableList, K8sTableT
     try {
       for (V1alpha1Table table : api.list()) {
         V1alpha1TableSpec spec = table.getSpec();
-        if (spec == null || spec.getTable() == null || spec.getDatabase() == null) {
+        if (spec == null || spec.getTable() == null) {
           continue;
         }
 

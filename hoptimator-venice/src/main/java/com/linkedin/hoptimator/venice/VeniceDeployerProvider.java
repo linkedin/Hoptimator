@@ -18,7 +18,7 @@ public class VeniceDeployerProvider implements DeployerProvider {
         List<Deployer> list = new ArrayList<>();
         if (obj instanceof Source) {
             Source source = (Source) obj;
-            if (source.database().equalsIgnoreCase(VeniceDriver.CATALOG_NAME)) {
+            if (VeniceDriver.CATALOG_NAME.equalsIgnoreCase(source.database())) {
                 list.add(new VeniceDeployer(source, (HoptimatorConnection) connection));
             }
         }

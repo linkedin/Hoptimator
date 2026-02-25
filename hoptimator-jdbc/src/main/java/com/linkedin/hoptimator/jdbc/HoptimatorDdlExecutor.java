@@ -407,7 +407,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       if (pair.left.schema instanceof Database) {
         database = ((Database) pair.left.schema).databaseName();
       } else {
-        database = connection.getSchema();
+        database = null;
       }
 
       final JavaTypeFactory typeFactory = context.getTypeFactory();

@@ -68,7 +68,6 @@ spec:
                     type: string
               required:
               - table
-              - database
             status:
               type: object
               properties:
