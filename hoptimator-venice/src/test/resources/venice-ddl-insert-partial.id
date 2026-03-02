@@ -6,15 +6,15 @@ create or replace materialized view "VENICE"."test-store$insert-partial" ("KEY_i
 
 !update
 
-select count(*) as TABLE_EXISTS from venice."test-store$insert-partial" where 1=0;
-+--------------+
-| TABLE_EXISTS |
-+--------------+
-|            0 |
-+--------------+
-(1 row)
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY_id     | INTEGER  | 10         | NO         |
+| intField   | INTEGER  | 10         | YES        |
++------------+----------+------------+------------+
+(2 rows)
 
-!ok
+!describe "VENICE"."test-store$insert-partial"
 
 drop materialized view "VENICE"."test-store$insert-partial";
 (0 rows modified)

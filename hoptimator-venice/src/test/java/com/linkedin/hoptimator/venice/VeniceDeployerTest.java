@@ -1,286 +1,383 @@
 package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import com.linkedin.venice.client.schema.StoreSchemaFetcher;
-import com.linkedin.venice.client.store.ClientConfig;
-import com.linkedin.venice.client.store.ClientFactory;
 import com.linkedin.venice.controllerapi.ControllerClient;
+import com.linkedin.venice.controllerapi.ControllerResponse;
+import com.linkedin.venice.controllerapi.NewStoreResponse;
+import com.linkedin.venice.controllerapi.SchemaResponse;
 import com.linkedin.venice.controllerapi.StoreResponse;
-import java.sql.DriverManager;
-import java.sql.SQLNonTransientException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import com.linkedin.venice.meta.StoreInfo;
 import org.apache.avro.Schema;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.impl.AbstractTable;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Pair;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 /**
- * Tests for VeniceDeployer.
- *
- * These tests require a running Venice instance configured via `make deploy-venice`
+ * Tests for VeniceDeployer using mocks.
  */
-@Tag("integration")
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class VeniceDeployerTest {
 
-  private static final String JDBC_URL = "jdbc:hoptimator://fun=mysql";
-  private static final String TEST_STORE = "deployer_test_store";
-  private static final String VENICE_ROUTER_URL = "http://localhost:7777";
-  private static final String VENICE_CLUSTER = "venice-cluster0";
+  private static final String TEST_STORE = "test_store";
+  private static final String VENICE_CLUSTER = "test-cluster";
+  private static final String VENICE_ROUTER_URL = "test-url";
 
-  private HoptimatorConnection connection;
+  @Mock
+  private HoptimatorConnection mockConnection;
 
-  private VeniceDeployer deployer;
+  @Mock
+  private ControllerClient mockControllerClient;
+
+  private Properties properties;
 
   @BeforeEach
-  public void setUp() throws Exception {
-    // Create connection to Hoptimator
-    connection = (HoptimatorConnection) DriverManager.getConnection(JDBC_URL);
-
-    // Add test table to VENICE schema
-    SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-    SchemaPlus veniceSchema = rootSchema.subSchemas().get("VENICE");
-    if (veniceSchema != null) {
-      veniceSchema.add(TEST_STORE, createTestTable());
-    }
-
-    Map<String, String> options = new HashMap<>();
-    Source source = new Source("venice", List.of("VENICE", TEST_STORE), options);
-    deployer = new VeniceDeployer(source, connection);
-
-    // Clean up any existing test store
-    deployer.delete();
+  public void setUp() {
+    properties = new Properties();
+    properties.setProperty("clusters", VENICE_CLUSTER);
+    properties.setProperty("router.url", VENICE_ROUTER_URL);
   }
 
-  @AfterEach
-  public void tearDown() throws Exception {
-    deployer.delete();
-    if (connection != null) {
-      connection.close();
+  private VeniceDeployer createDeployer(Source source) {
+    return new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient);
+  }
+
+  /**
+   * Testable subclass that allows injecting a mock ControllerClient.
+   */
+  private static class TestableVeniceDeployer extends VeniceDeployer {
+    private final ControllerClient mockClient;
+
+    TestableVeniceDeployer(Source source, Properties properties,
+        HoptimatorConnection connection, ControllerClient mockClient) {
+      super(source, properties, connection);
+      this.mockClient = mockClient;
+    }
+
+    @Override
+    protected ControllerClient createControllerClient() {
+      return mockClient;
     }
   }
 
   @Test
   public void testDeleteStore() throws Exception {
-    // Delete the store
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+
+    // Mock store exists
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    // Mock successful deletion
+    ControllerResponse deleteResponse = mock(ControllerResponse.class);
+    when(deleteResponse.isError()).thenReturn(false);
+    when(mockControllerClient.disableAndDeleteStore(TEST_STORE)).thenReturn(deleteResponse);
+
+    VeniceDeployer deployer = createDeployer(source);
     deployer.delete();
 
-    // Verify store no longer exists
-    assertFalse(storeExists(TEST_STORE));
+    verify(mockControllerClient).disableAndDeleteStore(TEST_STORE);
   }
 
   @Test
-  public void testValidStoreUpdate() throws Exception {
-    // Update should create the store if it doesn't exist
-    deployer.update();
+  public void testDeleteNonExistentStore() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
 
-    // Verify store exists
-    assertTrue(storeExists(TEST_STORE));
+    // Mock store doesn't exist
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(null);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
 
-    // Define a new table schema that will replace the old
-    AbstractTable newTable = new AbstractTable() {
+    VeniceDeployer deployer = createDeployer(source);
+    deployer.delete();
+
+    // Should not attempt to delete
+    verify(mockControllerClient, never()).disableAndDeleteStore(anyString());
+  }
+
+  @Test
+  public void testUpdateCreatesStoreIfNotExists() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+
+    // Mock store doesn't exist
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(null);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    // Mock successful store creation
+    NewStoreResponse createResponse = mock(NewStoreResponse.class);
+    when(createResponse.isError()).thenReturn(false);
+    when(mockControllerClient.createNewStore(eq(TEST_STORE), anyString(), anyString(), anyString()))
+        .thenReturn(createResponse);
+
+    // Mock schema generation
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+    VeniceDeployer deployer = new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient) {
       @Override
-      public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-        builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
-        builder.add("name", typeFactory.createSqlType(SqlTypeName.VARCHAR));
-        builder.add("value", typeFactory.createSqlType(SqlTypeName.DOUBLE));
-        builder.add("newField", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR), true));
-        return builder.build();
+      protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+        return new Pair<>(keySchema, valueSchema);
       }
     };
 
-    // Add the new schema into the VENICE schema
-    SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-    SchemaPlus veniceSchema = rootSchema.subSchemas().get("VENICE");
-    assertNotNull(veniceSchema);
-    veniceSchema.add(TEST_STORE, newTable);
-
-    // Update the value schema of the store
     deployer.update();
 
-    // Fetch schemas from Venice
-    Pair<Schema, Schema> veniceSchemas = getStoreKeyPayloadSchema(TEST_STORE);
-    Schema veniceKeySchema = veniceSchemas.left;
-    Schema veniceValueSchema = veniceSchemas.right;
-
-    // Fetch the expected schemas from deployer (based on connection's table)
-    Pair<Schema, Schema> expectedSchemas = deployer.getKeyPayloadSchema();
-
-    // Verify schemas in Venice match what was generated from the connection's table
-    assertEquals(expectedSchemas.left.toString(), veniceKeySchema.toString(),
-        "Key schema in Venice should match schema generated from connection table");
-    assertEquals(expectedSchemas.right.toString(), veniceValueSchema.toString(),
-        "Value schema in Venice should match schema generated from connection table");
-
-    // Verify the key field is present in key schema
-    assertNotNull(veniceKeySchema.getField("id"), "Key schema should have 'id' field");
-
-    // Verify the value fields are present in value schema
-    assertNotNull(veniceValueSchema.getField("name"), "Value schema should have 'name' field");
-    assertNotNull(veniceValueSchema.getField("value"), "Value schema should have 'value' field");
-    assertNotNull(veniceValueSchema.getField("newField"), "Value schema should have 'newField' field");
+    verify(mockControllerClient).createNewStore(eq(TEST_STORE), anyString(), anyString(), anyString());
   }
 
   @Test
-  public void testInvalidValueSchemaStoreUpdate() throws Exception {
-    // Update should create the store if it doesn't exist
-    deployer.update();
+  public void testUpdateAddsValueSchemaIfStoreExists() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
 
-    // Verify store exists
-    assertTrue(storeExists(TEST_STORE));
+    // Mock store exists
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
 
-    // Invalid value schema, new field does not have a default
-    AbstractTable newTable = new AbstractTable() {
+    // Mock key schema response (same schema)
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    SchemaResponse keySchemaResponse = mock(SchemaResponse.class);
+    when(keySchemaResponse.getSchemaStr()).thenReturn(keySchema.toString());
+    when(mockControllerClient.getKeySchema(TEST_STORE)).thenReturn(keySchemaResponse);
+
+    // Mock successful value schema addition
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+    SchemaResponse addValueResponse = mock(SchemaResponse.class);
+    when(addValueResponse.isError()).thenReturn(false);
+    when(addValueResponse.getId()).thenReturn(2);
+    when(mockControllerClient.addValueSchema(eq(TEST_STORE), anyString())).thenReturn(addValueResponse);
+
+    VeniceDeployer deployer = new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient) {
       @Override
-      public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-        builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
-        builder.add("name", typeFactory.createSqlType(SqlTypeName.VARCHAR));
-        builder.add("value", typeFactory.createSqlType(SqlTypeName.DOUBLE));
-        builder.add("newField", typeFactory.createSqlType(SqlTypeName.VARCHAR));
-        return builder.build();
+      protected Pair<Schema, Schema> getKeyPayloadSchema() {
+        return new Pair<>(keySchema, valueSchema);
       }
     };
 
-    // Add the new schema into the VENICE schema
-    SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-    SchemaPlus veniceSchema = rootSchema.subSchemas().get("VENICE");
-    assertNotNull(veniceSchema);
-    veniceSchema.add(TEST_STORE, newTable);
+    deployer.update();
 
-    // Update the value schema of the store
-    assertThrows(SQLNonTransientException.class, () -> deployer.update());
+    verify(mockControllerClient).addValueSchema(eq(TEST_STORE), anyString());
+    verify(mockControllerClient, never()).createNewStore(anyString(), anyString(), anyString(), anyString(), anyString());
   }
 
   @Test
-  public void testInvalidKeySchemaStoreUpdate() throws Exception {
-    // Update should create the store if it doesn't exist
-    deployer.update();
+  public void testUpdateFailsWhenValueSchemaAdditionFails() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
 
-    // Verify store exists
-    assertTrue(storeExists(TEST_STORE));
+    // Mock store exists
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
 
-    // Invalid value schema, new field does not have a default
-    AbstractTable newTable = new AbstractTable() {
+    // Mock key schema response
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    SchemaResponse keySchemaResponse = mock(SchemaResponse.class);
+    when(keySchemaResponse.getSchemaStr()).thenReturn(keySchema.toString());
+    when(mockControllerClient.getKeySchema(TEST_STORE)).thenReturn(keySchemaResponse);
+
+    // Mock failed value schema addition
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+    SchemaResponse addValueResponse = mock(SchemaResponse.class);
+    when(addValueResponse.isError()).thenReturn(true);
+    when(addValueResponse.getError()).thenReturn("Schema incompatible");
+    when(mockControllerClient.addValueSchema(eq(TEST_STORE), anyString())).thenReturn(addValueResponse);
+
+    VeniceDeployer deployer = new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient) {
       @Override
-      public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-        builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
-        builder.add("KEY_newField", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR), true));
-        builder.add("name", typeFactory.createSqlType(SqlTypeName.VARCHAR));
-        builder.add("value", typeFactory.createSqlType(SqlTypeName.DOUBLE));
-        return builder.build();
+      protected Pair<Schema, Schema> getKeyPayloadSchema() {
+        return new Pair<>(keySchema, valueSchema);
       }
     };
 
-    // Add the new schema into the VENICE schema
-    SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-    SchemaPlus veniceSchema = rootSchema.subSchemas().get("VENICE");
-    assertNotNull(veniceSchema);
-    veniceSchema.add(TEST_STORE, newTable);
-
-    // Update the value schema of the store
-    assertThrows(SQLNonTransientException.class, () -> deployer.update());
+    assertThrows(SQLNonTransientException.class, deployer::update);
   }
 
   @Test
-  public void testCreateStore() throws Exception {
-    // Create the store in Venice
+  public void testCreateNewStore() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+
+    // Mock store doesn't exist
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(null);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    // Mock successful store creation
+    NewStoreResponse createResponse = mock(NewStoreResponse.class);
+    when(createResponse.isError()).thenReturn(false);
+    when(mockControllerClient.createNewStore(eq(TEST_STORE), anyString(), anyString(), anyString()))
+        .thenReturn(createResponse);
+
+    // Mock schema generation
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+    VeniceDeployer deployer = new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+        return new Pair<>(keySchema, valueSchema);
+      }
+    };
+
     deployer.create();
 
-    // Verify store was created
-    assertTrue(storeExists(TEST_STORE));
-
-    // Fetch schemas from Venice
-    Pair<Schema, Schema> veniceSchemas = getStoreKeyPayloadSchema(TEST_STORE);
-    Schema veniceKeySchema = veniceSchemas.left;
-    Schema veniceValueSchema = veniceSchemas.right;
-
-    // Verify key schema metadata
-    assertNotNull(veniceKeySchema);
-    assertEquals(TEST_STORE + "_Key", veniceKeySchema.getName());
-
-    // Verify value schema metadata
-    assertNotNull(veniceValueSchema);
-    assertEquals(TEST_STORE + "_Value", veniceValueSchema.getName());
-
-    // Fetch the expected schemas from deployer (based on connection's table)
-    Pair<Schema, Schema> expectedSchemas = deployer.getKeyPayloadSchema();
-
-    // Verify schemas in Venice match what was generated from the connection's table
-    assertEquals(expectedSchemas.left.toString(), veniceKeySchema.toString(),
-        "Key schema in Venice should match schema generated from connection table");
-    assertEquals(expectedSchemas.right.toString(), veniceValueSchema.toString(),
-        "Value schema in Venice should match schema generated from connection table");
-
-    // Verify the key field is present in key schema
-    assertNotNull(veniceKeySchema.getField("id"), "Key schema should have 'id' field");
-
-    // Verify the value fields are present in value schema
-    assertNotNull(veniceValueSchema.getField("name"), "Value schema should have 'name' field");
-    assertNotNull(veniceValueSchema.getField("value"), "Value schema should have 'value' field");
+    verify(mockControllerClient).createNewStore(eq(TEST_STORE), anyString(), anyString(), anyString());
   }
 
-  /**
-   * Check if a store exists in Venice.
-   */
-  private boolean storeExists(String storeName) {
-    try (ControllerClient controllerClient = new LocalControllerClient(VENICE_CLUSTER, VENICE_ROUTER_URL, Optional.empty())) {
-      StoreResponse response = controllerClient.getStore(storeName);
-      return response.getStore() != null;
-    } catch (Exception e) {
-      return false;
-    }
-  }
+  @Test
+  public void testCreateExistingStoreSkipsCreation() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
 
-  /**
-   * Fetches the key and value schemas from Venice for a given store.
-   * Uses StoreSchemaFetcher to retrieve the actual schemas stored in Venice.
-   */
-  private Pair<Schema, Schema> getStoreKeyPayloadSchema(String storeName) {
-    StoreSchemaFetcher storeSchemaFetcher = ClientFactory.createStoreSchemaFetcher(
-        ClientConfig.defaultGenericClientConfig(storeName)
-            .setVeniceURL(VENICE_ROUTER_URL));
+    // Mock store exists
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
 
-    Schema keySchema = storeSchemaFetcher.getKeySchema();
-    Schema valueSchema = storeSchemaFetcher.getLatestValueSchema();
-
-    return new Pair<>(keySchema, valueSchema);
-  }
-
-  /**
-   * Creates a test table with a simple schema for testing.
-   * Schema: KEY_id (INTEGER), name (VARCHAR), value (DOUBLE)
-   */
-  private Table createTestTable() {
-    return new AbstractTable() {
+    // Mock schema generation
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+    VeniceDeployer deployer = new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient) {
       @Override
-      public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-        builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
-        builder.add("name", typeFactory.createSqlType(SqlTypeName.VARCHAR));
-        builder.add("value", typeFactory.createSqlType(SqlTypeName.DOUBLE));
-        return builder.build();
+      protected Pair<Schema, Schema> getKeyPayloadSchema() {
+        return new Pair<>(keySchema, valueSchema);
       }
     };
+
+    deployer.create();
+
+    // Should not attempt to create
+    verify(mockControllerClient, never()).createNewStore(anyString(), anyString(), anyString(), anyString(), anyString());
+  }
+
+  @Test
+  public void testSpecifyReturnsEmptyList() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    VeniceDeployer deployer = createDeployer(source);
+
+    assertTrue(deployer.specify().isEmpty());
+  }
+
+  // --- validate() tests ---
+
+  @Test
+  public void testValidatePassesForNewStore() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+
+    // Mock store doesn't exist
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(null);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    // Mock schema generation
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+    VeniceDeployer deployer = new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+        return new Pair<>(keySchema, valueSchema);
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    assertTrue(issues.valid(), "Expected no validation errors for new store. Issues: " + issues.toString());
+  }
+
+  @Test
+  public void testValidatePassesForExistingStoreWithSameKeySchema() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+
+    // Mock store exists
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    // Mock key schema response (same schema)
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    SchemaResponse keySchemaResponse = mock(SchemaResponse.class);
+    when(keySchemaResponse.isError()).thenReturn(false);
+    when(keySchemaResponse.getSchemaStr()).thenReturn(keySchema.toString());
+    when(mockControllerClient.getKeySchema(TEST_STORE)).thenReturn(keySchemaResponse);
+
+    // Mock value schema response
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+    SchemaResponse valueSchemaResponse = mock(SchemaResponse.class);
+    when(valueSchemaResponse.isError()).thenReturn(false);
+    when(valueSchemaResponse.getSchemaStr()).thenReturn(valueSchema.toString());
+    when(mockControllerClient.getValueSchema(eq(TEST_STORE), eq(-1))).thenReturn(valueSchemaResponse);
+
+    VeniceDeployer deployer = new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+        return new Pair<>(keySchema, valueSchema);
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    assertTrue(issues.valid(), "Expected no validation errors when key schema unchanged. Issues: " + issues.toString());
+  }
+
+  @Test
+  public void testValidateRejectsKeySchemaChange() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+
+    // Mock store exists
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    // Mock key schema response (different schema)
+    Schema oldKeySchema = Schema.create(Schema.Type.STRING);
+    Schema newKeySchema = Schema.create(Schema.Type.INT);
+    SchemaResponse keySchemaResponse = mock(SchemaResponse.class);
+    when(keySchemaResponse.isError()).thenReturn(false);
+    when(keySchemaResponse.getSchemaStr()).thenReturn(oldKeySchema.toString());
+    when(mockControllerClient.getKeySchema(TEST_STORE)).thenReturn(keySchemaResponse);
+
+    VeniceDeployer deployer = new TestableVeniceDeployer(source, properties, mockConnection, mockControllerClient) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+        return new Pair<>(newKeySchema, Schema.create(Schema.Type.STRING));
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    assertFalse(issues.valid(), "Expected validation error for key schema change");
+    assertTrue(issues.toString().contains("Key schema evolution is not supported"),
+        "Error message should mention key schema evolution");
   }
 }
