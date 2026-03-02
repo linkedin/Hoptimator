@@ -6,15 +6,15 @@ create or replace view kafka."new-topic$kafka-test" as select * from kafka."exis
 
 !update
 
-select count(*) as TABLE_EXISTS from kafka."new-topic$kafka-test" where 1=0;
-+--------------+
-| TABLE_EXISTS |
-+--------------+
-|            0 |
-+--------------+
-(1 row)
++------------+-----------+------------+------------+
+| columnName | typeName  | columnSize | isNullable |
++------------+-----------+------------+------------+
+| KEY        | VARCHAR   | null       | YES        |
+| VALUE      | BINARY(1) | 1          | YES        |
++------------+-----------+------------+------------+
+(2 rows)
 
-!ok
+!describe "KAFKA"."new-topic$kafka-test"
 
 drop view kafka."new-topic$kafka-test";
 (0 rows modified)

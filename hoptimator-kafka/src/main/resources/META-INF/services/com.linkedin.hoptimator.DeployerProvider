@@ -1,0 +1,2 @@
+# KafkaDeployerProvider is intentionally disabled since we use the strimzi operator locally to deploy Kafka topics
+# com.linkedin.hoptimator.kafka.KafkaDeployerProvider

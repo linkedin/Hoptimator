@@ -18,4 +18,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void kafkaDdlScriptBeamJob() throws Exception {
     run("kafka-ddl-beam.id", "hints=flink.app.type=BEAM");
   }
+
+  @Test
+  public void kafkaDdlCreateTableScript() throws Exception {
+    run("kafka-ddl-create-table.id");
+  }
 }
