@@ -37,6 +37,7 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlDropTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -376,9 +377,19 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       throw new DdlException(create, e.getMessage(), e);
     }
 
-    final Pair<CalciteSchema, String> pair = HoptimatorDdlUtils.schema(context, true, create.name);
+    boolean isNewSchema = false;
+    Pair<CalciteSchema, String> pair = HoptimatorDdlUtils.schema(context, true, create.name);
     if (pair.left == null) {
-      throw new DdlException(create, "Schema for " + create.name + " not found.");
+      // If the schema is not found, it might be because it's a 3-level path (CATALOG.SCHEMA.TABLE)
+      if (create.name.names.size() > 2) {
+        pair = HoptimatorDdlUtils.catalog(context, true, create.name);
+        isNewSchema = true;
+        if (pair.left == null) {
+          throw new DdlException(create, "Catalog for " + create.name + " not found.");
+        }
+      } else {
+        throw new DdlException(create, "Schema for " + create.name + " not found.");
+      }
     }
 
     // TODO: Add support for populating new tables from a query as a one-time operation.
@@ -390,8 +401,17 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
 
     final SchemaPlus schemaPlus = pair.left.plus();
-    final String tableName = pair.right;
-    if (schemaPlus.tables().get(tableName) != null) {
+    String database = null;
+    String tableName;
+    if (isNewSchema) {
+      int idx = pair.right.indexOf(".");
+      database = pair.right.substring(0, idx);
+      tableName = pair.right.substring(idx + 1);
+    } else {
+      tableName = pair.right;
+    }
+
+    if (!isNewSchema && schemaPlus.tables().get(tableName) != null) {
       if (!create.ifNotExists && !create.getReplace()) {
         // They did not specify IF NOT EXISTS, so give error.
         throw new DdlException(create,
@@ -402,11 +422,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     Pair<SchemaPlus, Table> schemaSnapshot = null;
     try {
-      String database;
-      if (pair.left.schema instanceof Database) {
-        database = ((Database) pair.left.schema).databaseName();
-      } else {
-        database = connection.getSchema();
+      if (database == null) {
+        if (pair.left.schema instanceof Database) {
+          database = ((Database) pair.left.schema).databaseName();
+        } else {
+          database = connection.getSchema();
+        }
       }
 
       final JavaTypeFactory typeFactory = context.getTypeFactory();
@@ -447,18 +468,37 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
               return super.newColumnDefaultValue(table, iColumn, context);
             }
           };
-      // Table does not exist. Create it.
-      Table currentViewTable = schemaPlus.tables().get(tableName);
-      schemaSnapshot = Pair.of(schemaPlus, currentViewTable);
+      // Snapshot current state for rollback
+      if (!isNewSchema) {
+        Table currentTable = schemaPlus.tables().get(tableName);
+        schemaSnapshot = Pair.of(schemaPlus, currentTable);
+      }
 
+      // Table does not exist. Create it.
       // Add a temporary table with the correct row type so deployers can resolve the schema
       // TODO: This may cause problems if we reuse connections, only the next connection will load this as a HoptimatorJdbcTable.
-      Table tempTable = new TemporaryTable(rowType, ief, database);
-      schemaPlus.add(tableName, tempTable);
-      logger.info("Added table {} to schema {}", tableName, schemaPlus.getName());
+      if (isNewSchema) {
+        HoptimatorJdbcCatalogSchema catalogSchema = schemaPlus.unwrap(HoptimatorJdbcCatalogSchema.class);
+        if (catalogSchema == null) {
+          throw new DdlException(create, "Catalog for " + schemaPlus.getName() + " not found.");
+        }
+        SchemaPlus databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
+        logger.info("Added schema {} to catalog {}", database, schemaPlus.getName());
+
+        Table tempTable = new TemporaryTable(rowType, ief, database);
+        databaseSchema.add(tableName, tempTable);
+        logger.info("Added table {} to schema {}", tableName, databaseSchema.getName());
+      } else {
+        Table tempTable = new TemporaryTable(rowType, ief, database);
+        schemaPlus.add(tableName, tempTable);
+        logger.info("Added table {} to schema {}", tableName, schemaPlus.getName());
+      }
 
       final List<String> schemaPath = pair.left.path(null);
       List<String> tablePath = new ArrayList<>(schemaPath);
+      if (isNewSchema) {
+        tablePath.add(database);
+      }
       tablePath.add(tableName);
 
       Map<String, String> tableOptions = HoptimatorDdlUtils.options(create.options);
@@ -491,6 +531,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
           schemaPlus.add(tableName, schemaSnapshot.right);
           logger.info("Restored schema for table {}", tableName);
         }
+      } else {
+        pair.left.removeSubSchema(database);
+        logger.info("Removed schema {} from catalog", database);
       }
       throw new DdlException(create, e.getMessage(), e);
     }

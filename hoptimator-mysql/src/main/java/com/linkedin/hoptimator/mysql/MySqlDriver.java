@@ -21,7 +21,8 @@ import org.slf4j.LoggerFactory;
  * JDBC driver for MySQL databases.
  */
 public class MySqlDriver extends CalciteDriver {
-  private static final String CATALOG_NAME = "MYSQL";
+  public static final String CATALOG_NAME = "MYSQL";
+  public static final String CONNECTION_PREFIX = "jdbc:mysql-hoptimator://";
 
   private static final Logger log = LoggerFactory.getLogger(MySqlDriver.class);
 
@@ -31,7 +32,7 @@ public class MySqlDriver extends CalciteDriver {
 
   @Override
   protected String getConnectStringPrefix() {
-    return "jdbc:mysql-hoptimator://";
+    return CONNECTION_PREFIX;
   }
 
   @Override

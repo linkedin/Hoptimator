@@ -77,6 +77,21 @@ public final class HoptimatorDdlUtils {
     return Pair.of(schema, name);
   }
 
+  /** Returns the catalog in which to create an object;
+   * the left part is null if the catalog does not exist. */
+  public static Pair<CalciteSchema, String> catalog(CalcitePrepare.Context context, boolean mutable, SqlIdentifier id) {
+    if (id.names.size() < 3) {
+      throw new IllegalArgumentException("CATALOG.SCHEMA.TABLE identified expected but found: " + id);
+    }
+    final List<String> schemaTablePath = Util.last(id.names, 2);
+    final List<String> catalogPath = Util.skipLast(id.names, 2);
+    CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
+    for (String p : catalogPath) {
+      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+    }
+    return Pair.of(schema, String.join(".", schemaTablePath));
+  }
+
   // N.B. copy-pasted from Apache Calcite
   /** Wraps a query to rename its columns. Used by CREATE VIEW and CREATE
    * MATERIALIZED VIEW. */
