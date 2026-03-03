@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator.venice;
+package com.linkedin.hoptimator.mysql;
 
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
@@ -15,19 +15,24 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
+/**
+ * Provides {@link MySqlDeployer} instances for MySQL-backed tables.
+ *
+ * <p>Detection works by looking up the source's schema in the Calcite connection,
+ * checking if it is a MySQL schema (TableSchema).
+ */
+public class MySqlDeployerProvider implements DeployerProvider {
 
-public class VeniceDeployerProvider implements DeployerProvider {
-
-  private static final Logger log = LoggerFactory.getLogger(VeniceDeployerProvider.class);
+  private static final Logger log = LoggerFactory.getLogger(MySqlDeployerProvider.class);
 
   @Override
   public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
     List<Deployer> deployers = new ArrayList<>();
-    if (obj instanceof Source && connection instanceof HoptimatorConnection) {
+    if (obj instanceof Source) {
       Source source = (Source) obj;
 
-      String database = source.database();
-      if (database == null || !database.equalsIgnoreCase(VeniceDriver.CATALOG_NAME)) {
+      String catalog = source.catalog();
+      if (catalog == null || !catalog.equalsIgnoreCase(MySqlDriver.CATALOG_NAME)) {
         return deployers;
       }
 
@@ -35,15 +40,19 @@ public class VeniceDeployerProvider implements DeployerProvider {
           source.catalog(),
           source.schema(),
           connection,
-          VeniceDriver.CONNECTION_PREFIX,
+          MySqlDriver.CONNECTION_PREFIX,
           log);
       if (properties == null) {
         return deployers;
       }
 
-      deployers.add(new VeniceDeployer(source, properties, (HoptimatorConnection) connection));
-    }
+      if (!(connection instanceof HoptimatorConnection)) {
+        log.error("Connection is not a HoptimatorConnection, cannot create MySqlDeployer");
+        return deployers;
+      }
 
+      deployers.add(new MySqlDeployer(source, properties, (HoptimatorConnection) connection));
+    }
     return deployers;
   }
 

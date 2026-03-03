@@ -17,6 +17,7 @@ import org.apache.calcite.schema.SchemaPlus;
 /** JDBC driver for Venice stores. */
 public class VeniceDriver extends CalciteDriver {
   public static final String CATALOG_NAME = "VENICE";
+  public static final String CONNECTION_PREFIX = "jdbc:venice://";
 
   static {
     new VeniceDriver().register();
@@ -24,7 +25,7 @@ public class VeniceDriver extends CalciteDriver {
 
   @Override
   protected String getConnectStringPrefix() {
-    return "jdbc:venice://";
+    return CONNECTION_PREFIX;
   }
 
   @Override

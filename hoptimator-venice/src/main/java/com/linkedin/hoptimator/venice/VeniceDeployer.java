@@ -2,16 +2,18 @@ package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.Validated;
+import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
-import com.linkedin.hoptimator.util.ConfigService;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.venice.controllerapi.ControllerClient;
 import com.linkedin.venice.controllerapi.ControllerClientFactory;
 import com.linkedin.venice.controllerapi.ControllerResponse;
 import com.linkedin.venice.controllerapi.SchemaResponse;
 import com.linkedin.venice.controllerapi.StoreResponse;
+import com.linkedin.venice.exceptions.VeniceHttpException;
 import com.linkedin.venice.security.SSLFactory;
 import com.linkedin.venice.utils.SslUtils;
 import java.sql.SQLException;
@@ -21,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import org.apache.avro.Schema;
+import org.apache.avro.SchemaCompatibility;
 import org.apache.calcite.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,18 +32,87 @@ import org.slf4j.LoggerFactory;
 /**
  * Deployer for Venice stores.
  * Handles creation, update, and deletion of Venice stores based on Hoptimator schema.
+ *
+ * <p>Implements {@link Validated} to pre-check Venice configuration and schema constraints
+ * before any deployment side effects.
  */
-public class VeniceDeployer implements Deployer {
+public class VeniceDeployer implements Deployer, Validated {
 
   private static final Logger log = LoggerFactory.getLogger(VeniceDeployer.class);
-  private static final String VENICE_CONFIG = "venice.config";
 
   protected final Source source;
+  protected final Properties properties;
   protected final HoptimatorConnection connection;
 
-  public VeniceDeployer(Source source, HoptimatorConnection connection) {
+  public VeniceDeployer(Source source, Properties properties, HoptimatorConnection connection) {
     this.source = source;
+    this.properties = properties;
     this.connection = connection;
+  }
+
+  @Override
+  public void validate(Validator.Issues issues) {
+    String storeName = source.table();
+
+    // Validate Venice configuration
+    String routerUrl = properties.getProperty("router.url");
+    if (routerUrl == null || routerUrl.isEmpty()) {
+      issues.error("Missing required property 'router.url' in Venice configuration for store " + storeName);
+    }
+
+    String clusterStr = properties.getProperty("clusters");
+    if (clusterStr == null || clusterStr.isEmpty()) {
+      issues.error("Missing required property 'clusters' in Venice configuration for store " + storeName);
+    }
+
+    // Validate schema can be generated
+    try {
+      Pair<Schema, Schema> keyPayloadSchema = getKeyPayloadSchema();
+      Schema keySchema = keyPayloadSchema.left;
+      Schema valueSchema = keyPayloadSchema.right;
+
+      if (keySchema == null) {
+        issues.error("Failed to generate key schema for Venice store " + storeName);
+      }
+      if (valueSchema == null) {
+        issues.error("Failed to generate value schema for Venice store " + storeName);
+      }
+
+      // If store exists, validate key schema hasn't changed and value schema is backwards compatible
+      try (ControllerClient controllerClient = createControllerClient()) {
+        if (checkStoreExists(controllerClient)) {
+          // Validate key schema hasn't changed
+          SchemaResponse keySchemaResponse = controllerClient.getKeySchema(storeName);
+          if (!keySchemaResponse.isError() && keySchemaResponse.getSchemaStr() != null) {
+            Schema existingKeySchema = new Schema.Parser().parse(keySchemaResponse.getSchemaStr());
+            if (!existingKeySchema.equals(keySchema)) {
+              issues.error("Key schema evolution is not supported in Venice. Store " + storeName
+                  + " has existing key schema but attempted to change it.");
+            }
+          }
+
+          // Validate value schema is backward compatible
+          SchemaResponse valueSchemaResponse = controllerClient.getValueSchema(storeName, -1); // -1 gets latest
+          if (!valueSchemaResponse.isError() && valueSchemaResponse.getSchemaStr() != null) {
+            Schema existingValueSchema = new Schema.Parser().parse(valueSchemaResponse.getSchemaStr());
+
+            // Check backward compatibility (new schema as reader, old schema as writer)
+            SchemaCompatibility.SchemaPairCompatibility compatibility =
+                SchemaCompatibility.checkReaderWriterCompatibility(valueSchema, existingValueSchema);
+
+            if (compatibility.getType() != SchemaCompatibility.SchemaCompatibilityType.COMPATIBLE) {
+              issues.error("Value schema is not backward compatible with existing schema for store " + storeName
+                  + ": " + compatibility.getDescription());
+            }
+          }
+        }
+      } catch (Exception e) {
+        // Log but don't fail validation if we can't check existing store
+        log.debug("Could not check existing store {} during validation: {}", storeName, e.getMessage());
+      }
+    } catch (Exception e) {
+      issues.error("Failed to generate schemas for Venice store " + storeName + ": " + e.getMessage());
+    }
   }
 
   @Override
@@ -117,8 +189,15 @@ public class VeniceDeployer implements Deployer {
   }
 
   private boolean checkStoreExists(ControllerClient controllerClient) {
-    StoreResponse response = controllerClient.getStore(source.table());
-    return response.getStore() != null;
+    try {
+      StoreResponse response = controllerClient.getStore(source.table());
+      return response.getStore() != null;
+    } catch (VeniceHttpException e) {
+      if (e.getHttpStatusCode() == 404) {
+        return false;
+      }
+      throw e;
+    }
   }
 
   /**
@@ -163,13 +242,10 @@ public class VeniceDeployer implements Deployer {
     log.info("Successfully created Venice store {}", source.table());
   }
 
-  private ControllerClient createControllerClient() throws SQLException {
-    Properties veniceProperties = ConfigService.config(connection, false, VENICE_CONFIG);
-    veniceProperties.putAll(connection.connectionProperties());
-    veniceProperties.putAll(source.options());
-    String routerUrl = veniceProperties.getProperty("router.url");
+  protected ControllerClient createControllerClient() throws SQLException {
+    String routerUrl = properties.getProperty("router.url");
+    String clusterStr = properties.getProperty("clusters");
 
-    String clusterStr = veniceProperties.getProperty("clusters");
     if (clusterStr == null || clusterStr.isEmpty()) {
       throw new SQLNonTransientException("Missing clusters property in Venice configuration");
     }
@@ -182,7 +258,7 @@ public class VeniceDeployer implements Deployer {
     }
 
     // Initialize SSL factory if configured
-    String sslConfigPath = veniceProperties.getProperty("ssl-config-path");
+    String sslConfigPath = properties.getProperty("ssl-config-path");
     Optional<SSLFactory> sslFactory;
     if (sslConfigPath != null) {
       try {

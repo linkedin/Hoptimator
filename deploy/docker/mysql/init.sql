@@ -78,7 +78,6 @@ INSERT INTO daily_metrics (metric_date, metric_name, metric_value) VALUES
     (DATE_SUB(CURDATE(), INTERVAL 1 DAY), 'revenue', 4800.00),
     (DATE_SUB(CURDATE(), INTERVAL 1 DAY), 'orders', 145.00);
 
--- Grant permissions to hoptimator user on both databases
-GRANT ALL PRIVILEGES ON testdb.* TO 'hoptimator'@'%';
-GRANT ALL PRIVILEGES ON analytics.* TO 'hoptimator'@'%';
+-- Grant permissions to hoptimator user on all databases
+GRANT ALL PRIVILEGES ON *.* TO 'hoptimator'@'%';
 FLUSH PRIVILEGES;

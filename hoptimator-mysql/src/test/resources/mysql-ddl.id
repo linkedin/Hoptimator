@@ -6,15 +6,14 @@ create or replace materialized view mysql."testdb"."users$partial" as select "us
 
 !update
 
-select count(*) as TABLE_EXISTS from mysql."testdb"."users$partial" where 1=0;
-+--------------+
-| TABLE_EXISTS |
-+--------------+
-|            0 |
-+--------------+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| user_id    | INTEGER  | 10         | NO         |
++------------+----------+------------+------------+
 (1 row)
 
-!ok
+!describe "MYSQL"."testdb"."users$partial"
 
 drop materialized view "MYSQL"."testdb"."users$partial";
 (0 rows modified)

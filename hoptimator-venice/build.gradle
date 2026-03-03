@@ -17,6 +17,7 @@ dependencies {
   compileOnly libs.findbugs
 
   testImplementation libs.assertj
+  testImplementation libs.commons.dbcp2
 
   testRuntimeOnly project(':hoptimator-k8s')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))

@@ -1,0 +1,74 @@
+!set outputformat mysql
+!use k8s
+
+# Create table
+create or replace table "KAFKA"."create-table-test" ("KEY" VARCHAR, "VALUE" BINARY) WITH ("kafka.partitions" '10');
+(0 rows modified)
+
+!update
+
+# Verify schema - check columns
++------------+-----------+------------+------------+
+| columnName | typeName  | columnSize | isNullable |
++------------+-----------+------------+------------+
+| KEY        | VARCHAR   | null       | YES        |
+| VALUE      | BINARY(1) | 1          | YES        |
++------------+-----------+------------+------------+
+(2 rows)
+
+!describe "KAFKA"."create-table-test"
+
+insert into KAFKA."create-table-test" select * from KAFKA."existing-topic-2";
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: kafka-database-create-table-test
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `KAFKA` WITH ()
+    - CREATE TABLE IF NOT EXISTS `KAFKA`.`existing-topic-2` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'key.fields'='KEY', 'key.format'='raw', 'properties.bootstrap.servers'='one-kafka-bootstrap.kafka.svc.cluster.local:9094', 'scan.startup.mode'='earliest-offset', 'topic'='existing-topic-2', 'value.fields-include'='EXCEPT_KEY', 'value.format'='json')
+    - CREATE DATABASE IF NOT EXISTS `KAFKA` WITH ()
+    - CREATE TABLE IF NOT EXISTS `KAFKA`.`create-table-test` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'key.fields'='KEY', 'key.format'='raw', 'properties.bootstrap.servers'='one-kafka-bootstrap.kafka.svc.cluster.local:9094', 'scan.startup.mode'='earliest-offset', 'topic'='create-table-test', 'value.fields-include'='EXCEPT_KEY', 'value.format'='json')
+    - INSERT INTO `KAFKA`.`create-table-test` (`KEY`, `VALUE`) SELECT `KEY`, `VALUE` FROM `KAFKA`.`existing-topic-2`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafka-database-create-table-test
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: create-table-test
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafka-database-existing-topic-2
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: existing-topic-2
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+!specify create-table-test
+
+# Clean up - drop table
+drop table KAFKA."create-table-test";
+(0 rows modified)
+
+!update

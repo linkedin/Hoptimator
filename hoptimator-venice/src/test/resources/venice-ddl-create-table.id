@@ -1,21 +1,70 @@
 !set outputformat mysql
 !use k8s
 
+# Create table with KEY fields
 create or replace table "VENICE"."integration-test-store" ("KEY_id" int, "i" int, "s" VARCHAR);
 (0 rows modified)
 
 !update
 
-select count(*) as TABLE_EXISTS from venice."integration-test-store" where 1=0;
-+--------------+
-| TABLE_EXISTS |
-+--------------+
-|            0 |
-+--------------+
-(1 row)
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY_id     | INTEGER  | 10         | YES        |
+| i          | INTEGER  | 10         | YES        |
+| s          | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(3 rows)
 
-!ok
+!describe "VENICE"."integration-test-store"
 
+# ALTER TABLE - Add/drop/modify value fields (backward compatible)
+create or replace table "VENICE"."integration-test-store" ("KEY_id" int, "i" int, "s" VARCHAR, "new_field" DOUBLE);
+(0 rows modified)
+
+!update
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY_id     | INTEGER  | 10         | YES        |
+| i          | INTEGER  | 10         | YES        |
+| s          | VARCHAR  | null       | YES        |
+| new_field  | DOUBLE   | 15         | YES        |
++------------+----------+------------+------------+
+(4 rows)
+
+!describe "VENICE"."integration-test-store"
+
+# Create table with composite primary key
+create or replace table "VENICE"."orders-store" ("KEY_user_id" int, "KEY_order_id" int, "total" DOUBLE, "status" VARCHAR);
+(0 rows modified)
+
+!update
+
++--------------+----------+------------+------------+
+| columnName   | typeName | columnSize | isNullable |
++--------------+----------+------------+------------+
+| KEY_user_id  | INTEGER  | 10         | YES        |
+| KEY_order_id | INTEGER  | 10         | YES        |
+| total        | DOUBLE   | 15         | YES        |
+| status       | VARCHAR  | null       | YES        |
++--------------+----------+------------+------------+
+(4 rows)
+
+!describe "VENICE"."orders-store"
+
+# Attempt to change KEY fields should fail validation
+create or replace table "VENICE"."integration-test-store" ("KEY_user_id" int, "i" int, "s" VARCHAR, "new_field" DOUBLE);
+Key schema evolution is not supported in Venice. Store integration-test-store has existing key schema but attempted to change it.
+!error
+
+# Attempt to modify KEY field type should fail validation
+create or replace table "VENICE"."integration-test-store" ("KEY_id" VARCHAR, "i" int, "s" VARCHAR, "new_field" DOUBLE);
+Key schema evolution is not supported in Venice. Store integration-test-store has existing key schema but attempted to change it.
+!error
+
+# Test insert operation with existing store
 insert into "VENICE"."integration-test-store" ("KEY_id", "i") select "KEY", "intField" AS "i" from "VENICE"."test-store-primitive";
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
@@ -29,7 +78,7 @@ spec:
     - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
     - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store-primitive` (`KEY` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY', 'key.fields-prefix'='', 'key.type'='PRIMITIVE', 'partial-update-mode'='true', 'storeName'='test-store-primitive', 'value.fields-include'='EXCEPT_KEY')
     - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
-    - CREATE TABLE IF NOT EXISTS `VENICE`.`integration-test-store` (`KEY_id` INTEGER, `i` INTEGER, `s` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_id', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='integration-test-store', 'value.fields-include'='EXCEPT_KEY')
+    - CREATE TABLE IF NOT EXISTS `VENICE`.`integration-test-store` (`KEY_id` INTEGER, `i` INTEGER, `s` VARCHAR, `new_field` DOUBLE) WITH ('connector'='venice', 'key.fields'='KEY_id', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='integration-test-store', 'value.fields-include'='EXCEPT_KEY')
     - INSERT INTO `VENICE`.`integration-test-store` (`KEY_id`, `i`) SELECT `KEY` AS `KEY_id`, `intField` AS `i` FROM `VENICE`.`test-store-primitive`
     jarURI: file:///opt/hoptimator-flink-runner.jar
     parallelism: 1
@@ -37,11 +86,13 @@ spec:
     state: running
 !specify integration-test-store
 
+# Clean up - drop tables
 drop table "VENICE"."integration-test-store";
 (0 rows modified)
 
 !update
 
-select count(*) as TABLE_EXISTS from venice."integration-test-store" where 1=0;
-Object 'integration-test-store' not found within 'VENICE'
-!error
+drop table "VENICE"."orders-store";
+(0 rows modified)
+
+!update

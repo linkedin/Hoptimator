@@ -17,13 +17,15 @@ import org.apache.calcite.schema.SchemaPlus;
 /** JDBC driver for Kafka topics. */
 public class KafkaDriver extends CalciteDriver {
 
+  public static final String CONNECTION_PREFIX = "jdbc:kafka://";
+
   static {
     new KafkaDriver().register();
   }
 
   @Override
   protected String getConnectStringPrefix() {
-    return "jdbc:kafka://";
+    return CONNECTION_PREFIX;
   }
 
   @Override

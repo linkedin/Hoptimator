@@ -32,6 +32,7 @@ public class HoptimatorJdbcCatalogSchema extends JdbcCatalogSchema implements Da
   private final String database;
   private final List<Engine> engines;
   private final Lookup<JdbcSchema> subSchemas;
+  private final HoptimatorJdbcConvention convention;
 
   public static HoptimatorJdbcCatalogSchema create(String database, String catalog, String schema, DataSource dataSource,
       SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
@@ -46,6 +47,7 @@ public class HoptimatorJdbcCatalogSchema extends JdbcCatalogSchema implements Da
     this.database = database;
     this.catalog = catalog;
     this.engines = engines;
+    this.convention = convention;
     this.subSchemas = new LoadingCacheLookup<>(new IgnoreCaseLookup<>() {
       @Override public @Nullable JdbcSchema get(String name) {
         try (Connection connection = dataSource.getConnection();
@@ -81,6 +83,10 @@ public class HoptimatorJdbcCatalogSchema extends JdbcCatalogSchema implements Da
         return builder.build();
       }
     });
+  }
+
+  public HoptimatorJdbcSchema createSchema(String schemaName) {
+    return new HoptimatorJdbcSchema(database, catalog, schemaName, getDataSource(), dialect, convention, engines);
   }
 
   @Override
