@@ -36,7 +36,8 @@ public class K8sDeployerProvider implements DeployerProvider {
     } else if (obj instanceof Source) {
       list.add(new K8sSourceDeployer((Source) obj, context));
       if (!(obj instanceof Sink)) {
-        // Sets up a no-op table provisioning job deployer.
+        // Sets up a table provisioning job for the source.
+        // The job would be a no-op if the source is already provisioned.
         list.add(new K8sJobDeployer(jobFromSource((Source) obj), context));
       }
     } else if (obj instanceof Trigger) {
