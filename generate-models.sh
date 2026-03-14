@@ -16,6 +16,7 @@ docker run \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/pipelines.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/sqljobs.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/subscriptions.crd.yaml" \
+  -u "$(pwd)/hoptimator-k8s/src/main/resources/tableprovisionjobs.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/tabletemplates.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/tabletriggers.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/views.crd.yaml" \
