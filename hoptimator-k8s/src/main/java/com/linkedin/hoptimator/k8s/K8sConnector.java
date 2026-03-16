@@ -52,6 +52,8 @@ class K8sConnector implements Connector {
         new Template.SimpleEnvironment()
             .with("name", source.database() + "-" + source.table().toLowerCase(Locale.ROOT))
             .with("database", source.database())
+            .with("catalog", source.catalog())
+            .with("schema", source.schema())
             .with("table", source.table())
             .with(options);
     List<String> templates = tableTemplateApi.list()
