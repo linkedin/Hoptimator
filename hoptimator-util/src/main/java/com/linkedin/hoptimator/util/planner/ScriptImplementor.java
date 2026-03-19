@@ -116,6 +116,11 @@ public interface ScriptImplementor {
     return with(new DatabaseImplementor(catalog, database));
   }
 
+  /** Append a function definition, e.g. `CREATE FUNCTION IF NOT EXISTS ... AS ...` */
+  default ScriptImplementor function(String name, String as, Map<String, String> options) {
+    return with(new FunctionImplementor(name, as, options));
+  }
+
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
   default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode) {
     return insert(catalog, schema, table, null, relNode, null, Collections.emptyMap());
@@ -515,6 +520,33 @@ public interface ScriptImplementor {
       w.keyword("WITH");
       SqlWriter.Frame parens = w.startList("(", ")");
       w.endList(parens);
+      w.literal(";");
+    }
+  }
+
+  /** Implements a CREATE FUNCTION IF NOT EXISTS statement */
+  class FunctionImplementor implements ScriptImplementor {
+    private final String name;
+    private final String as;
+    private final Map<String, String> options;
+
+    public FunctionImplementor(String name, String as, Map<String, String> options) {
+      this.name = name;
+      this.as = as;
+      this.options = options != null ? options : Collections.emptyMap();
+    }
+
+    @Override
+    public void implement(SqlWriter w) {
+      w.keyword("CREATE FUNCTION IF NOT EXISTS");
+      w.identifier(name, true);
+      w.keyword("AS");
+      w.literal("'" + as + "'");
+      String language = options.get("LANGUAGE");
+      if (language != null) {
+        w.keyword("LANGUAGE");
+        w.literal(language);
+      }
       w.literal(";");
     }
   }

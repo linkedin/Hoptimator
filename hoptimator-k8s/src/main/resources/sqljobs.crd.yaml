@@ -57,6 +57,11 @@ spec:
                   type: object
                   additionalProperties:
                     type: string
+                files:
+                  description: Inline file content to make available to the SQL job (e.g., Python UDF code).
+                  type: object
+                  additionalProperties:
+                    type: string
               required:
               - sql
             status:

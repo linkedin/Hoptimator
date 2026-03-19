@@ -2,6 +2,8 @@ package com.linkedin.hoptimator.catalog.flink;
 
 import com.linkedin.hoptimator.catalog.Resource;
 
+import java.util.Map;
+
 
 public class FlinkStreamingSqlJob extends Resource {
 
@@ -10,5 +12,12 @@ public class FlinkStreamingSqlJob extends Resource {
     export("namespace", namespace);
     export("name", name);
     export("sql", sql);
+  }
+
+  public FlinkStreamingSqlJob(String namespace, String name, String sql, Map<String, String> files) {
+    this(namespace, name, sql);
+    if (files != null && !files.isEmpty()) {
+      export("files", files);
+    }
   }
 }

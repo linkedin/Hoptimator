@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 
@@ -70,7 +71,8 @@ public class FlinkStreamingSqlJobReconciler implements Reconciler {
       }
 
       Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(Resource.Environment.EMPTY);
-      Resource sqlJob = new FlinkStreamingSqlJob(namespace, name, script);
+      Map<String, String> files = object.getSpec().getFiles();
+      Resource sqlJob = new FlinkStreamingSqlJob(namespace, name, script, files);
       boolean allReady = true;
       boolean anyFailed = false;
       for (String yaml : sqlJob.render(templateFactory)) {

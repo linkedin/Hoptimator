@@ -26,9 +26,11 @@ import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
+import com.linkedin.hoptimator.UserFunction;
 import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.jdbc.ddl.HoptimatorDdlParserImpl;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
@@ -264,6 +266,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       // Plan a pipeline to materialize the view.
       RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
       PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), connectionProperties);
+      // Pass registered functions to the implementor
+      for (UserFunction func : connection.functions()) {
+        plan.addFunction(func);
+      }
       schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(context, new HoptimatorDriver.Prepare(connection), plan, sql, pair);
       logger.info("Added materialized view {} to schema {}", viewName, schemaPlus.getName());
       Pipeline pipeline = plan.pipeline(viewName, connection);
@@ -364,6 +370,52 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
       throw new DdlException(create, e.getMessage(), e);
     }
+  }
+
+  /** Executes a {@code CREATE FUNCTION} command. */
+  public void execute(SqlCreateFunction create, CalcitePrepare.Context context) {
+    logger.info("Validating statement: {}", create);
+    try {
+      ValidationService.validateOrThrow(create);
+    } catch (SQLException e) {
+      throw new DdlException(create, e.getMessage(), e);
+    }
+
+    String name = create.name.names.get(create.name.names.size() - 1);
+    String as = ((SqlLiteral) create.job).getValueAs(String.class);
+    String namespace = create.namespace != null
+        ? ((SqlLiteral) create.namespace).getValueAs(String.class) : null;
+    Map<String, String> options = HoptimatorDdlUtils.options(create.options);
+
+    // Extract LANGUAGE from the dedicated clause (elevated from WITH options)
+    if (create.language != null) {
+      options.put("LANGUAGE", create.language.getSimple());
+    }
+
+    UserFunction userFunction = new UserFunction(name, as, namespace, options);
+
+    // Determine return type from RETURNS clause (default: VARCHAR)
+    String returnsName = create.returnType != null
+        ? create.returnType.getTypeName().getSimple() : "VARCHAR";
+    org.apache.calcite.sql.type.SqlTypeName returnType;
+    try {
+      returnType = org.apache.calcite.sql.type.SqlTypeName.valueOf(returnsName.toUpperCase(java.util.Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new DdlException(create, "Unknown return type: " + returnsName);
+    }
+
+    // Register opaque function overloads in Calcite schema so queries pass validation.
+    // Each overload accepts ANY-typed parameters and returns the specified type.
+    final Pair<CalciteSchema, String> pair = HoptimatorDdlUtils.schema(context, true, create.name);
+    SchemaPlus schemaPlus = pair.left != null ? pair.left.plus() : context.getRootSchema().plus();
+    for (OpaqueFunction fn : OpaqueFunction.overloads(returnType)) {
+      schemaPlus.add(name, fn);
+    }
+
+    // Register in session for pipeline DDL emission
+    connection.registerFunction(userFunction);
+
+    logger.info("CREATE FUNCTION {} completed", name);
   }
 
   // N.B. originally copy-pasted from Apache Calcite
@@ -627,6 +679,18 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       ValidationService.validateOrThrow(drop);
     } catch (SQLException e) {
       throw new DdlException(drop, e.getMessage(), e);
+    }
+
+    // Handle DROP FUNCTION
+    if (drop.getKind().equals(SqlKind.DROP_FUNCTION)) {
+      String name = drop.name.names.get(drop.name.names.size() - 1);
+      final Pair<CalciteSchema, String> fnPair = HoptimatorDdlUtils.schema(context, false, drop.name);
+      if (fnPair.left != null) {
+        fnPair.left.removeFunction(name);
+      }
+      connection.removeFunction(name);
+      logger.info("DROP FUNCTION {} completed", name);
+      return;
     }
 
     // The logic below is only applicable for DROP VIEW and DROP MATERIALIZED VIEW.

@@ -1,0 +1,72 @@
+!set outputformat mysql
+!use k8s
+
+# Register a VARCHAR UDF (default return type)
+create function my_udf as 'com.example.MyUdf';
+(0 rows modified)
+
+!update
+
+# UDF validates against real data
+select my_udf("FIRST_NAME") as val from profile.members;
++-----+
+| VAL |
++-----+
+|     |
+|     |
+|     |
++-----+
+(3 rows)
+
+!ok
+
+# Register an INTEGER UDF with explicit return type
+create function int_udf returns integer as 'com.example.IntUdf';
+(0 rows modified)
+
+!update
+
+# Register a Python UDF with LANGUAGE clause
+create function py_udf returns varchar as 'my_module.my_func' language python;
+(0 rows modified)
+
+!update
+
+# Verify pipeline SQL includes CREATE FUNCTION before connectors
+insert into ads.page_views select my_udf("FIRST_NAME") as page_urn, "MEMBER_URN" as member_urn from profile.members;
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: ads-database-pageviews
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE FUNCTION IF NOT EXISTS `my_udf` AS 'com.example.MyUdf'
+    - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT `my_udf`(`FIRST_NAME`) AS `PAGE_URN`, `MEMBER_URN` FROM `PROFILE`.`MEMBERS`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify PAGE_VIEWS
+
+# Clean up
+drop function my_udf;
+(0 rows modified)
+
+!update
+
+drop function int_udf;
+(0 rows modified)
+
+!update
+
+drop function py_udf;
+(0 rows modified)
+
+!update

@@ -41,6 +41,7 @@ import net.hydromatic.quidem.Quidem;
 
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.UserFunction;
 import com.linkedin.hoptimator.util.DeploymentService;
 
 
@@ -264,6 +265,10 @@ public abstract class QuidemTestBase {
               }
 
               PipelineRel.Implementor plan = DeploymentService.plan(root, Collections.emptyList(), connectionProperties);
+              // Pass registered functions to the implementor
+              for (UserFunction func : conn.functions()) {
+                plan.addFunction(func);
+              }
               if (create != null) {
                 HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
                     new HoptimatorDriver.Prepare(conn), plan, create, querySql);
