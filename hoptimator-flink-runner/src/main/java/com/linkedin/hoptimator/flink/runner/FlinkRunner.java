@@ -17,17 +17,19 @@ import java.util.Base64;
 public final class FlinkRunner {
   private static final Logger logger = LoggerFactory.getLogger(FlinkRunner.class);
   static final String FILE_PREFIX = "--file:";
-  private static final Path DEFAULT_UDF_DIR = Paths.get("/opt/python-udfs");
+  private static final String UDF_DIR_PROPERTY = "hoptimator.udf.dir";
+  private static final String UDF_DIR_DEFAULT = "/opt/python-udfs";
 
   private FlinkRunner() {
   }
 
   public static void main(String[] args) throws IOException {
     // Phase 1: Extract and write file directives before executing SQL
+    Path udfDir = Paths.get(System.getProperty(UDF_DIR_PROPERTY, UDF_DIR_DEFAULT));
     for (String arg : args) {
       String stmt = arg.replaceAll("\\n", "").trim();
       if (stmt.startsWith(FILE_PREFIX)) {
-        writeFile(stmt, DEFAULT_UDF_DIR);
+        writeFile(stmt, udfDir);
       }
     }
 
