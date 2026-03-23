@@ -6,18 +6,15 @@ metadata:
   name: flink-template
 spec:
   yaml: |
-    apiVersion: flink.apache.org/v1beta1
-    kind: FlinkSessionJob
+    apiVersion: hoptimator.linkedin.com/v1alpha1
+    kind: SqlJob
     metadata:
       name: {{name}}
     spec:
-      deploymentName: basic-session-deployment
-      job:
-        entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
-        args:
-        - {{flinksql}}
-        jarURI: file:///opt/{{flink.app.name}}.jar
-        parallelism: {{flink.parallelism:1}}
-        upgradeMode: stateless
-        state: running
-        {{flink.app.type==SQL}}
+      dialect: Flink
+      executionMode: Streaming
+      sql:
+      - {{flinksql}}
+      files:
+        {{files}}
+      {{flink.app.type==SQL}}

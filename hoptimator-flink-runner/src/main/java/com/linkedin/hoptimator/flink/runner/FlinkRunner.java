@@ -6,15 +6,32 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Base64;
+
 
 /** Runs SQL from command-line args. */
 public final class FlinkRunner {
   private static final Logger logger = LoggerFactory.getLogger(FlinkRunner.class);
+  static final String FILE_PREFIX = "--file:";
+  private static final Path DEFAULT_UDF_DIR = Paths.get("/opt/python-udfs");
 
   private FlinkRunner() {
   }
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
+    // Phase 1: Extract and write file directives before executing SQL
+    for (String arg : args) {
+      String stmt = arg.replaceAll("\\n", "").trim();
+      if (stmt.startsWith(FILE_PREFIX)) {
+        writeFile(stmt, DEFAULT_UDF_DIR);
+      }
+    }
+
+    // Phase 2: Execute SQL statements
     EnvironmentSettings settings = EnvironmentSettings.newInstance().inStreamingMode().build();
     StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     StreamTableEnvironment tEnv = StreamTableEnvironment.create(env, settings);
@@ -31,5 +48,21 @@ public final class FlinkRunner {
         }
       }
     }
+  }
+
+  /** Parses a --file:name:base64content directive and writes the file to the given directory. */
+  static void writeFile(String directive, Path targetDir) throws IOException {
+    String payload = directive.substring(FILE_PREFIX.length());
+    int colonIdx = payload.indexOf(':');
+    if (colonIdx < 0) {
+      throw new IllegalArgumentException("Invalid file directive (missing ':'): " + directive);
+    }
+    String filename = payload.substring(0, colonIdx);
+    String encoded = payload.substring(colonIdx + 1);
+    byte[] content = Base64.getDecoder().decode(encoded);
+    Files.createDirectories(targetDir);
+    Path filePath = targetDir.resolve(filename);
+    Files.write(filePath, content);
+    logger.info("Wrote UDF file: {}", filePath);
   }
 }

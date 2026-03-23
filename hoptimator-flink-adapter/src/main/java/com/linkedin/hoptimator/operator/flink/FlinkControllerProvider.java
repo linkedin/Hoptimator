@@ -19,6 +19,7 @@ public class FlinkControllerProvider implements ControllerProvider {
   @Override
   public Collection<Controller> controllers(Operator operator) {
     operator.registerApi("FlinkDeployment", "flinkdeployment", "flinkdeployments", "flink.apache.org", "v1beta1");
+    operator.registerApi("FlinkSessionJob", "flinksessionjob", "flinksessionjobs", "flink.apache.org", "v1beta1");
 
     operator.registerApi("SqlJob", "sqljob", "sqljobs", "hoptimator.linkedin.com", "v1alpha1", V1alpha1SqlJob.class,
         V1alpha1SqlJobList.class);
