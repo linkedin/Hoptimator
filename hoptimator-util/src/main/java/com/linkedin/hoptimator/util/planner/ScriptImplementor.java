@@ -148,7 +148,10 @@ public interface ScriptImplementor {
   default String sql(SqlDialect dialect) {
     SqlWriter w = new SqlPrettyWriter(SqlWriterConfig.of().withDialect(dialect));
     implement(w);
-    return w.toSqlString().getSql().replaceAll("\\n", " ").replaceAll("\\s*;\\s*", ";\n").trim();
+    // This logic is intended to split DDL/DML statements into multiple lines.
+    // Flink SQL options (e.g. key.fields) can contain ";" characters as a delimiter.
+    // TODO: make this logic more robust, it will still fail for non-trimmed strings containing ";" characters
+    return w.toSqlString().getSql().replaceAll("\\n", " ").replaceAll("\\s+;\\s*", ";\n").trim();
   }
 
   /** Generate SQL for a given dialect */
