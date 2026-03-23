@@ -117,7 +117,7 @@ class K8sConnector implements Connector {
         .filter(name -> name.startsWith(KEY_PREFIX))
         .collect(Collectors.joining(";"));
     if (!keyString.isEmpty()) {
-      newOptions.put(KEY_OPTION, keyString);
+      newOptions.put(KEY_OPTION, keyString.replaceAll("\\s+", ""));
       newOptions.put(KEY_PREFIX_OPTION, KEY_PREFIX);
       newOptions.put(KEY_TYPE_OPTION, "RECORD");
     }

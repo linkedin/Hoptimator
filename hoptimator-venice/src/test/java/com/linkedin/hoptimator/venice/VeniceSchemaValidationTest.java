@@ -16,12 +16,13 @@ public class VeniceSchemaValidationTest extends JdbcTestBase {
 
     @Test
     public void testVeniceTableCreationAndSchema() throws Exception {
-        sql("create or replace materialized view \"VENICE\".\"test-store$insert-partial\" (\"KEY_id\", \"intField\") "
-            + "as select \"KEY\", \"intField\" from \"VENICE\".\"test-store-primitive\"");
+        sql("create or replace materialized view \"VENICE\".\"test-store$insert-partial\" (\"KEY_name\", \"KEY_age\", \"intField\") "
+            + "as select \"stringField\" AS \"KEY_name\", \"KEY\" AS \"KEY_age\", \"intField\" from \"VENICE\".\"test-store-primitive\"");
 
         // Validate the table was created with expected schema
         Map<String, String> expectedColumns = Map.of(
-            "KEY_id", "INTEGER",
+            "KEY_name", "VARCHAR",
+            "KEY_age", "INTEGER",
             "intField", "INTEGER"
         );
         validateTableSchema(List.of("VENICE", "test-store$insert-partial"), expectedColumns);
