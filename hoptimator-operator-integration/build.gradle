@@ -6,6 +6,7 @@ plugins {
 
 dependencies {
   implementation project(':hoptimator-operator')
+  runtimeOnly project(':hoptimator-flink-adapter')
   implementation libs.slf4j.simple
 
   testImplementation libs.assertj
