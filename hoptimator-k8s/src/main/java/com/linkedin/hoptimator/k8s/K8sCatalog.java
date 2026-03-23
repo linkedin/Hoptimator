@@ -32,7 +32,7 @@ class K8sCatalog implements Catalog {
     HoptimatorConnection conn = wrapper.unwrap(HoptimatorConnection.class);
     K8sContext context = K8sContext.create(conn);
     log.info("Using K8s context " + context);
-    K8sMetadata metadata = new K8sMetadata(conn, context);
+    K8sMetadata metadata = createMetadata(conn, context);
     schemaPlus.add("k8s", metadata);
     metadata.databaseTable().addDatabases(schemaPlus, conn);
     metadata.viewTable().addViews(schemaPlus);
@@ -41,5 +41,10 @@ class K8sCatalog implements Catalog {
     // introduce schemas into the view object itself such that all tables that make up a view do not need to be
     // evaluated every time.
     // metadata.viewTable().registerMaterializations(conn);
+  }
+
+  // Package-private for testing
+  K8sMetadata createMetadata(HoptimatorConnection conn, K8sContext context) {
+    return new K8sMetadata(conn, context);
   }
 }

@@ -33,3 +33,8 @@ hs_err_pid*
 
 
 !gradle/wrapper/*.jar
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key

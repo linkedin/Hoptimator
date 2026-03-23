@@ -112,7 +112,11 @@ public class KafkaTopicReconciler implements Reconciler {
       }
 
       kafkaTopicApi.updateStatus(object, object.getStatus());
-    } catch (InterruptedException | ExecutionException | SQLException e) {
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.error("Interrupted while reconciling KafkaTopic {}/{}", namespace, name, e);
+      return new Result(true, failureRetryDuration());
+    } catch (ExecutionException | SQLException e) {
       log.error("Encountered exception while reconciling KafkaTopic {}/{}", namespace, name, e);
       return new Result(true, failureRetryDuration());
     }

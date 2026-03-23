@@ -16,6 +16,8 @@ dependencies {
   implementation libs.jackson.databind
   implementation libs.jackson.dataformat.yaml
   implementation libs.mcp
+
+  testCompileOnly libs.findbugs.annotations
 }
 
 tasks.withType(JavaCompile).configureEach {

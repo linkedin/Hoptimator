@@ -25,6 +25,9 @@ import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.helpers.MessageFormatter;
 
 
 public class HoptimatorConnection extends DelegatingConnection {
@@ -130,7 +133,7 @@ public class HoptimatorConnection extends DelegatingConnection {
     final List<String> path = Util.skipLast(tablePath);
     CalciteSchema schema = context.getRootSchema();
     for (String p : path) {
-      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+      schema = Objects.requireNonNull(schema).subSchemas().get(p);
     }
     if (schema == null || !(schema.schema instanceof Database)) {
       throw new SQLException(tablePath + " is not a physical database.");
@@ -143,12 +146,12 @@ public class HoptimatorConnection extends DelegatingConnection {
    */
   static class HoptimatorConnectionDualLogger {
     private final String className;
-    private final org.slf4j.Logger slf4jLogger;
+    private final Logger slf4jLogger;
     private final List<Consumer<String>> hooks;
 
     HoptimatorConnectionDualLogger(Class<?> clazz, List<Consumer<String>> hooks) {
       this.className = clazz.getSimpleName();
-      this.slf4jLogger = org.slf4j.LoggerFactory.getLogger(clazz);
+      this.slf4jLogger = LoggerFactory.getLogger(clazz);
       this.hooks = hooks;
     }
 
@@ -157,7 +160,7 @@ public class HoptimatorConnection extends DelegatingConnection {
      */
     public void info(String format, Object... arguments) {
       slf4jLogger.info(format, arguments);
-      String msg = org.slf4j.helpers.MessageFormatter.arrayFormat(format, arguments).getMessage();
+      String msg = MessageFormatter.arrayFormat(format, arguments).getMessage();
       String msgWithClassName = String.format("[%s] %s", className, msg);
       hooks.forEach(hook -> hook.accept(msgWithClassName));
     }

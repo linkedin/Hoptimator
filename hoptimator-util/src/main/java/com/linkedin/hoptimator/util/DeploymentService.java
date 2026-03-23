@@ -88,8 +88,11 @@ public final class DeploymentService {
   }
 
   public static <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
-    Collection<DeployerProvider> providers = providers();
+    return deployers(obj, connection, providers());
+  }
 
+  static <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection,
+      Collection<DeployerProvider> providers) {
     // Filter out base classes when subclasses exist
     Set<DeployerProvider> filteredProviders = new HashSet<>();
     for (DeployerProvider provider : providers) {

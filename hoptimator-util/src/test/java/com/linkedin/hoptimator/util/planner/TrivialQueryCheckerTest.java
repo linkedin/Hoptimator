@@ -1,12 +1,28 @@
 package com.linkedin.hoptimator.util.planner;
 
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelShuttle;
+import org.apache.calcite.rel.core.TableFunctionScan;
+import org.apache.calcite.rel.core.TableScan;
+import org.apache.calcite.rel.logical.LogicalAggregate;
+import org.apache.calcite.rel.logical.LogicalAsofJoin;
+import org.apache.calcite.rel.logical.LogicalCalc;
+import org.apache.calcite.rel.logical.LogicalCorrelate;
+import org.apache.calcite.rel.logical.LogicalExchange;
 import org.apache.calcite.rel.logical.LogicalFilter;
+import org.apache.calcite.rel.logical.LogicalIntersect;
 import org.apache.calcite.rel.logical.LogicalJoin;
+import org.apache.calcite.rel.logical.LogicalMatch;
+import org.apache.calcite.rel.logical.LogicalMinus;
 import org.apache.calcite.rel.logical.LogicalProject;
+import org.apache.calcite.rel.logical.LogicalRepeatUnion;
+import org.apache.calcite.rel.logical.LogicalSort;
+import org.apache.calcite.rel.logical.LogicalTableModify;
+import org.apache.calcite.rel.logical.LogicalUnion;
+import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -23,12 +39,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -46,7 +62,6 @@ import static org.mockito.Mockito.when;
  * - Any other relational operations
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class TrivialQueryCheckerTest {
 
     @Mock
@@ -69,17 +84,16 @@ public class TrivialQueryCheckerTest {
         typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
         rexBuilder = new RexBuilder(typeFactory);
 
-        // Set up accept() methods to properly dispatch to TrivialQueryChecker visit methods
-        when(mockTableScan.accept(any(RelShuttle.class))).thenCallRealMethod();
-        when(mockProject.accept(any(RelShuttle.class))).thenCallRealMethod();
-        when(mockFilter.accept(any(RelShuttle.class))).thenCallRealMethod();
-        when(mockJoin.accept(any(RelShuttle.class))).thenCallRealMethod();
+        // Set up accept() methods to properly dispatch to TrivialQueryChecker visit methods.
+        // These are lenient because each test only uses a subset of the four mocks.
+        lenient().when(mockTableScan.accept(any(RelShuttle.class))).thenCallRealMethod();
+        lenient().when(mockProject.accept(any(RelShuttle.class))).thenCallRealMethod();
+        lenient().when(mockFilter.accept(any(RelShuttle.class))).thenCallRealMethod();
+        lenient().when(mockJoin.accept(any(RelShuttle.class))).thenCallRealMethod();
     }
 
     @Test
     void testTableScanIsTrivial() {
-        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
-
         boolean result = TrivialQueryChecker.isTrivialQuery(mockTableScan);
         assertTrue(result, "Simple table scan should be considered trivial");
     }
@@ -95,7 +109,6 @@ public class TrivialQueryCheckerTest {
 
         when(mockProject.getProjects()).thenReturn(simpleProjections);
         when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
-        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertTrue(result, "Simple projection with field references should be trivial");
@@ -108,9 +121,9 @@ public class TrivialQueryCheckerTest {
 
         // Create a simple complex expression - a function call
         RexNode complexExpression = rexBuilder.makeCall(
-            org.apache.calcite.sql.fun.SqlStdOperatorTable.PLUS,
+            SqlStdOperatorTable.PLUS,
             rexBuilder.makeInputRef(intType, 0),
-            rexBuilder.makeExactLiteral(java.math.BigDecimal.ONE)
+            rexBuilder.makeExactLiteral(BigDecimal.ONE)
         );
 
         when(mockProject.getProjects()).thenReturn(Collections.singletonList(complexExpression));
@@ -122,9 +135,6 @@ public class TrivialQueryCheckerTest {
 
     @Test
     void testOtherNodesNotTrivial() {
-        when(mockFilter.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
-        when(mockJoin.getInputs()).thenReturn(List.of(mockTableScan, mockTableScan));
-
         boolean result = TrivialQueryChecker.isTrivialQuery(mockFilter);
         assertFalse(result, "Queries with filters should not be trivial");
 
@@ -134,11 +144,8 @@ public class TrivialQueryCheckerTest {
 
     @Test
     void testComplexQueryIsNotTrivial() {
-        // Create a complex query: SELECT ... FROM table1 JOIN table2 WHERE ...
+        // A project over a filter is non-trivial; visitChildren encounters filter which sets trivial=false
         when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockFilter));
-        when(mockFilter.getInputs()).thenReturn(Collections.singletonList(mockJoin));
-        when(mockJoin.getInputs()).thenReturn(List.of(mockTableScan, mockTableScan));
-        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertFalse(result, "Complex queries with multiple operations should not be trivial");
@@ -165,12 +172,11 @@ public class TrivialQueryCheckerTest {
         );
 
         LogicalProject innerProject = mock(LogicalProject.class);
+        when(innerProject.accept(any(RelShuttle.class))).thenCallRealMethod();
         when(innerProject.getProjects()).thenReturn(simpleProjections);
-        when(innerProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
 
         when(mockProject.getProjects()).thenReturn(simpleProjections);
         when(mockProject.getInputs()).thenReturn(Collections.singletonList(innerProject));
-        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertTrue(result, "Nested trivial operations should remain trivial");
@@ -197,7 +203,6 @@ public class TrivialQueryCheckerTest {
 
         when(mockProject.getProjects()).thenReturn(Collections.singletonList(nestedFieldAccess));
         when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
-        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertTrue(result, "Projection with nested field access should be trivial");
@@ -227,7 +232,6 @@ public class TrivialQueryCheckerTest {
 
         when(mockProject.getProjects()).thenReturn(mixedProjections);
         when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
-        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertTrue(result, "Projection with mixed simple and nested fields should be trivial");
@@ -263,7 +267,6 @@ public class TrivialQueryCheckerTest {
 
         when(mockProject.getProjects()).thenReturn(Collections.singletonList(level2Access));
         when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
-        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertTrue(result, "Projection with deeply nested field access should be trivial");
@@ -289,7 +292,6 @@ public class TrivialQueryCheckerTest {
 
         when(mockProject.getProjects()).thenReturn(Collections.singletonList(validItemCall));
         when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
-        when(mockTableScan.getInputs()).thenReturn(Collections.emptyList());
 
         boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
         assertTrue(result, "ITEM operator with valid literal field name should be trivial");
@@ -299,17 +301,156 @@ public class TrivialQueryCheckerTest {
     void testUnknownNodeTypeIsNotTrivial() {
         // Create a mock RelNode that doesn't match any of the known trivial types
         RelNode unknownNode = mock(RelNode.class);
-        when(unknownNode.getInputs()).thenReturn(Collections.emptyList());
-        when(unknownNode.getRowType()).thenReturn(createRowType("field1"));
 
-        // Mock the accept method to call visit(RelNode other) which returns false
+        // Mock the accept method to call visit(RelNode other) which sets trivial=false
         when(unknownNode.accept(any(RelShuttle.class))).thenAnswer(invocation -> {
-            org.apache.calcite.rel.RelShuttle shuttle = invocation.getArgument(0);
+            RelShuttle shuttle = invocation.getArgument(0);
             return shuttle.visit(unknownNode);
         });
 
         boolean result = TrivialQueryChecker.isTrivialQuery(unknownNode);
         assertFalse(result, "Unknown RelNode types should be considered non-trivial");
+    }
+
+    @Test
+    void testTableFunctionScanIsNotTrivial() {
+        TableFunctionScan mockScan = mock(TableFunctionScan.class);
+        when(mockScan.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockScan));
+    }
+
+    @Test
+    void testLogicalValuesIsNotTrivial() {
+        LogicalValues mockValues = mock(LogicalValues.class);
+        when(mockValues.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockValues));
+    }
+
+    @Test
+    void testLogicalCalcIsNotTrivial() {
+        LogicalCalc mockCalc = mock(LogicalCalc.class);
+        when(mockCalc.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockCalc));
+    }
+
+    @Test
+    void testLogicalCorrelateIsNotTrivial() {
+        LogicalCorrelate mockCorrelate = mock(LogicalCorrelate.class);
+        when(mockCorrelate.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockCorrelate));
+    }
+
+    @Test
+    void testLogicalUnionIsNotTrivial() {
+        LogicalUnion mockUnion = mock(LogicalUnion.class);
+        when(mockUnion.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockUnion));
+    }
+
+    @Test
+    void testLogicalIntersectIsNotTrivial() {
+        LogicalIntersect mockIntersect = mock(LogicalIntersect.class);
+        when(mockIntersect.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockIntersect));
+    }
+
+    @Test
+    void testLogicalMinusIsNotTrivial() {
+        LogicalMinus mockMinus = mock(LogicalMinus.class);
+        when(mockMinus.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockMinus));
+    }
+
+    @Test
+    void testLogicalAggregateIsNotTrivial() {
+        LogicalAggregate mockAggregate = mock(LogicalAggregate.class);
+        when(mockAggregate.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockAggregate));
+    }
+
+    @Test
+    void testLogicalMatchIsNotTrivial() {
+        LogicalMatch mockMatch = mock(LogicalMatch.class);
+        when(mockMatch.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockMatch));
+    }
+
+    @Test
+    void testLogicalSortIsNotTrivial() {
+        LogicalSort mockSort = mock(LogicalSort.class);
+        when(mockSort.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockSort));
+    }
+
+    @Test
+    void testLogicalExchangeIsNotTrivial() {
+        LogicalExchange mockExchange = mock(LogicalExchange.class);
+        when(mockExchange.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockExchange));
+    }
+
+    @Test
+    void testLogicalTableModifyIsNotTrivial() {
+        LogicalTableModify mockModify = mock(LogicalTableModify.class);
+        when(mockModify.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockModify));
+    }
+
+    @Test
+    void testLogicalAsofJoinIsNotTrivial() {
+        LogicalAsofJoin mockAsofJoin = mock(LogicalAsofJoin.class);
+        when(mockAsofJoin.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockAsofJoin));
+    }
+
+    @Test
+    void testLogicalRepeatUnionIsNotTrivial() {
+        LogicalRepeatUnion mockRepeatUnion = mock(LogicalRepeatUnion.class);
+        when(mockRepeatUnion.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockRepeatUnion));
+    }
+
+    @Test
+    void testVisitTableScanDirectlyIsTrivial() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        TableScan scan = mock(TableScan.class);
+
+        RelNode result = checker.visit(scan);
+
+        assertNotNull(result);
+        assertTrue(checker.isTrivial(), "visit(TableScan) should keep trivial as true");
+    }
+
+    @Test
+    void testVisitLogicalProjectDirectlyWithSimpleFieldsIsTrivial() {
+        RelDataType rowType = createRowType("field1");
+        List<RexNode> simpleProjections = List.of(
+            new RexInputRef(0, rowType.getFieldList().get(0).getType())
+        );
+
+        LogicalProject project = mock(LogicalProject.class);
+        when(project.getProjects()).thenReturn(simpleProjections);
+        when(project.getInputs()).thenReturn(Collections.emptyList());
+
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        RelNode result = checker.visit(project);
+
+        assertNotNull(result);
+        assertTrue(checker.isTrivial(), "visit(LogicalProject) with simple fields should be trivial");
     }
 
     private RelDataType createRowType(String... fieldNames) {

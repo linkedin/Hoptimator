@@ -26,7 +26,11 @@ class K8sSourceDeployer extends K8sYamlDeployer {
     super(context);
     this.context = context;
     this.source = source;
-    this.tableTemplateApi = new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
+    this.tableTemplateApi = createTableTemplateApi(context);
+  }
+
+  K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> createTableTemplateApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
   }
 
   @Override

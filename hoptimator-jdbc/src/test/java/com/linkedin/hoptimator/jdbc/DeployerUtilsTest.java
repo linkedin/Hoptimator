@@ -1,17 +1,26 @@
 package com.linkedin.hoptimator.jdbc;
 
-import org.junit.jupiter.api.Test;
-
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Properties;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-/**
- * Tests for DeployerUtils utility methods.
- */
+@ExtendWith(MockitoExtension.class)
 class DeployerUtilsTest {
+
+  @Mock
+  private Connection mockNonHoptimatorConnection;
 
   // --- parseIntOption tests ---
 
@@ -122,5 +131,77 @@ class DeployerUtilsTest {
   void testParseDoubleOptionWithNegativeValue() {
     Map<String, String> options = Map.of("threshold", "-3.14");
     assertEquals(-3.14, DeployerUtils.parseDoubleOption(options, "threshold", 1.5));
+  }
+
+  // --- extractPropertiesFromJdbcSchema tests ---
+
+  @Test
+  void testExtractPropertiesReturnsNullForNullSchemaName() {
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, null,
+        mockNonHoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+  }
+
+  @Test
+  void testExtractPropertiesReturnsNullForNonHoptimatorConnection() {
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "mySchema",
+        mockNonHoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+  }
+
+  @Test
+  void testExtractPropertiesWithHoptimatorConnectionAndMissingSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    Properties props = new Properties();
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://", props);
+
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "nonexistent-schema",
+        hoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+    hoptimatorConnection.close();
+  }
+
+  @Test
+  void testExtractPropertiesWithHoptimatorConnectionAndCatalog() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    Properties props = new Properties();
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://", props);
+
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema("nonexistent-catalog", "schema",
+        hoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+    hoptimatorConnection.close();
+  }
+
+  @Test
+  void testExtractPropertiesWithNonUnwrappableSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    Properties props = new Properties();
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", props);
+
+    // "util" schema exists but is not a HoptimatorJdbcSchema, so unwrap returns null
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "util",
+        hoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+    hoptimatorConnection.close();
+  }
+
+  @Test
+  void testExtractPropertiesWithLoggerOnException() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    Properties props = new Properties();
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", props);
+
+    Logger testLogger = LoggerFactory.getLogger(DeployerUtilsTest.class);
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "util",
+        hoptimatorConnection, "jdbc:test://", testLogger);
+
+    assertNull(result);
+    hoptimatorConnection.close();
   }
 }

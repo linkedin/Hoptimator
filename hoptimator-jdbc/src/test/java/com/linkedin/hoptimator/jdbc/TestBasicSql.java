@@ -37,12 +37,12 @@ public class TestBasicSql extends JdbcTestBase {
     sql("CREATE TABLE T (X VARCHAR, Y VARCHAR)");
     sql("INSERT INTO T VALUES ('one', 'two')");
     assertQueriesEqual("SELECT * FROM T", "VALUES ('one', 'two')");
-    var logs = sqlReturnsLogs("CREATE VIEW V AS SELECT * FROM T");
+    List<String> logs = sqlReturnsLogs("CREATE VIEW V AS SELECT * FROM T");
     assertResultSetsEqual(query("SELECT * FROM V"), query("SELECT * FROM T"));
     sql("DROP VIEW V");
     sql("DROP TABLE T");
 
-    var expectedLogs = List.of(
+    List<String> expectedLogs = List.of(
         "[HoptimatorDdlExecutor] Validating statement: CREATE VIEW `V` AS\nSELECT *\nFROM `T`",
         "[HoptimatorDdlExecutor] Validated sql statement. The view is named V and has path [DEFAULT, V]",
         "[HoptimatorDdlExecutor] Validating deployable resources for view V",

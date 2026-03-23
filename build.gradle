@@ -2,6 +2,57 @@ plugins {
   id("com.github.spotbugs") version "6.1.10"
 }
 
+apply plugin: 'jacoco'
+
+// All JaCoCo exclusions for the aggregate report, centralised here.
+// Per-module jacocoTestReport exclusions don't reliably propagate to the aggregate
+// task because of Gradle's configuration resolution order, so all exclusions are
+// declared once and applied when building filtered FileTrees below.
+ext.jacocoAggregateExcludes = [
+  // ── hoptimator-models / hoptimator-k8s ──────────────────────────────────────
+  '**/models/**',           // auto-generated K8s CRD model classes
+
+  // ── hoptimator-operator ──────────────────────────────────────────────────────
+  '**/PipelineOperatorApp.class',                  // operator main entry point
+
+  // ── hoptimator-flink-runner ──────────────────────────────────────────────────
+  '**/FlinkRunner.class',                          // CLI entry point; requires Flink runtime
+
+  // ── hoptimator-cli ───────────────────────────────────────────────────────────
+  'sqlline/**',                                    // third-party library bundled via application
+
+  // ── hoptimator-jdbc ──────────────────────────────────────────────────────────
+  '**/ddl/**',                                     // auto-generated JavaCC SQL parser
+]
+
+task jacocoAggregateReport(type: JacocoReport) {
+  group = 'verification'
+  description = 'Generates an aggregate JaCoCo coverage report across all subprojects.'
+  reports {
+    html.required = true
+    xml.required = true
+    html.outputLocation = layout.buildDirectory.dir('reports/jacoco/aggregate')
+    xml.outputLocation = layout.buildDirectory.file('reports/jacoco/aggregate/jacocoAggregateReport.xml')
+  }
+}
+
+subprojects {
+  plugins.withType(JacocoPlugin).configureEach {
+    rootProject.jacocoAggregateReport.dependsOn(test)
+    rootProject.jacocoAggregateReport.executionData(test)
+    rootProject.jacocoAggregateReport.sourceDirectories.from(sourceSets.main.allSource.srcDirs)
+    // Add a filtered FileTree for each classes directory. Using fileTree directly (rather than
+    // jacocoTestReport.classDirectories) ensures the exclusions are applied at resolution time,
+    // bypassing Gradle's configuration-resolution ordering issue with per-module setFrom().
+    def excludes = rootProject.ext.jacocoAggregateExcludes
+    sourceSets.main.output.classesDirs.each { classesDir ->
+      rootProject.jacocoAggregateReport.classDirectories.from(
+        fileTree(dir: classesDir, excludes: excludes)
+      )
+    }
+  }
+}
+
 subprojects {
   apply plugin: 'checkstyle'
   apply plugin: 'com.github.spotbugs'
@@ -18,12 +69,18 @@ subprojects {
   spotbugs {
     ignoreFailures = false
     showProgress = true
-    reportsDir = file("$rootProject.layout.buildDirectory/spotbugs")
+    reportsDir = file("${rootDir}/build/spotbugs")
     includeFilter = file("$rootDir/config/spotbugs/include.xml")
     excludeFilter = file("$rootDir/config/spotbugs/exclude.xml")
   }
 
   plugins.withType(JavaPlugin) {
+    project.apply plugin: 'jacoco'
+
+    jacoco {
+      toolVersion = "0.8.11"
+    }
+
     dependencies {
       testImplementation libs.assertj
       testImplementation libs.junit.jupiter.api

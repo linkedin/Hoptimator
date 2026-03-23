@@ -31,7 +31,11 @@ class K8sJobDeployer extends K8sYamlDeployer {
     super(context);
     this.context = context;
     this.job = job;
-    this.jobTemplateApi = new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
+    this.jobTemplateApi = createJobTemplateApi(context);
+  }
+
+  K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> createJobTemplateApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
   }
 
   @Override

@@ -8,6 +8,7 @@ dependencies {
   implementation libs.calcite.core
   implementation libs.yaml
   compileOnly libs.findbugs
+  testCompileOnly libs.findbugs.annotations
 
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
 }

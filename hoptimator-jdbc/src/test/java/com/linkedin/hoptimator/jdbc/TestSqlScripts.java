@@ -69,9 +69,10 @@ public class TestSqlScripts extends QuidemTestBase {
 
     URLClassLoader cl = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, getClass().getClassLoader());
     Thread.currentThread().setContextClassLoader(cl);
+    // Ensure the class is referenced so the compiler does not report it as unused
+    assert CreateViewValidatorProvider.class != null;
   }
 
-  @SuppressWarnings("unused")
   public static class CreateViewValidatorProvider implements ValidatorProvider {
     @Override
     public <T> Collection<Validator> validators(T obj) {

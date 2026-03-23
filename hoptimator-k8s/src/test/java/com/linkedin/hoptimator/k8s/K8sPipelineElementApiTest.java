@@ -2,12 +2,19 @@ package com.linkedin.hoptimator.k8s;
 
 import com.google.gson.JsonObject;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
 import io.kubernetes.client.common.KubernetesType;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,10 +23,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -31,7 +37,6 @@ import static org.mockito.Mockito.when;
  * Unit tests for K8sPipelineElementApi
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class K8sPipelineElementApiTest {
 
     @Mock
@@ -294,6 +299,125 @@ class K8sPipelineElementApiTest {
         pipeline.setSpec(spec);
 
         return pipeline;
+    }
+
+    @Mock
+    private K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> mockPipelineApi;
+
+    @Mock
+    private K8sPipelineElementStatusEstimator mockStatusEstimator;
+
+    @Test
+    void testListReturnsEmptyWhenNoPipelines() throws SQLException {
+        K8sPipelineElementApi testApi = new K8sPipelineElementApi(mockContext) {
+            @Override
+            K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> createPipelineApi(K8sContext context) {
+                return mockPipelineApi;
+            }
+
+            @Override
+            K8sPipelineElementStatusEstimator createStatusEstimator(K8sContext context) {
+                return mockStatusEstimator;
+            }
+        };
+        when(mockPipelineApi.list()).thenReturn(Collections.emptyList());
+
+        Collection<K8sPipelineElement> elements = testApi.list();
+
+        assertTrue(elements.isEmpty());
+    }
+
+    @Test
+    void testListReturnsPipelineElements() throws SQLException {
+        K8sPipelineElementApi testApi = new K8sPipelineElementApi(mockContext) {
+            @Override
+            K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> createPipelineApi(K8sContext context) {
+                return mockPipelineApi;
+            }
+
+            @Override
+            K8sPipelineElementStatusEstimator createStatusEstimator(K8sContext context) {
+                return mockStatusEstimator;
+            }
+        };
+
+        String yaml = "apiVersion: apps/v1\n"
+            + "kind: Deployment\n"
+            + "metadata:\n"
+            + "  name: test-deployment\n"
+            + "  namespace: default";
+        V1alpha1Pipeline pipeline = createPipeline("test-pipeline", "default", yaml);
+        when(mockPipelineApi.list()).thenReturn(Collections.singletonList(pipeline));
+
+        K8sPipelineElementStatus status = new K8sPipelineElementStatus("Deployment/test-deployment", true, false, "OK");
+        when(mockStatusEstimator.estimateElementStatus(anyString(), anyString())).thenReturn(status);
+
+        k8sUtilsMockedStatic.when(() -> K8sUtils.guessPlural(any(DynamicKubernetesObject.class))).thenReturn("deployments");
+
+        DynamicKubernetesApi mockDynamicApi = mock(DynamicKubernetesApi.class);
+        when(mockDynamicApi.get(anyString(), anyString())).thenReturn(mockApiResponse);
+        when(mockContext.dynamic(anyString(), anyString())).thenReturn(mockDynamicApi);
+        when(mockApiResponse.isSuccess()).thenReturn(false);
+
+        Collection<K8sPipelineElement> elements = testApi.list();
+
+        assertEquals(1, elements.size());
+        K8sPipelineElement element = elements.iterator().next();
+        assertEquals("Deployment/test-deployment", element.name());
+    }
+
+    @Test
+    void testListDeduplicatesElementsByName() throws SQLException {
+        K8sPipelineElementApi testApi = new K8sPipelineElementApi(mockContext) {
+            @Override
+            K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> createPipelineApi(K8sContext context) {
+                return mockPipelineApi;
+            }
+
+            @Override
+            K8sPipelineElementStatusEstimator createStatusEstimator(K8sContext context) {
+                return mockStatusEstimator;
+            }
+        };
+
+        String yaml = "apiVersion: apps/v1\n"
+            + "kind: Deployment\n"
+            + "metadata:\n"
+            + "  name: shared-deployment\n"
+            + "  namespace: default";
+        V1alpha1Pipeline pipeline1 = createPipeline("pipeline-1", "default", yaml);
+        V1alpha1Pipeline pipeline2 = createPipeline("pipeline-2", "default", yaml);
+        when(mockPipelineApi.list()).thenReturn(Arrays.asList(pipeline1, pipeline2));
+
+        K8sPipelineElementStatus status = new K8sPipelineElementStatus("Deployment/shared-deployment", true, false, "OK");
+        when(mockStatusEstimator.estimateElementStatus(anyString(), anyString())).thenReturn(status);
+
+        k8sUtilsMockedStatic.when(() -> K8sUtils.guessPlural(any(DynamicKubernetesObject.class))).thenReturn("deployments");
+
+        DynamicKubernetesApi mockDynamicApi = mock(DynamicKubernetesApi.class);
+        when(mockDynamicApi.get(anyString(), anyString())).thenReturn(mockApiResponse);
+        when(mockContext.dynamic(anyString(), anyString())).thenReturn(mockDynamicApi);
+        when(mockApiResponse.isSuccess()).thenReturn(false);
+
+        Collection<K8sPipelineElement> elements = testApi.list();
+
+        // Same element name across two pipelines should be deduplicated
+        assertEquals(1, elements.size());
+        K8sPipelineElement element = elements.iterator().next();
+        // But both pipelines should be tracked
+        assertEquals(2, element.pipelineNames().size());
+    }
+
+    @Test
+    void createPipelineApiReturnsNonNull() {
+        K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi = api.createPipelineApi(mockContext);
+        assertNotNull(pipelineApi);
+    }
+
+    @Test
+    void createStatusEstimatorReturnsNonNull() {
+        K8sPipelineElementStatusEstimator estimator = api.createStatusEstimator(mockContext);
+        assertNotNull(estimator);
     }
 
     private void setupMockForElementConfiguration(JsonObject rootJson, boolean success) {

@@ -40,7 +40,11 @@ class K8sConnector implements Connector {
   K8sConnector(Source source, K8sContext context) {
     this.source = source;
     this.context = context;
-    this.tableTemplateApi = new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
+    this.tableTemplateApi = createTableTemplateApi(context);
+  }
+
+  K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> createTableTemplateApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
   }
 
   @Override

@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
+import org.apache.avro.Schema;
+
 import java.util.List;
 import java.util.Map;
 
@@ -7,11 +9,11 @@ import java.util.Map;
 public class ResolvedTable {
 
   private final List<String> tablePath;
-  private org.apache.avro.Schema avroSchema;
+  private Schema avroSchema;
   private final Map<String, String> sourceConnectorConfigs;
   private final Map<String, String> sinkConnectorConfigs;
 
-  public ResolvedTable(List<String> tablePath, org.apache.avro.Schema avroSchema,
+  public ResolvedTable(List<String> tablePath, Schema avroSchema,
       Map<String, String> sourceConnectorConfigs, Map<String, String> sinkConnectorConfigs) {
     this.tablePath = tablePath;
     this.avroSchema = avroSchema;
@@ -27,7 +29,7 @@ public class ResolvedTable {
     return sinkConnectorConfigs;
   }
 
-  public org.apache.avro.Schema avroSchema() {
+  public Schema avroSchema() {
     return avroSchema;
   }
 

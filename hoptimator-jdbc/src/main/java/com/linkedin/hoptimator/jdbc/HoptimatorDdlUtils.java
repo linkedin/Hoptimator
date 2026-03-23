@@ -72,7 +72,7 @@ public final class HoptimatorDdlUtils {
     }
     CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
     for (String p : path) {
-      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+      schema = Objects.requireNonNull(schema).subSchemas().get(p);
     }
     return Pair.of(schema, name);
   }
@@ -87,7 +87,7 @@ public final class HoptimatorDdlUtils {
     final List<String> catalogPath = Util.skipLast(id.names, 2);
     CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
     for (String p : catalogPath) {
-      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+      schema = Objects.requireNonNull(schema).subSchemas().get(p);
     }
     return Pair.of(schema, String.join(".", schemaTablePath));
   }

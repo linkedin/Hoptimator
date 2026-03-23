@@ -100,7 +100,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
             .dialect(V1alpha1DatabaseSpec.DialectEnum.fromValue(row.DIALECT)));
   }
 
-  private static String schemaName(Row row) {
+  static String schemaName(Row row) {
     if (row.SCHEMA != null && !row.SCHEMA.isEmpty()) {
       return row.SCHEMA;
     } else {
@@ -108,7 +108,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     }
   }
 
-  private static DataSource dataSource(Row row, Properties connectionProperties) {
+  static DataSource dataSource(Row row, Properties connectionProperties) {
     String user = "nouser";
     String pass = "nopass";
     StringJoiner joiner = new StringJoiner(";");
@@ -132,7 +132,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     return JdbcSchema.dataSource(joinedUrl, row.DRIVER, user, pass);
   }
 
-  private static SqlDialect dialect(Row row) {
+  static SqlDialect dialect(Row row) {
     if (row.DIALECT == null) {
       return null;
     }

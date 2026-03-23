@@ -21,6 +21,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -41,8 +42,7 @@ class KafkaDeployerProviderTest {
   private SchemaPlus topicSubSchema;
 
   @Mock
-  @SuppressWarnings("rawtypes")
-  private Lookup subSchemaLookup;
+  private Lookup<SchemaPlus> subSchemaLookup;
 
   private KafkaDeployerProvider provider;
 
@@ -56,7 +56,6 @@ class KafkaDeployerProviderTest {
     assertEquals(2, provider.priority());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReturnsDeployerForKafkaSchema() {
     Source source = new Source("kafka-database", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
@@ -68,7 +67,7 @@ class KafkaDeployerProviderTest {
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(subSchemaLookup);
+    doReturn(subSchemaLookup).when(rootSchema).subSchemas();
     when(subSchemaLookup.get("KAFKA")).thenReturn(topicSubSchema);
     when(topicSubSchema.unwrap(HoptimatorJdbcSchema.class)).thenReturn(jdbcSchema);
     when(jdbcSchema.getDataSource()).thenReturn(dataSource);
@@ -87,14 +86,13 @@ class KafkaDeployerProviderTest {
     assertTrue(deployers.isEmpty());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReturnsEmptyWhenSchemaNotFound() {
     Source source = new Source("kafka-unknown", List.of("UNKNOWN", "MyTable"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(subSchemaLookup);
+    doReturn(subSchemaLookup).when(rootSchema).subSchemas();
     when(subSchemaLookup.get("UNKNOWN")).thenReturn(null);
 
     Collection<Deployer> deployers = provider.deployers(source, connection);
@@ -123,14 +121,13 @@ class KafkaDeployerProviderTest {
     assertTrue(deployers.isEmpty());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReturnsEmptyWhenUnwrapThrowsException() {
     Source source = new Source("kafka-database", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(subSchemaLookup);
+    doReturn(subSchemaLookup).when(rootSchema).subSchemas();
     when(subSchemaLookup.get("KAFKA")).thenReturn(topicSubSchema);
     when(topicSubSchema.unwrap(HoptimatorJdbcSchema.class)).thenThrow(new RuntimeException("unwrap failed"));
 

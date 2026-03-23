@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.Source;
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
@@ -36,7 +37,7 @@ import com.linkedin.hoptimator.Catalog;
 
 
 /** Driver for :jdbc:hoptimator:// connections. */
-public class HoptimatorDriver implements java.sql.Driver {
+public class HoptimatorDriver implements Driver {
   private static final Logger logger = LoggerFactory.getLogger(HoptimatorDriver.class);
   private static final HoptimatorDriver INSTANCE = new HoptimatorDriver();
 

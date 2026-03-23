@@ -57,8 +57,12 @@ class DelegatingStatement implements Statement {
 
   @Override
   public void close() throws SQLException {
-    statement.close();
-    resultSet.close();
+    if (statement != null) {
+      statement.close();
+    }
+    if (resultSet != null) {
+      resultSet.close();
+    }
   }
 
 

@@ -12,13 +12,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelShuttle;
 import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalProject;
-import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -36,8 +33,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,20 +44,17 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class PipelineRelTest {
 
     @Mock
     private Connection mockConnection;
 
     private RelDataTypeFactory typeFactory;
-    private RexBuilder rexBuilder;
     private PipelineRel.Implementor implementor;
 
     @BeforeEach
     void setUp() {
         typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-        rexBuilder = new RexBuilder(typeFactory);
 
         // Create sample target fields mapping
         List<Map.Entry<Integer, String>> entries = List.of(
@@ -335,29 +327,17 @@ public class PipelineRelTest {
     }
 
     private RelNode createTrivialQuery(RelDataType rowType) {
-        // Create a mock trivial query that will pass TrivialQueryChecker
-        LogicalProject mockTrivialQuery = mock(LogicalProject.class);
-        when(mockTrivialQuery.getRowType()).thenReturn(rowType);
-        when(mockTrivialQuery.getInputs()).thenReturn(Collections.emptyList());
-        when(mockTrivialQuery.accept(any(RelShuttle.class))).thenCallRealMethod();
-        when(mockTrivialQuery.getCluster()).thenReturn(mock(RelOptCluster.class));
-
-        // Create simple projection expressions (field references)
-        List<RexNode> projects = List.of(
-            rexBuilder.makeInputRef(typeFactory.createSqlType(SqlTypeName.VARCHAR), 0),
-            rexBuilder.makeInputRef(typeFactory.createSqlType(SqlTypeName.VARCHAR), 1)
-        );
-        when(mockTrivialQuery.getProjects()).thenReturn(projects);
-        return mockTrivialQuery;
+        // Returns a bare mock: callers that only store it lazily need no stubs.
+        // If a caller actually evaluates the query (e.g. calls TrivialQueryChecker),
+        // it should set up additional stubs inline.
+        return mock(LogicalProject.class);
     }
 
     private RelNode createNonTrivialQuery(RelDataType rowType) {
-        // Create a mock non-trivial query that will fail TrivialQueryChecker
+        // Create a mock non-trivial query that will fail TrivialQueryChecker.
+        // Only stub accept() — the filter visitor sets trivial=false without inspecting other methods.
         LogicalFilter mockNonTrivialQuery = mock(LogicalFilter.class);
-        when(mockNonTrivialQuery.getRowType()).thenReturn(rowType);
-        when(mockNonTrivialQuery.getInputs()).thenReturn(Collections.emptyList());
         when(mockNonTrivialQuery.accept(any(RelShuttle.class))).thenCallRealMethod();
-        when(mockNonTrivialQuery.getCluster()).thenReturn(mock(RelOptCluster.class));
         return mockNonTrivialQuery;
     }
 }

@@ -22,10 +22,14 @@ public class K8sConfigProvider implements ConfigProvider {
     return p;
   }
 
-  // Load top-level config map properties
+  // Package-private factory method — override in tests to inject a mock K8sApi
+  K8sApi<V1ConfigMap, V1ConfigMapList> createConfigMapApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.CONFIG_MAPS);
+  }
+
   private Map<String, String> loadTopLevelConfig(String configMapName, Connection connection) throws SQLException {
     K8sContext context = K8sContext.create(connection);
-    K8sApi<V1ConfigMap, V1ConfigMapList> configMapApi = new K8sApi<>(context, K8sApiEndpoints.CONFIG_MAPS);
+    K8sApi<V1ConfigMap, V1ConfigMapList> configMapApi = createConfigMapApi(context);
     String namespace = context.namespace();
     if (namespace == null || namespace.isEmpty()) {
       return configMapApi.get(configMapName).getData();

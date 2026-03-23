@@ -53,7 +53,7 @@ public final class K8sContext {
   private final Map<String, String> labels;
   private final HoptimatorConnection connection;
 
-  private K8sContext(String namespace, String watchNamespace, String clientInfo, ApiClient apiClient,
+  K8sContext(String namespace, String watchNamespace, String clientInfo, ApiClient apiClient,
       SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels,
       HoptimatorConnection connection) {
     this.namespace = namespace;

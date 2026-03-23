@@ -26,8 +26,21 @@ class K8sMaterializedViewDeployer implements Deployer {
   K8sMaterializedViewDeployer(MaterializedView view, K8sContext context) {
     this.view = view;
     this.context = context;
-    this.viewDeployer = new K8sViewDeployer(view, true, context);
+    this.viewDeployer = createViewDeployer(view, context);
     this.deployers = new ArrayList<>();
+  }
+
+  K8sViewDeployer createViewDeployer(MaterializedView view, K8sContext context) {
+    return new K8sViewDeployer(view, true, context);
+  }
+
+  K8sPipelineDeployer createPipelineDeployer(String name, List<String> pipelineSpecs, String sql,
+      K8sContext viewContext) {
+    return new K8sPipelineDeployer(name, pipelineSpecs, sql, viewContext);
+  }
+
+  K8sYamlDeployerImpl createYamlDeployerImpl(K8sContext pipelineContext, List<String> pipelineSpecs) {
+    return new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
   }
 
   @Override
@@ -37,11 +50,11 @@ class K8sMaterializedViewDeployer implements Deployer {
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.createAndReference();
       K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql(), viewContext);
+      K8sPipelineDeployer pipelineDeployer = createPipelineDeployer(name, pipelineSpecs, sql(), viewContext);
       deployers.add(pipelineDeployer);
       V1OwnerReference pipelineRef = pipelineDeployer.createAndReference();
       K8sContext pipelineContext = viewContext.withLabel("pipeline", name).withOwner(pipelineRef);
-      K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
+      K8sYamlDeployerImpl yamlDeployer = createYamlDeployerImpl(pipelineContext, pipelineSpecs);
       deployers.add(yamlDeployer);
       yamlDeployer.update();  // update, cuz some elements may already exist
     }
@@ -54,11 +67,11 @@ class K8sMaterializedViewDeployer implements Deployer {
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.updateAndReference();
       K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql(), viewContext);
+      K8sPipelineDeployer pipelineDeployer = createPipelineDeployer(name, pipelineSpecs, sql(), viewContext);
       deployers.add(pipelineDeployer);
       V1OwnerReference pipelineRef = pipelineDeployer.updateAndReference();
       K8sContext pipelineContext = viewContext.withLabel("pipeline", name).withOwner(pipelineRef);
-      K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
+      K8sYamlDeployerImpl yamlDeployer = createYamlDeployerImpl(pipelineContext, pipelineSpecs);
       deployers.add(yamlDeployer);
       yamlDeployer.update();
     }

@@ -115,7 +115,7 @@ public final class EngineRules {
     }
   }
 
-  private static SqlDialect dialect(Engine engine) {
+  static SqlDialect dialect(Engine engine) {
     switch (engine.dialect()) {
       case ANSI:
         return AnsiSqlDialect.DEFAULT;

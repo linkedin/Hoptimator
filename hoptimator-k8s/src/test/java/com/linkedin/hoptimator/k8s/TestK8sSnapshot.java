@@ -22,7 +22,12 @@ public class TestK8sSnapshot {
   void setUp() {
     yamls = new HashMap<>();
     fakeApi = new FakeK8sYamlApi(yamls);
-    snapshot = new K8sSnapshot(fakeApi);
+    snapshot = new K8sSnapshot(null) {
+      @Override
+      K8sYamlApi createYamlApi(K8sContext context) {
+        return fakeApi;
+      }
+    };
   }
 
   @Test

@@ -27,8 +27,16 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
     super(context, K8sApiEndpoints.TABLE_TRIGGERS);
     this.context = context;
     this.trigger = trigger;
-    this.triggerApi = new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS);
-    this.jobTemplateApi = new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
+    this.triggerApi = createTriggerApi(context);
+    this.jobTemplateApi = createJobTemplateApi(context);
+  }
+
+  K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> createTriggerApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS);
+  }
+
+  K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> createJobTemplateApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
   }
 
   @Override

@@ -34,9 +34,15 @@ public final class PipelineReconciler implements Reconciler {
   private final K8sPipelineElementStatusEstimator elementStatusEstimator;
 
   private PipelineReconciler(K8sContext context) {
+    this(context, new K8sApi<>(context, K8sApiEndpoints.PIPELINES),
+        new K8sPipelineElementStatusEstimator(context));
+  }
+
+  PipelineReconciler(K8sContext context, K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi,
+      K8sPipelineElementStatusEstimator elementStatusEstimator) {
     this.context = context;
-    this.pipelineApi = new K8sApi<>(context, K8sApiEndpoints.PIPELINES);
-    this.elementStatusEstimator = new K8sPipelineElementStatusEstimator(context);
+    this.pipelineApi = pipelineApi;
+    this.elementStatusEstimator = elementStatusEstimator;
   }
 
   @Override

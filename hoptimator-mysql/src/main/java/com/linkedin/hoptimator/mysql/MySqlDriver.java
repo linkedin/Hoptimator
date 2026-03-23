@@ -67,13 +67,13 @@ public class MySqlDriver extends CalciteDriver {
       String user = properties.getProperty("user", "");
       String password = properties.getProperty("password", "");
 
-      try (Connection conn = DriverManager.getConnection(mySqlUrl, user, password)) {
+      try (Connection conn = createMySqlConnection(mySqlUrl, user, password)) {
         DatabaseMetaData metaData = conn.getMetaData();
         // MySQL catalogs are the databases
         try (ResultSet rs = metaData.getCatalogs()) {
           while (rs.next()) {
             String schemaName = rs.getString("TABLE_CAT");
-            TableSchema tableSchema = new TableSchema(properties, schemaName);
+            TableSchema tableSchema = createTableSchema(properties, schemaName);
             rootSchema.add(schemaName, tableSchema);
             log.debug("Registered MySQL schema: {}", schemaName);
           }
@@ -84,5 +84,14 @@ public class MySqlDriver extends CalciteDriver {
     } catch (IOException e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
+  }
+
+  protected Connection createMySqlConnection(String url, String user, String password)
+      throws SQLException {
+    return DriverManager.getConnection(url, user, password);
+  }
+
+  protected TableSchema createTableSchema(Properties properties, String schemaName) {
+    return new TableSchema(properties, schemaName);
   }
 }

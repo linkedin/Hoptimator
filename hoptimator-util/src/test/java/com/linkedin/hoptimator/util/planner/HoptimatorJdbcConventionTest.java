@@ -1,0 +1,84 @@
+package com.linkedin.hoptimator.util.planner;
+
+import java.sql.Connection;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
+import org.apache.calcite.linq4j.tree.Expression;
+import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.linkedin.hoptimator.Engine;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+
+@ExtendWith(MockitoExtension.class)
+class HoptimatorJdbcConventionTest {
+
+  @Mock
+  private Expression mockExpression;
+
+  @Mock
+  private Connection mockConnection;
+
+  @Mock
+  private Engine mockEngine;
+
+  @Mock
+  private RelOptPlanner mockPlanner;
+
+  @Test
+  void testDatabaseReturnsName() {
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+
+    assertEquals("myDb", convention.database());
+  }
+
+  @Test
+  void testEnginesReturnsProvidedList() {
+    List<Engine> engines = Arrays.asList(mockEngine);
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", engines, mockConnection);
+
+    assertEquals(1, convention.engines().size());
+    assertSame(mockEngine, convention.engines().get(0));
+  }
+
+  @Test
+  void testRemoteConventionForEngineCachesResult() {
+    when(mockEngine.engineName()).thenReturn("flink");
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+
+    RemoteConvention remote1 = convention.remoteConventionForEngine(mockEngine);
+    RemoteConvention remote2 = convention.remoteConventionForEngine(mockEngine);
+
+    assertNotNull(remote1);
+    assertSame(remote1, remote2);
+    assertEquals(mockEngine, remote1.engine());
+  }
+
+  @Test
+  void testRegisterAddsRulesToPlanner() {
+    when(mockEngine.engineName()).thenReturn("flink");
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Arrays.asList(mockEngine), mockConnection);
+
+    convention.register(mockPlanner);
+
+    verify(mockPlanner, atLeastOnce()).addRule(any());
+  }
+}

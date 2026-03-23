@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator.trigger;
 
+import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.reconciler.Result;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -7,7 +8,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.time.Duration;
 
+import io.kubernetes.client.informer.SharedIndexInformer;
+import io.kubernetes.client.informer.SharedInformerFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,10 +26,14 @@ import io.kubernetes.client.util.Yaml;
 
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.FakeK8sYamlApi;
+import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 class TestTableTriggerReconciler {
@@ -244,5 +252,157 @@ class TestTableTriggerReconciler {
     Result result = reconciler.reconcile(new Request("namespace", "unpaused-trigger"));
     Assertions.assertTrue(result.isRequeue(), "Unpaused trigger should requeue");
     Assertions.assertFalse(yamls.isEmpty(), "Unpaused trigger should create job for pending trigger event");
+  }
+
+  @Test
+  void triggerWithNullYamlDoesNotRequeue() {
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("no-yaml-trigger"))
+        .spec(new V1alpha1TableTriggerSpec());
+    triggers.add(trigger);
+    Result result = reconciler.reconcile(new Request("namespace", "no-yaml-trigger"));
+    Assertions.assertFalse(result.isRequeue());
+    Assertions.assertTrue(yamls.isEmpty());
+  }
+
+  @Test
+  void deletesFailedJob() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("failed-trigger-job"))
+        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Failed").status("True")));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("table-trigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
+        .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
+    triggers.add(trigger);
+    jobs.add(job);
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertTrue(result.isRequeue());
+    Assertions.assertTrue(jobs.isEmpty(), "Failed job was not deleted");
+  }
+
+  @Test
+  void jobWithNoStatusRequeuesForLater() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("no-status-job"));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("table-trigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
+        .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
+    triggers.add(trigger);
+    jobs.add(job);
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertTrue(result.isRequeue());
+    Assertions.assertFalse(jobs.isEmpty(), "Job should still exist");
+  }
+
+  @Test
+  void completedJobWithNoTimestampAnnotationDoesNotAdvanceWatermark() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("no-annotation-job"))
+        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Complete").status("True")));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("table-trigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
+        .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
+    triggers.add(trigger);
+    jobs.add(job);
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertTrue(result.isRequeue());
+    Assertions.assertTrue(jobs.isEmpty(), "Completed job should still be deleted");
+    Assertions.assertNull(trigger.getStatus().getWatermark(), "Watermark should not be advanced without annotation");
+  }
+
+  @Test
+  void failureRetryDurationIsFiveMinutes() {
+    Assertions.assertEquals(Duration.ofMinutes(5), reconciler.failureRetryDuration());
+  }
+
+  @Test
+  void pendingRetryDurationIsOneMinute() {
+    Assertions.assertEquals(Duration.ofMinutes(1), reconciler.pendingRetryDuration());
+  }
+
+  @Test
+  void maybeUpdateJobAnnotationDoesNothingWhenTimestampIsOlder() throws Exception {
+    OffsetDateTime existingTimestamp = OffsetDateTime.parse("2024-06-01T12:00:00Z");
+    OffsetDateTime olderTimestamp = OffsetDateTime.parse("2024-01-01T12:00:00Z");
+    Map<String, String> annotations = new HashMap<>();
+    annotations.put(TableTriggerReconciler.TRIGGER_TIMESTAMP_KEY, existingTimestamp.toString());
+    V1Job job = new V1Job()
+        .metadata(new V1ObjectMeta().name("test-job").annotations(annotations));
+    reconciler.maybeUpdateJobAnnotation(job, olderTimestamp);
+    Assertions.assertEquals(existingTimestamp.toString(),
+        job.getMetadata().getAnnotations().get(TableTriggerReconciler.TRIGGER_TIMESTAMP_KEY),
+        "Annotation should not be updated when new timestamp is older");
+  }
+
+  @Test
+  void maybeUpdateJobAnnotationDoesNothingWhenAnnotationsNull() throws Exception {
+    V1Job job = new V1Job()
+        .metadata(new V1ObjectMeta().name("test-job"));
+    // Should not throw
+    reconciler.maybeUpdateJobAnnotation(job, OffsetDateTime.now());
+  }
+
+  @Test
+  void jobWithNoConditionsButHasStatusRequeues() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("empty-conditions-job"))
+        .status(new V1JobStatus());
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("table-trigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
+        .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now()));
+    triggers.add(trigger);
+    jobs.add(job);
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+    Assertions.assertTrue(result.isRequeue());
+  }
+
+  @Test
+  void scheduledTriggerWithWatermarkEqualToTimestampSleeps() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("sleeping-trigger-job").namespace("namespace"));
+    OffsetDateTime now = OffsetDateTime.now();
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("sleeping-trigger"))
+        .spec(new V1alpha1TableTriggerSpec()
+            .yaml(Yaml.dump(job))
+            .schedule("@hourly"))
+        .status(new V1alpha1TableTriggerStatus()
+            .timestamp(now)
+            .watermark(now));
+    triggers.add(trigger);
+    Result result = reconciler.reconcile(new Request("namespace", "sleeping-trigger"));
+    Assertions.assertTrue(result.isRequeue(), "Should requeue to wait for next scheduled execution");
+  }
+
+  @Test
+  void pausedTriggerWithNullStatusAndExistingJobDoesNotCrash() {
+    V1Job job = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("paused-null-status-job").namespace("namespace"));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("paused-null-status"))
+        .spec(new V1alpha1TableTriggerSpec()
+            .yaml(Yaml.dump(job))
+            .paused(true));
+    triggers.add(trigger);
+    Result result = reconciler.reconcile(new Request("namespace", "paused-null-status"));
+    Assertions.assertFalse(result.isRequeue());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void controllerCreatesControllerFromContext() {
+    SharedInformerFactory mockInformerFactory = mock(SharedInformerFactory.class);
+    SharedIndexInformer<V1alpha1TableTrigger> mockInformer = mock(SharedIndexInformer.class);
+    when(mockInformerFactory.getExistingSharedIndexInformer(V1alpha1TableTrigger.class)).thenReturn(mockInformer);
+    K8sContext mockContext = mock(K8sContext.class);
+    when(mockContext.informerFactory()).thenReturn(mockInformerFactory);
+
+    Controller controller = TableTriggerReconciler.controller(mockContext);
+
+    Assertions.assertNotNull(controller);
   }
 }

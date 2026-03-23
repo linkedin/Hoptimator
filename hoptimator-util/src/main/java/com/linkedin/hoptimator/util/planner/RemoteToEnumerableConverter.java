@@ -20,6 +20,7 @@ package com.linkedin.hoptimator.util.planner;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -311,7 +312,7 @@ public class RemoteToEnumerableConverter
           Expressions.convert_(
               Expressions.call(resultSet, jdbcGetMethod(primitive),
                   Expressions.constant(i + 1)),
-              java.sql.Array.class);
+              Array.class);
       source = Expressions.call(BuiltInMethod.JDBC_ARRAY_TO_LIST.method, x);
       break;
     case NULL:

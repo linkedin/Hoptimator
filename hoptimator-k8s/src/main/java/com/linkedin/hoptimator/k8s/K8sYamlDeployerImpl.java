@@ -9,7 +9,7 @@ public class K8sYamlDeployerImpl extends K8sYamlDeployer {
   private final List<String> specs;
 
   public K8sYamlDeployerImpl(K8sContext context, List<String> specs) {
-    super(context); 
+    super(context);
     this.specs = specs;
   }
 

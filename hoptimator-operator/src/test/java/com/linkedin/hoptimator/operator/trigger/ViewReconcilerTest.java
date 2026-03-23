@@ -1,0 +1,218 @@
+package com.linkedin.hoptimator.operator.trigger;
+
+import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.time.Duration;
+
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.informer.SharedIndexInformer;
+import io.kubernetes.client.informer.SharedInformerFactory;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+
+import com.linkedin.hoptimator.k8s.FakeK8sApi;
+import com.linkedin.hoptimator.k8s.K8sApi;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
+import com.linkedin.hoptimator.k8s.models.V1alpha1View;
+import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1ViewStatus;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+
+@ExtendWith(MockitoExtension.class)
+class ViewReconcilerTest {
+
+  @Mock
+  private K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> mockTriggerApi;
+
+  @Mock
+  private K8sApi<V1alpha1View, V1alpha1ViewList> mockViewApi;
+
+  private List<V1alpha1TableTrigger> triggers;
+  private List<V1alpha1View> views;
+  private ViewReconciler reconciler;
+
+  @BeforeEach
+  void setUp() {
+    triggers = new ArrayList<>();
+    views = new ArrayList<>();
+    reconciler = new ViewReconciler(
+        new FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList>(triggers),
+        new FakeK8sApi<V1alpha1View, V1alpha1ViewList>(views));
+  }
+
+  @Test
+  void reconcileDeletedViewDoesNotRequeue() {
+    Result result = reconciler.reconcile(new Request("ns", "deleted-view"));
+    assertFalse(result.isRequeue());
+  }
+
+  @Test
+  void reconcileViewWithNullStatusDoesNotRequeue() {
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("view-no-status"));
+    views.add(view);
+
+    Result result = reconciler.reconcile(new Request("ns", "view-no-status"));
+    assertFalse(result.isRequeue());
+  }
+
+  @Test
+  void reconcileViewWithNullWatermarkDoesNotRequeue() {
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("view-null-watermark"))
+        .status(new V1alpha1ViewStatus());
+    views.add(view);
+
+    Result result = reconciler.reconcile(new Request("ns", "view-null-watermark"));
+    assertFalse(result.isRequeue());
+  }
+
+  @Test
+  void reconcileViewWithWatermarkFiresTriggers() {
+    OffsetDateTime watermark = OffsetDateTime.now();
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("view-with-watermark"))
+        .status(new V1alpha1ViewStatus().watermark(watermark));
+    views.add(view);
+
+    Map<String, String> labels = new HashMap<>();
+    labels.put("view", "view-with-watermark");
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("trigger-1").labels(labels));
+    triggers.add(trigger);
+
+    Result result = reconciler.reconcile(new Request("ns", "view-with-watermark"));
+    assertFalse(result.isRequeue());
+    assertNotNull(trigger.getStatus());
+    assertEquals(watermark, trigger.getStatus().getTimestamp());
+  }
+
+  @Test
+  void reconcileViewUpdatesExistingTriggerStatus() {
+    OffsetDateTime watermark = OffsetDateTime.now();
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("view-update"))
+        .status(new V1alpha1ViewStatus().watermark(watermark));
+    views.add(view);
+
+    Map<String, String> labels = new HashMap<>();
+    labels.put("view", "view-update");
+    V1alpha1TableTriggerStatus existingStatus = new V1alpha1TableTriggerStatus()
+        .timestamp(OffsetDateTime.now().minusHours(1));
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("trigger-existing").labels(labels))
+        .status(existingStatus);
+    triggers.add(trigger);
+
+    Result result = reconciler.reconcile(new Request("ns", "view-update"));
+    assertFalse(result.isRequeue());
+    assertEquals(watermark, trigger.getStatus().getTimestamp());
+  }
+
+  @Test
+  void reconcileViewWithNoMatchingTriggersDoesNotRequeue() {
+    OffsetDateTime watermark = OffsetDateTime.now();
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("view-no-triggers"))
+        .status(new V1alpha1ViewStatus().watermark(watermark));
+    views.add(view);
+
+    Result result = reconciler.reconcile(new Request("ns", "view-no-triggers"));
+    assertFalse(result.isRequeue());
+  }
+
+  @Test
+  void reconcileViewFiresTriggerAndSetsTimestamp() {
+    OffsetDateTime watermark = OffsetDateTime.now();
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("view-fires"))
+        .status(new V1alpha1ViewStatus().watermark(watermark));
+    views.add(view);
+
+    Map<String, String> labels = new HashMap<>();
+    labels.put("view", "view-fires");
+    V1alpha1TableTrigger trigger1 = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("trigger-a").labels(labels));
+    triggers.add(trigger1);
+
+    Result result = reconciler.reconcile(new Request("ns", "view-fires"));
+    assertFalse(result.isRequeue());
+    assertNotNull(trigger1.getStatus());
+    assertEquals(watermark, trigger1.getStatus().getTimestamp());
+  }
+
+  @Test
+  void reconcileWithExceptionRequeuesWithFailureRetry() {
+    // Use a view that will cause an exception during trigger processing
+    OffsetDateTime watermark = OffsetDateTime.now();
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("error-view"))
+        .status(new V1alpha1ViewStatus().watermark(watermark));
+    views.add(view);
+
+    // Create a trigger without metadata name to cause NPE during updateStatus
+    V1alpha1TableTrigger badTrigger = new V1alpha1TableTrigger()
+        .metadata(null);
+    triggers.add(badTrigger);
+
+    Result result = reconciler.reconcile(new Request("ns", "error-view"));
+    assertTrue(result.isRequeue());
+  }
+
+  @Test
+  void reconcileWithNon404SqlExceptionRequeues() throws SQLException {
+    when(mockViewApi.get(anyString(), anyString()))
+        .thenThrow(new SQLException("Server error", null, 500));
+    ViewReconciler mockReconciler = new ViewReconciler(mockTriggerApi, mockViewApi);
+
+    Result result = mockReconciler.reconcile(new Request("ns", "error-view"));
+
+    assertTrue(result.isRequeue());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void controllerCreatesControllerFromContext() {
+    SharedInformerFactory mockInformerFactory = mock(SharedInformerFactory.class);
+    SharedIndexInformer<V1alpha1View> mockInformer = mock(SharedIndexInformer.class);
+    when(mockInformerFactory.getExistingSharedIndexInformer(V1alpha1View.class)).thenReturn(mockInformer);
+    K8sContext mockContext = mock(K8sContext.class);
+    when(mockContext.informerFactory()).thenReturn(mockInformerFactory);
+
+    Controller controller = ViewReconciler.controller(mockContext);
+
+    assertNotNull(controller);
+  }
+
+  @Test
+  void failureRetryDurationIsFiveMinutes() {
+    assertEquals(Duration.ofMinutes(5), reconciler.failureRetryDuration());
+  }
+
+  @Test
+  void pendingRetryDurationIsOneMinute() {
+    assertEquals(Duration.ofMinutes(1), reconciler.pendingRetryDuration());
+  }
+}

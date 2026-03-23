@@ -17,4 +17,5 @@ public abstract class K8sTable<OBJECT_TYPE extends KubernetesObject, OBJECT_LIST
     this.context = context;
     this.endpoint = endpoint;
   }
+
 }

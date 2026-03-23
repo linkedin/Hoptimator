@@ -21,6 +21,7 @@ import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.util.Pair;
+import org.apache.commons.dbcp2.DelegatingConnection;
 import org.apache.commons.dbcp2.DelegatingDatabaseMetaData;
 
 
@@ -91,7 +92,7 @@ public class HoptimatorDatabaseMetaData extends DelegatingDatabaseMetaData {
    * @param databaseMetaData the database metadata
    */
   public HoptimatorDatabaseMetaData(HoptimatorConnection connection, DatabaseMetaData databaseMetaData) {
-    super(new org.apache.commons.dbcp2.DelegatingConnection<>(connection), databaseMetaData);
+    super(new DelegatingConnection<>(connection), databaseMetaData);
     this.connection = connection;
   }
 
