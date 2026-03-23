@@ -12,8 +12,13 @@ public abstract class K8sYamlDeployer implements Deployer {
   private final K8sSnapshot snapshot;
 
   public K8sYamlDeployer(K8sContext context) {
-    this.api = new K8sYamlApi(context);
-    this.snapshot = new K8sSnapshot(context);
+    this(new K8sYamlApi(context), new K8sSnapshot(context));
+  }
+
+  // Package-private constructor for testing
+  K8sYamlDeployer(K8sYamlApi api, K8sSnapshot snapshot) {
+    this.api = api;
+    this.snapshot = snapshot;
   }
 
   @Override

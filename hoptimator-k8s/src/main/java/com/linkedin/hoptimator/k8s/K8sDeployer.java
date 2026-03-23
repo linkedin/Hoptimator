@@ -19,8 +19,13 @@ public abstract class K8sDeployer<T extends KubernetesObject, U extends Kubernet
   private final K8sSnapshot snapshot;
 
   K8sDeployer(K8sContext context, K8sApiEndpoint<T, U> endpoint) {
-    this.api = new K8sApi<>(context, endpoint);
-    this.snapshot = new K8sSnapshot(context);
+    this(new K8sApi<>(context, endpoint), new K8sSnapshot(context));
+  }
+
+  // Package-private constructor for testing
+  K8sDeployer(K8sApi<T, U> api, K8sSnapshot snapshot) {
+    this.api = api;
+    this.snapshot = snapshot;
   }
 
   @Override

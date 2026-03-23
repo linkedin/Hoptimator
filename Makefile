@@ -5,8 +5,12 @@ install:
 test:
 	./gradlew test -x spotbugsMain -x spotbugsTest -x spotbugsTestFixtures
 
+coverage:
+	./gradlew jacocoAggregateReport -x spotbugsMain -x spotbugsTest -x spotbugsTestFixtures
+	@echo "Aggregate report: file://$(shell pwd)/build/reports/jacoco/aggregate/index.html"
+
 build:
-	./gradlew build shadowJar
+	./gradlew build jacocoAggregateReport shadowJar
 	docker build . -t hoptimator
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-runner -t hoptimator-flink-runner
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-operator -t hoptimator-flink-operator
@@ -147,4 +151,4 @@ run-zeppelin: build-zeppelin
 	  --name hoptimator-zeppelin \
 	  hoptimator-zeppelin
 
-.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test coverage build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release

@@ -19,6 +19,8 @@ dependencies {
   testRuntimeOnly project(':hoptimator-demodb')
   testRuntimeOnly project(':hoptimator-mysql')
 
+  testCompileOnly libs.findbugs.annotations
+
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
   testRuntimeOnly libs.slf4j.simple
 }
@@ -26,10 +28,8 @@ dependencies {
 jacocoTestReport {
   classDirectories.setFrom(files(classDirectories.files.collect {
     fileTree(dir: it, excludes: [
-      // Real K8s connection factory: requires live K8s cluster (kubeconfig/in-cluster)
-      '**/K8sContext.class',
       // Auto-generated CRD model classes from the K8s client code generator
-      '**/k8s/models/**',
+      '**/k8s/models/**'
     ])
   }))
 }

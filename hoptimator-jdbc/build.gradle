@@ -23,6 +23,7 @@ dependencies {
 
   testRuntimeOnly project(':hoptimator-demodb')
   testCompileOnly libs.findbugs
+  testCompileOnly libs.findbugs.annotations
 }
 
 java {
@@ -38,6 +39,15 @@ components.java.withVariantsFromConfiguration(configurations.testFixturesApiElem
 
 components.java.withVariantsFromConfiguration(configurations.testFixturesRuntimeElements) {
   skip()
+}
+
+jacocoTestReport {
+  classDirectories.setFrom(files(classDirectories.files.collect {
+    fileTree(dir: it, excludes: [
+      // Auto-generated SQL parser by JavaCC — not hand-written code
+      '**/ddl/**'
+    ])
+  }))
 }
 
 publishing {

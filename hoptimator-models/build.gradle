@@ -54,6 +54,15 @@ publishing {
   }
 }
 
+jacocoTestReport {
+  classDirectories.setFrom(files(classDirectories.files.collect {
+    fileTree(dir: it, excludes: [
+      // Entire module is auto-generated K8s CRD model classes — not hand-written code
+      '**',
+    ])
+  }))
+}
+
 java {
   withJavadocJar()
   withSourcesJar()

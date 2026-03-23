@@ -85,8 +85,8 @@ public class K8sSnapshot {
   }
 
 
-  // Private class intended to wrap necessary K8s information to deduplicate a resource
-  private static class K8sSpec {
+  // Package-private class intended to wrap necessary K8s information to deduplicate a resource
+  static class K8sSpec {
     private final String apiVersion;
     private final String kind;
     private final String namespace;

@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -116,9 +117,9 @@ class MySqlDeployerTest {
     deployer.create();
 
     // Verify two executeUpdate calls: CREATE DATABASE and CREATE TABLE
-    verify(mockStatement, org.mockito.Mockito.times(2)).executeUpdate(anyString());
+    verify(mockStatement, times(2)).executeUpdate(anyString());
     verify(mockConnection).close();
-    verify(mockStatement, org.mockito.Mockito.times(2)).close();
+    verify(mockStatement, times(2)).close();
   }
 
   @Test
@@ -133,7 +134,7 @@ class MySqlDeployerTest {
     deployer.create(); // Should not throw, just skip creation
 
     // CREATE DATABASE is still called even if table exists
-    verify(mockStatement, org.mockito.Mockito.times(1)).executeUpdate(anyString());
+    verify(mockStatement, times(1)).executeUpdate(anyString());
     verify(mockConnection).close();
   }
 
@@ -194,9 +195,9 @@ class MySqlDeployerTest {
     deployer.delete();
 
     // Should execute DROP TABLE and DROP DATABASE (2 calls)
-    verify(mockStatement, org.mockito.Mockito.times(2)).executeUpdate(anyString());
+    verify(mockStatement, times(2)).executeUpdate(anyString());
     verify(mockConnection).close();
-    verify(mockStatement, org.mockito.Mockito.times(2)).close();
+    verify(mockStatement, times(2)).close();
   }
 
   @Test
@@ -353,9 +354,9 @@ class MySqlDeployerTest {
     deployer.update();
 
     // Verify two executeUpdate calls: CREATE DATABASE and CREATE TABLE
-    verify(mockStatement, org.mockito.Mockito.times(2)).executeUpdate(anyString());
+    verify(mockStatement, times(2)).executeUpdate(anyString());
     verify(mockConnection).close();
-    verify(mockStatement, org.mockito.Mockito.times(2)).close();
+    verify(mockStatement, times(2)).close();
   }
 
   // --- restore() tests ---
@@ -382,7 +383,7 @@ class MySqlDeployerTest {
 
     verify(mockConnection).close();
     // Two close calls from create (CREATE DATABASE and CREATE TABLE statements)
-    verify(mockStatement, org.mockito.Mockito.times(2)).close();
+    verify(mockStatement, times(2)).close();
   }
 
   // --- specify() tests ---

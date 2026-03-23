@@ -218,6 +218,17 @@ public class AvroConverterTest {
   }
 
   @Test
+  public void sanitizeHandlesNameStartingWithNumber() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.INTEGER)),
+        List.of("1"));
+    Schema schema = AvroConverter.avro("ns", "Record", dataType);
+    // sanitize("1") prepends underscore → "_1"
+    assertEquals("_1", schema.getFields().get(0).name());
+  }
+
+  @Test
   public void handlesNamespaceInNestedArrayAndMapElements() {
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
 

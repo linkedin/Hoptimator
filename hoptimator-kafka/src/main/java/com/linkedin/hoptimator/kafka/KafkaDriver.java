@@ -49,7 +49,7 @@ public class KafkaDriver extends CalciteDriver {
       connection.setAutoCommit(true); // to prevent rollback()
       CalciteConnection calciteConnection = (CalciteConnection) connection;
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      ClusterSchema schema = new ClusterSchema(properties);
+      ClusterSchema schema = createClusterSchema(properties);
       rootSchema.add("KAFKA", schema);
       return connection;
     } catch (IOException e) {
@@ -57,5 +57,9 @@ public class KafkaDriver extends CalciteDriver {
     } catch (Exception e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
+  }
+
+  protected ClusterSchema createClusterSchema(Properties properties) {
+    return new ClusterSchema(properties);
   }
 }

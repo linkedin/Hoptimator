@@ -29,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -81,13 +82,13 @@ public class K8sPipelineElementStatusEstimatorTest {
   @BeforeEach
   void setUp() {
     estimator = new K8sPipelineElementStatusEstimator(context);
-    when(pipelineMetadata.getNamespace()).thenReturn("fake-namespace");
-    when(pipeline.getMetadata()).thenReturn(pipelineMetadata);
-    when(pipeline.getSpec()).thenReturn(pipelineSpec);
-    when(pipelineSpec.getYaml()).thenReturn(FAKE_JOB_SPEC);
-    when(context.dynamic(any(), any())).thenReturn(dynamicKubernetesApi);
-    when(dynamicKubernetesApi.get(anyString(), anyString())).thenReturn(jobDynamicKubernetesApiResponse);
-    when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(true);
+    lenient().when(pipelineMetadata.getNamespace()).thenReturn("fake-namespace");
+    lenient().when(pipeline.getMetadata()).thenReturn(pipelineMetadata);
+    lenient().when(pipeline.getSpec()).thenReturn(pipelineSpec);
+    lenient().when(pipelineSpec.getYaml()).thenReturn(FAKE_JOB_SPEC);
+    lenient().when(context.dynamic(any(), any())).thenReturn(dynamicKubernetesApi);
+    lenient().when(dynamicKubernetesApi.get(anyString(), anyString())).thenReturn(jobDynamicKubernetesApiResponse);
+    lenient().when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(true);
   }
 
   @Test
@@ -227,6 +228,54 @@ public class K8sPipelineElementStatusEstimatorTest {
     assertFalse(status.isReady());
     assertFalse(status.isFailed());
     assertEquals(status.getMessage(), "Returned K8s object is null or has no json");
+  }
+
+  @Test
+  void testEstimateWhenAllStatusFieldsMissing() {
+    mockJobDynamicObjectWithStatusField();
+    when(jobDynamicObjectStatusJsonObject.get("ready")).thenReturn(null);
+    when(jobDynamicObjectStatusJsonObject.get("state")).thenReturn(null);
+    when(jobDynamicObjectStatusJsonObject.get("jobStatus")).thenReturn(null);
+    mockDynamicObjectWithMetadata();
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertTrue(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("considered ready by default"));
+  }
+
+  @Test
+  void testEstimateElementStatusWhenContextDynamicThrows() {
+    K8sContext throwingContext = mock(K8sContext.class);
+    K8sPipelineElementStatusEstimator throwingEstimator = new K8sPipelineElementStatusEstimator(throwingContext);
+    when(throwingContext.dynamic(any(), any())).thenThrow(new RuntimeException("connection error"));
+
+    V1alpha1Pipeline throwingPipeline = mock(V1alpha1Pipeline.class);
+    V1ObjectMeta throwingMeta = mock(V1ObjectMeta.class);
+    V1alpha1PipelineSpec throwingSpec = mock(V1alpha1PipelineSpec.class);
+    when(throwingMeta.getNamespace()).thenReturn("ns");
+    when(throwingPipeline.getMetadata()).thenReturn(throwingMeta);
+    when(throwingPipeline.getSpec()).thenReturn(throwingSpec);
+    when(throwingSpec.getYaml()).thenReturn(FAKE_JOB_SPEC);
+
+    List<K8sPipelineElementStatus> statuses = throwingEstimator.estimateStatuses(throwingPipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("connection error"));
+  }
+
+  @Test
+  void testEstimateElementStatusUsesObjectNamespace() {
+    String yamlWithNamespace = "apiVersion: foo.org/v1beta1\nkind: FakeJob\nmetadata:\n  name: fake-job-name\n  namespace: explicit-ns\nspec:\n  foo: bar";
+    when(pipelineSpec.getYaml()).thenReturn(yamlWithNamespace);
+    when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(null);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
   }
 
   @Test

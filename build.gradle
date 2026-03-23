@@ -2,6 +2,29 @@ plugins {
   id("com.github.spotbugs") version "6.1.10"
 }
 
+apply plugin: 'jacoco'
+
+task jacocoAggregateReport(type: JacocoReport) {
+  group = 'verification'
+  description = 'Generates an aggregate JaCoCo coverage report across all subprojects.'
+  reports {
+    html.required = true
+    xml.required = true
+    html.outputLocation = layout.buildDirectory.dir('reports/jacoco/aggregate')
+    xml.outputLocation = layout.buildDirectory.file('reports/jacoco/aggregate/jacocoAggregateReport.xml')
+  }
+}
+
+subprojects {
+  plugins.withType(JacocoPlugin).configureEach {
+    rootProject.jacocoAggregateReport.dependsOn(test)
+    rootProject.jacocoAggregateReport.executionData(test)
+    rootProject.jacocoAggregateReport.sourceDirectories.from(sourceSets.main.allSource.srcDirs)
+    // Use jacocoTestReport.classDirectories so per-module exclusions are inherited
+    rootProject.jacocoAggregateReport.classDirectories.from(jacocoTestReport.classDirectories)
+  }
+}
+
 subprojects {
   apply plugin: 'checkstyle'
   apply plugin: 'com.github.spotbugs'
@@ -41,20 +64,11 @@ subprojects {
     }
 
     test {
-      finalizedBy jacocoTestReport
       useJUnitPlatform {
         excludeTags 'integration'
       }
       testLogging {
         events "passed", "skipped", "failed"
-      }
-    }
-
-    jacocoTestReport {
-      dependsOn test
-      reports {
-        xml.required = true
-        html.required = true
       }
     }
 
