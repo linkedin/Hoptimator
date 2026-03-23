@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "Hoptimator",
+  "project_id": "5c00f35f-7ed1-4047-bc1b-db0435182a67"
+}

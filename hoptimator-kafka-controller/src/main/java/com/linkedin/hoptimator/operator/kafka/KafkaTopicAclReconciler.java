@@ -117,6 +117,10 @@ public class KafkaTopicAclReconciler implements Reconciler {
         admin.createAcls(Collections.singleton(binding)).all().get();
         log.info("Granted {} {} access to {}.", principal, method, target.getSpec().getTopicName());
       }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.error("Interrupted while reconciling KafkaTopic Acl {}/{}", namespace, name, e);
+      return new Result(true, failureRetryDuration());
     } catch (Exception e) {
       log.error("Encountered exception while reconciling KafkaTopic Acl {}/{}", namespace, name, e);
       return new Result(true, failureRetryDuration());

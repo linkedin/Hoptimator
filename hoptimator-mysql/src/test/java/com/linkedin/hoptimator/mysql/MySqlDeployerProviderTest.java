@@ -21,6 +21,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -44,12 +45,10 @@ class MySqlDeployerProviderTest {
   private SchemaPlus testdbSchema;
 
   @Mock
-  @SuppressWarnings("rawtypes")
-  private Lookup rootSubSchemaLookup;
+  private Lookup<SchemaPlus> rootSubSchemaLookup;
 
   @Mock
-  @SuppressWarnings("rawtypes")
-  private Lookup catalogSubSchemaLookup;
+  private Lookup<SchemaPlus> catalogSubSchemaLookup;
 
   private MySqlDeployerProvider provider;
 
@@ -63,7 +62,6 @@ class MySqlDeployerProviderTest {
     assertEquals(2, provider.priority());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReturnsDeployerForMySqlSchema() {
     Source source = new Source("mysql", List.of("MYSQL", "testdb", "users"), Collections.emptyMap());
@@ -75,9 +73,9 @@ class MySqlDeployerProviderTest {
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(rootSubSchemaLookup);
+    doReturn(rootSubSchemaLookup).when(rootSchema).subSchemas();
     when(rootSubSchemaLookup.get("MYSQL")).thenReturn(mysqlCatalogSchema);
-    when(mysqlCatalogSchema.subSchemas()).thenReturn(catalogSubSchemaLookup);
+    doReturn(catalogSubSchemaLookup).when(mysqlCatalogSchema).subSchemas();
     when(catalogSubSchemaLookup.get("testdb")).thenReturn(testdbSchema);
     when(testdbSchema.unwrap(HoptimatorJdbcSchema.class)).thenReturn(jdbcSchema);
     when(jdbcSchema.getDataSource()).thenReturn(dataSource);
@@ -120,32 +118,30 @@ class MySqlDeployerProviderTest {
     assertTrue(deployers.isEmpty());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReturnsEmptyWhenSchemaNotFoundInCatalog() {
     Source source = new Source("mysql", List.of("MYSQL", "nonexistent", "users"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(rootSubSchemaLookup);
+    doReturn(rootSubSchemaLookup).when(rootSchema).subSchemas();
     when(rootSubSchemaLookup.get("MYSQL")).thenReturn(mysqlCatalogSchema);
-    when(mysqlCatalogSchema.subSchemas()).thenReturn(catalogSubSchemaLookup);
+    doReturn(catalogSubSchemaLookup).when(mysqlCatalogSchema).subSchemas();
     when(catalogSubSchemaLookup.get("nonexistent")).thenReturn(null);
 
     Collection<Deployer> deployers = provider.deployers(source, connection);
     assertTrue(deployers.isEmpty());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReturnsEmptyWhenUnwrapThrowsException() {
     Source source = new Source("mysql", List.of("MYSQL", "testdb", "users"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(rootSubSchemaLookup);
+    doReturn(rootSubSchemaLookup).when(rootSchema).subSchemas();
     when(rootSubSchemaLookup.get("MYSQL")).thenReturn(mysqlCatalogSchema);
-    when(mysqlCatalogSchema.subSchemas()).thenReturn(catalogSubSchemaLookup);
+    doReturn(catalogSubSchemaLookup).when(mysqlCatalogSchema).subSchemas();
     when(catalogSubSchemaLookup.get("testdb")).thenReturn(testdbSchema);
     when(testdbSchema.unwrap(HoptimatorJdbcSchema.class)).thenThrow(new RuntimeException("unwrap failed"));
 

@@ -18,12 +18,18 @@ subprojects {
   spotbugs {
     ignoreFailures = false
     showProgress = true
-    reportsDir = file("$rootProject.layout.buildDirectory/spotbugs")
+    reportsDir = file("${rootDir}/build/spotbugs")
     includeFilter = file("$rootDir/config/spotbugs/include.xml")
     excludeFilter = file("$rootDir/config/spotbugs/exclude.xml")
   }
 
   plugins.withType(JavaPlugin) {
+    project.apply plugin: 'jacoco'
+
+    jacoco {
+      toolVersion = "0.8.11"
+    }
+
     dependencies {
       testImplementation libs.assertj
       testImplementation libs.junit.jupiter.api
@@ -35,11 +41,20 @@ subprojects {
     }
 
     test {
+      finalizedBy jacocoTestReport
       useJUnitPlatform {
         excludeTags 'integration'
       }
       testLogging {
         events "passed", "skipped", "failed"
+      }
+    }
+
+    jacocoTestReport {
+      dependsOn test
+      reports {
+        xml.required = true
+        html.required = true
       }
     }
 

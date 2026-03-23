@@ -353,7 +353,7 @@ public class HoptimatorMcpServer {
     }
   }
 
-  private static Map<String, Object> getTableInfo(Connection conn, String cat, String sch, String table, String type) throws SQLException {
+  static Map<String, Object> getTableInfo(Connection conn, String cat, String sch, String table, String type) throws SQLException {
     List<Map<String, Object>> columns = getColumns(conn, cat, sch, table);
     Map<String, Object> pkConstraint = getPkConstraint(conn, cat, sch, table);
 
@@ -380,7 +380,7 @@ public class HoptimatorMcpServer {
     return tableInfo;
   }
 
-  private static List<Map<String, Object>> getColumns(Connection conn, String cat, String sch, String table) throws SQLException {
+  static List<Map<String, Object>> getColumns(Connection conn, String cat, String sch, String table) throws SQLException {
     List<Map<String, Object>> columns = new ArrayList<>();
     DatabaseMetaData metaData = conn.getMetaData();
     ResultSet rs = metaData.getColumns(cat, sch, table, null);
@@ -398,7 +398,7 @@ public class HoptimatorMcpServer {
     return columns;
   }
 
-  private static Map<String, Object> getPkConstraint(Connection conn, String cat, String sch, String table) throws SQLException {
+  static Map<String, Object> getPkConstraint(Connection conn, String cat, String sch, String table) throws SQLException {
     DatabaseMetaData metaData = conn.getMetaData();
     ResultSet rs = metaData.getPrimaryKeys(cat, sch, table);
 
@@ -422,7 +422,7 @@ public class HoptimatorMcpServer {
     return null;
   }
 
-  private static List<Map<String, Object>> getForeignKeys(Connection conn, String cat, String sch, String table) throws SQLException {
+  static List<Map<String, Object>> getForeignKeys(Connection conn, String cat, String sch, String table) throws SQLException {
     DatabaseMetaData metaData = conn.getMetaData();
     ResultSet rs = metaData.getImportedKeys(cat, sch, table);
 
@@ -456,7 +456,7 @@ public class HoptimatorMcpServer {
     return new ArrayList<>(fkeysMap.values());
   }
 
-  private static List<Map<String, String>> collect(ResultSet rs) throws SQLException {
+  static List<Map<String, String>> collect(ResultSet rs) throws SQLException {
     ResultSetMetaData meta = rs.getMetaData();
     int columnCount = meta.getColumnCount();
     List<Map<String, String>> data = new ArrayList<>();
@@ -479,19 +479,19 @@ public class HoptimatorMcpServer {
     return data;
   }
 
-  private static boolean isQueryStatement(String sql) {
+  static boolean isQueryStatement(String sql) {
     String upperSql = sql.trim().toUpperCase();
     return upperSql.startsWith("SELECT");
   }
 
-  private static boolean isQueryableSource(String sql) {
+  static boolean isQueryableSource(String sql) {
     String upperSql = sql.trim().toUpperCase();
     // TODO: Needs to be more robust
     String from = upperSql.substring(upperSql.indexOf("FROM"));
     return from.contains("ADS") || from.contains("PROFILE") || from.contains("METADATA") || from.contains("K8S");
   }
 
-  private static boolean isModifyStatement(String sql) {
+  static boolean isModifyStatement(String sql) {
     String upperSql = sql.trim().toUpperCase();
     return (upperSql.startsWith("CREATE") && upperSql.contains("MATERIALIZED") && upperSql.contains("VIEW")) || upperSql.startsWith("DROP");
   }

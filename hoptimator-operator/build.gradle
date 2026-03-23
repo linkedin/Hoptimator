@@ -76,3 +76,12 @@ idea {
     downloadSources = true
   }
 }
+
+jacocoTestReport {
+  classDirectories.setFrom(files(classDirectories.files.collect {
+    fileTree(dir: it, excludes: [
+      // K8s operator main entry point: requires running K8s cluster to bootstrap
+      '**/PipelineOperatorApp.class',
+    ])
+  }))
+}

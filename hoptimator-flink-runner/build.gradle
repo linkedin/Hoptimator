@@ -31,3 +31,12 @@ idea {
     downloadSources = true
   }
 }
+
+jacocoTestReport {
+  classDirectories.setFrom(files(classDirectories.files.collect {
+    fileTree(dir: it, excludes: [
+      // CLI/Flink entry point: requires a running Flink runtime to execute
+      '**/FlinkRunner.class',
+    ])
+  }))
+}
