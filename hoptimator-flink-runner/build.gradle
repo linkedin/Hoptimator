@@ -12,11 +12,13 @@ dependencies {
   implementation libs.flink.csv
 
   //Flink depends should be provided by runtime
+  compileOnly libs.flink.table.common
   compileOnly libs.flink.table.planner
   compileOnly libs.flink.clients
   compileOnly libs.flink.table.api.java.bridge
 
   testImplementation libs.assertj
+  testImplementation libs.flink.table.common
 }
 
 shadowJar {
