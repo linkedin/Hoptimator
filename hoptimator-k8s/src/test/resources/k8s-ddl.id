@@ -176,7 +176,7 @@ spec:
   - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
   - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
   - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT `FIRST_NAME` AS `PAGE_URN`, `LAST_NAME` AS `MEMBER_URN` FROM `PROFILE`.`MEMBERS` WHERE `FIRST_NAME` = 'Alice'
-  files: {}
+  files:
 !specify PAGE_VIEWS
 
 insert into ads.ad_clicks select * from ads.ad_clicks;
@@ -193,7 +193,7 @@ spec:
   - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
   - CREATE TABLE IF NOT EXISTS `ADS`.`AD_CLICKS_sink` (`CAMPAIGN_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
   - INSERT INTO `ADS`.`AD_CLICKS_sink` (`CAMPAIGN_URN`, `MEMBER_URN`) SELECT `CAMPAIGN_URN`, `MEMBER_URN` FROM `ADS`.`AD_CLICKS_source`
-  files: {}
+  files:
 !specify AD_CLICKS
 
 create or replace materialized view ads."PAGE_VIEWS$forward-field-order" as select CAMPAIGN_URN as PAGE_URN, MEMBER_URN as MEMBER_URN from ads.ad_clicks;
@@ -210,7 +210,7 @@ spec:
   - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
   - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
   - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT `CAMPAIGN_URN` AS `PAGE_URN`, `MEMBER_URN` FROM `ADS`.`AD_CLICKS`
-  files: {}
+  files:
 !specify PAGE_VIEWS
 
 create or replace materialized view ads."PAGE_VIEWS$reverse-field-order" as select MEMBER_URN as MEMBER_URN, CAMPAIGN_URN as PAGE_URN from ads.ad_clicks;
@@ -227,7 +227,7 @@ spec:
   - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
   - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
   - INSERT INTO `ADS`.`PAGE_VIEWS` (`MEMBER_URN`, `PAGE_URN`) SELECT `MEMBER_URN`, `CAMPAIGN_URN` AS `PAGE_URN` FROM `ADS`.`AD_CLICKS`
-  files: {}
+  files:
 !specify PAGE_VIEWS
 
 create or replace materialized view PROFILE."MEMBERS$test" AS SELECT "PAGE_URN" AS "COMPANY_URN", "MEMBER_URN" FROM ADS.PAGE_VIEWS;
@@ -244,5 +244,5 @@ spec:
   - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
   - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='blackhole')
   - INSERT INTO `PROFILE`.`MEMBERS` (`COMPANY_URN`, `MEMBER_URN`) SELECT `PAGE_URN` AS `COMPANY_URN`, `MEMBER_URN` FROM `ADS`.`PAGE_VIEWS`
-  files: {}
+  files:
 !specify MEMBERS

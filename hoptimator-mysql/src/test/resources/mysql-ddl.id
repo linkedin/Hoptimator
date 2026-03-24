@@ -36,5 +36,5 @@ spec:
   - CREATE DATABASE IF NOT EXISTS `MYSQL`.`testdb` WITH ()
   - CREATE TABLE IF NOT EXISTS `MYSQL`.`testdb`.`users` (`user_id` INTEGER, `username` VARCHAR, `email` VARCHAR, `created_at` TIMESTAMP, `is_active` BOOLEAN) WITH ('connector'='mysql', 'hostname'='localhost', 'password'='hoptimatorpassword', 'port'='3306', 'tables'='users', 'username'='hoptimator')
   - INSERT INTO `MYSQL`.`testdb`.`users` (`user_id`, `username`, `email`) SELECT `user_id`, 'a' AS `username`, 'b' AS `email` FROM `MYSQL`.`testdb`.`orders`
-  files: {}
+  files:
 !specify users
