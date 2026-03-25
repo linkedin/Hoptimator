@@ -54,13 +54,20 @@ SqlNodeList Options() :
 
 void Option(List<SqlNode> list) :
 {
-    final SqlIdentifier id;
+    final SqlNode key;
     final SqlNode value;
 }
 {
-    id = SimpleIdentifier()
+    (
+        key = CompoundIdentifier()
+    |
+        <QUOTED_STRING> {
+            key = SqlLiteral.createCharString(
+                SqlParserUtil.parseString(token.image), getPos());
+        }
+    )
     value = Literal() {
-        list.add(id);
+        list.add(key);
         list.add(value);
     }
 }

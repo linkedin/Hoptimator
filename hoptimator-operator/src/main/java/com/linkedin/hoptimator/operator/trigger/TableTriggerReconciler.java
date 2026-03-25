@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Properties;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -197,7 +198,7 @@ public final class TableTriggerReconciler implements Reconciler {
   }
 
   private String jobYaml(V1alpha1TableTrigger trigger) throws SQLException {
-    Template.Environment env = new Template.SimpleEnvironment()
+    Template.SimpleEnvironment env = new Template.SimpleEnvironment()
         .with("trigger", trigger.getMetadata().getName())
         .with("schema", trigger.getSpec().getSchema())
         .with("table", trigger.getSpec().getTable())
@@ -205,6 +206,12 @@ public final class TableTriggerReconciler implements Reconciler {
             .map(x -> x.toString()).orElse(null))
         .with("watermark", Optional.ofNullable(trigger.getStatus().getWatermark())
             .map(x -> x.toString()).orElse(null));
+    Map<String, String> jobProperties = trigger.getSpec().getJobProperties();
+    if (jobProperties != null) {
+      Properties props = new Properties();
+      props.putAll(jobProperties);
+      env = env.with(props);
+    }
     return new Template.SimpleTemplate(trigger.getSpec().getYaml()).render(env);
   }
 
