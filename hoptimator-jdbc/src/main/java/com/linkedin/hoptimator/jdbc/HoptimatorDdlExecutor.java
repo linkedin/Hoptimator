@@ -393,13 +393,16 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       options.put("LANGUAGE", create.language.getSimple());
     }
 
-    // When LANGUAGE is present with an IN clause, AS names the callable and IN provides the source.
-    // The IN value can be:
-    //   - Inline code (contains whitespace, e.g. from $$...$$)
-    //   - A file path or URL (contains '/' or ':', e.g. '/path/to/udf.py' or 'file:///udf.py')
-    //   - A module reference (simple name, e.g. 'demo_udfs')
-    if (create.language != null && inClause != null) {
-      if (inClause.contains(" ") || inClause.contains("\n")) {
+    // The IN clause provides the source for the function. Its interpretation depends on context:
+    //   - JAR archive (.jar extension or URL): stored as JAR option for USING JAR emission
+    //   - Inline code (contains whitespace, e.g. from $$...$$): stored as CODE option
+    //   - File path or URL (contains '/'): read content and stored as CODE option
+    //   - Module reference (simple name, e.g. 'demo_udfs'): combined with AS as module.function
+    if (inClause != null) {
+      if (inClause.endsWith(".jar")) {
+        // JAR archive: AS is the class, IN is the JAR location
+        options.put("JAR", inClause);
+      } else if (inClause.contains(" ") || inClause.contains("\n")) {
         // Inline code: derive module.function reference from function name
         String funcName = as;
         String moduleName = name.toLowerCase(java.util.Locale.ROOT);

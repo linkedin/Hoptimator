@@ -550,6 +550,11 @@ public interface ScriptImplementor {
         w.keyword("LANGUAGE");
         w.literal(language);
       }
+      String jar = options.get("JAR");
+      if (jar != null) {
+        w.keyword("USING JAR");
+        w.literal("'" + jar + "'");
+      }
       w.literal(";");
     }
   }

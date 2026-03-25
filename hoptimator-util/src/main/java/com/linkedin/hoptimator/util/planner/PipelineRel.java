@@ -116,7 +116,7 @@ public interface PipelineRel extends RelNode {
       templateEvals.put("query", query(connection));
       templateEvals.put("fieldMap", fieldMap());
 
-      // Collect inline file content from functions with CODE option
+      // Collect inline file content and JAR references from functions
       Map<String, String> files = new HashMap<>();
       for (UserFunction func : functions) {
         String code = func.options().get("CODE");
@@ -126,6 +126,12 @@ public interface PipelineRel extends RelNode {
           int dotIdx = module.indexOf('.');
           String filename = (dotIdx >= 0 ? module.substring(0, dotIdx) : module) + ".py";
           files.put(filename, code);
+        }
+        String jar = func.options().get("JAR");
+        if (jar != null) {
+          // Store JAR reference as URL value (data plane fetches it)
+          String jarName = jar.contains("/") ? jar.substring(jar.lastIndexOf('/') + 1) : jar;
+          files.put(jarName, jar);
         }
       }
 
