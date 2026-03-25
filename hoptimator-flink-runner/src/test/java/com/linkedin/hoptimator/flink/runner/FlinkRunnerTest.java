@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.flink.runner;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -9,41 +8,38 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Base64;
 
 
 class FlinkRunnerTest {
 
   @Test
-  void writeFileDecodesBase64AndWritesToDisk(@TempDir Path tempDir) throws Exception {
-    String content = "print('hello world')";
-    String encoded = Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8));
-    String directive = "--file:test.py:" + encoded;
+  void findSqlJobRefPresent() {
+    String[] args = {"--sqljob=default/my-job", "CREATE TABLE t (x INT)"};
+    assertThat(FlinkRunner.findSqlJobRef(args)).isEqualTo("default/my-job");
+  }
 
-    FlinkRunner.writeFile(directive, tempDir);
+  @Test
+  void findSqlJobRefAbsent() {
+    String[] args = {"CREATE TABLE t (x INT)", "INSERT INTO t SELECT 1"};
+    assertThat(FlinkRunner.findSqlJobRef(args)).isNull();
+  }
+
+  @Test
+  void writeFileCreatesFileOnDisk(@TempDir Path tempDir) throws Exception {
+    FlinkRunner.writeFile("test.py", "print('hello')", tempDir);
 
     Path written = tempDir.resolve("test.py");
     assertThat(written).exists();
-    assertThat(Files.readString(written)).isEqualTo(content);
+    assertThat(Files.readString(written, StandardCharsets.UTF_8)).isEqualTo("print('hello')");
   }
 
   @Test
   void writeFileHandlesMultilineContent(@TempDir Path tempDir) throws Exception {
     String content = "from pyflink.table.udf import udf\n\n@udf(result_type=DataTypes.STRING())\ndef reverse(s):\n    return s[::-1]\n";
-    String encoded = Base64.getEncoder().encodeToString(content.getBytes(StandardCharsets.UTF_8));
-    String directive = "--file:my_udfs.py:" + encoded;
-
-    FlinkRunner.writeFile(directive, tempDir);
+    FlinkRunner.writeFile("my_udfs.py", content, tempDir);
 
     Path written = tempDir.resolve("my_udfs.py");
     assertThat(written).exists();
-    assertThat(Files.readString(written)).isEqualTo(content);
-  }
-
-  @Test
-  void writeFileRejectsMalformedDirective(@TempDir Path tempDir) {
-    assertThatThrownBy(() -> FlinkRunner.writeFile("--file:no-colon-after-name", tempDir))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("missing ':'");
+    assertThat(Files.readString(written, StandardCharsets.UTF_8)).isEqualTo(content);
   }
 }

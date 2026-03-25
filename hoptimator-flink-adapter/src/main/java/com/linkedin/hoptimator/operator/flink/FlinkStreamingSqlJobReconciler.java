@@ -21,13 +21,13 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 
 /**
  * Manifests streaming SqlJobs as Flink session jobs.
+ *
+ * <p>The reconciler creates a FlinkSessionJob that references the SqlJob by name.
+ * The FlinkRunner fetches SQL and files directly from the SqlJob CR at runtime.
  */
 public class FlinkStreamingSqlJobReconciler implements Reconciler {
   private static final Logger log = LoggerFactory.getLogger(FlinkStreamingSqlJobReconciler.class);
@@ -78,12 +78,8 @@ public class FlinkStreamingSqlJobReconciler implements Reconciler {
         return new Result(false);
       }
 
-      List<String> sql = object.getSpec().getSql();
-      String script = sql.stream().collect(Collectors.joining(";\n"));
-      Map<String, String> files = object.getSpec().getFiles();
-
       Resource.TemplateFactory templateFactory = new Resource.SimpleTemplateFactory(Resource.Environment.EMPTY);
-      Resource sqlJob = new FlinkStreamingSqlJob(namespace, name, script, files);
+      Resource sqlJob = new FlinkStreamingSqlJob(namespace, name);
 
       for (String yaml : sqlJob.render(templateFactory)) {
         DynamicKubernetesObject obj = yamlApi.objFromYaml(yaml);

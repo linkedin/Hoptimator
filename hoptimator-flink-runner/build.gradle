@@ -10,6 +10,7 @@ dependencies {
   implementation libs.flink.connector.kafka
   implementation libs.flink.connector.mysql.cdc
   implementation libs.flink.csv
+  implementation libs.kubernetes.client
 
   //Flink depends should be provided by runtime
   compileOnly libs.flink.table.common
