@@ -341,9 +341,9 @@ SqlCreate SqlCreateFunction(Span s, boolean replace) :
     <FUNCTION> ifNotExists = IfNotExistsOpt()
     id = CompoundIdentifier()
     [ <RETURNS> returnType = DataType() ]
+    [ <LANGUAGE> language = SimpleIdentifier() ]
     <AS> template = StringLiteral()
     [ <IN> namespace = StringLiteral() ]
-    [ <LANGUAGE> language = SimpleIdentifier() ]
     [ optionList = Options() ]
     {
         return new SqlCreateFunction(s.end(this), replace, ifNotExists, id, template,

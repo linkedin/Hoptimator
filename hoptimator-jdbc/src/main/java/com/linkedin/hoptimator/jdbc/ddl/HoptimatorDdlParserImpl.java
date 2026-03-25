@@ -6378,6 +6378,11 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
       jj_consume_token(RETURNS);
       returnType = DataType();
     }
+    // optional: LANGUAGE <identifier> (before AS)
+    if (jj_ntk == LANGUAGE || (jj_ntk == -1 && jj_ntk() == LANGUAGE)) {
+      jj_consume_token(LANGUAGE);
+      language = SimpleIdentifier();
+    }
     jj_consume_token(AS);
     template = StringLiteral();
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -6388,11 +6393,6 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
     default:
       jj_la1[59] = jj_gen;
       ;
-    }
-    // optional: LANGUAGE <identifier>
-    if (jj_ntk == LANGUAGE || (jj_ntk == -1 && jj_ntk() == LANGUAGE)) {
-      jj_consume_token(LANGUAGE);
-      language = SimpleIdentifier();
     }
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case WITH:

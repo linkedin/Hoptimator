@@ -27,7 +27,7 @@ create function int_udf returns integer as 'com.example.IntUdf';
 !update
 
 # Register a Python UDF with LANGUAGE clause
-create function py_udf returns varchar as 'my_module.my_func' language python;
+create function py_udf returns varchar language python as 'my_func' in 'my_module';
 (0 rows modified)
 
 !update

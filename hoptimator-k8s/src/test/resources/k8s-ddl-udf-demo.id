@@ -13,7 +13,7 @@ create function str_len returns integer as 'com.linkedin.hoptimator.flink.runner
 !update
 
 # Register demo Python UDF baked into the Flink runner image
-create function reverse_str as 'demo_udfs.reverse_string' language python;
+create function reverse_str language python as 'reverse_string' in 'demo_udfs';
 (0 rows modified)
 
 !update

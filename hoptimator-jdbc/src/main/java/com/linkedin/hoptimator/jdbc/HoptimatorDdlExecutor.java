@@ -115,7 +115,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
     @Override
     public SqlAbstractParserImpl getParser(Reader stream) {
-      SqlAbstractParserImpl parser = HoptimatorDdlParserImpl.FACTORY.getParser(stream);
+      Reader preprocessed = DollarQuoting.preprocess(stream);
+      SqlAbstractParserImpl parser = HoptimatorDdlParserImpl.FACTORY.getParser(preprocessed);
       parser.setConformance(SqlConformanceEnum.BABEL);
       return parser;
     }
@@ -383,16 +384,31 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     String name = create.name.names.get(create.name.names.size() - 1);
     String as = ((SqlLiteral) create.job).getValueAs(String.class);
-    String namespace = create.namespace != null
+    String inClause = create.namespace != null
         ? ((SqlLiteral) create.namespace).getValueAs(String.class) : null;
     Map<String, String> options = HoptimatorDdlUtils.options(create.options);
 
-    // Extract LANGUAGE from the dedicated clause (elevated from WITH options)
+    // Extract LANGUAGE from the dedicated clause
     if (create.language != null) {
       options.put("LANGUAGE", create.language.getSimple());
     }
 
-    UserFunction userFunction = new UserFunction(name, as, namespace, options);
+    // When LANGUAGE is present with an IN clause, AS names the callable and IN provides the source.
+    // If IN contains whitespace, it's inline code; otherwise it's a module reference.
+    if (create.language != null && inClause != null) {
+      if (inClause.contains(" ") || inClause.contains("\n")) {
+        // Inline code: derive module.function reference from function name
+        String funcName = as;
+        String moduleName = name.toLowerCase(java.util.Locale.ROOT);
+        as = moduleName + "." + funcName;
+        options.put("CODE", inClause);
+      } else {
+        // Module reference: IN names the module, AS names the function within it
+        as = inClause + "." + as;
+      }
+    }
+
+    UserFunction userFunction = new UserFunction(name, as, null, options);
 
     // Determine return type from RETURNS clause (default: VARCHAR)
     String returnsName = create.returnType != null
