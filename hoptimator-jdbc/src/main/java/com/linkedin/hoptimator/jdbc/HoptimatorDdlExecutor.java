@@ -394,7 +394,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
 
     // When LANGUAGE is present with an IN clause, AS names the callable and IN provides the source.
-    // If IN contains whitespace, it's inline code; otherwise it's a module reference.
+    // The IN value can be:
+    //   - Inline code (contains whitespace, e.g. from $$...$$)
+    //   - A file path or URL (contains '/' or ':', e.g. '/path/to/udf.py' or 'file:///udf.py')
+    //   - A module reference (simple name, e.g. 'demo_udfs')
     if (create.language != null && inClause != null) {
       if (inClause.contains(" ") || inClause.contains("\n")) {
         // Inline code: derive module.function reference from function name
@@ -402,6 +405,13 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         String moduleName = name.toLowerCase(java.util.Locale.ROOT);
         as = moduleName + "." + funcName;
         options.put("CODE", inClause);
+      } else if (inClause.contains("/") || inClause.contains(":\\")) {
+        // File path or URL: read content and treat as inline code
+        String code = readSource(inClause);
+        String funcName = as;
+        String moduleName = name.toLowerCase(java.util.Locale.ROOT);
+        as = moduleName + "." + funcName;
+        options.put("CODE", code);
       } else {
         // Module reference: IN names the module, AS names the function within it
         as = inClause + "." + as;
@@ -862,6 +872,22 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     String databaseName() {
       return databaseName;
+    }
+  }
+
+  /** Reads source code from a file path or URL. */
+  private static String readSource(String location) {
+    try {
+      java.net.URI uri;
+      if (location.contains("://")) {
+        uri = new java.net.URI(location);
+      } else {
+        uri = java.nio.file.Paths.get(location).toUri();
+      }
+      return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(uri)),
+          java.nio.charset.StandardCharsets.UTF_8);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to read source from " + location, e);
     }
   }
 }
