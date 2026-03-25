@@ -15,6 +15,11 @@ spec:
           containers:
           - name: hello
             image: alpine/k8s:1.33.0
+            env:
+              - name: TABLE_TRIGGER_NAME
+                value: "{{name}}-trigger"
+              - name: SOURCE_TABLE_NAME
+                value: "{{offline.table.name}}"
             command: ["bash",  "-c", "echo {{name}}-trigger fired at `date`"]
           restartPolicy: Never
       backoffLimit: 4
