@@ -2,8 +2,10 @@ package com.linkedin.hoptimator.util.planner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.hoptimator.ThrowingFunction;
+import com.linkedin.hoptimator.UserFunction;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.sql.SQLNonTransientException;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,6 +53,7 @@ public interface PipelineRel extends RelNode {
   /** Implements a deployable Pipeline. */
   class Implementor {
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
+    private final List<UserFunction> functions = new ArrayList<>();
     private final ImmutablePairList<Integer, String> targetFields;
     private final Map<String, String> hints;
     private RelNode query;
@@ -98,6 +101,10 @@ public interface PipelineRel extends RelNode {
       this.sink = new Sink(database, path, newOptions);
     }
 
+    public void addFunction(UserFunction func) {
+      functions.add(func);
+    }
+
     public void setQuery(RelNode query) {
       this.query = query;
     }
@@ -109,12 +116,35 @@ public interface PipelineRel extends RelNode {
       templateEvals.put("query", query(connection));
       templateEvals.put("fieldMap", fieldMap());
 
-      Job job = new Job(name, sources.keySet(), sink, templateEvals);
+      // Collect inline file content and JAR references from functions
+      Map<String, String> files = new HashMap<>();
+      for (UserFunction func : functions) {
+        String code = func.options().get("CODE");
+        if (code != null) {
+          // Derive filename from AS clause (e.g., 'my_module.my_func' -> 'my_module.py')
+          String module = func.as();
+          int dotIdx = module.indexOf('.');
+          String filename = (dotIdx >= 0 ? module.substring(0, dotIdx) : module) + ".py";
+          files.put(filename, code);
+        }
+        String jar = func.options().get("JAR");
+        if (jar != null) {
+          // Store JAR reference as URL value (data plane fetches it)
+          String jarName = jar.contains("/") ? jar.substring(jar.lastIndexOf('/') + 1) : jar;
+          files.put(jarName, jar);
+        }
+      }
+
+      Job job = new Job(name, sources.keySet(), sink, templateEvals, files);
       return new Pipeline(sources.keySet(), sink, job);
     }
 
     private ScriptImplementor script(Connection connection) throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
+      // Emit function definitions first
+      for (UserFunction func : functions) {
+        script = script.function(func.name(), func.as(), func.options());
+      }
       // Check if we need to add suffixes to avoid table name collisions
       boolean needsSuffixes = hasTableNameCollision();
 

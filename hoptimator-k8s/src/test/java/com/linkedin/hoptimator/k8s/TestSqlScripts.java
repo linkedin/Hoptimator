@@ -20,6 +20,21 @@ public class TestSqlScripts extends QuidemTestBase {
   }
 
   @Test
+  public void k8sDdlScriptUdf() throws Exception {
+    run("k8s-ddl-udf.id");
+  }
+
+  @Test
+  public void k8sDdlScriptUdfDemo() throws Exception {
+    run("k8s-ddl-udf-demo.id");
+  }
+
+  @Test
+  public void k8sDdlScriptUdfFiles() throws Exception {
+    run("k8s-ddl-udf-files.id");
+  }
+
+  @Test
   public void k8sValidationScript() throws Exception {
     run("k8s-validation.id");
   }

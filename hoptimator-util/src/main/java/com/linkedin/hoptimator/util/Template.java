@@ -121,7 +121,7 @@ public interface Template {
     }
 
     private String formatMapAsString(Map<String, String> configMap) {
-      return new Yaml().dump(configMap);
+      return new Yaml().dump(configMap).trim();
     }
 
     private String formatPropertiesAsString(Properties props) {

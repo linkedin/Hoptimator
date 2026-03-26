@@ -1,2 +1,14 @@
 FROM flink:1.18.1
+
+# Install Python and PyFlink for Python UDF support
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    pip3 install apache-flink==1.18.1 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy Python UDF modules
+COPY python/ /opt/python-udfs/
+ENV PYTHONPATH=/opt/python-udfs
+
+# Copy runner JAR (includes Java UDFs)
 COPY ./build/libs/hoptimator-flink-runner-all.jar /opt/hoptimator-flink-runner.jar

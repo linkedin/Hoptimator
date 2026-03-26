@@ -140,6 +140,10 @@ public class V1alpha1SqlJobSpec {
   @SerializedName(SERIALIZED_NAME_EXECUTION_MODE)
   private ExecutionModeEnum executionMode;
 
+  public static final String SERIALIZED_NAME_FILES = "files";
+  @SerializedName(SERIALIZED_NAME_FILES)
+  private Map<String, String> files = null;
+
   public static final String SERIALIZED_NAME_SQL = "sql";
   @SerializedName(SERIALIZED_NAME_SQL)
   private List<String> sql = new ArrayList<>();
@@ -222,6 +226,37 @@ public class V1alpha1SqlJobSpec {
   }
 
 
+  public V1alpha1SqlJobSpec files(Map<String, String> files) {
+
+    this.files = files;
+    return this;
+  }
+
+  public V1alpha1SqlJobSpec putFilesItem(String key, String filesItem) {
+    if (this.files == null) {
+      this.files = new HashMap<>();
+    }
+    this.files.put(key, filesItem);
+    return this;
+  }
+
+   /**
+   * Inline file content to make available to the SQL job.
+   * @return files
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Inline file content to make available to the SQL job.")
+
+  public Map<String, String> getFiles() {
+    return files;
+  }
+
+
+  public void setFiles(Map<String, String> files) {
+    this.files = files;
+  }
+
+
   public V1alpha1SqlJobSpec sql(List<String> sql) {
     
     this.sql = sql;
@@ -261,12 +296,13 @@ public class V1alpha1SqlJobSpec {
     return Objects.equals(this.configs, v1alpha1SqlJobSpec.configs) &&
         Objects.equals(this.dialect, v1alpha1SqlJobSpec.dialect) &&
         Objects.equals(this.executionMode, v1alpha1SqlJobSpec.executionMode) &&
+        Objects.equals(this.files, v1alpha1SqlJobSpec.files) &&
         Objects.equals(this.sql, v1alpha1SqlJobSpec.sql);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(configs, dialect, executionMode, sql);
+    return Objects.hash(configs, dialect, executionMode, files, sql);
   }
 
 
@@ -277,6 +313,7 @@ public class V1alpha1SqlJobSpec {
     sb.append("    configs: ").append(toIndentedString(configs)).append("\n");
     sb.append("    dialect: ").append(toIndentedString(dialect)).append("\n");
     sb.append("    executionMode: ").append(toIndentedString(executionMode)).append("\n");
+    sb.append("    files: ").append(toIndentedString(files)).append("\n");
     sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
     sb.append("}");
     return sb.toString();

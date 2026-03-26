@@ -19,6 +19,7 @@
 package com.linkedin.hoptimator.jdbc.ddl;
 
 import org.apache.calcite.sql.SqlCreate;
+import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
@@ -35,30 +36,46 @@ import static java.util.Objects.requireNonNull;
 
 
 /**
- * Parse tree for `CREATE FUNCTION` statement.
+ * Parse tree for {@code CREATE FUNCTION} statement.
+ *
+ * <pre>{@code
+ * CREATE FUNCTION name [RETURNS type] AS 'class' [IN 'namespace'] [LANGUAGE lang] [WITH (...)]
+ * }</pre>
  */
 public class SqlCreateFunction extends SqlCreate {
   public final SqlIdentifier name;
   public final SqlNode job;
   public final SqlNode namespace;
+  public final SqlDataTypeSpec returnType;
+  public final SqlIdentifier language;
   public final SqlNodeList options;
 
   private static final SqlOperator OPERATOR =
       new SqlSpecialOperator("CREATE FUNCTION",
       SqlKind.CREATE_FUNCTION);
 
+  /** Constructor with returnType and language. */
   public SqlCreateFunction(SqlParserPos pos, boolean replace, boolean ifNotExists,
-      SqlIdentifier name, SqlNode job, SqlNode namespace, SqlNodeList options) {
+      SqlIdentifier name, SqlNode job, SqlNode namespace, SqlDataTypeSpec returnType,
+      SqlIdentifier language, SqlNodeList options) {
     super(OPERATOR, pos, replace, ifNotExists);
     this.name = requireNonNull(name, "name");
     this.job = requireNonNull(job, "job");
-    this.namespace = namespace; 
+    this.namespace = namespace;
+    this.returnType = returnType;
+    this.language = language;
     this.options = options;
+  }
+
+  /** Backward-compatible constructor without returnType and language. */
+  public SqlCreateFunction(SqlParserPos pos, boolean replace, boolean ifNotExists,
+      SqlIdentifier name, SqlNode job, SqlNode namespace, SqlNodeList options) {
+    this(pos, replace, ifNotExists, name, job, namespace, null, null, options);
   }
 
   @SuppressWarnings("nullness")
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableNullableList.of(name, job, namespace, options);
+    return ImmutableNullableList.of(name, job, namespace, returnType, language, options);
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
@@ -68,11 +85,19 @@ public class SqlCreateFunction extends SqlCreate {
       writer.keyword("IF NOT EXISTS");
     }
     name.unparse(writer, leftPrec, rightPrec);
+    if (returnType != null) {
+      writer.keyword("RETURNS");
+      returnType.unparse(writer, 0, 0);
+    }
     writer.keyword("AS");
     job.unparse(writer, 0, 0);
     if (namespace != null) {
       writer.keyword("IN");
       namespace.unparse(writer, 0, 0);
+    }
+    if (language != null) {
+      writer.keyword("LANGUAGE");
+      language.unparse(writer, 0, 0);
     }
     if (options != null) {
       writer.keyword("WITH");

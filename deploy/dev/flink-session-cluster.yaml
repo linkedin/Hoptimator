@@ -9,6 +9,8 @@ spec:
   flinkVersion: v1_18
   flinkConfiguration:
     taskmanager.numberOfTaskSlots: "6"
+    python.executable: /usr/bin/python3
+    python.client.executable: /usr/bin/python3
   serviceAccount: flink
   jobManager:
     resource:

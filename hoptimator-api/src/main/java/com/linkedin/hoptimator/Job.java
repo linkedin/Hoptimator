@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,6 +17,7 @@ public class Job implements Deployable {
   private final String name;
   private final Set<Source> sources;
   private final Sink sink;
+  private final Map<String, String> files;
 
   /**
    * Lazy-evaluated template functions that generate various outputs for the job.
@@ -30,10 +32,16 @@ public class Job implements Deployable {
   private final Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals;
 
   public Job(String name, Set<Source> sources, Sink sink, Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals) {
+    this(name, sources, sink, lazyEvals, Collections.emptyMap());
+  }
+
+  public Job(String name, Set<Source> sources, Sink sink, Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals,
+      Map<String, String> files) {
     this.name = name;
     this.sources = sources;
     this.sink = sink;
     this.lazyEvals = lazyEvals;
+    this.files = files != null ? files : Collections.emptyMap();
   }
 
   public String name() {
@@ -58,6 +66,10 @@ public class Job implements Deployable {
 
   public ThrowingFunction<SqlDialect, String> fieldMap() {
     return eval("fieldMap");
+  }
+
+  public Map<String, String> files() {
+    return files;
   }
 
   /**

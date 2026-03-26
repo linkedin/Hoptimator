@@ -1,0 +1,82 @@
+!set outputformat mysql
+!use k8s
+
+# Register demo Java UDFs baked into the Flink runner image
+create function greet as 'com.linkedin.hoptimator.flink.runner.functions.Greet';
+(0 rows modified)
+
+!update
+
+create function str_len returns integer as 'com.linkedin.hoptimator.flink.runner.functions.StringLength';
+(0 rows modified)
+
+!update
+
+# Register demo Python UDF baked into the Flink runner image
+create function reverse_str language python as 'reverse_string' in 'demo_udfs';
+(0 rows modified)
+
+!update
+
+# UDFs validate against real data (opaque placeholders return null at JDBC layer)
+select greet("FIRST_NAME") as greeting from profile.members;
++----------+
+| GREETING |
++----------+
+|          |
+|          |
+|          |
++----------+
+(3 rows)
+
+!ok
+
+select str_len("FIRST_NAME") as len from profile.members;
++-----+
+| LEN |
++-----+
+|     |
+|     |
+|     |
++-----+
+(3 rows)
+
+!ok
+
+# Pipeline with Java UDF generates correct SqlJob spec
+insert into ads.page_views select greet("FIRST_NAME") as page_urn, "MEMBER_URN" as member_urn from profile.members;
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: SqlJob
+metadata:
+  name: ads-database-pageviews
+spec:
+  dialect: Flink
+  executionMode: Streaming
+  sql:
+  - CREATE FUNCTION IF NOT EXISTS `GREET` AS 'com.linkedin.hoptimator.flink.runner.functions.Greet'
+  - CREATE FUNCTION IF NOT EXISTS `STR_LEN` AS 'com.linkedin.hoptimator.flink.runner.functions.StringLength'
+  - CREATE FUNCTION IF NOT EXISTS `REVERSE_STR` AS 'demo_udfs.reverse_string' LANGUAGE PYTHON
+  - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
+  - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+  - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+  - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='blackhole')
+  - INSERT INTO `ADS`.`PAGE_VIEWS` (`PAGE_URN`, `MEMBER_URN`) SELECT `GREET`(`FIRST_NAME`) AS `PAGE_URN`, `MEMBER_URN` FROM `PROFILE`.`MEMBERS`
+  files:
+    {}
+!specify PAGE_VIEWS
+
+# Clean up
+drop function greet;
+(0 rows modified)
+
+!update
+
+drop function str_len;
+(0 rows modified)
+
+!update
+
+drop function reverse_str;
+(0 rows modified)
+
+!update

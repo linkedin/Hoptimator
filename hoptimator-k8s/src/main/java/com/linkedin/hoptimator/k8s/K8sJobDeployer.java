@@ -55,6 +55,7 @@ class K8sJobDeployer extends K8sYamlDeployer {
         .with("flinksql", () -> sql.apply(SqlDialect.FLINK))
         .with("flinkconfigs", properties)
         .with("fieldMap", () -> "'" + fieldMap.apply(SqlDialect.ANSI) + "'")
+        .with("files", job.files())
         .with(properties);
     List<String> templates = jobTemplateApi.list()
         .stream()
