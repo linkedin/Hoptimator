@@ -87,14 +87,24 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
     labels.put("view", viewName); // a corresponding view object may or may not exist.
     String template = jobTemplate.getSpec().getYaml();
     String rendered = new Template.SimpleTemplate(template).render(env);
+    Map<String, String> jobProps = new HashMap<>();
+    trigger.options().forEach((key, value) -> {
+      if (key.startsWith("job.properties.")) {
+        jobProps.put(key.substring("job.properties.".length()), value);
+      }
+    });
+    V1alpha1TableTriggerSpec spec = new V1alpha1TableTriggerSpec()
+        .schema(trigger.schema())
+        .table(trigger.table())
+        .schedule(trigger.cronSchedule())
+        .yaml(rendered);
+    if (!jobProps.isEmpty()) {
+      spec.jobProperties(jobProps);
+    }
     return new V1alpha1TableTrigger()
         .kind(K8sApiEndpoints.TABLE_TRIGGERS.kind())
         .apiVersion(K8sApiEndpoints.TABLE_TRIGGERS.apiVersion())
         .metadata(new V1ObjectMeta().name(triggerName).labels(labels))
-        .spec(new V1alpha1TableTriggerSpec()
-        .schema(trigger.schema())
-        .table(trigger.table())
-        .schedule(trigger.cronSchedule())
-        .yaml(rendered));
+        .spec(spec);
   }
 }

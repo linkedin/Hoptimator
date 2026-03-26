@@ -1,0 +1,27 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: JobTemplate
+metadata:
+  name: retl-job-template
+  namespace: default
+spec:
+  yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: {{name}}-job
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: alpine/k8s:1.33.0
+            env:
+              - name: TABLE_TRIGGER_NAME
+                value: "{{name}}-trigger"
+              - name: SOURCE_TABLE_NAME
+                value: "{{offline.table.name}}"
+              - name: ONLINE_TABLE_NAME
+                value: "{{job.properties.online.table.name}}"
+            command: ["bash",  "-c", "echo {{name}}-trigger fired at `date`"]
+          restartPolicy: Never
+      backoffLimit: 4

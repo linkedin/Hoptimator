@@ -53,4 +53,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void k8sTriggerPauseResume() throws Exception {
     run("k8s-trigger-pause.id");
   }
+
+  @Test
+  public void k8sTriggerOptions() throws Exception {
+    run("k8s-trigger-options.id");
+  }
 }

@@ -1,0 +1,65 @@
+!set outputformat mysql
+!use k8s
+
+# Test trigger with simple unquoted option key (backward compatibility)
+create trigger testsimple on ads.ad_clicks as 'my-app' in 'my-mp' with (key 'value');
+(0 rows modified)
+
+!update
+
+select name, schema, "TABLE" from "k8s".table_triggers where name = 'testsimple';
++------------+--------+-----------+
+| NAME       | SCHEMA | TABLE     |
++------------+--------+-----------+
+| testsimple | ADS    | AD_CLICKS |
++------------+--------+-----------+
+(1 row)
+
+!ok
+
+drop trigger testsimple;
+(0 rows modified)
+
+!update
+
+# Test trigger with dotted unquoted option key (no reserved words)
+create trigger testdotted on ads.ad_clicks as 'my-app' in 'my-mp' with (my.custom.key 'my-value');
+(0 rows modified)
+
+!update
+
+select name, schema, "TABLE" from "k8s".table_triggers where name = 'testdotted';
++------------+--------+-----------+
+| NAME       | SCHEMA | TABLE     |
++------------+--------+-----------+
+| testdotted | ADS    | AD_CLICKS |
++------------+--------+-----------+
+(1 row)
+
+!ok
+
+drop trigger testdotted;
+(0 rows modified)
+
+!update
+
+# Test trigger with quoted option keys (required when keys contain reserved words like 'table')
+create trigger testquoted on ads.ad_clicks as 'my-app' in 'my-mp' with ('offline.table.name' 'my-namespace.my-table', 'job.properties.online.table.name' 'MyOnlineTable');
+(0 rows modified)
+
+!update
+
+select name, schema, "TABLE" from "k8s".table_triggers where name = 'testquoted';
++------------+--------+-----------+
+| NAME       | SCHEMA | TABLE     |
++------------+--------+-----------+
+| testquoted | ADS    | AD_CLICKS |
++------------+--------+-----------+
+(1 row)
+
+!ok
+
+drop trigger testquoted;
+(0 rows modified)
+
+!update
