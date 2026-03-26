@@ -10,5 +10,5 @@ docker run \
   --network host \
   ghcr.io/kubernetes-client/java/crd-model-gen:v1.0.6 \
   /generate.sh -o "$(pwd)" -n "" -p "com.linkedin.hoptimator.k8s" \
-  -u "$(pwd)/src/main/resources/tabletriggers.crd.yaml" \
+  -u "$(pwd)/src/main/resources/tableprovisionjobs.crd.yaml" \
   && echo "done."

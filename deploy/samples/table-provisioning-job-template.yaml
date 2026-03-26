@@ -1,0 +1,26 @@
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: iceberg
+spec:
+  catalog: ICEBERG
+  url: jdbc:demodb://names=ads
+  dialect: Calcite
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: JobTemplate
+metadata:
+  name: table-provisioning-job-template
+spec:
+  databases:
+  - iceberg
+  yaml: |
+    apiVersion: hoptimator.linkedin.com/v1alpha1
+    kind: TableProvisionJob
+    metadata:
+      name: {{name}}-provision-job
+    spec:
+      table: {{table}}
+      database: {{database}}
