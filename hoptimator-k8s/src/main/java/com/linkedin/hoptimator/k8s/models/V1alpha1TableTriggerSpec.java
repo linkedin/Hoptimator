@@ -31,7 +31,7 @@ import java.util.Map;
  * TableTrigger spec.
  */
 @ApiModel(description = "TableTrigger spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-01-06T15:57:43.625Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-03-26T22:00:20.228Z[Etc/UTC]")
 public class V1alpha1TableTriggerSpec {
   public static final String SERIALIZED_NAME_JOB_PROPERTIES = "jobProperties";
   @SerializedName(SERIALIZED_NAME_JOB_PROPERTIES)

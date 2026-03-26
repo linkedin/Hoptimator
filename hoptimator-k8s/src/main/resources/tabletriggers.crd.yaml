@@ -65,6 +65,14 @@ spec:
                   description: Timestamp of the last successfully processed trigger event.
                   type: string
                   format: date-time
+                jobs:
+                  description: State of jobs triggered by this trigger.
+                  type: object
+                  additionalProperties:
+                    type: object
+                    description: Properties of the job.
+                    additionalProperties:
+                      type: string
       subresources:
         status: {}
       additionalPrinterColumns:
