@@ -173,9 +173,15 @@ public final class HoptimatorDdlUtils {
     Map<String, String> options = new HashMap<>();
     if (optionList != null) {
       for (int i = 0; i < optionList.size() - 1; i += 2) {
-        SqlIdentifier k = (SqlIdentifier) optionList.get(i);
+        SqlNode k = optionList.get(i);
         SqlLiteral v = (SqlLiteral) optionList.get(i + 1);
-        options.put(k.getSimple(), v.getValueAs(String.class));
+        String keyStr;
+        if (k instanceof SqlIdentifier) {
+          keyStr = String.join(".", ((SqlIdentifier) k).names);
+        } else {
+          keyStr = ((SqlLiteral) k).getValueAs(String.class);
+        }
+        options.put(keyStr, v.getValueAs(String.class));
       }
     }
     return options;

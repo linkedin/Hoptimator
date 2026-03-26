@@ -41,12 +41,14 @@ quickstart: build deploy
 deploy-demo: deploy
 	kubectl apply -f ./deploy/samples/demodb.yaml
 	kubectl apply -f ./deploy/samples/tabletriggers.yaml
+	kubectl apply -f ./deploy/samples/retl-job-template.yaml
 	kubectl apply -f ./deploy/samples/crontrigger.yaml
 	kubectl apply -f ./deploy/samples/user-jobs.yaml
 
 undeploy-demo: undeploy
 	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"
 	kubectl delete -f ./deploy/samples/tabletriggers.yaml || echo "skipping"
+	kubectl delete -f ./deploy/samples/retl-job-template.yaml || echo "skipping"
 	kubectl delete -f ./deploy/samples/crontrigger.yaml || echo "skipping"
 
 deploy-flink: deploy
