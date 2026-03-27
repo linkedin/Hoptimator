@@ -7,6 +7,7 @@ import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
@@ -58,9 +59,10 @@ class AvroConverterTypeMappingTest {
     RelDataType relType = typeFactory.createTypeWithNullability(typeFactory.createSqlType(sqlType), true);
     Schema avroSchema = AvroConverter.avro("ns", "field", relType);
 
-    assertNotNull(avroSchema);
     assertTrue(avroSchema.isUnion());
     assertTrue(avroSchema.isNullable());
+    assertTrue(avroSchema.getTypes().stream().anyMatch(t -> t.getType() == expectedAvroType));
+    assertTrue(avroSchema.getTypes().stream().anyMatch(t -> t.getType() == Schema.Type.NULL));
   }
 
   @Test
@@ -168,8 +170,8 @@ class AvroConverterTypeMappingTest {
     Schema nullSchema = Schema.create(Schema.Type.NULL);
     RelDataType relType = AvroConverter.rel(nullSchema, typeFactory);
 
-    assertNotNull(relType);
     assertTrue(relType.isNullable());
+    assertEquals(SqlTypeName.UNKNOWN, relType.getSqlTypeName());
   }
 
   @Test
@@ -184,7 +186,8 @@ class AvroConverterTypeMappingTest {
   @Test
   void testProto() {
     Schema avroSchema = Schema.create(Schema.Type.INT);
-    assertNotNull(AvroConverter.proto(avroSchema));
+    RelProtoDataType proto = AvroConverter.proto(avroSchema);
+    assertEquals(SqlTypeName.INTEGER, proto.apply(typeFactory).getSqlTypeName());
   }
 
   @Test
@@ -192,6 +195,6 @@ class AvroConverterTypeMappingTest {
     Schema avroSchema = Schema.create(Schema.Type.STRING);
     Schema result = AvroConverter.avro("ns", "test", AvroConverter.proto(avroSchema));
 
-    assertNotNull(result);
+    assertEquals(Schema.Type.STRING, result.getType());
   }
 }
