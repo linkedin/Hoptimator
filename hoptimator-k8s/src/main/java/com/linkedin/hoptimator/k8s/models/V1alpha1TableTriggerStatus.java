@@ -24,13 +24,20 @@ import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * TableTrigger status.
  */
 @ApiModel(description = "TableTrigger status.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-01-06T15:57:43.625Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-03-26T22:00:20.228Z[Etc/UTC]")
 public class V1alpha1TableTriggerStatus {
+  public static final String SERIALIZED_NAME_JOBS = "jobs";
+  @SerializedName(SERIALIZED_NAME_JOBS)
+  private Map<String, Map<String, String>> jobs = null;
+
   public static final String SERIALIZED_NAME_TIMESTAMP = "timestamp";
   @SerializedName(SERIALIZED_NAME_TIMESTAMP)
   private OffsetDateTime timestamp;
@@ -38,6 +45,37 @@ public class V1alpha1TableTriggerStatus {
   public static final String SERIALIZED_NAME_WATERMARK = "watermark";
   @SerializedName(SERIALIZED_NAME_WATERMARK)
   private OffsetDateTime watermark;
+
+
+  public V1alpha1TableTriggerStatus jobs(Map<String, Map<String, String>> jobs) {
+    
+    this.jobs = jobs;
+    return this;
+  }
+
+  public V1alpha1TableTriggerStatus putJobsItem(String key, Map<String, String> jobsItem) {
+    if (this.jobs == null) {
+      this.jobs = new HashMap<>();
+    }
+    this.jobs.put(key, jobsItem);
+    return this;
+  }
+
+   /**
+   * State of jobs triggered by this trigger.
+   * @return jobs
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "State of jobs triggered by this trigger.")
+
+  public Map<String, Map<String, String>> getJobs() {
+    return jobs;
+  }
+
+
+  public void setJobs(Map<String, Map<String, String>> jobs) {
+    this.jobs = jobs;
+  }
 
 
   public V1alpha1TableTriggerStatus timestamp(OffsetDateTime timestamp) {
@@ -95,13 +133,14 @@ public class V1alpha1TableTriggerStatus {
       return false;
     }
     V1alpha1TableTriggerStatus v1alpha1TableTriggerStatus = (V1alpha1TableTriggerStatus) o;
-    return Objects.equals(this.timestamp, v1alpha1TableTriggerStatus.timestamp) &&
+    return Objects.equals(this.jobs, v1alpha1TableTriggerStatus.jobs) &&
+        Objects.equals(this.timestamp, v1alpha1TableTriggerStatus.timestamp) &&
         Objects.equals(this.watermark, v1alpha1TableTriggerStatus.watermark);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(timestamp, watermark);
+    return Objects.hash(jobs, timestamp, watermark);
   }
 
 
@@ -109,6 +148,7 @@ public class V1alpha1TableTriggerStatus {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1TableTriggerStatus {\n");
+    sb.append("    jobs: ").append(toIndentedString(jobs)).append("\n");
     sb.append("    timestamp: ").append(toIndentedString(timestamp)).append("\n");
     sb.append("    watermark: ").append(toIndentedString(watermark)).append("\n");
     sb.append("}");
