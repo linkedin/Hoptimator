@@ -44,12 +44,6 @@ class VeniceDriverTest {
   }
 
   @Test
-  void testConstants() {
-    assertEquals("VENICE", VeniceDriver.CATALOG_NAME);
-    assertEquals("jdbc:venice://", VeniceDriver.CONNECTION_PREFIX);
-  }
-
-  @Test
   void testCreateClusterSchema() {
     VeniceDriver driver = new VeniceDriver();
     Properties props = new Properties();

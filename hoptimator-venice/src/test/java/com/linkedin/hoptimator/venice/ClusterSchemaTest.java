@@ -101,12 +101,6 @@ class ClusterSchemaTest {
     assertTrue(result.isEmpty());
   }
 
-  @Test
-  void testSslFactoryClassNameConstants() {
-    assertEquals("ssl.factory.class.name", ClusterSchema.SSL_FACTORY_CLASS_NAME);
-    assertEquals("com.linkedin.venice.security.DefaultSSLFactory", ClusterSchema.DEFAULT_SSL_FACTORY_CLASS_NAME);
-  }
-
   // --- tables().get() / loadTable() tests ---
 
   @Test

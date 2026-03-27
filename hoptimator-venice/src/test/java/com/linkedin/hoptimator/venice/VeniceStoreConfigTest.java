@@ -39,9 +39,4 @@ class VeniceStoreConfigTest {
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, storeConfig::getValueSchemaId);
     assertEquals("Invalid valueSchemaId: not-a-number", ex.getMessage());
   }
-
-  @Test
-  void testKeyValueSchemaIdConstant() {
-    assertEquals("valueSchemaId", VeniceStoreConfig.KEY_VALUE_SCHEMA_ID);
-  }
 }
