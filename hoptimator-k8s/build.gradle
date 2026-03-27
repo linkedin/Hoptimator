@@ -25,15 +25,6 @@ dependencies {
   testRuntimeOnly libs.slf4j.simple
 }
 
-jacocoTestReport {
-  classDirectories.setFrom(files(classDirectories.files.collect {
-    fileTree(dir: it, excludes: [
-      // Auto-generated CRD model classes from the K8s client code generator
-      '**/k8s/models/**'
-    ])
-  }))
-}
-
 publishing {
   repositories {
     maven {

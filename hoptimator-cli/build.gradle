@@ -67,15 +67,6 @@ publishing {
   }
 }
 
-jacocoTestReport {
-  classDirectories.setFrom(files(classDirectories.files.collect {
-    fileTree(dir: it, excludes: [
-      // Third-party sqlline library classes bundled via application plugin distribution
-      'sqlline/**',
-    ])
-  }))
-}
-
 java {
   withJavadocJar()
   withSourcesJar()

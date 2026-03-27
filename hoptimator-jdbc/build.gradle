@@ -41,15 +41,6 @@ components.java.withVariantsFromConfiguration(configurations.testFixturesRuntime
   skip()
 }
 
-jacocoTestReport {
-  classDirectories.setFrom(files(classDirectories.files.collect {
-    fileTree(dir: it, excludes: [
-      // Auto-generated SQL parser by JavaCC — not hand-written code
-      '**/ddl/**'
-    ])
-  }))
-}
-
 publishing {
   repositories {
     maven {

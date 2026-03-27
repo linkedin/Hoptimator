@@ -4,6 +4,27 @@ plugins {
 
 apply plugin: 'jacoco'
 
+// All JaCoCo exclusions for the aggregate report, centralised here.
+// Per-module jacocoTestReport exclusions don't reliably propagate to the aggregate
+// task because of Gradle's configuration resolution order, so all exclusions are
+// declared once and applied when building filtered FileTrees below.
+ext.jacocoAggregateExcludes = [
+  // ── hoptimator-models / hoptimator-k8s ──────────────────────────────────────
+  '**/models/**',           // auto-generated K8s CRD model classes
+
+  // ── hoptimator-operator ──────────────────────────────────────────────────────
+  '**/PipelineOperatorApp.class',                  // operator main entry point
+
+  // ── hoptimator-flink-runner ──────────────────────────────────────────────────
+  '**/FlinkRunner.class',                          // CLI entry point; requires Flink runtime
+
+  // ── hoptimator-cli ───────────────────────────────────────────────────────────
+  'sqlline/**',                                    // third-party library bundled via application
+
+  // ── hoptimator-jdbc ──────────────────────────────────────────────────────────
+  '**/ddl/**',                                     // auto-generated JavaCC SQL parser
+]
+
 task jacocoAggregateReport(type: JacocoReport) {
   group = 'verification'
   description = 'Generates an aggregate JaCoCo coverage report across all subprojects.'
@@ -20,8 +41,15 @@ subprojects {
     rootProject.jacocoAggregateReport.dependsOn(test)
     rootProject.jacocoAggregateReport.executionData(test)
     rootProject.jacocoAggregateReport.sourceDirectories.from(sourceSets.main.allSource.srcDirs)
-    // Use jacocoTestReport.classDirectories so per-module exclusions are inherited
-    rootProject.jacocoAggregateReport.classDirectories.from(jacocoTestReport.classDirectories)
+    // Add a filtered FileTree for each classes directory. Using fileTree directly (rather than
+    // jacocoTestReport.classDirectories) ensures the exclusions are applied at resolution time,
+    // bypassing Gradle's configuration-resolution ordering issue with per-module setFrom().
+    def excludes = rootProject.ext.jacocoAggregateExcludes
+    sourceSets.main.output.classesDirs.each { classesDir ->
+      rootProject.jacocoAggregateReport.classDirectories.from(
+        fileTree(dir: classesDir, excludes: excludes)
+      )
+    }
   }
 }
 
