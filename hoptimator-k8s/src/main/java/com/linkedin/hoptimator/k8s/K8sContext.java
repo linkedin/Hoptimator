@@ -96,18 +96,20 @@ public final class K8sContext {
       info = "Using token authentication.";
       apiClient = Config.fromToken(server, token);
       apiClient.setApiKeyPrefix("Bearer");
-    } else if (kubeconfig == null) {
-      info = "Using default configuration from ./kube/config.";
-      try {
-        apiClient = Config.defaultClient();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
     } else {
+      if (kubeconfig == null) {
+        kubeconfig = System.getProperty("user.home") + "/.kube/config";
+      }
       info = "Using kubeconfig from " + kubeconfig + ".";
       try (Reader r = Files.newBufferedReader(Paths.get(kubeconfig))) {
         KubeConfig kubeConfig = KubeConfig.loadKubeConfig(r);
         kubeConfig.setFile(new File(kubeconfig));
+        if (namespace == null) {
+          namespace = kubeConfig.getNamespace();
+        }
+        if (namespace == null) {
+          namespace = DEFAULT_NAMESPACE;
+        }
         apiClient = ClientBuilder.kubeconfig(kubeConfig).build();
       } catch (IOException e) {
         throw new RuntimeException(e);
@@ -118,6 +120,8 @@ public final class K8sContext {
       info += " Accessing " + server + ".";
       apiClient.setBasePath(server);
     }
+
+    info += " Using namespace " + namespace + ".";
 
     if (truststore != null) {
       try {
@@ -259,6 +263,6 @@ public final class K8sContext {
     if (namespace != null) {
       return namespace;
     }
-    return DEFAULT_NAMESPACE;
+    return null;
   }
 }
