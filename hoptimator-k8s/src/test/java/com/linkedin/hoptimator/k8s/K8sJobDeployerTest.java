@@ -1,5 +1,22 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.ThrowingFunction;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,25 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
-import com.linkedin.hoptimator.Job;
-import com.linkedin.hoptimator.Sink;
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.ThrowingFunction;
-import com.linkedin.hoptimator.SqlDialect;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

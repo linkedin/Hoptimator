@@ -1,8 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.sql.Connection;
-import java.util.Collections;
-
+import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.sql.SqlDialect;
@@ -13,7 +11,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.linkedin.hoptimator.Engine;
+import java.sql.Connection;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

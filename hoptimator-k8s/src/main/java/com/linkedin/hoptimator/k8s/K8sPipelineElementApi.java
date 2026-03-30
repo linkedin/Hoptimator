@@ -2,25 +2,25 @@ package com.linkedin.hoptimator.k8s;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
+import com.linkedin.hoptimator.util.Api;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
-import com.linkedin.hoptimator.util.Api;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /** Provides all pipeline elements in a {@link com.linkedin.hoptimator.k8s.K8sContext} instance. */

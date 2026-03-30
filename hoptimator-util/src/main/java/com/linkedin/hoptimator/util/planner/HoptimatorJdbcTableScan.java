@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.util.List;
-
 import org.apache.calcite.adapter.jdbc.JdbcTableScan;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.hint.RelHint;
+
+import java.util.List;
 
 
 public class HoptimatorJdbcTableScan extends JdbcTableScan {

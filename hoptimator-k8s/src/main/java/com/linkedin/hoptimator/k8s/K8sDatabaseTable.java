@@ -1,15 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
+import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
-import java.sql.Connection;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.StringJoiner;
-import javax.sql.DataSource;
-
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
@@ -19,12 +16,13 @@ import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
-import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
-import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.StringJoiner;
 
 
 public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1DatabaseList, K8sDatabaseTable.Row> {

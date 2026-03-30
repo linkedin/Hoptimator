@@ -1,7 +1,28 @@
 package com.linkedin.hoptimator.util.planner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.ThrowingFunction;
+import com.linkedin.hoptimator.util.ConnectionService;
+import org.apache.calcite.plan.Convention;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
+import org.apache.calcite.rel.rel2sql.SqlImplementor;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.runtime.ImmutablePairList;
+import org.apache.calcite.sql.SqlAsOperator;
+import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlLiteral;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.SqlNodeList;
+import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.fun.SqlItemOperator;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
@@ -10,27 +31,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import org.apache.calcite.plan.Convention;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
-import org.apache.calcite.rel.rel2sql.SqlImplementor;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.runtime.ImmutablePairList;
-
-import com.linkedin.hoptimator.Job;
-import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.Sink;
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.SqlDialect;
-import com.linkedin.hoptimator.util.ConnectionService;
-import org.apache.calcite.sql.SqlAsOperator;
-import org.apache.calcite.sql.SqlBasicCall;
-import org.apache.calcite.sql.SqlIdentifier;
-import org.apache.calcite.sql.SqlLiteral;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.fun.SqlItemOperator;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 
 
 /**

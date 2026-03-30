@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.util;
 
+import javax.annotation.Nonnull;
 import java.sql.SQLException;
 import java.util.AbstractCollection;
 import java.util.Iterator;
-import javax.annotation.Nonnull;
 
 
 /** A list of rows corresponding to remote objects behind some API. */

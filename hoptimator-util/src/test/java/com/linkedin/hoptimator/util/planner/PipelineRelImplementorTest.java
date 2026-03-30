@@ -1,15 +1,8 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.SQLNonTransientException;
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.ThrowingFunction;
 import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
@@ -37,9 +30,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.SqlDialect;
-import com.linkedin.hoptimator.ThrowingFunction;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

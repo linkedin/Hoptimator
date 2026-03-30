@@ -1,16 +1,15 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
-import io.kubernetes.client.openapi.models.V1OwnerReference;
-
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.DeploymentService;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /** Deploys View and Pipeline objects, along with all the pipeline elements. */

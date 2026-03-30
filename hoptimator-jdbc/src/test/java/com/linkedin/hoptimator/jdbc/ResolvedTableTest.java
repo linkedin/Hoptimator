@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.jdbc;
 
+import org.apache.avro.Schema;
+import org.junit.jupiter.api.Test;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.avro.Schema;
-import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

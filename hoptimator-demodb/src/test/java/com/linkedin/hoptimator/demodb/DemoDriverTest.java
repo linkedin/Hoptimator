@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.demodb;
 
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.junit.jupiter.api.Test;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
-
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

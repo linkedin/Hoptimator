@@ -1,9 +1,5 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Properties;
-
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.impl.ViewTable;
@@ -13,6 +9,10 @@ import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

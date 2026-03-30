@@ -1,17 +1,17 @@
 package com.linkedin.hoptimator.jdbc.schema;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.lookup.IgnoreCaseLookup;
 import org.apache.calcite.schema.lookup.LikePattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 
 /**

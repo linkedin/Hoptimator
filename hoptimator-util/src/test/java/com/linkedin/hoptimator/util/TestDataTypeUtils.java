@@ -1,10 +1,6 @@
 package com.linkedin.hoptimator.util;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -16,7 +12,10 @@ import org.apache.calcite.util.Litmus;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import com.linkedin.hoptimator.util.planner.ScriptImplementor;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
 
 public class TestDataTypeUtils {

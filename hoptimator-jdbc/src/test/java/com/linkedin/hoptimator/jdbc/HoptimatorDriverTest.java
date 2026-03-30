@@ -1,5 +1,12 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Source;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.sql.SqlNode;
+import org.junit.jupiter.api.Test;
+
 import java.sql.Connection;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
@@ -7,14 +14,6 @@ import java.sql.SQLNonTransientException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.apache.calcite.jdbc.CalcitePrepare;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.sql.SqlNode;
-import org.junit.jupiter.api.Test;
-
-import com.linkedin.hoptimator.Source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

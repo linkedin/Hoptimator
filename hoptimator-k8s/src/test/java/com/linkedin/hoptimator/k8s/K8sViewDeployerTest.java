@@ -1,15 +1,14 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.Arrays;
-
+import com.linkedin.hoptimator.View;
+import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.linkedin.hoptimator.View;
-import com.linkedin.hoptimator.k8s.models.V1alpha1View;
+import java.sql.SQLException;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

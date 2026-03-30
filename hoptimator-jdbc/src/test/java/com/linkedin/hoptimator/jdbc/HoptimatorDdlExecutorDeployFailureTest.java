@@ -1,11 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-import java.util.ArrayList;
-
+import com.linkedin.hoptimator.util.DeploymentService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.schema.SchemaPlus;
@@ -19,7 +14,11 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.linkedin.hoptimator.util.DeploymentService;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;

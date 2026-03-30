@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.jdbc;
 
+import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.util.Pair;
+
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -24,8 +27,6 @@ import java.sql.Timestamp;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
-import org.apache.calcite.avatica.util.ByteString;
-import org.apache.calcite.util.Pair;
 
 
 class HoptimatorResultSet implements ResultSet {

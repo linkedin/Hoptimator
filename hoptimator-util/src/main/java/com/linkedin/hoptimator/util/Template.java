@@ -1,18 +1,18 @@
 package com.linkedin.hoptimator.util;
 
 import com.linkedin.hoptimator.ThrowingSupplier;
-import java.sql.SQLException;
-import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
+import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 
 /** A convenient way to generate K8s YAML. */

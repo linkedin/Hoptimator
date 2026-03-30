@@ -1,8 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.sql.Wrapper;
-
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.junit.jupiter.api.Test;
@@ -11,9 +10,8 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import java.sql.SQLException;
+import java.sql.Wrapper;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

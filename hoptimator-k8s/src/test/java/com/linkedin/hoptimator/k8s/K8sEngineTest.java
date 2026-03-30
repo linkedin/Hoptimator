@@ -1,10 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import javax.sql.DataSource;
-
+import com.linkedin.hoptimator.SqlDialect;
 import org.junit.jupiter.api.Test;
 
-import com.linkedin.hoptimator.SqlDialect;
+import javax.sql.DataSource;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

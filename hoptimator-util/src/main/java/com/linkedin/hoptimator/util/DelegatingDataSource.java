@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.util;
 
+import javax.sql.DataSource;
 import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.logging.Logger;
-import javax.sql.DataSource;
 
 
 /** DataSource which loads a driver by URL, and papers over features the driver may lack. */

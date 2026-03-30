@@ -1,12 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
-import org.apache.calcite.schema.Schema;
-import org.junit.jupiter.api.Test;
-
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import org.apache.calcite.schema.Schema;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

@@ -1,10 +1,10 @@
 package com.linkedin.hoptimator.kafka;
 
 import com.linkedin.hoptimator.jdbc.JdbcTestBase;
-import java.util.List;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 
 /**

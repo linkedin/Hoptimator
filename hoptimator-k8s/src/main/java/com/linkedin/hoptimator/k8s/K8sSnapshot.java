@@ -2,12 +2,13 @@ package com.linkedin.hoptimator.k8s;
 
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 // Grabs information from each K8s spec to snapshot the current state of the resource.

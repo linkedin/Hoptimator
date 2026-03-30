@@ -1,15 +1,13 @@
 package com.linkedin.hoptimator.operator;
 
-import java.util.Collection;
-
+import com.linkedin.hoptimator.k8s.K8sContext;
+import io.kubernetes.client.extended.controller.Controller;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.kubernetes.client.extended.controller.Controller;
-
-import com.linkedin.hoptimator.k8s.K8sContext;
+import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 

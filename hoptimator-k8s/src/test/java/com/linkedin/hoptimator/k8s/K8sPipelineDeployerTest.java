@@ -1,11 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.Arrays;
-
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import org.junit.jupiter.api.Test;
 
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import java.sql.SQLException;
+import java.util.Arrays;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

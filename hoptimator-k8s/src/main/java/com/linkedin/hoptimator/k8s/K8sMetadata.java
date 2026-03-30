@@ -1,15 +1,15 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.HashMap;
-import java.util.Map;
-import javax.annotation.Nullable;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.impl.AbstractSchema;
-
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.util.LazyReference;
+
+import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /** Built-in K8s metadata tables */

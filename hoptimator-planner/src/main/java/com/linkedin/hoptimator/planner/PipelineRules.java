@@ -1,12 +1,11 @@
 package com.linkedin.hoptimator.planner;
 
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.hoptimator.catalog.HopRel;
+import com.linkedin.hoptimator.catalog.HopTable;
+import com.linkedin.hoptimator.catalog.HopTableScan;
+import com.linkedin.hoptimator.catalog.ProtoTable;
+import com.linkedin.hoptimator.catalog.RuleProvider;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -31,13 +30,12 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexProgram;
 import org.apache.calcite.schema.Table;
 
-import com.google.common.collect.ImmutableSet;
-
-import com.linkedin.hoptimator.catalog.HopRel;
-import com.linkedin.hoptimator.catalog.HopTable;
-import com.linkedin.hoptimator.catalog.HopTableScan;
-import com.linkedin.hoptimator.catalog.ProtoTable;
-import com.linkedin.hoptimator.catalog.RuleProvider;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 
 public class PipelineRules implements RuleProvider {

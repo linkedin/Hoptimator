@@ -1,20 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.Source;
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.Driver;
-import java.sql.DriverManager;
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
-import java.sql.SQLNonTransientException;
-import java.sql.SQLTransientConnectionException;
-import java.sql.SQLTransientException;
-import java.util.List;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.logging.LogManager;
-
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -33,7 +20,19 @@ import org.apache.calcite.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linkedin.hoptimator.Catalog;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientConnectionException;
+import java.sql.SQLTransientException;
+import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.logging.LogManager;
 
 
 /** Driver for :jdbc:hoptimator:// connections. */

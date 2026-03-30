@@ -2,16 +2,15 @@ package com.linkedin.hoptimator.operator.kafka;
 
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.models.V1alpha1Acl;
 import com.linkedin.hoptimator.models.V1alpha1AclList;
+import com.linkedin.hoptimator.models.V1alpha1AclSpec;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
-import java.sql.SQLException;
-import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Properties;
-
+import com.linkedin.hoptimator.operator.ConfigAssembler;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.common.acl.AccessControlEntry;
 import org.apache.kafka.common.acl.AclBinding;
@@ -23,14 +22,13 @@ import org.apache.kafka.common.resource.ResourceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-
-import com.linkedin.hoptimator.models.V1alpha1Acl;
-import com.linkedin.hoptimator.models.V1alpha1AclSpec;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
-import com.linkedin.hoptimator.operator.ConfigAssembler;
+import java.sql.SQLException;
+import java.time.Duration;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
 
 
 public class KafkaTopicAclReconciler implements Reconciler {

@@ -1,23 +1,21 @@
 package com.linkedin.hoptimator.operator.kafka;
 
-import java.time.Duration;
-import java.util.Collection;
-
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.informer.SharedInformerFactory;
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.util.generic.GenericKubernetesApi;
-
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.models.V1alpha1Acl;
 import com.linkedin.hoptimator.models.V1alpha1AclList;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.informer.SharedInformerFactory;
+import io.kubernetes.client.openapi.ApiClient;
+import io.kubernetes.client.util.generic.GenericKubernetesApi;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.time.Duration;
+import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

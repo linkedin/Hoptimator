@@ -1,15 +1,13 @@
 package com.linkedin.hoptimator.jdbc;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.calcite.jdbc.CalcitePrepare;
+import org.junit.jupiter.api.Test;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Properties;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.junit.jupiter.api.Test;
-
 import java.util.function.Supplier;
-
-import org.apache.calcite.jdbc.CalcitePrepare;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;

@@ -1,12 +1,13 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.HashMap;
-import java.util.Map;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.linkedin.hoptimator.k8s.K8sConnector.addKeysAsOption;
 import static org.junit.jupiter.api.Assertions.assertEquals;

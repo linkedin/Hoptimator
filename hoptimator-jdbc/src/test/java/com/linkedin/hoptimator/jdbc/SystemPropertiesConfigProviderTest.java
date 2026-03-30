@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.util.Properties;
-
 import org.junit.jupiter.api.Test;
+
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;

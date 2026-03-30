@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.util;
 
-import java.sql.Connection;
-import java.util.Properties;
-
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.sql.Connection;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 

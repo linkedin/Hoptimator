@@ -1,13 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-import java.util.stream.Collectors;
-
-import javax.sql.DataSource;
-
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
+import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
@@ -23,14 +22,12 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
-import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
-import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
+import javax.sql.DataSource;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -40,9 +37,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 
 
 @ExtendWith(MockitoExtension.class)

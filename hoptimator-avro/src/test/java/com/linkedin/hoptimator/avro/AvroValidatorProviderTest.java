@@ -1,14 +1,13 @@
 package com.linkedin.hoptimator.avro;
 
-import java.util.Collection;
-
+import com.linkedin.hoptimator.Validator;
 import org.apache.calcite.schema.SchemaPlus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.linkedin.hoptimator.Validator;
+import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;

@@ -1,14 +1,13 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -20,15 +19,14 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.Sink;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import static com.linkedin.hoptimator.k8s.K8sConnector.addKeysAsOption;
 import static org.junit.jupiter.api.Assertions.assertEquals;

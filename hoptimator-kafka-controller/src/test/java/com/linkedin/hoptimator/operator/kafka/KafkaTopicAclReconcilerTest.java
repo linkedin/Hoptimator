@@ -1,9 +1,16 @@
 package com.linkedin.hoptimator.operator.kafka;
 
-import java.sql.SQLException;
-import java.time.Duration;
-import java.util.Properties;
-
+import com.linkedin.hoptimator.k8s.K8sApi;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.models.V1alpha1Acl;
+import com.linkedin.hoptimator.models.V1alpha1AclList;
+import com.linkedin.hoptimator.models.V1alpha1AclSpec;
+import com.linkedin.hoptimator.models.V1alpha1AclSpecResource;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
+import com.linkedin.hoptimator.models.V1alpha1KafkaTopicSpec;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.CreateAclsResult;
 import org.apache.kafka.common.KafkaFuture;
@@ -14,18 +21,9 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-
-import com.linkedin.hoptimator.k8s.K8sApi;
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.models.V1alpha1Acl;
-import com.linkedin.hoptimator.models.V1alpha1AclList;
-import com.linkedin.hoptimator.models.V1alpha1AclSpec;
-import com.linkedin.hoptimator.models.V1alpha1AclSpecResource;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopicSpec;
+import java.sql.SQLException;
+import java.time.Duration;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

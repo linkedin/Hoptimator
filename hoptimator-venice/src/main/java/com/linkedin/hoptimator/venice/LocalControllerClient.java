@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.venice.controllerapi.ControllerClient;
+import com.linkedin.venice.security.SSLFactory;
+
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Optional;
-
-import com.linkedin.venice.controllerapi.ControllerClient;
-import com.linkedin.venice.security.SSLFactory;
 
 
 public class LocalControllerClient extends ControllerClient  {

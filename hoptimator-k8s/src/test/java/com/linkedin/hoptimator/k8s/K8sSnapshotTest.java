@@ -1,12 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
 
-import org.junit.jupiter.api.Test;
-
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

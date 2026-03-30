@@ -1,16 +1,15 @@
 package com.linkedin.hoptimator.operator;
 
-import java.sql.SQLException;
-import java.util.Map;
-import java.util.Properties;
-
+import com.linkedin.hoptimator.k8s.K8sContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.linkedin.hoptimator.k8s.K8sContext;
+import java.sql.SQLException;
+import java.util.Map;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.kafka;
 
-import java.util.Properties;
-
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.type.SqlTypeName;
+
+import java.util.Properties;
 
 
 /** A batch of records from a Kafka topic. */

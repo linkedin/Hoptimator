@@ -1,15 +1,14 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
-
+import com.linkedin.hoptimator.Deployer;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.Yaml;
 
-import com.linkedin.hoptimator.Deployer;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 
 
 public abstract class K8sDeployer<T extends KubernetesObject, U extends KubernetesListObject>

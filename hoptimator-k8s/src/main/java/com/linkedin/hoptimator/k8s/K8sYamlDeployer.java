@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import java.sql.SQLException;
-
 import com.linkedin.hoptimator.Deployer;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+
+import java.sql.SQLException;
 
 
 public abstract class K8sYamlDeployer implements Deployer {

@@ -20,15 +20,8 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
-import java.util.Map;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
@@ -51,6 +44,14 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 
 public final class HoptimatorDdlUtils {

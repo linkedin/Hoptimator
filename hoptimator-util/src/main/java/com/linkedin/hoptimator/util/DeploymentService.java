@@ -1,5 +1,19 @@
 package com.linkedin.hoptimator.util;
 
+import com.google.common.base.Splitter;
+import com.linkedin.hoptimator.Deployable;
+import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeployerProvider;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
+import com.linkedin.hoptimator.util.planner.PipelineRules;
+import org.apache.calcite.plan.RelOptMaterialization;
+import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelTraitSet;
+import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
+import org.apache.calcite.tools.Program;
+import org.apache.calcite.tools.Programs;
+
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -16,22 +30,6 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import org.apache.calcite.plan.RelOptMaterialization;
-import org.apache.calcite.plan.RelOptPlanner;
-import org.apache.calcite.plan.RelTraitSet;
-import org.apache.calcite.rel.RelRoot;
-import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
-import org.apache.calcite.tools.Program;
-import org.apache.calcite.tools.Programs;
-
-import com.google.common.base.Splitter;
-
-import com.linkedin.hoptimator.Deployable;
-import com.linkedin.hoptimator.Deployer;
-import com.linkedin.hoptimator.DeployerProvider;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
-import com.linkedin.hoptimator.util.planner.PipelineRules;
 
 
 public final class DeploymentService {

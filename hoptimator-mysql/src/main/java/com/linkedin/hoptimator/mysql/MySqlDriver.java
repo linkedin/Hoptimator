@@ -1,6 +1,13 @@
 package com.linkedin.hoptimator.mysql;
 
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
+import org.apache.calcite.avatica.ConnectStringParser;
+import org.apache.calcite.avatica.DriverVersion;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.schema.SchemaPlus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -9,13 +16,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Properties;
-
-import org.apache.calcite.avatica.ConnectStringParser;
-import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.schema.SchemaPlus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * JDBC driver for MySQL databases.

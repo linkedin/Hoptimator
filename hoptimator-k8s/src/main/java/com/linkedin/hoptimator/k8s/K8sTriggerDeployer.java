@@ -7,7 +7,6 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.util.Template;
-
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import java.sql.SQLException;

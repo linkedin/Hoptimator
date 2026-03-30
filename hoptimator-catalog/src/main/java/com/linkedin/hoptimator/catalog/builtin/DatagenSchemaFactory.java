@@ -1,8 +1,9 @@
 package com.linkedin.hoptimator.catalog.builtin;
 
-import java.util.HashMap;
-import java.util.Map;
-
+import com.linkedin.hoptimator.catalog.ConfigProvider;
+import com.linkedin.hoptimator.catalog.Database;
+import com.linkedin.hoptimator.catalog.DatabaseSchema;
+import com.linkedin.hoptimator.catalog.HopTable;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.Schema;
@@ -11,10 +12,8 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 
-import com.linkedin.hoptimator.catalog.ConfigProvider;
-import com.linkedin.hoptimator.catalog.Database;
-import com.linkedin.hoptimator.catalog.DatabaseSchema;
-import com.linkedin.hoptimator.catalog.HopTable;
+import java.util.HashMap;
+import java.util.Map;
 
 
 /** Provides built-in DATAGEN databases */

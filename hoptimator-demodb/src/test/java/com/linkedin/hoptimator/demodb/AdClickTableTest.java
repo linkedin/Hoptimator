@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.demodb;
 
-import java.util.Collection;
-import java.util.Iterator;
-
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collection;
+import java.util.Iterator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

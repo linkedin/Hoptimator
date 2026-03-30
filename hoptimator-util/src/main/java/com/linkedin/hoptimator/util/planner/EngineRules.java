@@ -1,9 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.sql.Connection;
-import java.util.Collections;
-import java.util.Objects;
-
+import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -21,7 +18,9 @@ import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
-import com.linkedin.hoptimator.Engine;
+import java.sql.Connection;
+import java.util.Collections;
+import java.util.Objects;
 
 
 /** Calling convention using a remote execution engine. */

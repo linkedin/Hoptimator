@@ -1,11 +1,10 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.util.Collection;
-
-import org.junit.jupiter.api.Test;
-
 import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.CatalogProvider;
+import org.junit.jupiter.api.Test;
+
+import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;

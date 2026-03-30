@@ -1,7 +1,23 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import com.linkedin.venice.client.schema.StoreSchemaFetcher;
+import com.linkedin.venice.client.store.ClientConfig;
+import com.linkedin.venice.client.store.ClientFactory;
+import com.linkedin.venice.controllerapi.ControllerClient;
+import com.linkedin.venice.controllerapi.ControllerClientFactory;
 import com.linkedin.venice.controllerapi.ControllerResponse;
 import com.linkedin.venice.exceptions.ErrorType;
+import com.linkedin.venice.security.SSLFactory;
+import com.linkedin.venice.utils.SslUtils;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.lookup.Lookup;
+import org.apache.calcite.util.LazyReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -10,23 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.impl.AbstractSchema;
-import org.apache.calcite.schema.lookup.Lookup;
-import org.apache.calcite.util.LazyReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
-import com.linkedin.venice.client.schema.StoreSchemaFetcher;
-import com.linkedin.venice.client.store.ClientConfig;
-import com.linkedin.venice.client.store.ClientFactory;
-import com.linkedin.venice.controllerapi.ControllerClient;
-import com.linkedin.venice.controllerapi.ControllerClientFactory;
-import com.linkedin.venice.security.SSLFactory;
-import com.linkedin.venice.utils.SslUtils;
 
 import static com.linkedin.hoptimator.util.DeploymentService.parseHints;
 

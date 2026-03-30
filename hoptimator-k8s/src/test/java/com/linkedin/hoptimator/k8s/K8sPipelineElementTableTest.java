@@ -1,16 +1,14 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.Collections;
-
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.schema.Schema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

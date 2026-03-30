@@ -1,9 +1,8 @@
 package com.linkedin.hoptimator.k8s;
 
-import org.junit.jupiter.api.Test;
-
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1ConfigMapList;
+import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

@@ -1,8 +1,6 @@
 package com.linkedin.hoptimator.venice;
 
-import java.util.Collections;
-import java.util.Map;
-
+import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.calcite.rel.type.RelDataType;
@@ -14,7 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.linkedin.venice.client.schema.StoreSchemaFetcher;
+import java.util.Collections;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

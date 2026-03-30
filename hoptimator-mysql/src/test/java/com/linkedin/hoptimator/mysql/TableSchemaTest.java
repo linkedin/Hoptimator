@@ -1,12 +1,6 @@
 package com.linkedin.hoptimator.mysql;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Properties;
-
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,7 +10,12 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;

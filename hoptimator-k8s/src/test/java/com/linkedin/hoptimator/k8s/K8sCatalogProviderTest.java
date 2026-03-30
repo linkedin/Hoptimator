@@ -1,10 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.Collection;
-
+import com.linkedin.hoptimator.Catalog;
 import org.junit.jupiter.api.Test;
 
-import com.linkedin.hoptimator.Catalog;
+import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

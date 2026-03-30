@@ -1,7 +1,17 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.hoptimator.Connector;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
+import com.linkedin.hoptimator.util.Template;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
+
 import java.io.IOException;
 import java.io.StringReader;
 import java.sql.SQLException;
@@ -13,16 +23,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
-
-import com.linkedin.hoptimator.Connector;
-import com.linkedin.hoptimator.Sink;
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
-import com.linkedin.hoptimator.util.Template;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
 
 
 /** Configures an abstract Source/Sink by applying TableTemplates */
