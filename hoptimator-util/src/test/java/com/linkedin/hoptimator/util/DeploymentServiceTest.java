@@ -355,7 +355,6 @@ class DeploymentServiceTest {
     assertEquals("my-pipeline", result.get(PIPELINE_OPTION));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testSpecifyDelegatesToDeployersAndCollectsSpecs() throws SQLException {
     when(mockDeployer1.specify()).thenReturn(Arrays.asList("spec-a", "spec-b"));

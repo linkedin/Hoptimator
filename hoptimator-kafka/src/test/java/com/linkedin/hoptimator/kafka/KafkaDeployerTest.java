@@ -214,7 +214,6 @@ class KafkaDeployerTest {
 
   // --- validate() tests ---
 
-  @SuppressWarnings("unchecked")
   @Test
   void testValidatePassesForNewTopic() {
     // No partitions option => validate() returns immediately without calling AdminClient

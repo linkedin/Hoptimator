@@ -17,10 +17,14 @@ public class LocalControllerClient extends ControllerClient  {
   @Override
   protected String discoverLeaderController() {
     try {
-      URL controllerUrl = new URL(super.discoverLeaderController());
-      return controllerUrl.getProtocol() + "://localhost:" + controllerUrl.getPort();
+      return transformUrl(super.discoverLeaderController());
     } catch (MalformedURLException e) {
       throw new IllegalArgumentException(e);
     }
+  }
+
+  protected static String transformUrl(String rawUrl) throws MalformedURLException {
+    URL controllerUrl = new URL(rawUrl);
+    return controllerUrl.getProtocol() + "://localhost:" + controllerUrl.getPort();
   }
 }

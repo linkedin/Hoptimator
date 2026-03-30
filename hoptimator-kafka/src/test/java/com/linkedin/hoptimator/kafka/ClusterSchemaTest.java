@@ -15,6 +15,8 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.apache.calcite.schema.lookup.LikePattern;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.Properties;
@@ -115,5 +117,29 @@ class ClusterSchemaTest {
     Lookup<Table> first = schema.tables();
     Lookup<Table> second = schema.tables();
     assertEquals(first, second);
+  }
+
+  @Test
+  void tablesGetNamesReturnsAllTopicNames() throws Exception {
+    when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+    when(mockListTopicsResult.names()).thenReturn(mockNamesFuture);
+    when(mockNamesFuture.get()).thenReturn(Set.of("topic-a", "topic-b", "topic-c"));
+
+    ClusterSchema schema = new ClusterSchema(properties);
+    Set<String> names = schema.tables().getNames(LikePattern.any());
+
+    assertEquals(Set.of("topic-a", "topic-b", "topic-c"), names);
+  }
+
+  @Test
+  void tablesGetNamesReturnsEmptySetWhenNoTopics() throws Exception {
+    when(mockAdminClient.listTopics()).thenReturn(mockListTopicsResult);
+    when(mockListTopicsResult.names()).thenReturn(mockNamesFuture);
+    when(mockNamesFuture.get()).thenReturn(Collections.emptySet());
+
+    ClusterSchema schema = new ClusterSchema(properties);
+    Set<String> names = schema.tables().getNames(LikePattern.any());
+
+    assertEquals(Collections.emptySet(), names);
   }
 }

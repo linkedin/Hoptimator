@@ -1,16 +1,21 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.Validator;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.DriverPropertyInfo;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
@@ -165,6 +170,110 @@ class HoptimatorDriverTest {
 
       assertNotNull(result);
       assertNotNull(result.root);
+    }
+  }
+
+  @Test
+  void testAnalyzeViewReturnsResult() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.AnalyzeViewResult result =
+          HoptimatorDriver.analyzeView(connection, "SELECT 1");
+
+      assertNotNull(result);
+    }
+  }
+
+  @Test
+  void testConnectionNotClosed() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      assertFalse(connection.isClosed());
+    }
+  }
+
+  @Test
+  void testGetMetaDataReturnsDatabaseMetaData() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      DatabaseMetaData metaData = connection.getMetaData();
+
+      assertNotNull(metaData);
+      assertInstanceOf(HoptimatorDatabaseMetaData.class, metaData);
+    }
+  }
+
+  @Test
+  void testCreateStatementWorks() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      Statement stmt = connection.createStatement();
+
+      assertNotNull(stmt);
+      stmt.close();
+    }
+  }
+
+  @Test
+  void testPrepareStatementWorks() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      PreparedStatement pstmt = connection.prepareStatement("SELECT 1");
+
+      assertNotNull(pstmt);
+      pstmt.close();
+    }
+  }
+
+  @Test
+  void testValidationServiceWithRealConnection() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalciteConnection calciteConn = connection.calciteConnection();
+      Validator.Issues issues = ValidationService.validate(calciteConn);
+
+      assertNotNull(issues);
+    }
+  }
+
+  @Test
+  void testCreatePrepareContextReturnsContext() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context ctx = connection.createPrepareContext();
+
+      assertNotNull(ctx);
+      assertNotNull(ctx.getRootSchema());
+    }
+  }
+
+  @Test
+  void testPrepareClassConstructorWithConnection() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      HoptimatorDriver.Prepare prepare = new HoptimatorDriver.Prepare(connection);
+
+      assertNotNull(prepare);
+    }
+  }
+
+  @Test
+  void testConnectWithPropertiesObject() throws SQLException {
+    Properties props = new Properties();
+    props.setProperty("catalogs", "util");
+    Connection conn = driver.connect("jdbc:hoptimator://", props);
+
+    assertNotNull(conn);
+    conn.close();
+  }
+
+  @Test
+  void testConnectionSchemaIsDefault() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      String schema = connection.getSchema();
+
+      assertNotNull(schema);
     }
   }
 }

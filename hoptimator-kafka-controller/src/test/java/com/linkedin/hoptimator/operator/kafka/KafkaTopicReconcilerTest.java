@@ -111,7 +111,6 @@ class KafkaTopicReconcilerTest {
     verify(kafkaTopicApi).updateStatus(eq(topic), any(V1alpha1KafkaTopicStatus.class));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReconcileExistingTopicIncreasesPartitions() throws Exception {
     V1alpha1KafkaTopic topic = buildKafkaTopic("existing-topic", 10, null);

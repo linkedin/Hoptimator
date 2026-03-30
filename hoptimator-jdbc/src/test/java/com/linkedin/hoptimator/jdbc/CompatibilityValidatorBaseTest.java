@@ -85,18 +85,9 @@ class CompatibilityValidatorBaseTest {
     schemaPlus.add("testTable", newTable);
 
     // Add the original table to the underlying schema via another CalciteSchema
-    // We need the unwrap to return a CalciteSchema whose schema has the same table
+    // We need the unwrapped CalciteSchema to return a CalciteSchema whose schema has the same table
     CalciteSchema originalCalciteSchema = CalciteSchema.createRootSchema(false, false);
     originalCalciteSchema.plus().add("testTable", originalTable);
-
-    // Use a SchemaPlus that unwraps to the originalCalciteSchema
-    // Since we can't easily do this with real objects, let's create a wrapped SchemaPlus
-    // Actually, the simplest approach: use the real SchemaPlus from calciteSchema
-    // and make its unwrap return a CalciteSchema that has the original table
-
-    // The real SchemaPlus.unwrap returns the CalciteSchema it came from, so the
-    // originalSchema.schema will be the same inner schema. We need the inner schema
-    // to already have the table as well. Let's just test with the real object.
 
     AtomicInteger validateCount = new AtomicInteger(0);
     CompatibilityValidatorBase validator = new CompatibilityValidatorBase(schemaPlus) {
@@ -108,9 +99,6 @@ class CompatibilityValidatorBaseTest {
 
     Validator.Issues issues = new Validator.Issues("test");
     validator.validate(issues);
-
-    // The original table may or may not be found depending on CalciteSchema internals
-    // but the walk should complete without error
     assertTrue(issues.valid());
   }
 

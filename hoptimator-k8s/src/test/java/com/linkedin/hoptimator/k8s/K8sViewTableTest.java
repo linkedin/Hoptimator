@@ -49,7 +49,6 @@ class K8sViewTableTest {
     return views.stream().map(table::toRow).collect(Collectors.toList());
   }
 
-  @SuppressWarnings("unchecked")
   private void stubRows() {
     doReturn(viewsAsRows(tableWithApi)).when(tableWithApi).rows();
   }

@@ -42,7 +42,7 @@ public final class SubscriptionReconciler implements Reconciler {
   private final Resource.Environment environment;
   private final Predicate<V1alpha1Subscription> filter;
 
-  private SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory,
+  SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory,
       Resource.Environment environment, Predicate<V1alpha1Subscription> filter) {
     this.operator = operator;
     this.plannerFactory = plannerFactory;

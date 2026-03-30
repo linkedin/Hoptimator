@@ -241,6 +241,62 @@ class HoptimatorDdlUtilsTest {
     }
   }
 
+  @Test
+  void testSchemaWithMutableFlag() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context context = connection.createPrepareContext();
+      SqlIdentifier id = new SqlIdentifier("myTable", SqlParserPos.ZERO);
+
+      Pair<CalciteSchema, String> result = HoptimatorDdlUtils.schema(context, true, id);
+
+      assertNotNull(result);
+      assertEquals("myTable", result.right);
+    }
+  }
+
+  @Test
+  void testCatalogWithThreePartIdentifier() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context context = connection.createPrepareContext();
+      SqlIdentifier id = new SqlIdentifier(Arrays.asList("catalog", "schema", "table"), SqlParserPos.ZERO);
+
+      Pair<CalciteSchema, String> result = HoptimatorDdlUtils.catalog(context, false, id);
+
+      assertNotNull(result);
+      assertEquals("schema.table", result.right);
+    }
+  }
+
+  @Test
+  void testCatalogThrowsForTwoPartIdentifier() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context context = connection.createPrepareContext();
+      SqlIdentifier id = new SqlIdentifier(Arrays.asList("schema", "table"), SqlParserPos.ZERO);
+
+      assertThrows(IllegalArgumentException.class,
+          () -> HoptimatorDdlUtils.catalog(context, false, id));
+    }
+  }
+
+  @Test
+  void testCatalogThrowsForSimpleIdentifier() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context context = connection.createPrepareContext();
+      SqlIdentifier id = new SqlIdentifier("table", SqlParserPos.ZERO);
+
+      assertThrows(IllegalArgumentException.class,
+          () -> HoptimatorDdlUtils.catalog(context, false, id));
+    }
+  }
+
   static class TestDatabaseSchema extends AbstractSchema
       implements com.linkedin.hoptimator.Database {
     private final String name;

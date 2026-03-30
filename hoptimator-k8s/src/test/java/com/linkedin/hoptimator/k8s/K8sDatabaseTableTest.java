@@ -249,7 +249,6 @@ class K8sDatabaseTableTest {
     assertEquals("driver", row.DRIVER);
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void addDatabasesWithNoCatalog() throws Exception {
     List<V1alpha1Database> databases = new ArrayList<>();
@@ -315,7 +314,6 @@ class K8sDatabaseTableTest {
     assertNotNull(root.subSchemas().get("MYCAT"));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void addDatabasesWithNullSchemaUsesName() throws Exception {
     List<V1alpha1Database> databases = new ArrayList<>();

@@ -10,12 +10,15 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.apache.calcite.schema.lookup.LikePattern;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -124,5 +127,32 @@ class TableSchemaTest {
     Lookup<Table> first = schema.tables();
     Lookup<Table> second = schema.tables();
     assertEquals(first, second);
+  }
+
+  @Test
+  void tablesGetNamesReturnsAllTableNames() throws SQLException {
+    stubConnection();
+    when(mockMetaData.getTables(eq(DATABASE), isNull(), eq("%"), any(String[].class)))
+        .thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true, true, false);
+    when(mockResultSet.getString("TABLE_NAME")).thenReturn("orders", "customers");
+
+    TableSchema schema = new TableSchema(properties, DATABASE);
+    Set<String> names = schema.tables().getNames(LikePattern.any());
+
+    assertEquals(Set.of("orders", "customers"), names);
+  }
+
+  @Test
+  void tablesGetNamesReturnsEmptySetWhenNoTables() throws SQLException {
+    stubConnection();
+    when(mockMetaData.getTables(eq(DATABASE), isNull(), eq("%"), any(String[].class)))
+        .thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(false);
+
+    TableSchema schema = new TableSchema(properties, DATABASE);
+    Set<String> names = schema.tables().getNames(LikePattern.any());
+
+    assertEquals(Set.of(), names);
   }
 }
