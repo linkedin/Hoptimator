@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.operator.pipeline;
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
 import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
@@ -46,7 +45,7 @@ class PipelineReconcilerTest {
   void setUp() {
     pipelines = new ArrayList<>();
     reconciler = new PipelineReconciler(null,
-        new FakeK8sApi<V1alpha1Pipeline, V1alpha1PipelineList>(pipelines),
+            new FakeK8sApi<>(pipelines),
         elementStatusEstimator);
   }
 

@@ -22,6 +22,7 @@ import java.util.Properties;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -103,7 +104,7 @@ class HoptimatorConnectionTest {
     DatabaseMetaData result = connection.getMetaData();
 
     assertNotNull(result);
-    assertTrue(result instanceof HoptimatorDatabaseMetaData);
+    assertInstanceOf(HoptimatorDatabaseMetaData.class, result);
   }
 
   @Test

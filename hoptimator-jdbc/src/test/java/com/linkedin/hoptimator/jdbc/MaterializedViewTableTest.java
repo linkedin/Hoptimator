@@ -51,7 +51,7 @@ class MaterializedViewTableTest {
         .build();
     RelProtoDataType protoType = RelDataTypeImpl.proto(rowType);
     List<String> viewPath = Arrays.asList("db", "schema");
-    viewTable = new ViewTable(Object.class, protoType, "SELECT 1", Arrays.asList("root"), viewPath);
+    viewTable = new ViewTable(Object.class, protoType, "SELECT 1", List.of("root"), viewPath);
     materializedViewTable = new MaterializedViewTable(viewTable);
   }
 

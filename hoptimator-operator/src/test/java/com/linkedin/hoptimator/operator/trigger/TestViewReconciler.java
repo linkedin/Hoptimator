@@ -2,9 +2,7 @@ package com.linkedin.hoptimator.operator.trigger;
 
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
-import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewStatus;
 import io.kubernetes.client.extended.controller.reconciler.Request;
 import io.kubernetes.client.extended.controller.reconciler.Result;
@@ -22,11 +20,11 @@ import java.util.Map;
 
 class TestViewReconciler {
 
-  private List<V1alpha1TableTrigger> triggers = new ArrayList<>();
-  private List<V1alpha1View> views = new ArrayList<>();
+  private final List<V1alpha1TableTrigger> triggers = new ArrayList<>();
+  private final List<V1alpha1View> views = new ArrayList<>();
   private final ViewReconciler reconciler = new ViewReconciler(
-      new FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList>(triggers),
-      new FakeK8sApi<V1alpha1View, V1alpha1ViewList>(views));
+      new FakeK8sApi<>(triggers),
+      new FakeK8sApi<>(views));
 
   @BeforeEach
   void beforeEach() {

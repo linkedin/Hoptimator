@@ -26,10 +26,10 @@ import java.util.Arrays;
 import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -126,7 +126,7 @@ class RemoteTableTest {
         mockInput, TableModify.Operation.INSERT, null, null, false);
 
     assertNotNull(result);
-    assertTrue(result instanceof LogicalTableModify);
+    assertInstanceOf(LogicalTableModify.class, result);
   }
 
   public static class TestRow {

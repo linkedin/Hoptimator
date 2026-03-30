@@ -159,7 +159,7 @@ class ValidatorTest {
   void testCheckClosedThrowsWhenChildNotClosed() {
     Validator.Issues parent = new Validator.Issues("parent");
     assertNotNull(parent.child("unclosed-child"));
-    assertThrows(IllegalStateException.class, () -> parent.close());
+    assertThrows(IllegalStateException.class, parent::close);
   }
 
   @Test
@@ -175,7 +175,7 @@ class ValidatorTest {
     Validator.Issues parent = new Validator.Issues("parent");
     Validator.Issues child = parent.child("bad-child");
     assertNotNull(child);
-    IllegalStateException ex = assertThrows(IllegalStateException.class, () -> parent.close());
+    IllegalStateException ex = assertThrows(IllegalStateException.class, parent::close);
     assertTrue(ex.getMessage().contains("bad-child"));
     assertTrue(ex.getMessage().contains("was not closed"));
   }

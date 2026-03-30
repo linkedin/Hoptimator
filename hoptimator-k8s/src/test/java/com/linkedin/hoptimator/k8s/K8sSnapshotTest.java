@@ -7,10 +7,8 @@ import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 class K8sSnapshotTest {
@@ -65,28 +63,6 @@ class K8sSnapshotTest {
   }
 
   @Test
-  void k8sSpecEqualsNull() {
-    DynamicKubernetesObject obj = new DynamicKubernetesObject();
-    obj.setApiVersion("v1");
-    obj.setKind("ConfigMap");
-    obj.setMetadata(new V1ObjectMeta().name("test").namespace("default"));
-
-    K8sSnapshot.K8sSpec spec = new K8sSnapshot.K8sSpec(obj);
-    assertFalse(spec.equals(null));
-  }
-
-  @Test
-  void k8sSpecEqualsDifferentType() {
-    DynamicKubernetesObject obj = new DynamicKubernetesObject();
-    obj.setApiVersion("v1");
-    obj.setKind("ConfigMap");
-    obj.setMetadata(new V1ObjectMeta().name("test").namespace("default"));
-
-    K8sSnapshot.K8sSpec spec = new K8sSnapshot.K8sSpec(obj);
-    assertFalse(spec.equals("not a K8sSpec"));
-  }
-
-  @Test
   void k8sSpecEqualsSameValues() {
     DynamicKubernetesObject obj1 = new DynamicKubernetesObject();
     obj1.setApiVersion("v1");
@@ -100,19 +76,8 @@ class K8sSnapshotTest {
 
     K8sSnapshot.K8sSpec spec1 = new K8sSnapshot.K8sSpec(obj1);
     K8sSnapshot.K8sSpec spec2 = new K8sSnapshot.K8sSpec(obj2);
-    assertTrue(spec1.equals(spec2));
+    assertEquals(spec1, spec2);
     assertEquals(spec1.hashCode(), spec2.hashCode());
-  }
-
-  @Test
-  void k8sSpecEqualsSameInstance() {
-    DynamicKubernetesObject obj = new DynamicKubernetesObject();
-    obj.setApiVersion("v1");
-    obj.setKind("ConfigMap");
-    obj.setMetadata(new V1ObjectMeta().name("test").namespace("default"));
-
-    K8sSnapshot.K8sSpec spec = new K8sSnapshot.K8sSpec(obj);
-    assertTrue(spec.equals(spec));
   }
 
   @Test

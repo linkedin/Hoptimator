@@ -18,15 +18,14 @@ class MemberTableTest {
   @Test
   void testConstructorPopulatesRows() {
     MemberTable table = new MemberTable();
-    Collection<MemberTable.Row> rows = (Collection<MemberTable.Row>) table.rows();
+    Collection<MemberTable.Row> rows = table.rows();
     assertEquals(3, rows.size());
   }
 
   @Test
   void testRowData() {
     MemberTable table = new MemberTable();
-    Iterator<MemberTable.Row> iterator =
-        ((Collection<MemberTable.Row>) table.rows()).iterator();
+    Iterator<MemberTable.Row> iterator = table.rows().iterator();
 
     MemberTable.Row alice = iterator.next();
     assertEquals("Alice", alice.FIRST_NAME);

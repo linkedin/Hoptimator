@@ -18,15 +18,14 @@ class PageViewTableTest {
   @Test
   void testConstructorPopulatesRows() {
     PageViewTable table = new PageViewTable();
-    Collection<PageViewTable.Row> rows = (Collection<PageViewTable.Row>) table.rows();
+    Collection<PageViewTable.Row> rows = table.rows();
     assertEquals(2, rows.size());
   }
 
   @Test
   void testRowData() {
     PageViewTable table = new PageViewTable();
-    Iterator<PageViewTable.Row> iterator =
-        ((Collection<PageViewTable.Row>) table.rows()).iterator();
+    Iterator<PageViewTable.Row> iterator = table.rows().iterator();
 
     PageViewTable.Row first = iterator.next();
     assertEquals("urn:li:page:10000", first.PAGE_URN);

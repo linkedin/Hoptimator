@@ -381,7 +381,7 @@ class HoptimatorResultSetTest {
   void testGetByteReturnsZeroForNull() throws Exception {
     List<Pair<String, Integer>> columns = List.of(new Pair<>("VAL", Types.TINYINT));
     List<List<Object>> rows = new ArrayList<>();
-    rows.add(Arrays.asList((Object) null));
+    rows.add(Collections.singletonList((Object) null));
     HoptimatorResultSet rs = new HoptimatorResultSet(rows, columns);
     rs.next();
 
@@ -436,7 +436,7 @@ class HoptimatorResultSetTest {
   void testGetLongReturnsZeroForNull() throws Exception {
     List<Pair<String, Integer>> columns = List.of(new Pair<>("VAL", Types.BIGINT));
     List<List<Object>> rows = new ArrayList<>();
-    rows.add(Arrays.asList((Object) null));
+    rows.add(Collections.singletonList((Object) null));
     HoptimatorResultSet rs = new HoptimatorResultSet(rows, columns);
     rs.next();
 
@@ -469,7 +469,7 @@ class HoptimatorResultSetTest {
   void testGetFloatReturnsZeroForNull() throws Exception {
     List<Pair<String, Integer>> columns = List.of(new Pair<>("VAL", Types.FLOAT));
     List<List<Object>> rows = new ArrayList<>();
-    rows.add(Arrays.asList((Object) null));
+    rows.add(Collections.singletonList((Object) null));
     HoptimatorResultSet rs = new HoptimatorResultSet(rows, columns);
     rs.next();
 
@@ -502,7 +502,7 @@ class HoptimatorResultSetTest {
   void testGetDoubleReturnsZeroForNull() throws Exception {
     List<Pair<String, Integer>> columns = List.of(new Pair<>("VAL", Types.DOUBLE));
     List<List<Object>> rows = new ArrayList<>();
-    rows.add(Arrays.asList((Object) null));
+    rows.add(Collections.singletonList((Object) null));
     HoptimatorResultSet rs = new HoptimatorResultSet(rows, columns);
     rs.next();
 
@@ -549,7 +549,7 @@ class HoptimatorResultSetTest {
   void testGetBooleanReturnsFalseForNullValue() throws Exception {
     List<Pair<String, Integer>> columns = List.of(new Pair<>("VAL", Types.BOOLEAN));
     List<List<Object>> rows = new ArrayList<>();
-    rows.add(Arrays.asList((Object) null));
+    rows.add(Collections.singletonList((Object) null));
     HoptimatorResultSet rs = new HoptimatorResultSet(rows, columns);
     rs.next();
 
@@ -706,8 +706,8 @@ class HoptimatorResultSetTest {
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateBinaryStream(1, null, 0L));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateCharacterStream(1, null, 0L));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateBlob(1, null, 0L));
-    assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateClob(1, (Reader) null, 0L));
-    assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateNClob(1, (Reader) null, 0L));
+    assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateClob(1, null, 0L));
+    assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateNClob(1, null, 0L));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateNCharacterStream(1, null));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateAsciiStream(1, null));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateBinaryStream(1, null));
@@ -751,8 +751,8 @@ class HoptimatorResultSetTest {
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateBinaryStream("NAME", null, 0L));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateCharacterStream("NAME", null, 0L));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateBlob("NAME", null, 0L));
-    assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateClob("NAME", (Reader) null, 0L));
-    assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateNClob("NAME", (Reader) null, 0L));
+    assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateClob("NAME", null, 0L));
+    assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateNClob("NAME", null, 0L));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateNCharacterStream("NAME", null));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateAsciiStream("NAME", null));
     assertThrows(SQLFeatureNotSupportedException.class, () -> resultSet.updateBinaryStream("NAME", null));
@@ -986,9 +986,9 @@ class HoptimatorResultSetTest {
   @Test
   void testGetByteReturnsDirectByteValue() throws Exception {
     // Create a result set with actual Byte values
-    List<Pair<String, Integer>> cols = Arrays.asList(new Pair<>("VAL", Types.TINYINT));
+    List<Pair<String, Integer>> cols = List.of(new Pair<>("VAL", Types.TINYINT));
     List<List<Object>> rows = new ArrayList<>();
-    rows.add(Arrays.asList((Object) Byte.valueOf((byte) 42)));
+    rows.add(Collections.singletonList((byte) 42));
     HoptimatorResultSet byteRs = new HoptimatorResultSet(rows, cols);
     byteRs.next();
 
@@ -997,9 +997,9 @@ class HoptimatorResultSetTest {
 
   @Test
   void testGetShortReturnsDirectShortValue() throws Exception {
-    List<Pair<String, Integer>> cols = Arrays.asList(new Pair<>("VAL", Types.SMALLINT));
+    List<Pair<String, Integer>> cols = List.of(new Pair<>("VAL", Types.SMALLINT));
     List<List<Object>> rows = new ArrayList<>();
-    rows.add(Arrays.asList((Object) Short.valueOf((short) 1000)));
+    rows.add(Collections.singletonList((short) 1000));
     HoptimatorResultSet shortRs = new HoptimatorResultSet(rows, cols);
     shortRs.next();
 

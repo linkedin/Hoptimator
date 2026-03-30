@@ -12,6 +12,7 @@ import java.sql.Connection;
 import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -38,7 +39,7 @@ class K8sConnectorProviderTest {
     Collection<Connector> connectors = provider.connectors(source, connection);
 
     assertEquals(1, connectors.size());
-    assertTrue(connectors.iterator().next() instanceof K8sConnector);
+    assertInstanceOf(K8sConnector.class, connectors.iterator().next());
   }
 
   @Test

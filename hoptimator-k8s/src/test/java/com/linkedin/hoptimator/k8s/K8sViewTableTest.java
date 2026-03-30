@@ -51,7 +51,7 @@ class K8sViewTableTest {
 
   @SuppressWarnings("unchecked")
   private void stubRows() {
-    doReturn((Collection<K8sViewTable.Row>) viewsAsRows(tableWithApi)).when(tableWithApi).rows();
+    doReturn(viewsAsRows(tableWithApi)).when(tableWithApi).rows();
   }
 
   @Test

@@ -18,15 +18,14 @@ class CompanyTableTest {
   @Test
   void testConstructorPopulatesRows() {
     CompanyTable table = new CompanyTable();
-    Collection<CompanyTable.Row> rows = (Collection<CompanyTable.Row>) table.rows();
+    Collection<CompanyTable.Row> rows = table.rows();
     assertEquals(2, rows.size());
   }
 
   @Test
   void testRowData() {
     CompanyTable table = new CompanyTable();
-    Iterator<CompanyTable.Row> iterator =
-        ((Collection<CompanyTable.Row>) table.rows()).iterator();
+    Iterator<CompanyTable.Row> iterator = table.rows().iterator();
 
     CompanyTable.Row first = iterator.next();
     assertEquals("LinkedIn", first.COMPANY_NAME);

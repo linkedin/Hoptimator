@@ -90,7 +90,7 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
         .with("schema", trigger.schema())
         .with(properties);
     V1alpha1JobTemplate jobTemplate = jobTemplateApi.get(jobNamespace, jobName);
-    Map<String, String> labels = new HashMap<String, String>();
+    Map<String, String> labels = new HashMap<>();
     labels.put("view", viewName); // a corresponding view object may or may not exist.
     String template = jobTemplate.getSpec().getYaml();
     String rendered = new Template.SimpleTemplate(template).render(env);

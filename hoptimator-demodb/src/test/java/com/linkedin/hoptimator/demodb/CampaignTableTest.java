@@ -18,7 +18,7 @@ class CampaignTableTest {
   @Test
   void testConstructorPopulatesRows() {
     CampaignTable table = new CampaignTable();
-    Collection<CampaignTable.Row> rows = (Collection<CampaignTable.Row>) table.rows();
+    Collection<CampaignTable.Row> rows = table.rows();
     assertEquals(2, rows.size());
   }
 
@@ -26,7 +26,7 @@ class CampaignTableTest {
   void testRowData() {
     CampaignTable table = new CampaignTable();
     Iterator<CampaignTable.Row> iterator =
-        ((Collection<CampaignTable.Row>) table.rows()).iterator();
+        table.rows().iterator();
 
     CampaignTable.Row first = iterator.next();
     assertEquals("urn:li:campaign:100", first.CAMPAIGN_URN);

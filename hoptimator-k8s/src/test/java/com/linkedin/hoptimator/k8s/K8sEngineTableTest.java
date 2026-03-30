@@ -108,7 +108,7 @@ class K8sEngineTableTest {
     K8sEngineTable table = spy(new K8sEngineTable(null));
     K8sEngineTable.Row row = new K8sEngineTable.Row("engine-1", "jdbc:test://host", "ANSI", "com.test.Driver",
         new String[]{"db1", "db2"});
-    doReturn(Arrays.asList(row)).when(table).rows();
+    doReturn(List.of(row)).when(table).rows();
 
     List<Engine> engines = table.forDatabase("db1");
 
@@ -122,7 +122,7 @@ class K8sEngineTableTest {
     K8sEngineTable table = spy(new K8sEngineTable(null));
     K8sEngineTable.Row row = new K8sEngineTable.Row("engine-1", "jdbc:test://host", "FLINK", "com.test.Driver",
         new String[]{"db1", "db2"});
-    doReturn(Arrays.asList(row)).when(table).rows();
+    doReturn(List.of(row)).when(table).rows();
 
     List<Engine> engines = table.forDatabase("db3");
 
@@ -133,7 +133,7 @@ class K8sEngineTableTest {
   void forDatabaseIncludesEngineWithNullDatabases() {
     K8sEngineTable table = spy(new K8sEngineTable(null));
     K8sEngineTable.Row row = new K8sEngineTable.Row("engine-1", "jdbc:test://host", "FLINK", null, null);
-    doReturn(Arrays.asList(row)).when(table).rows();
+    doReturn(List.of(row)).when(table).rows();
 
     List<Engine> engines = table.forDatabase("any-db");
 
@@ -145,7 +145,7 @@ class K8sEngineTableTest {
   void forDatabaseIncludesEngineWithEmptyDatabases() {
     K8sEngineTable table = spy(new K8sEngineTable(null));
     K8sEngineTable.Row row = new K8sEngineTable.Row("engine-1", "jdbc:test://host", null, null, new String[]{});
-    doReturn(Arrays.asList(row)).when(table).rows();
+    doReturn(List.of(row)).when(table).rows();
 
     List<Engine> engines = table.forDatabase("any-db");
 

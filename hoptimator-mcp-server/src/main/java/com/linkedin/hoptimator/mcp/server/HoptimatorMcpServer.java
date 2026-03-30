@@ -101,9 +101,8 @@ public class HoptimatorMcpServer {
 
     String fetchPipelineSchema = "{\"type\" : \"object\", \"properties\" : {}}";
     SyncToolSpecification fetchPipelines = new SyncToolSpecification(
-        new Tool("fetch_pipelines", "Fetches all currently deployed pipelines", fetchPipelineSchema), (x, args2) -> {
-          return handleFetchPipelines(conn, gson);
-        });
+        new Tool("fetch_pipelines", "Fetches all currently deployed pipelines", fetchPipelineSchema),
+            (x, args2) -> handleFetchPipelines(conn, gson));
 
     String fetchPipelineStatusSchema = "{\"type\" : \"object\", \"properties\" : {\"pipeline\" : {\"type\" : \"string\"}},"
         + "\"required\" : [\"pipeline\"]}";

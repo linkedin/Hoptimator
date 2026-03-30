@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 class BuiltinCatalogProviderTest {
@@ -39,6 +39,6 @@ class BuiltinCatalogProviderTest {
     Catalog catalog = provider.catalogs().iterator().next();
 
     assertNotNull(catalog.description());
-    assertTrue(catalog.description().length() > 0);
+    assertFalse(catalog.description().isEmpty());
   }
 }

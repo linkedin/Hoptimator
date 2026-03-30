@@ -14,9 +14,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.sql.SQLException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -47,7 +48,7 @@ class UtilityCatalogTest {
     String description = catalog.description();
 
     assertNotNull(description);
-    assertTrue(description.length() > 0);
+    assertFalse(description.isEmpty());
   }
 
   @Test
@@ -67,7 +68,7 @@ class UtilityCatalogTest {
     assertNotNull(tables);
     Table printTable = tables.get("PRINT");
     assertNotNull(printTable);
-    assertTrue(printTable instanceof PrintTable);
+    assertInstanceOf(PrintTable.class, printTable);
   }
 
   @Test

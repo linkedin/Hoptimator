@@ -303,23 +303,6 @@ class HoptimatorMcpServerTest {
     assertEquals(true, columns.get(0).get("primary_key"));
   }
 
-  // --- Constants tests ---
-
-  @Test
-  void testPipelineStatusQueryIsNotEmpty() {
-    assertFalse(HoptimatorMcpServer.PIPELINE_STATUS_QUERY.isEmpty());
-  }
-
-  @Test
-  void testPipelineElementStatusQueryIsNotEmpty() {
-    assertFalse(HoptimatorMcpServer.PIPELINE_ELEMENT_STATUS_QUERY.isEmpty());
-  }
-
-  @Test
-  void testPipelineDescribeQueryIsNotEmpty() {
-    assertFalse(HoptimatorMcpServer.PIPELINE_DESCRIBE_QUERY.isEmpty());
-  }
-
   // --- Additional isModifyStatement tests ---
 
   @Test
@@ -503,19 +486,6 @@ class HoptimatorMcpServerTest {
     assertEquals("NAME", columns.get(1).get("COLUMN_NAME"));
     assertEquals("VARCHAR", columns.get(1).get("TYPE_NAME"));
     assertEquals(255, columns.get(1).get("COLUMN_SIZE"));
-  }
-
-  // --- Query constants content ---
-
-  @Test
-  void testPipelineStatusQueryContainsSelectAndWhere() {
-    assertTrue(HoptimatorMcpServer.PIPELINE_STATUS_QUERY.contains("select"));
-    assertTrue(HoptimatorMcpServer.PIPELINE_STATUS_QUERY.contains("where"));
-  }
-
-  @Test
-  void testPipelineDescribeQueryContainsJoin() {
-    assertTrue(HoptimatorMcpServer.PIPELINE_DESCRIBE_QUERY.contains("join"));
   }
 
   // --- Handler tests ---

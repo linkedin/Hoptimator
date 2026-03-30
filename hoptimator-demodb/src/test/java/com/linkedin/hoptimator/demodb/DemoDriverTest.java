@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -42,7 +43,7 @@ class DemoDriverTest {
     props.setProperty("names", "");
     Connection connection = driver.connect("jdbc:demodb://;names=", props);
     assertNotNull(connection);
-    assertTrue(connection instanceof CalciteConnection);
+    assertInstanceOf(CalciteConnection.class, connection);
     assertTrue(connection.getAutoCommit());
     CalciteConnection calciteConnection = (CalciteConnection) connection;
     assertNotNull(calciteConnection.getRootSchema().subSchemas().get("PROFILE"));

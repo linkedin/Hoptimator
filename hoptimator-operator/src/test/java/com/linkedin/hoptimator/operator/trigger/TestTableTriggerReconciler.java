@@ -4,7 +4,6 @@ import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.FakeK8sYamlApi;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 import io.kubernetes.client.extended.controller.Controller;
@@ -14,7 +13,6 @@ import io.kubernetes.client.informer.SharedIndexInformer;
 import io.kubernetes.client.informer.SharedInformerFactory;
 import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1JobCondition;
-import io.kubernetes.client.openapi.models.V1JobList;
 import io.kubernetes.client.openapi.models.V1JobStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.util.Yaml;
@@ -36,12 +34,12 @@ import static org.mockito.Mockito.when;
 
 class TestTableTriggerReconciler {
 
-  private List<V1Job> jobs = new ArrayList<>();
-  private List<V1alpha1TableTrigger> triggers = new ArrayList<>();
-  private Map<String, String> yamls = new HashMap<>();
+  private final List<V1Job> jobs = new ArrayList<>();
+  private final List<V1alpha1TableTrigger> triggers = new ArrayList<>();
+  private final Map<String, String> yamls = new HashMap<>();
   private final TableTriggerReconciler reconciler = new TableTriggerReconciler(
-      new FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList>(triggers),
-      new FakeK8sApi<V1Job, V1JobList>(jobs),
+          new FakeK8sApi<>(triggers),
+          new FakeK8sApi<>(jobs),
       new FakeK8sYamlApi(yamls));
 
   @BeforeEach

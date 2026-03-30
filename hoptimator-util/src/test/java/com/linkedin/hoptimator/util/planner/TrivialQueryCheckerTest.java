@@ -51,12 +51,12 @@ import static org.mockito.Mockito.when;
 
 /**
  * Test suite for TrivialQueryChecker to verify correct identification of trivial vs non-trivial queries.
- *
+ * <p>
  * A trivial query should only contain:
  * - Simple table scans
  * - Simple projections (field references and nested field access only, no functions or calculations)
  * - Nested field access using ITEM operator (e.g., ITEM($3, 'nestedField'))
- *
+ * <p>
  * Non-trivial queries include:
  * - Joins, aggregations, filters, sorts, unions
  * - Complex expressions in projections (functions, calculations, etc.)

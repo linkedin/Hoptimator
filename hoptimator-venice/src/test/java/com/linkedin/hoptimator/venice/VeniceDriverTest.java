@@ -12,6 +12,7 @@ import java.sql.SQLNonTransientException;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -62,7 +63,7 @@ class VeniceDriverTest {
     };
     Connection connection = driver.connect("jdbc:venice://", new Properties());
     assertNotNull(connection);
-    assertTrue(connection instanceof CalciteConnection);
+    assertInstanceOf(CalciteConnection.class, connection);
     assertTrue(connection.getAutoCommit());
     assertEquals("VENICE", connection.getCatalog());
     connection.close();

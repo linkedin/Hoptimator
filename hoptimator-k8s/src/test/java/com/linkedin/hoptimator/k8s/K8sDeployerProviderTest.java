@@ -17,6 +17,7 @@ import java.sql.Connection;
 import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -49,7 +50,7 @@ class K8sDeployerProviderTest {
     Collection<Deployer> deployers = provider.deployers(mv, connection);
 
     assertEquals(1, deployers.size());
-    assertTrue(deployers.iterator().next() instanceof K8sMaterializedViewDeployer);
+    assertInstanceOf(K8sMaterializedViewDeployer.class, deployers.iterator().next());
   }
 
   @Test
@@ -61,7 +62,7 @@ class K8sDeployerProviderTest {
     Collection<Deployer> deployers = provider.deployers(view, connection);
 
     assertEquals(1, deployers.size());
-    assertTrue(deployers.iterator().next() instanceof K8sViewDeployer);
+    assertInstanceOf(K8sViewDeployer.class, deployers.iterator().next());
   }
 
   @Test
@@ -73,7 +74,7 @@ class K8sDeployerProviderTest {
     Collection<Deployer> deployers = provider.deployers(job, connection);
 
     assertEquals(1, deployers.size());
-    assertTrue(deployers.iterator().next() instanceof K8sJobDeployer);
+    assertInstanceOf(K8sJobDeployer.class, deployers.iterator().next());
   }
 
   @Test
@@ -85,7 +86,7 @@ class K8sDeployerProviderTest {
     Collection<Deployer> deployers = provider.deployers(source, connection);
 
     assertEquals(1, deployers.size());
-    assertTrue(deployers.iterator().next() instanceof K8sSourceDeployer);
+    assertInstanceOf(K8sSourceDeployer.class, deployers.iterator().next());
   }
 
   @Test
@@ -97,7 +98,7 @@ class K8sDeployerProviderTest {
     Collection<Deployer> deployers = provider.deployers(trigger, connection);
 
     assertEquals(1, deployers.size());
-    assertTrue(deployers.iterator().next() instanceof K8sTriggerDeployer);
+    assertInstanceOf(K8sTriggerDeployer.class, deployers.iterator().next());
   }
 
   @Test

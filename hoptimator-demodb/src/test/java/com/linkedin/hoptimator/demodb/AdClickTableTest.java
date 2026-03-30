@@ -18,7 +18,7 @@ class AdClickTableTest {
   @Test
   void testConstructorPopulatesRows() {
     AdClickTable table = new AdClickTable();
-    Collection<AdClickTable.Row> rows = (Collection<AdClickTable.Row>) table.rows();
+    Collection<AdClickTable.Row> rows = table.rows();
     assertEquals(2, rows.size());
   }
 
@@ -26,7 +26,7 @@ class AdClickTableTest {
   void testRowData() {
     AdClickTable table = new AdClickTable();
     Iterator<AdClickTable.Row> iterator =
-        ((Collection<AdClickTable.Row>) table.rows()).iterator();
+        table.rows().iterator();
 
     AdClickTable.Row first = iterator.next();
     assertEquals("urn:li:campaign:100", first.CAMPAIGN_URN);

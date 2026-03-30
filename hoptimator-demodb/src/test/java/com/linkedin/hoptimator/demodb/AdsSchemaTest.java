@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,7 +29,7 @@ class AdsSchemaTest {
     Lookup<Table> tables = schema.tables();
     Table pageViews = tables.get("PAGE_VIEWS");
     assertNotNull(pageViews);
-    assertTrue(pageViews instanceof PageViewTable);
+    assertInstanceOf(PageViewTable.class, pageViews);
   }
 
   @Test
@@ -37,7 +38,7 @@ class AdsSchemaTest {
     Lookup<Table> tables = schema.tables();
     Table adClicks = tables.get("AD_CLICKS");
     assertNotNull(adClicks);
-    assertTrue(adClicks instanceof AdClickTable);
+    assertInstanceOf(AdClickTable.class, adClicks);
   }
 
   @Test
@@ -46,7 +47,7 @@ class AdsSchemaTest {
     Lookup<Table> tables = schema.tables();
     Table campaigns = tables.get("CAMPAIGNS");
     assertNotNull(campaigns);
-    assertTrue(campaigns instanceof CampaignTable);
+    assertInstanceOf(CampaignTable.class, campaigns);
   }
 
   @Test

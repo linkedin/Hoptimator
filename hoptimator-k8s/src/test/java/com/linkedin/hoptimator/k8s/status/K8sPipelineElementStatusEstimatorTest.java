@@ -235,7 +235,7 @@ public class K8sPipelineElementStatusEstimatorTest {
     K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
     assertFalse(status.isReady());
     assertFalse(status.isFailed());
-    assertEquals(status.getMessage(), "Returned K8s object is null or has no json");
+    assertEquals("Returned K8s object is null or has no json", status.getMessage());
   }
 
   @Test
@@ -351,6 +351,6 @@ public class K8sPipelineElementStatusEstimatorTest {
     K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
     assertFalse(status.isReady());
     assertFalse(status.isFailed());
-    assertEquals(status.getMessage(), "Returned K8s object is null or has no json");
+    assertEquals("Returned K8s object is null or has no json", status.getMessage());
   }
 }

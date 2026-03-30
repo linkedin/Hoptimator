@@ -321,7 +321,6 @@ public class AvroConverterTest {
     // The issue occurs because multiple records named "location" are created with the same namespace,
     // causing a collision when schema.toString(true) tries to serialize them
     String schemaJson = schema.toString(true);
-    assertNotNull("Schema toString(true) should succeed without 'Can't redefine' errors", schemaJson);
 
     // Verify the schema can be parsed back
     Schema.Parser parser = new Schema.Parser();

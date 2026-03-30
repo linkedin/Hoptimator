@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,7 +30,7 @@ class K8sPipelineDeployerTest {
   @Test
   void toK8sObjectWithSingleSpec() throws SQLException {
     K8sPipelineDeployer deployer = new K8sPipelineDeployer(
-        "single", Arrays.asList("only-spec"), "SELECT 1", null);
+        "single", List.of("only-spec"), "SELECT 1", null);
 
     V1alpha1Pipeline pipeline = deployer.toK8sObject();
 

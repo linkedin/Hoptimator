@@ -54,7 +54,7 @@ class JobTest {
     );
     Job job = new Job("j", Collections.emptySet(), sink, evals);
 
-    assertThrows(IllegalArgumentException.class, () -> job.query());
+    assertThrows(IllegalArgumentException.class, job::query);
   }
 
   @Test

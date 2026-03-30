@@ -23,7 +23,6 @@ class K8sDeployerTest {
 
   private List<V1alpha1Pipeline> objects;
   private FakeK8sApi<V1alpha1Pipeline, V1alpha1PipelineList> fakeApi;
-  private Map<String, String> yamls;
   private FakeK8sYamlApi fakeYamlApi;
   private K8sSnapshot snapshot;
 
@@ -31,7 +30,7 @@ class K8sDeployerTest {
   void setUp() {
     objects = new ArrayList<>();
     fakeApi = new FakeK8sApi<>(objects);
-    yamls = new HashMap<>();
+    Map<String, String> yamls = new HashMap<>();
     fakeYamlApi = new FakeK8sYamlApi(yamls);
     snapshot = new K8sSnapshot(null) {
       @Override
@@ -44,10 +43,10 @@ class K8sDeployerTest {
   private K8sDeployer<V1alpha1Pipeline, V1alpha1PipelineList> makeDeployer(
       FakeK8sApi<V1alpha1Pipeline, V1alpha1PipelineList> api,
       K8sSnapshot snap) {
-    return new K8sDeployer<V1alpha1Pipeline, V1alpha1PipelineList>(null, null) {
+    return new K8sDeployer<>(null, null) {
       @Override
       K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> createApi(K8sContext context,
-          K8sApiEndpoint<V1alpha1Pipeline, V1alpha1PipelineList> endpoint) {
+                                                               K8sApiEndpoint<V1alpha1Pipeline, V1alpha1PipelineList> endpoint) {
         return api;
       }
 
@@ -59,10 +58,10 @@ class K8sDeployerTest {
       @Override
       protected V1alpha1Pipeline toK8sObject() {
         return new V1alpha1Pipeline()
-            .apiVersion("hoptimator.linkedin.com/v1alpha1")
-            .kind("Pipeline")
-            .metadata(new V1ObjectMeta().name("test-pipeline").namespace("test-ns"))
-            .spec(new V1alpha1PipelineSpec().sql("SELECT 1").yaml("spec1"));
+                .apiVersion("hoptimator.linkedin.com/v1alpha1")
+                .kind("Pipeline")
+                .metadata(new V1ObjectMeta().name("test-pipeline").namespace("test-ns"))
+                .spec(new V1alpha1PipelineSpec().sql("SELECT 1").yaml("spec1"));
       }
     };
   }

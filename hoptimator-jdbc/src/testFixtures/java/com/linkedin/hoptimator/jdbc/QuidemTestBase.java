@@ -155,7 +155,7 @@ public abstract class QuidemTestBase {
                 // Handle precision for types like VARCHAR, BINARY
                 Integer precision = field.getType().getPrecision();
                 String columnSize;
-                if (precision != null && precision != RelDataType.PRECISION_NOT_SPECIFIED) {
+                if (precision != RelDataType.PRECISION_NOT_SPECIFIED) {
                   columnSize = String.valueOf(precision);
                   // For types with precision, append it to type name
                   if (sqlType == SqlTypeName.VARCHAR || sqlType == SqlTypeName.CHAR

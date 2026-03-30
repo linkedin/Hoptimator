@@ -56,8 +56,8 @@ class ViewReconcilerTest {
     triggers = new ArrayList<>();
     views = new ArrayList<>();
     reconciler = new ViewReconciler(
-        new FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList>(triggers),
-        new FakeK8sApi<V1alpha1View, V1alpha1ViewList>(views));
+        new FakeK8sApi<>(triggers),
+        new FakeK8sApi<>(views));
   }
 
   @Test

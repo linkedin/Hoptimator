@@ -12,8 +12,8 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -94,7 +94,7 @@ class ConfigAssemblerTest {
 
     Properties props1 = assembler.assembleProperties();
     Properties props2 = assembler.assembleProperties();
-    assertFalse(props1 == props2);
+    assertNotSame(props1, props2);
     assertEquals(props1, props2);
   }
 
@@ -104,7 +104,7 @@ class ConfigAssemblerTest {
 
     Map<String, String> map1 = assembler.assemble();
     Map<String, String> map2 = assembler.assemble();
-    assertFalse(map1 == map2);
+    assertNotSame(map1, map2);
     assertEquals(map1, map2);
   }
 

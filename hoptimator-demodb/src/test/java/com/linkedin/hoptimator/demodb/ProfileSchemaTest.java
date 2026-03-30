@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,7 +29,7 @@ class ProfileSchemaTest {
     Lookup<Table> tables = schema.tables();
     Table members = tables.get("MEMBERS");
     assertNotNull(members);
-    assertTrue(members instanceof MemberTable);
+    assertInstanceOf(MemberTable.class, members);
   }
 
   @Test
@@ -37,7 +38,7 @@ class ProfileSchemaTest {
     Lookup<Table> tables = schema.tables();
     Table companies = tables.get("COMPANIES");
     assertNotNull(companies);
-    assertTrue(companies instanceof CompanyTable);
+    assertInstanceOf(CompanyTable.class, companies);
   }
 
   @Test

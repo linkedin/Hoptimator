@@ -43,7 +43,7 @@ class HoptimatorDdlExecutorDeployFailureTest {
 
     mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
         .thenReturn(Collections.emptyList());
-    mockDeploymentService.when(() -> DeploymentService.providers())
+    mockDeploymentService.when(DeploymentService::providers)
         .thenReturn(Collections.emptyList());
   }
 

@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.jdbc;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Arrays;
 import java.util.List;
 
 
@@ -26,7 +25,7 @@ public class TestBasicSql extends JdbcTestBase {
     sql("INSERT INTO T2 SELECT * FROM T1");
     assertQueriesEqual("SELECT * FROM T1", "SELECT * FROM T2");
     assertResultSetsEqual(query("SELECT * FROM T1 WHERE X = 'one'"),
-        queryUsingPreparedStatement("SELECT * FROM T1 WHERE X = ?", Arrays.asList("one")));
+        queryUsingPreparedStatement("SELECT * FROM T1 WHERE X = ?", List.of("one")));
     sql("DROP TABLE T1");
     sql("DROP TABLE T2");
   }
@@ -67,9 +66,7 @@ public class TestBasicSql extends JdbcTestBase {
     sql("DROP VIEW IF EXISTS non_existing_schema.non_existing_view");
 
     // Should throw an Exception when dropping non-existent view without IF EXISTS
-    Exception ex = Assertions.assertThrows(Exception.class, () -> {
-      sql("DROP VIEW non_existing_schema.non_existing_view");
-    });
+    Exception ex = Assertions.assertThrows(Exception.class, () -> sql("DROP VIEW non_existing_schema.non_existing_view"));
     Assertions.assertTrue(
         ex.getMessage().matches("(?s).*Cannot DROP VIEW .*?: Element .*? not found\\..*"),
         "Error message should match regex, but was: " + ex.getMessage()

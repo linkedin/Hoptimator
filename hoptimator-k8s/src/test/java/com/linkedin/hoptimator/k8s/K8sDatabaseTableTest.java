@@ -73,7 +73,7 @@ class K8sDatabaseTableTest {
             .dialect(V1alpha1DatabaseSpec.DialectEnum.MYSQL)
             .driver("com.mysql.Driver"));
 
-    K8sDatabaseTable table = new K8sDatabaseTable((K8sContext) null, null);
+    K8sDatabaseTable table = new K8sDatabaseTable(null, null);
     K8sDatabaseTable.Row row = table.toRow(db);
 
     assertEquals("my-db", row.NAME);
@@ -90,7 +90,7 @@ class K8sDatabaseTableTest {
         .metadata(new V1ObjectMeta().name("db"))
         .spec(new V1alpha1DatabaseSpec().url("jdbc:test://host").dialect(null));
 
-    K8sDatabaseTable table = new K8sDatabaseTable((K8sContext) null, null);
+    K8sDatabaseTable table = new K8sDatabaseTable(null, null);
     K8sDatabaseTable.Row row = table.toRow(db);
 
     assertNull(row.DIALECT);
@@ -100,7 +100,7 @@ class K8sDatabaseTableTest {
   void fromRowSetsK8sFields() {
     K8sDatabaseTable.Row row = new K8sDatabaseTable.Row("my-db", "jdbc:test://host", "cat", "sch", "ANSI", "com.test.Driver");
 
-    K8sDatabaseTable table = new K8sDatabaseTable((K8sContext) null, null);
+    K8sDatabaseTable table = new K8sDatabaseTable(null, null);
     V1alpha1Database db = table.fromRow(row);
 
     assertEquals("my-db", db.getMetadata().getName());
@@ -114,7 +114,7 @@ class K8sDatabaseTableTest {
   void fromRowWithInvalidNameThrows() {
     K8sDatabaseTable.Row row = new K8sDatabaseTable.Row("INVALID_NAME", "jdbc:test://host", null, null, null, null);
 
-    K8sDatabaseTable table = new K8sDatabaseTable((K8sContext) null, null);
+    K8sDatabaseTable table = new K8sDatabaseTable(null, null);
 
     assertThrows(IllegalArgumentException.class, () -> table.fromRow(row));
   }
@@ -123,7 +123,7 @@ class K8sDatabaseTableTest {
   void fromRowSetsKindAndApiVersion() {
     K8sDatabaseTable.Row row = new K8sDatabaseTable.Row("my-db", "jdbc:test://host", null, null, "ANSI", null);
 
-    K8sDatabaseTable table = new K8sDatabaseTable((K8sContext) null, null);
+    K8sDatabaseTable table = new K8sDatabaseTable(null, null);
     V1alpha1Database db = table.fromRow(row);
 
     assertEquals("Database", db.getKind());
@@ -137,7 +137,7 @@ class K8sDatabaseTableTest {
         .spec(new V1alpha1DatabaseSpec().url("jdbc:test://host")
             .dialect(V1alpha1DatabaseSpec.DialectEnum.ANSI));
 
-    K8sDatabaseTable table = new K8sDatabaseTable((K8sContext) null, null);
+    K8sDatabaseTable table = new K8sDatabaseTable(null, null);
     K8sDatabaseTable.Row row = table.toRow(db);
 
     assertEquals("ANSI", row.DIALECT);
@@ -145,7 +145,7 @@ class K8sDatabaseTableTest {
 
   @Test
   void getJdbcTableTypeReturnsSystemTable() {
-    K8sDatabaseTable table = new K8sDatabaseTable((K8sContext) null, null);
+    K8sDatabaseTable table = new K8sDatabaseTable(null, null);
     assertEquals(Schema.TableType.SYSTEM_TABLE, table.getJdbcTableType());
   }
 

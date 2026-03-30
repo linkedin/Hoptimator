@@ -51,7 +51,7 @@ class K8sYamlDeployerTest {
 
   @Test
   void createAddsObjectsViaApi() throws SQLException {
-    K8sYamlDeployerImpl deployer = makeDeployer(Arrays.asList(TEST_YAML));
+    K8sYamlDeployerImpl deployer = makeDeployer(List.of(TEST_YAML));
 
     deployer.create();
 
@@ -63,7 +63,7 @@ class K8sYamlDeployerTest {
   void deleteRemovesObjectsViaApi() throws SQLException {
     // First create the object
     yamls.put("test-cm", TEST_YAML);
-    K8sYamlDeployerImpl deployer = makeDeployer(Arrays.asList(TEST_YAML));
+    K8sYamlDeployerImpl deployer = makeDeployer(List.of(TEST_YAML));
 
     deployer.delete();
 
@@ -72,7 +72,7 @@ class K8sYamlDeployerTest {
 
   @Test
   void updateModifiesObjectsViaApi() throws SQLException {
-    K8sYamlDeployerImpl deployer = makeDeployer(Arrays.asList(TEST_YAML));
+    K8sYamlDeployerImpl deployer = makeDeployer(List.of(TEST_YAML));
 
     deployer.update();
 
@@ -81,7 +81,7 @@ class K8sYamlDeployerTest {
 
   @Test
   void restoreCallsSnapshotRestore() throws SQLException {
-    K8sYamlDeployerImpl deployer = makeDeployer(Arrays.asList(TEST_YAML));
+    K8sYamlDeployerImpl deployer = makeDeployer(List.of(TEST_YAML));
     deployer.create();
 
     deployer.restore();
@@ -104,7 +104,7 @@ class K8sYamlDeployerTest {
 
   @Test
   void specifyReturnsProvidedSpecs() throws SQLException {
-    K8sYamlDeployerImpl deployer = makeDeployer(Arrays.asList(TEST_YAML));
+    K8sYamlDeployerImpl deployer = makeDeployer(List.of(TEST_YAML));
 
     assertEquals(1, deployer.specify().size());
     assertEquals(TEST_YAML, deployer.specify().get(0));

@@ -40,7 +40,7 @@ public class TestK8sSnapshot {
 
     snapshot.store(sqlJob);
     fakeApi.create(Yaml.dump(sqlJob));
-    assertEquals(yamls.size(), 1);
+    assertEquals(1, yamls.size());
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(sqlJob));
 
     snapshot.restore();
@@ -72,7 +72,7 @@ public class TestK8sSnapshot {
     fakeApi.create(Yaml.dump(newSqlJob));
     snapshot.store(newSqlJob2);
     fakeApi.create(Yaml.dump(newSqlJob2));
-    assertEquals(yamls.size(), 1);
+    assertEquals(1, yamls.size());
     assertEquals(yamls.get("test-sql-job"), Yaml.dump(newSqlJob2));
 
     snapshot.restore();

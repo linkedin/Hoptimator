@@ -305,7 +305,7 @@ public class VeniceDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues);
 
-    assertTrue(issues.valid(), "Expected no validation errors for new store. Issues: " + issues.toString());
+    assertTrue(issues.valid(), "Expected no validation errors for new store. Issues: " + issues);
   }
 
   @Test
@@ -342,7 +342,7 @@ public class VeniceDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues);
 
-    assertTrue(issues.valid(), "Expected no validation errors when key schema unchanged. Issues: " + issues.toString());
+    assertTrue(issues.valid(), "Expected no validation errors when key schema unchanged. Issues: " + issues);
   }
 
   @Test

@@ -45,13 +45,12 @@ class HoptimatorJdbcTableTest {
   @Mock
   private Expression mockExpression;
 
-  private HoptimatorJdbcConvention convention;
   private HoptimatorJdbcTable table;
 
   @BeforeEach
   void setUp() {
-    convention = new HoptimatorJdbcConvention(
-        AnsiSqlDialect.DEFAULT, mockExpression, "db", Collections.emptyList(), mockConnection);
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+            AnsiSqlDialect.DEFAULT, mockExpression, "db", Collections.emptyList(), mockConnection);
     table = new HoptimatorJdbcTable(mockJdbcTable, convention);
   }
 
@@ -99,6 +98,7 @@ class HoptimatorJdbcTableTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void testAsQueryableDelegatesToJdbcTable() {
     QueryProvider mockProvider = mock(QueryProvider.class);
     SchemaPlus mockSchema = mock(SchemaPlus.class);

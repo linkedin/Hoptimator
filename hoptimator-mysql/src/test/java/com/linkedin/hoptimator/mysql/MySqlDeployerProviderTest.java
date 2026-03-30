@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -82,7 +83,7 @@ class MySqlDeployerProviderTest {
 
     Collection<Deployer> deployers = provider.deployers(source, connection);
     assertEquals(1, deployers.size());
-    assertTrue(deployers.iterator().next() instanceof MySqlDeployer);
+    assertInstanceOf(MySqlDeployer.class, deployers.iterator().next());
   }
 
   @Test

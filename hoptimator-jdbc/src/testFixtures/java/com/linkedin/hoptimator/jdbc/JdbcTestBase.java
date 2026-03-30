@@ -41,7 +41,7 @@ public abstract class JdbcTestBase {
 
   protected List<String> sqlReturnsLogs(String sql) throws SQLException {
     var logs = new ArrayList<String>();
-    ((HoptimatorConnection) conn).addLogHook(logs::add);
+    conn.addLogHook(logs::add);
     try (Statement stmt = conn.createStatement()) {
       stmt.executeUpdate(sql);
     }

@@ -16,9 +16,9 @@ import java.sql.Statement;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 class HoptimatorDriverIntegrationTest {
@@ -76,7 +76,7 @@ class HoptimatorDriverIntegrationTest {
     Connection conn = driver.connect("jdbc:hoptimator://catalogs=util", props);
 
     assertNotNull(conn);
-    assertTrue(conn instanceof HoptimatorConnection);
+    assertInstanceOf(HoptimatorConnection.class, conn);
     conn.close();
   }
 
@@ -86,7 +86,7 @@ class HoptimatorDriverIntegrationTest {
     Connection conn = driver.connect("jdbc:hoptimator://", props);
 
     assertNotNull(conn);
-    assertTrue(conn instanceof HoptimatorConnection);
+    assertInstanceOf(HoptimatorConnection.class, conn);
     conn.close();
   }
 
@@ -100,7 +100,7 @@ class HoptimatorDriverIntegrationTest {
     DatabaseMetaData metaData = connection.getMetaData();
 
     assertNotNull(metaData);
-    assertTrue(metaData instanceof HoptimatorDatabaseMetaData);
+    assertInstanceOf(HoptimatorDatabaseMetaData.class, metaData);
   }
 
   @Test

@@ -22,10 +22,10 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -76,7 +76,7 @@ class ClusterSchemaTest {
     Table table = schema.tables().get("my-topic");
 
     assertNotNull(table);
-    assertTrue(table instanceof KafkaTopic);
+    assertInstanceOf(KafkaTopic.class, table);
   }
 
   @Test

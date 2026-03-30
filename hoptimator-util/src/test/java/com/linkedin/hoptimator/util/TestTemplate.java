@@ -94,8 +94,6 @@ public class TestTemplate {
         });
     String template = "{{field}}";
 
-    assertThrows(SQLException.class, () -> {
-      new Template.SimpleTemplate(template).render(env);
-    });
+    assertThrows(SQLException.class, () -> new Template.SimpleTemplate(template).render(env));
   }
 }

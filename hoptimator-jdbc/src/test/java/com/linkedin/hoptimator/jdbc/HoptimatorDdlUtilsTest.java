@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -164,7 +165,7 @@ class HoptimatorDdlUtilsTest {
 
       ViewTable viewTable = HoptimatorDdlUtils.viewTable(
           context, "SELECT 1 AS X", prepare,
-          Arrays.asList("DEFAULT"), Arrays.asList("DEFAULT", "myView"));
+              List.of("DEFAULT"), Arrays.asList("DEFAULT", "myView"));
 
       assertNotNull(viewTable);
       assertEquals("SELECT 1 AS X", viewTable.getViewSql());

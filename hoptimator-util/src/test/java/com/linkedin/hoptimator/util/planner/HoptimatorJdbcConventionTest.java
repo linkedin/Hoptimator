@@ -10,7 +10,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.Connection;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -48,7 +47,7 @@ class HoptimatorJdbcConventionTest {
 
   @Test
   void testEnginesReturnsProvidedList() {
-    List<Engine> engines = Arrays.asList(mockEngine);
+    List<Engine> engines = List.of(mockEngine);
     HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
         AnsiSqlDialect.DEFAULT, mockExpression, "myDb", engines, mockConnection);
 
@@ -74,7 +73,7 @@ class HoptimatorJdbcConventionTest {
   void testRegisterAddsRulesToPlanner() {
     when(mockEngine.engineName()).thenReturn("flink");
     HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
-        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Arrays.asList(mockEngine), mockConnection);
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", List.of(mockEngine), mockConnection);
 
     convention.register(mockPlanner);
 

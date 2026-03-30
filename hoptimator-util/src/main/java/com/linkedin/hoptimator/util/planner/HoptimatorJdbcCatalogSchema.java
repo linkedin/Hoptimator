@@ -55,7 +55,7 @@ public class HoptimatorJdbcCatalogSchema extends JdbcCatalogSchema implements Da
             ResultSet resultSet =
                 connection.getMetaData().getSchemas(catalog, name)) {
           // There can only be one schema with a given name
-          while (resultSet.next()) {
+          if (resultSet.next()) {
             final String schemaName =
                 requireNonNull(resultSet.getString(1),
                     "got null schemaName from the database");

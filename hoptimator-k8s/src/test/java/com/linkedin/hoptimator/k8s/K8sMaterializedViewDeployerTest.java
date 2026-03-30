@@ -139,13 +139,13 @@ class K8sMaterializedViewDeployerTest {
         Arrays.asList(source1, source2), sink, job);
 
     mockedDeploymentService.when(() -> DeploymentService.specify(source1, null))
-        .thenReturn(Arrays.asList("source1-spec"));
+        .thenReturn(List.of("source1-spec"));
     mockedDeploymentService.when(() -> DeploymentService.specify(source2, null))
-        .thenReturn(Arrays.asList("source2-spec"));
+        .thenReturn(List.of("source2-spec"));
     mockedDeploymentService.when(() -> DeploymentService.specify(sink, null))
-        .thenReturn(Arrays.asList("sink-spec"));
+        .thenReturn(List.of("sink-spec"));
     mockedDeploymentService.when(() -> DeploymentService.specify(job, null))
-        .thenReturn(Arrays.asList("job-spec"));
+        .thenReturn(List.of("job-spec"));
 
     K8sMaterializedViewDeployer deployer = makeDeployerWithMockView(view);
     List<String> specs = deployer.pipelineSpecs();
@@ -167,7 +167,7 @@ class K8sMaterializedViewDeployerTest {
         Collections.singletonList(source), sink, job);
 
     mockedDeploymentService.when(() -> DeploymentService.specify(source, null))
-        .thenReturn(Arrays.asList("src-spec"));
+        .thenReturn(List.of("src-spec"));
     mockedDeploymentService.when(() -> DeploymentService.specify(sink, null))
         .thenReturn(Collections.emptyList());
     mockedDeploymentService.when(() -> DeploymentService.specify(job, null))
@@ -311,7 +311,7 @@ class K8sMaterializedViewDeployerTest {
         Collections.emptyList(), sink, job);
 
     mockedDeploymentService.when(() -> DeploymentService.specify(sink, null))
-        .thenReturn(Arrays.asList("sink-spec"));
+        .thenReturn(List.of("sink-spec"));
     mockedDeploymentService.when(() -> DeploymentService.specify(job, null))
         .thenReturn(Collections.emptyList());
 

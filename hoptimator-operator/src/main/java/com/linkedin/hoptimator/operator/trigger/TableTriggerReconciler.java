@@ -66,25 +66,25 @@ import com.cronutils.model.time.ExecutionTime;
 
 /**
  * Launches Jobs when TableTriggers are fired.
- *
+ * <p>
  * TableTriggers maintain a timestamp and a watermark. The timestamp captures
  * the time at which a matching event occured, which could be far in the past.
  * The watermark records the last timestamp for which a corresponding job has
  * successfully completed, and is thus always older than or equal to the
  * timestamp.
- *
+ * <p>
  * At steady-state, a trigger can be in one of two states:
- *
+ * <p>
  * 1. Timestamp and watermark are the same: trigger has been fired and the
  *    corresponding job has successfully completed.
  * 2. Watermark is older than the timestamp: trigger has been fired, but a new
  *    corresponding job has not yet successfully completed.
- *
+ * <p>
  * At a high level, the reconciler checks whether the watermark is old and
  * creates a Job accordingly. If a Job already exists, we just wait for it
  * to complete. Once completed, we update the watermark to match the specific
  * timestamp that caused the Job to run.
- *
+ * <p>
  * Only one Job runs at a time, which means a trigger may be fired many times
  * before a Job successfully completes. Rather than fall behind, we pass the
  * current watermark and timestamp to each Job (e.g. via environment variables).
@@ -228,9 +228,9 @@ public final class TableTriggerReconciler implements Reconciler {
         .with("schema", trigger.getSpec().getSchema())
         .with("table", trigger.getSpec().getTable())
         .with("timestamp", Optional.ofNullable(trigger.getStatus().getTimestamp())
-            .map(x -> x.toString()).orElse(null))
+            .map(OffsetDateTime::toString).orElse(null))
         .with("watermark", Optional.ofNullable(trigger.getStatus().getWatermark())
-            .map(x -> x.toString()).orElse(null));
+            .map(OffsetDateTime::toString).orElse(null));
     Map<String, String> jobProperties = trigger.getSpec().getJobProperties();
     if (jobProperties != null) {
       Properties props = new Properties();

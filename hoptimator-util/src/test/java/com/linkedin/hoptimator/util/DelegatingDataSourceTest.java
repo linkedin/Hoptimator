@@ -17,10 +17,10 @@ import java.sql.SQLException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -112,7 +112,7 @@ class DelegatingDataSourceTest {
     Connection conn = dataSource.getConnection();
 
     assertNotNull(conn);
-    assertTrue(conn instanceof DelegatingConnection);
+    assertInstanceOf(DelegatingConnection.class, conn);
   }
 
   @Test
@@ -125,6 +125,6 @@ class DelegatingDataSourceTest {
     Connection conn = dataSource.getConnection("user", "pass");
 
     assertNotNull(conn);
-    assertTrue(conn instanceof DelegatingConnection);
+    assertInstanceOf(DelegatingConnection.class, conn);
   }
 }

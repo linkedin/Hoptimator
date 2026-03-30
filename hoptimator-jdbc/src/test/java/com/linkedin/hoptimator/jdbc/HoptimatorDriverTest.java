@@ -17,6 +17,7 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -90,7 +91,7 @@ class HoptimatorDriverTest {
     Connection connection = driver.connect("jdbc:hoptimator://", props);
 
     assertNotNull(connection);
-    assertTrue(connection instanceof HoptimatorConnection);
+    assertInstanceOf(HoptimatorConnection.class, connection);
     connection.close();
   }
 
@@ -100,7 +101,7 @@ class HoptimatorDriverTest {
     Connection connection = driver.connect("jdbc:hoptimator://catalogs=util", props);
 
     assertNotNull(connection);
-    assertTrue(connection instanceof HoptimatorConnection);
+    assertInstanceOf(HoptimatorConnection.class, connection);
     connection.close();
   }
 

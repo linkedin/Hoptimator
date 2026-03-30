@@ -12,6 +12,7 @@ import java.sql.SQLNonTransientException;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -53,7 +54,7 @@ class KafkaDriverTest {
     };
     Connection connection = driver.connect("jdbc:kafka://", new Properties());
     assertNotNull(connection);
-    assertTrue(connection instanceof CalciteConnection);
+    assertInstanceOf(CalciteConnection.class, connection);
     assertTrue(connection.getAutoCommit());
     connection.close();
   }

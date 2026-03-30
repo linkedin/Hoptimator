@@ -9,6 +9,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -94,7 +95,7 @@ class RemoteRowListTest {
 
   @Test
   void testIteratorRemoveDelegatesToApiDelete() throws SQLException {
-    when(mockApi.list()).thenReturn(Arrays.asList("a"));
+    when(mockApi.list()).thenReturn(List.of("a"));
     when(mockMapper.toRow("a")).thenReturn(1);
 
     Iterator<Integer> iter = rowList.iterator();
@@ -106,7 +107,7 @@ class RemoteRowListTest {
 
   @Test
   void testIteratorRemoveThrowsRuntimeExceptionOnSqlException() throws SQLException {
-    when(mockApi.list()).thenReturn(Arrays.asList("a"));
+    when(mockApi.list()).thenReturn(List.of("a"));
     when(mockMapper.toRow("a")).thenReturn(1);
     doThrow(new SQLException("delete failed")).when(mockApi).delete("a");
 

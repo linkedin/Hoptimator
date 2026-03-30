@@ -35,12 +35,12 @@ class DelegatingStatement implements Statement {
     int i = 0;
     for (; i < parts.length - 1; i++) {
       try (Statement stmt = connection.createStatement()) {
-        logger.info("DDL: " + parts[i]);
+        logger.info("DDL: {}", parts[i]);
         stmt.execute(parts[i]);
       }
     }
     statement = connection.createStatement();
-    logger.info("SQL: " + parts[i]);
+    logger.info("SQL: {}", parts[i]);
     resultSet = statement.executeQuery(parts[i]);
     return resultSet;
   }

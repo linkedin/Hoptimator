@@ -14,6 +14,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -80,7 +81,7 @@ class MySqlDriverTest {
     props.setProperty("url", "jdbc:mysql://localhost:3306");
     Connection connection = driver.connect("jdbc:mysql-hoptimator://", props);
     assertNotNull(connection);
-    assertTrue(connection instanceof CalciteConnection);
+    assertInstanceOf(CalciteConnection.class, connection);
     assertTrue(connection.getAutoCommit());
     assertEquals("MYSQL", connection.getCatalog());
     connection.close();

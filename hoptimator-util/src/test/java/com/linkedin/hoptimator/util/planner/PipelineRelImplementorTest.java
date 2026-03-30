@@ -349,7 +349,7 @@ class PipelineRelImplementorTest {
         ImmutablePairList.of(), Collections.emptyMap());
 
     SqlIdentifier id = new SqlIdentifier("MY_COL", SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(id), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(id), SqlParserPos.ZERO);
 
     Map<String, String> fieldMap = impl.buildFieldMappingFromSqlNodes(nodeList);
 
@@ -366,7 +366,7 @@ class PipelineRelImplementorTest {
         ImmutablePairList.copyOf(entries), Collections.emptyMap());
 
     SqlIdentifier star = SqlIdentifier.star(SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(star), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(star), SqlParserPos.ZERO);
 
     Map<String, String> fieldMap = impl.buildFieldMappingFromSqlNodes(nodeList);
 
@@ -382,7 +382,7 @@ class PipelineRelImplementorTest {
 
     // SqlLiteral is not a supported node type for field mapping
     SqlNode literal = SqlLiteral.createCharString("test", SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(literal), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(literal), SqlParserPos.ZERO);
 
     assertThrows(SQLNonTransientException.class, () -> impl.buildFieldMappingFromSqlNodes(nodeList));
   }
@@ -518,9 +518,9 @@ class PipelineRelImplementorTest {
     SqlIdentifier alias = new SqlIdentifier("TARGET_COL", SqlParserPos.ZERO);
     SqlBasicCall asCall = new SqlBasicCall(
         new SqlAsOperator(),
-        new SqlNode[]{original, alias},
+        List.of(original, alias),
         SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(asCall), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(asCall), SqlParserPos.ZERO);
 
     Map<String, String> fieldMap = impl.buildFieldMappingFromSqlNodes(nodeList);
 
@@ -537,9 +537,9 @@ class PipelineRelImplementorTest {
     SqlNode literalAlias = SqlLiteral.createCharString("alias", SqlParserPos.ZERO);
     SqlBasicCall asCall = new SqlBasicCall(
         new SqlAsOperator(),
-        new SqlNode[]{original, literalAlias},
+        List.of(original, literalAlias),
         SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(asCall), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(asCall), SqlParserPos.ZERO);
 
     assertThrows(SQLNonTransientException.class, () -> impl.buildFieldMappingFromSqlNodes(nodeList));
   }
@@ -554,9 +554,9 @@ class PipelineRelImplementorTest {
     SqlIdentifier right = new SqlIdentifier("B", SqlParserPos.ZERO);
     SqlBasicCall plusCall = new SqlBasicCall(
         SqlStdOperatorTable.PLUS,
-        new SqlNode[]{left, right},
+        List.of(left, right),
         SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(plusCall), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(plusCall), SqlParserPos.ZERO);
 
     assertThrows(SQLNonTransientException.class, () -> impl.buildFieldMappingFromSqlNodes(nodeList));
   }
@@ -571,9 +571,9 @@ class PipelineRelImplementorTest {
     SqlNode nestedLiteral = SqlLiteral.createCharString("child", SqlParserPos.ZERO);
     SqlBasicCall itemCall = new SqlBasicCall(
         SqlStdOperatorTable.ITEM,
-        new SqlNode[]{baseField, nestedLiteral},
+        List.of(baseField, nestedLiteral),
         SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(itemCall), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(itemCall), SqlParserPos.ZERO);
 
     Map<String, String> fieldMap = impl.buildFieldMappingFromSqlNodes(nodeList);
 
@@ -590,9 +590,9 @@ class PipelineRelImplementorTest {
     SqlIdentifier nonLiteral = new SqlIdentifier("nonLiteral", SqlParserPos.ZERO);
     SqlBasicCall itemCall = new SqlBasicCall(
         SqlStdOperatorTable.ITEM,
-        new SqlNode[]{baseField, nonLiteral},
+        List.of(baseField, nonLiteral),
         SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(itemCall), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(itemCall), SqlParserPos.ZERO);
 
     assertThrows(SQLNonTransientException.class, () -> impl.buildFieldMappingFromSqlNodes(nodeList));
   }
@@ -607,14 +607,14 @@ class PipelineRelImplementorTest {
     SqlNode nestedLiteral = SqlLiteral.createCharString("child", SqlParserPos.ZERO);
     SqlBasicCall itemCall = new SqlBasicCall(
         SqlStdOperatorTable.ITEM,
-        new SqlNode[]{baseField, nestedLiteral},
+        List.of(baseField, nestedLiteral),
         SqlParserPos.ZERO);
     SqlIdentifier alias = new SqlIdentifier("MY_ALIAS", SqlParserPos.ZERO);
     SqlBasicCall asCall = new SqlBasicCall(
         new SqlAsOperator(),
-        new SqlNode[]{itemCall, alias},
+        List.of(itemCall, alias),
         SqlParserPos.ZERO);
-    SqlNodeList nodeList = new SqlNodeList(Arrays.asList(asCall), SqlParserPos.ZERO);
+    SqlNodeList nodeList = new SqlNodeList(List.of(asCall), SqlParserPos.ZERO);
 
     Map<String, String> fieldMap = impl.buildFieldMappingFromSqlNodes(nodeList);
 

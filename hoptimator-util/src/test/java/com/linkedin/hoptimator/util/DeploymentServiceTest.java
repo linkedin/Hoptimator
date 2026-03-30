@@ -321,7 +321,7 @@ class DeploymentServiceTest {
   @Test
   void testSpecifyWithDeployersCallsSpecifyOnEach() throws SQLException {
     when(mockDeployer1.specify()).thenReturn(Arrays.asList("spec1", "spec2"));
-    when(mockDeployer2.specify()).thenReturn(Arrays.asList("spec3"));
+    when(mockDeployer2.specify()).thenReturn(List.of("spec3"));
 
     List<Deployer> deployers = Arrays.asList(mockDeployer1, mockDeployer2);
 

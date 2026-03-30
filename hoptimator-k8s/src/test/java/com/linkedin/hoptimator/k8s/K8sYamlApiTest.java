@@ -34,7 +34,7 @@ class K8sYamlApiTest {
   @Test
   void listThrowsUnsupportedOperation() {
     K8sYamlApi api = createRealApi();
-    assertThrows(UnsupportedOperationException.class, () -> api.list());
+    assertThrows(UnsupportedOperationException.class, api::list);
   }
 
   @Test
