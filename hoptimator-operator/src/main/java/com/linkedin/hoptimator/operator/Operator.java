@@ -177,7 +177,13 @@ public class Operator {
   }
 
   public boolean isReady(String yaml) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(yaml);
+    } catch (Exception e) {
+      log.warn("Failed to parse YAML in isReady check: {}", e.getMessage());
+      return false;
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
@@ -239,7 +245,13 @@ public class Operator {
   }
 
   public boolean isFailed(String yaml) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(yaml);
+    } catch (Exception e) {
+      log.warn("Failed to parse YAML in isFailed check: {}", e.getMessage());
+      return false;
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();

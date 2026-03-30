@@ -1,0 +1,81 @@
+package com.linkedin.hoptimator.operator;
+
+import java.util.Properties;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import io.kubernetes.client.openapi.ApiClient;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+
+/**
+ * Tests for Operator focusing on YAML parsing exception handling.
+ * Reproduces EXC-459069 and EXC-463453 where ScannerException/ParserException
+ * from malformed YAML in Operator.isReady() was unhandled.
+ */
+@ExtendWith(MockitoExtension.class)
+public class OperatorTest {
+
+  @Mock
+  private ApiClient apiClient;
+
+  private Operator operator;
+
+  // A valid minimal YAML for a K8s object
+  private static final String VALID_YAML =
+      "apiVersion: foo.org/v1beta1\n" + "kind: FakeJob\n" + "metadata:\n" + "  name: fake-job\n"
+          + "  namespace: fake-ns\n";
+
+  // YAML that triggers ScannerException: colon in unquoted value
+  private static final String SCANNER_EXCEPTION_YAML = "key: value: with: colons: everywhere:";
+
+  // YAML that triggers ParserException: invalid document structure
+  private static final String PARSER_EXCEPTION_YAML = "--- invalid\n--- also invalid\n---";
+
+  @BeforeEach
+  void setUp() {
+    operator = new Operator("fake-namespace", apiClient, new Properties());
+    operator.registerApi("FakeJob", "fakejob", "fakejobs", "foo.org", "v1beta1");
+  }
+
+  @Test
+  void testIsReadyReturnsFalseOnScannerException() {
+    // Reproduce EXC-459069, EXC-463453: Operator.isReady(yaml) threw ScannerException
+    // when YAML was malformed. It should return false instead.
+    boolean result = operator.isReady(SCANNER_EXCEPTION_YAML);
+    assertFalse(result);
+  }
+
+  @Test
+  void testIsReadyReturnsFalseOnParserException() {
+    // Reproduce EXC-463453: Operator.isReady(yaml) threw ParserException
+    // when YAML had invalid document structure. It should return false instead.
+    boolean result = operator.isReady(PARSER_EXCEPTION_YAML);
+    assertFalse(result);
+  }
+
+  @Test
+  void testIsFailedReturnsFalseOnScannerException() {
+    // Same protection needed for isFailed(): should not throw on malformed YAML.
+    boolean result = operator.isFailed(SCANNER_EXCEPTION_YAML);
+    assertFalse(result);
+  }
+
+  @Test
+  void testIsFailedReturnsFalseOnParserException() {
+    // Same protection needed for isFailed(): should not throw on malformed YAML.
+    boolean result = operator.isFailed(PARSER_EXCEPTION_YAML);
+    assertFalse(result);
+  }
+}

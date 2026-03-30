@@ -244,6 +244,42 @@ public class K8sPipelineElementStatusEstimatorTest {
   }
 
   @Test
+  void testEstimateWhenElementYamlTriggersScannerException() {
+    // Reproduce EXC-539039, EXC-531252, EXC-459069: snakeyaml throws ScannerException for YAML
+    // with invalid characters or mapping structure (e.g. a colon in an unquoted value).
+    // estimateElementStatus() must catch ScannerException and return an unready status.
+    K8sPipelineElementStatus status =
+        estimator.estimateElementStatus("key: value: with: colons: everywhere:", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("Failed to parse element YAML"));
+  }
+
+  @Test
+  void testEstimateWhenElementYamlTriggersParserException() {
+    // Reproduce EXC-527794, EXC-517011, EXC-474816, EXC-463453: snakeyaml throws ParserException
+    // for YAML with invalid document structure (e.g. duplicate document markers).
+    // estimateElementStatus() must catch ParserException and return an unready status.
+    K8sPipelineElementStatus status =
+        estimator.estimateElementStatus("--- invalid\n--- also invalid\n---", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("Failed to parse element YAML"));
+  }
+
+  @Test
+  void testEstimateWhenElementYamlTriggersConstructorException() {
+    // Reproduce EXC-468615: snakeyaml throws ConstructorException for YAML with duplicate keys
+    // that cannot be merged. estimateElementStatus() must catch ConstructorException and return
+    // an unready status.
+    K8sPipelineElementStatus status =
+        estimator.estimateElementStatus("!!java.util.Date 2021-01-01", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("Failed to parse element YAML"));
+  }
+
+  @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingNoRawJson() {
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(jobDynamicObject);
     when(jobDynamicObject.getRaw()).thenReturn(null);

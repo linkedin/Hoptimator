@@ -233,7 +233,13 @@ public final class SubscriptionReconciler implements Reconciler {
 
   // Fetch attributes from downstream controllers
   private Map<String, String> fetchAttributes(String yaml) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(yaml);
+    } catch (Exception e) {
+      log.warn("Failed to parse YAML in fetchAttributes: {}", e.getMessage());
+      return Collections.emptyMap();
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
