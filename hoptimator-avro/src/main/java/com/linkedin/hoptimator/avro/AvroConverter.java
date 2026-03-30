@@ -163,8 +163,13 @@ public final class AvroConverter {
    * TODO: default field values are lost when converting from Avro to RelDataType
    */
   public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory, boolean nullable) {
+    if (schema == null) {
+      return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.NULL), true);
+    }
     RelDataType unknown = typeFactory.createUnknownType();
     switch (schema.getType()) {
+      case NULL:
+        return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.NULL), true);
       case RECORD:
         return typeFactory.createTypeWithNullability(typeFactory.createStructType(schema.getFields().stream()
             .map(x -> new AbstractMap.SimpleEntry<>(x.name(), rel(x.schema(), typeFactory, nullable)))

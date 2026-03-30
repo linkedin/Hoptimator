@@ -218,6 +218,55 @@ public class AvroConverterTest {
   }
 
   @Test
+  public void convertsNullableUnionFields() {
+    // Schema with a nullable string field: ["null", "string"]
+    String schemaString =
+        "{\"type\":\"record\",\"name\":\"R\",\"namespace\":\"ns\",\"fields\":["
+            + "{\"name\":\"nullableStr\",\"type\":[\"null\",\"string\"]},"
+            + "{\"name\":\"nullableInt\",\"type\":[\"null\",\"int\"]},"
+            + "{\"name\":\"requiredStr\",\"type\":\"string\"}]}";
+    Schema avroSchema = (new Schema.Parser()).parse(schemaString);
+    RelDataType rel = AvroConverter.rel(avroSchema);
+    assertNotNull(rel);
+    assertEquals(3, rel.getFieldCount());
+    assertNotNull(rel.getField("nullableStr", false, false));
+    assertTrue(Objects.requireNonNull(rel.getField("nullableStr", false, false)).getType().isNullable());
+    assertNotNull(rel.getField("nullableInt", false, false));
+    assertTrue(Objects.requireNonNull(rel.getField("nullableInt", false, false)).getType().isNullable());
+    assertNotNull(rel.getField("requiredStr", false, false));
+  }
+
+  @Test
+  public void convertsNullTypeField() {
+    // Schema with a field whose type is just "null"
+    String schemaString =
+        "{\"type\":\"record\",\"name\":\"R\",\"namespace\":\"ns\",\"fields\":["
+            + "{\"name\":\"nullField\",\"type\":\"null\"},"
+            + "{\"name\":\"strField\",\"type\":\"string\"}]}";
+    Schema avroSchema = (new Schema.Parser()).parse(schemaString);
+    RelDataType rel = AvroConverter.rel(avroSchema);
+    assertNotNull(rel);
+    // The null-typed field should be filtered out (existing behavior) or handled gracefully
+    assertNotNull(rel.getField("strField", false, false));
+  }
+
+  @Test
+  public void convertsNullSchema() {
+    // A standalone NULL schema should not throw NPE
+    Schema nullSchema = Schema.create(Schema.Type.NULL);
+    RelDataType rel = AvroConverter.rel(nullSchema);
+    assertNotNull(rel);
+  }
+
+  @Test
+  public void handlesNullSchemaParameter() {
+    // Passing null schema should not throw NPE - should handle gracefully
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rel = AvroConverter.rel(null, typeFactory);
+    assertNotNull(rel);
+  }
+
+  @Test
   public void handlesNamespaceInNestedArrayAndMapElements() {
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
 
