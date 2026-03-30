@@ -280,6 +280,19 @@ public class K8sPipelineElementStatusEstimatorTest {
   }
 
   @Test
+  void testEstimateWhenElementYamlHasNullMetadata() {
+    // Reproduce EXC-475353, EXC-475359: Dynamics.newFromYaml() returns an object with null
+    // metadata, causing NPE on obj.getMetadata().getName(). estimateElementStatus() must guard
+    // against null metadata and return an unready status rather than propagating.
+    // A YAML with no 'metadata' field at all produces a DynamicKubernetesObject with null metadata.
+    K8sPipelineElementStatus status =
+        estimator.estimateElementStatus("apiVersion: v1\nkind: ConfigMap", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("null metadata"));
+  }
+
+  @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingNoRawJson() {
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(jobDynamicObject);
     when(jobDynamicObject.getRaw()).thenReturn(null);

@@ -56,6 +56,11 @@ public class K8sPipelineElementStatusEstimator {
       log.error(message, e);
       return defaultUnreadyStatusOnK8sObjectRetrievalFailure("unknown", message);
     }
+    if (obj.getMetadata() == null) {
+      String message = "Failed to parse element YAML: null metadata";
+      log.error(message);
+      return defaultUnreadyStatusOnK8sObjectRetrievalFailure("unknown", message);
+    }
     String name = obj.getMetadata().getName();
     String namespace = obj.getMetadata().getNamespace() == null ? pipelineNamespace : obj.getMetadata().getNamespace();
     String kind = obj.getKind();
