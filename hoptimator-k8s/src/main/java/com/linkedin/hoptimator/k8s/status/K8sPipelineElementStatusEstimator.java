@@ -48,7 +48,14 @@ public class K8sPipelineElementStatusEstimator {
    * Estimates status of an element. If we can not retrieve it from K8s, we assume that it's not ready and not failed yet.
    */
   public K8sPipelineElementStatus estimateElementStatus(String elementYaml, String pipelineNamespace) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(elementYaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(elementYaml);
+    } catch (Exception e) {
+      String message = String.format("Failed to parse element YAML: %s", e.getMessage());
+      log.error(message, e);
+      return defaultUnreadyStatusOnK8sObjectRetrievalFailure("unknown", message);
+    }
     String name = obj.getMetadata().getName();
     String namespace = obj.getMetadata().getNamespace() == null ? pipelineNamespace : obj.getMetadata().getNamespace();
     String kind = obj.getKind();

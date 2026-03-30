@@ -69,7 +69,13 @@ public class K8sPipelineElementApi implements Api<K8sPipelineElement> {
    * Returns spec.configs of the given element, if present.
    */
   Map<String, String> getElementConfiguration(String elementYaml, String pipelineNamespace) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(elementYaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(elementYaml);
+    } catch (Exception e) {
+      log.error("Failed to parse element YAML for configuration extraction: {}", e.getMessage(), e);
+      return new HashMap<>();
+    }
     String name = obj.getMetadata().getName();
     String namespace = obj.getMetadata().getNamespace() == null ? pipelineNamespace : obj.getMetadata().getNamespace();
     String kind = obj.getKind();

@@ -10,6 +10,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -34,6 +36,7 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 public class K8sPipelineElementStatusEstimatorTest {
   @Mock
   private K8sContext context;
@@ -227,6 +230,17 @@ public class K8sPipelineElementStatusEstimatorTest {
     assertFalse(status.isReady());
     assertFalse(status.isFailed());
     assertEquals(status.getMessage(), "Returned K8s object is null or has no json");
+  }
+
+  @Test
+  void testEstimateWhenElementYamlIsMalformed() {
+    // Reproduce EXC-511258: snakeyaml throws IndexOutOfBoundsException for malformed YAML.
+    // estimateElementStatus() must catch this and return an unready status rather than propagating.
+    // Call estimateElementStatus() directly to avoid triggering unused @BeforeEach stubs.
+    K8sPipelineElementStatus status = estimator.estimateElementStatus("malformed: yaml: [unclosed", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("Failed to parse element YAML"));
   }
 
   @Test
