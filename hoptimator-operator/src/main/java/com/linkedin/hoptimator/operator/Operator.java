@@ -184,9 +184,17 @@ public class Operator {
       log.warn("Failed to parse YAML in isReady check: {}", e.getMessage());
       return false;
     }
+    if (obj.getMetadata() == null) {
+      log.warn("Failed to check isReady: parsed YAML has null metadata.");
+      return false;
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
+    if (namespace == null) {
+      log.warn("Failed to check isReady {}/{}: namespace is null.", kind, name);
+      return false;
+    }
     try {
       KubernetesApiResponse<DynamicKubernetesObject> existing = apiFor(obj).get(namespace, name);
       existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));
@@ -252,9 +260,17 @@ public class Operator {
       log.warn("Failed to parse YAML in isFailed check: {}", e.getMessage());
       return false;
     }
+    if (obj.getMetadata() == null) {
+      log.warn("Failed to check isFailed: parsed YAML has null metadata.");
+      return false;
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
+    if (namespace == null) {
+      log.warn("Failed to check isFailed {}/{}: namespace is null.", kind, name);
+      return false;
+    }
     try {
       KubernetesApiResponse<DynamicKubernetesObject> existing = apiFor(obj).get(namespace, name);
       existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));

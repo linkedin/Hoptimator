@@ -53,12 +53,12 @@ public class K8sPipelineElementStatusEstimator {
       obj = Dynamics.newFromYaml(elementYaml);
     } catch (Exception e) {
       String message = String.format("Failed to parse element YAML: %s", e.getMessage());
-      log.error(message, e);
+      log.warn(message, e);
       return defaultUnreadyStatusOnK8sObjectRetrievalFailure("unknown", message);
     }
     if (obj.getMetadata() == null) {
       String message = "Failed to parse element YAML: null metadata";
-      log.error(message);
+      log.warn(message);
       return defaultUnreadyStatusOnK8sObjectRetrievalFailure("unknown", message);
     }
     String name = obj.getMetadata().getName();

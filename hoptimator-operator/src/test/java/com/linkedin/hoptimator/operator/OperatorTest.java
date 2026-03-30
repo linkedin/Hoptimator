@@ -43,6 +43,13 @@ public class OperatorTest {
   // YAML that triggers ParserException: invalid document structure
   private static final String PARSER_EXCEPTION_YAML = "--- invalid\n--- also invalid\n---";
 
+  // Valid YAML with no namespace — triggers null namespace in isReady/isFailed
+  private static final String NO_NAMESPACE_YAML =
+      "apiVersion: foo.org/v1beta1\n" + "kind: FakeJob\n" + "metadata:\n" + "  name: fake-job\n";
+
+  // Valid YAML with no metadata at all — triggers null metadata
+  private static final String NO_METADATA_YAML = "apiVersion: v1\nkind: ConfigMap";
+
   @BeforeEach
   void setUp() {
     operator = new Operator("fake-namespace", apiClient, new Properties());
@@ -76,6 +83,32 @@ public class OperatorTest {
   void testIsFailedReturnsFalseOnParserException() {
     // Same protection needed for isFailed(): should not throw on malformed YAML.
     boolean result = operator.isFailed(PARSER_EXCEPTION_YAML);
+    assertFalse(result);
+  }
+
+  @Test
+  void testIsReadyReturnsFalseOnNullNamespace() {
+    // Reproduce EXC-489889: Operator.isReady(yaml) threw IllegalArgumentException
+    // when YAML had no namespace. It should return false instead.
+    boolean result = operator.isReady(NO_NAMESPACE_YAML);
+    assertFalse(result);
+  }
+
+  @Test
+  void testIsFailedReturnsFalseOnNullNamespace() {
+    boolean result = operator.isFailed(NO_NAMESPACE_YAML);
+    assertFalse(result);
+  }
+
+  @Test
+  void testIsReadyReturnsFalseOnNullMetadata() {
+    boolean result = operator.isReady(NO_METADATA_YAML);
+    assertFalse(result);
+  }
+
+  @Test
+  void testIsFailedReturnsFalseOnNullMetadata() {
+    boolean result = operator.isFailed(NO_METADATA_YAML);
     assertFalse(result);
   }
 }

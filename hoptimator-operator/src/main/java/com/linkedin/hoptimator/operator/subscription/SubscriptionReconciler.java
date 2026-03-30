@@ -144,8 +144,15 @@ public final class SubscriptionReconciler implements Reconciler {
           status.setFailed(null);
           status.setMessage("Planned.");
         } catch (Exception e) {
-          log.error("Encountered error when planning a pipeline for {}/{} with SQL `{}`.", kind, name,
-              object.getSpec().getSql(), e);
+          // SqlValidatorException and ValidationException indicate bad user SQL (client error).
+          // Log at WARN level to avoid false server-error alerts.
+          if (isSqlValidationError(e)) {
+            log.warn("SQL validation error when planning a pipeline for {}/{} with SQL `{}`: {}", kind, name,
+                object.getSpec().getSql(), e.getMessage());
+          } else {
+            log.error("Encountered error when planning a pipeline for {}/{} with SQL `{}`.", kind, name,
+                object.getSpec().getSql(), e);
+          }
 
           // Mark the Subscription as failed.
           status.setFailed(true);
@@ -240,6 +247,10 @@ public final class SubscriptionReconciler implements Reconciler {
       log.warn("Failed to parse YAML in fetchAttributes: {}", e.getMessage());
       return Collections.emptyMap();
     }
+    if (obj.getMetadata() == null) {
+      log.warn("Failed to fetch attributes: parsed YAML has null metadata.");
+      return Collections.emptyMap();
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
@@ -318,6 +329,20 @@ public final class SubscriptionReconciler implements Reconciler {
     } else {
       return m;
     }
+  }
+
+  // Checks whether an exception represents a SQL validation error (i.e., bad user SQL),
+  // as opposed to a server-side infrastructure failure.
+  static boolean isSqlValidationError(Throwable e) {
+    Throwable x = e;
+    while (x != null) {
+      String className = x.getClass().getName();
+      if (className.contains("SqlValidatorException") || className.contains("ValidationException")) {
+        return true;
+      }
+      x = x.getCause();
+    }
+    return false;
   }
 }
 
