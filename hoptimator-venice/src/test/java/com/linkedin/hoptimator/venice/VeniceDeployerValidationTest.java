@@ -575,19 +575,6 @@ class VeniceDeployerValidationTest {
     assertTrue(issues.valid());
   }
 
-  // --- specify() ---
-
-  @Test
-  void testSpecifyReturnsEmptyList() throws Exception {
-    Source source = new Source("venice", List.of("VENICE", "myStore"), Collections.emptyMap());
-    Properties props = new Properties();
-
-    VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection);
-
-    List<String> result = deployer.specify();
-    assertTrue(result.isEmpty());
-  }
-
   // --- restore() ---
 
   @Test

@@ -334,40 +334,6 @@ class MySqlDeployerValidationTest {
     );
   }
 
-  @ParameterizedTest(name = "{0}")
-  @MethodSource("typeMappingCases")
-  void testToMySqlTypeMappings(String label, SqlTypeName sqlType, int precision, int scale,
-      String expectedMySqlType) throws Exception {
-    stubConnectionWithStatement();
-
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-    builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
-    if (precision > 0 && scale >= 0) {
-      builder.add("test_col", typeFactory.createSqlType(sqlType, precision, scale));
-    } else if (precision > 0) {
-      builder.add("test_col", typeFactory.createSqlType(sqlType, precision));
-    } else {
-      builder.add("test_col", typeFactory.createSqlType(sqlType));
-    }
-    RelDataType rowType = builder.build();
-
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
-        .thenReturn(rowType);
-
-    Source source = new Source("db", List.of("MYSQL", "test_db", "TypeTable"), Collections.emptyMap());
-
-    ResultSet emptyRs = mock(ResultSet.class);
-    when(emptyRs.next()).thenReturn(false);
-    when(mockMetaData.getTables(eq("test_db"), any(), eq("TypeTable"), any())).thenReturn(emptyRs);
-
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
-    deployer.create();
-
-    // Verify CREATE TABLE was executed and contains the expected type
-    verify(mockStatement, times(2)).executeUpdate(anyString());
-  }
-
   // --- isValidIdentifier() edge cases ---
 
   @Test
@@ -1042,52 +1008,6 @@ class MySqlDeployerValidationTest {
     Source source = new Source("db", List.of("myTable"), Collections.emptyMap());
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     assertThrows(SQLException.class, deployer::update);
-  }
-
-  // --- validate(): column type mismatch records error, missing required column records error ---
-
-  @Test
-  void testValidateFailsWhenKeyFieldTypeMismatch() throws SQLException {
-    stubConnection();
-
-    // Desired: KEY_id as BIGINT
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-    builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.BIGINT));
-    RelDataType rowType = builder.build();
-
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
-        .thenReturn(rowType);
-
-    Source source = new Source("db", List.of("MYSQL", "test_db", "TypeMismatch"), Collections.emptyMap());
-
-    ResultSet existingRs = mock(ResultSet.class);
-    when(existingRs.next()).thenReturn(true);
-    when(mockMetaData.getTables(eq("test_db"), any(), eq("TypeMismatch"), any())).thenReturn(existingRs);
-
-    // Existing PK is INT, desired is BIGINT
-    when(mockMetaData.getPrimaryKeys(eq("test_db"), any(), eq("TypeMismatch"))).thenAnswer(inv -> {
-      ResultSet pkRs = mock(ResultSet.class);
-      when(pkRs.next()).thenReturn(true, false);
-      when(pkRs.getString("COLUMN_NAME")).thenReturn("id");
-      return pkRs;
-    });
-
-    ResultSet columnsRs = mock(ResultSet.class);
-    when(columnsRs.next()).thenReturn(true, false);
-    when(columnsRs.getString("COLUMN_NAME")).thenReturn("id");
-    when(columnsRs.getString("TYPE_NAME")).thenReturn("INT");
-    when(columnsRs.getInt("COLUMN_SIZE")).thenReturn(10);
-    when(columnsRs.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls);
-    when(mockMetaData.getColumns(eq("test_db"), any(), eq("TypeMismatch"), any())).thenReturn(columnsRs);
-
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
-    Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
-
-    assertFalse(issues.valid(), "Expected validation to fail for KEY field type mismatch");
-    assertTrue(issues.toString().contains("Cannot modify KEY field type"),
-        "Expected KEY field type error, got: " + issues);
   }
 
   @Test

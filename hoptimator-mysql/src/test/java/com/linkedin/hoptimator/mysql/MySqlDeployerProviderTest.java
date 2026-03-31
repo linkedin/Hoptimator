@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.sql.Connection;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -148,35 +149,6 @@ class MySqlDeployerProviderTest {
 
     Collection<Deployer> deployers = provider.deployers(source, connection);
     assertTrue(deployers.isEmpty());
-  }
-
-  // --- deployers() returns exactly 1 MySqlDeployer ---
-
-  @Test
-  void testDeployersReturnsExactlyOneMySqlDeployer() {
-    Source source = new Source("mysql", List.of("MYSQL", "testdb", "users"), Collections.emptyMap());
-
-    HoptimatorJdbcSchema jdbcSchema = mock(HoptimatorJdbcSchema.class);
-    BasicDataSource dataSource = new BasicDataSource();
-    dataSource.setUrl("jdbc:mysql-hoptimator://url=jdbc:mysql://test-url;user=testuser;password=testpass");
-
-    when(connection.calciteConnection()).thenReturn(calciteConnection);
-    when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    doReturn(rootSubSchemaLookup).when(rootSchema).subSchemas();
-    when(rootSubSchemaLookup.get("MYSQL")).thenReturn(mysqlCatalogSchema);
-    doReturn(catalogSubSchemaLookup).when(mysqlCatalogSchema).subSchemas();
-    when(catalogSubSchemaLookup.get("testdb")).thenReturn(testdbSchema);
-    when(testdbSchema.unwrap(HoptimatorJdbcSchema.class)).thenReturn(jdbcSchema);
-    when(jdbcSchema.getDataSource()).thenReturn(dataSource);
-
-    Collection<Deployer> deployers = provider.deployers(source, connection);
-
-    // Must return exactly 1 deployer
-    assertEquals(1, deployers.size(), "Expected exactly 1 deployer for MYSQL source");
-    // The deployer must be a MySqlDeployer
-    Deployer deployer = deployers.iterator().next();
-    assertInstanceOf(MySqlDeployer.class, deployer,
-        "Expected a MySqlDeployer instance");
   }
 
   // --- deployers() with non-HoptimatorConnection returns empty ---

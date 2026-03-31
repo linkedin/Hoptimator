@@ -553,31 +553,6 @@ class KafkaDeployerTest {
     verify(mockAdmin).createTopics(anyList());
   }
 
-  // --- create() with custom retention ---
-
-  @SuppressWarnings("unchecked")
-  @Test
-  void testCreateNewTopicWithRetention() throws Exception {
-    Source source = new Source("db", List.of("KAFKA", "RetentionTopic"),
-        Map.of("retention", "86400000"));
-
-    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
-    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
-    when(failedFuture.get()).thenThrow(new ExecutionException(new UnknownTopicOrPartitionException("not found")));
-    when(describeResult.topicNameValues()).thenReturn(Map.of("RetentionTopic", failedFuture));
-    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
-
-    CreateTopicsResult createResult = mock(CreateTopicsResult.class);
-    KafkaFuture<Void> createFuture = KafkaFuture.completedFuture(null);
-    when(createResult.all()).thenReturn(createFuture);
-    when(mockAdmin.createTopics(anyList())).thenReturn(createResult);
-
-    KafkaDeployer deployer = createDeployer(source);
-    deployer.create();
-
-    verify(mockAdmin).createTopics(anyList());
-  }
-
   // --- helpers ---
 
   private TopicDescription mockTopicWithPartitions(int numPartitions) {

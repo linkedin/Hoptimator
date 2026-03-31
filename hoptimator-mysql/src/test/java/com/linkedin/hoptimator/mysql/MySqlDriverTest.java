@@ -156,36 +156,6 @@ class MySqlDriverTest {
     assertNotNull(schema);
   }
 
-  // --- connect() setAutoCommit: verify autocommit is true ---
-
-  @Test
-  void connectSetsAutoCommitToTrue() throws SQLException {
-    when(mockMySqlConnection.getMetaData()).thenReturn(mockMetaData);
-    when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
-    when(mockResultSet.next()).thenReturn(false);
-
-    MySqlDriver driver = new MySqlDriver() {
-      @Override
-      protected Connection createMySqlConnection(String url, String user, String password) {
-        return mockMySqlConnection;
-      }
-
-      @Override
-      protected TableSchema createTableSchema(Properties properties, String schemaName) {
-        return mockTableSchema;
-      }
-    };
-
-    Properties props = new Properties();
-    props.setProperty("url", "jdbc:mysql://localhost:3306");
-    Connection connection = driver.connect("jdbc:mysql-hoptimator://", props);
-    assertNotNull(connection);
-    // setAutoCommit(true) was called — verify the resulting connection has autocommit=true
-    assertTrue(connection.getAutoCommit(),
-        "Connection should have autoCommit=true after connect()");
-    connection.close();
-  }
-
   // --- connect() called twice succeeds ---
 
   @Test

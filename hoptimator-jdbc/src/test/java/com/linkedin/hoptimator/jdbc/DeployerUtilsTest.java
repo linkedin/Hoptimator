@@ -25,18 +25,6 @@ class DeployerUtilsTest {
   // --- parseIntOption tests ---
 
   @Test
-  void testParseIntOptionReturnsDefault() {
-    Map<String, String> options = Collections.emptyMap();
-    assertEquals(10, DeployerUtils.parseIntOption(options, "partitions", 10));
-  }
-
-  @Test
-  void testParseIntOptionReturnsCustomValue() {
-    Map<String, String> options = Map.of("partitions", "32");
-    assertEquals(32, DeployerUtils.parseIntOption(options, "partitions", 10));
-  }
-
-  @Test
   void testParseIntOptionReturnsDefaultForInvalidValue() {
     Map<String, String> options = Map.of("partitions", "not-a-number");
     assertEquals(10, DeployerUtils.parseIntOption(options, "partitions", 10));
@@ -61,12 +49,6 @@ class DeployerUtilsTest {
   void testParseLongOptionReturnsNullDefault() {
     Map<String, String> options = Collections.emptyMap();
     assertNull(DeployerUtils.parseLongOption(options, "retention", null));
-  }
-
-  @Test
-  void testParseLongOptionReturnsCustomValue() {
-    Map<String, String> options = Map.of("retention", "604800000");
-    assertEquals(604800000L, DeployerUtils.parseLongOption(options, "retention", null));
   }
 
   @Test

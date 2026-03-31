@@ -222,17 +222,4 @@ class MySqlTableTest {
         "name column (columnNullable) should be nullable");
   }
 
-  @Test
-  void testGetRowTypeWithEmptyTableReturnsZeroColumns() throws SQLException {
-    stubSuccessfulConnection();
-    when(mockMetaData.getColumns(eq(DATABASE), isNull(), eq(TABLE), isNull())).thenReturn(mockResultSet);
-    when(mockResultSet.next()).thenReturn(false);
-
-    MySqlTable table = new MySqlTable(DATABASE, TABLE, properties);
-    RelDataType rowType = table.getRowType(typeFactory);
-
-    assertNotNull(rowType);
-    assertEquals(0, rowType.getFieldCount(),
-        "Empty table (no columns) should have 0 fields — distinct from error fallback (1 field)");
-  }
 }

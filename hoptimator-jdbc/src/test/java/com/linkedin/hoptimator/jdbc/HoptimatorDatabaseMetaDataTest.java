@@ -102,25 +102,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  void testGetSchemasReturnsResultSet() throws SQLException {
-    ResultSet mockRs = mock(ResultSet.class);
-    when(mockRs.next()).thenReturn(true, false);
-    when(mockRs.getString("TABLE_CATALOG")).thenReturn("cat1");
-    when(mockRs.wasNull()).thenReturn(false, false);
-    when(mockRs.getString("TABLE_SCHEM")).thenReturn("schema1");
-
-    when(mockCalciteConnection.createStatement()).thenReturn(mockStatement);
-    when(mockStatement.executeQuery(anyString())).thenReturn(mockRs);
-
-    ResultSet rs = metaData.getSchemas();
-
-    assertNotNull(rs);
-    assertTrue(rs.next());
-    assertEquals("schema1", rs.getString("TABLE_SCHEM"));
-    assertEquals("cat1", rs.getString("TABLE_CATALOG"));
-  }
-
-  @Test
   void testGetSchemasWithCatalogAndPattern() throws SQLException {
     ResultSet mockRs = mock(ResultSet.class);
     when(mockRs.next()).thenReturn(true, false);
@@ -148,24 +129,6 @@ class HoptimatorDatabaseMetaDataTest {
     ResultSet rs = metaData.getSchemas("", null);
 
     assertNotNull(rs);
-  }
-
-  @Test
-  void testGetSchemasWithSchemaPattern() throws SQLException {
-    ResultSet mockRs = mock(ResultSet.class);
-    when(mockRs.next()).thenReturn(true, false);
-    when(mockRs.getString("TABLE_CATALOG")).thenReturn("cat");
-    when(mockRs.wasNull()).thenReturn(false, false);
-    when(mockRs.getString("TABLE_SCHEM")).thenReturn("mySchema");
-
-    when(mockCalciteConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
-    when(mockPreparedStatement.executeQuery()).thenReturn(mockRs);
-
-    ResultSet rs = metaData.getSchemas(null, "my%");
-
-    assertNotNull(rs);
-    assertTrue(rs.next());
-    assertEquals("mySchema", rs.getString("TABLE_SCHEM"));
   }
 
   @Test

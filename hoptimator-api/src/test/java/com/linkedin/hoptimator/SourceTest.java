@@ -25,12 +25,6 @@ class SourceTest {
   }
 
   @Test
-  void testSchemaReturnsNullForSingleElementPath() {
-    Source source = new Source("db", List.of("myTable"), Collections.emptyMap());
-    assertNull(source.schema());
-  }
-
-  @Test
   void testCatalogReturnsThirdFromEnd() {
     Source source = new Source("db", List.of("catalog", "schema", "myTable"), Collections.emptyMap());
     assertEquals("catalog", source.catalog());

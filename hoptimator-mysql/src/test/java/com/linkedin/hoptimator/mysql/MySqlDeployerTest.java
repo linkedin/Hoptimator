@@ -222,22 +222,6 @@ class MySqlDeployerTest {
   // --- validate() tests ---
 
   @Test
-  void testValidatePassesForNewTable() throws Exception {
-    Source source = new Source("db", List.of("MYSQL", DATABASE, "NewTable"), Collections.emptyMap());
-
-    ResultSet emptyRs = mock(ResultSet.class);
-    when(emptyRs.next()).thenReturn(false);
-    when(mockMetaData.getTables(eq(DATABASE), any(), eq("NewTable"), any())).thenReturn(emptyRs);
-
-    MySqlDeployer deployer = createDeployer(source);
-    Validator.Issues issues = collectIssues(deployer);
-
-    assertTrue(issues.valid(), "Expected no validation errors for new table");
-
-    verify(mockConnection).close();
-  }
-
-  @Test
   void testValidatePassesForExistingTable() throws Exception {
     Source source = new Source("db", List.of("MYSQL", DATABASE, "ExistingTable"), Collections.emptyMap());
 

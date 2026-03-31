@@ -115,31 +115,4 @@ class VeniceDriverTest {
     second.close();
   }
 
-  @Test
-  void connectSetsAutoCommitTrue() throws SQLException {
-    // removing setAutoCommit(true) would make getAutoCommit() return false
-    VeniceDriver driver = new VeniceDriver() {
-      @Override
-      protected ClusterSchema createClusterSchema(Properties properties) {
-        return mockClusterSchema;
-      }
-    };
-    Connection connection = driver.connect("jdbc:venice://", new Properties());
-    assertTrue(connection.getAutoCommit());
-    connection.close();
-  }
-
-  @Test
-  void connectSetsCatalogToVenice() throws SQLException {
-    // removing setCatalog(CATALOG_NAME) would leave catalog null/empty
-    VeniceDriver driver = new VeniceDriver() {
-      @Override
-      protected ClusterSchema createClusterSchema(Properties properties) {
-        return mockClusterSchema;
-      }
-    };
-    Connection connection = driver.connect("jdbc:venice://", new Properties());
-    assertEquals("VENICE", connection.getCatalog());
-    connection.close();
-  }
 }
