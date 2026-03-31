@@ -38,6 +38,7 @@ import java.util.Properties;
 import static com.linkedin.hoptimator.util.DeploymentService.HINT_OPTION;
 import static com.linkedin.hoptimator.util.DeploymentService.PIPELINE_OPTION;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -545,5 +546,82 @@ class DeploymentServiceTest {
     public int priority() {
       return 0;
     }
+  }
+
+  // If containsKey(HINT_OPTION) check is removed, then getProperty(HINT_OPTION) would be called
+  // even when the key is absent. Verify no hint key = no hint entries.
+  @Test
+  void testParseHintsWithNoHintKeyProducesNoHintEntries() {
+    Properties props = new Properties();
+    props.put(PIPELINE_OPTION, "my-pipe");
+
+    Map<String, String> result = DeploymentService.parseHints(props);
+
+    assertEquals(1, result.size(), "Only pipeline entry expected when hint key absent");
+    assertEquals("my-pipe", result.get(PIPELINE_OPTION));
+  }
+
+  // condition: property != null && !property.isEmpty()
+  // An empty string as hint value: if condition removed (always true), Splitter.on(',')
+  // .withKeyValueSeparator('=').split("") still returns empty map in Guava, so we need
+  // to verify explicitly that an empty hint string contributes NO entries.
+  @Test
+  void testParseHintsEmptyHintStringContributesNoEntries() {
+    Properties props = new Properties();
+    props.put(HINT_OPTION, "");
+    props.put(PIPELINE_OPTION, "my-pipe");
+
+    Map<String, String> result = DeploymentService.parseHints(props);
+
+    assertEquals(1, result.size(), "Empty hint string must contribute no entries");
+    assertFalse(result.containsKey(HINT_OPTION),
+        "hints key must not appear in result when hint string is empty");
+  }
+
+  // If containsKey(PIPELINE_OPTION) check is removed and PIPELINE_OPTION is not set,
+  // getProperty returns null. But: verify
+  // that when PIPELINE_OPTION key is absent, pipeline entry does NOT appear.
+  @Test
+  void testParseHintsNoPipelineKeyProducesNoPipelineEntry() {
+    Properties props = new Properties();
+    props.put(HINT_OPTION, "k=v");
+
+    Map<String, String> result = DeploymentService.parseHints(props);
+
+    assertFalse(result.containsKey(PIPELINE_OPTION),
+        "pipeline entry must not appear when PIPELINE_OPTION key is absent");
+    assertEquals("v", result.get("k"));
+  }
+
+  // condition: property != null && !property.isEmpty()
+  // Empty pipeline value: if removed (always true), pipeline key maps to "" — wrong.
+  @Test
+  void testParseHintsEmptyPipelineValueContributesNoEntry() {
+    Properties props = new Properties();
+    props.put(PIPELINE_OPTION, "");
+
+    Map<String, String> result = DeploymentService.parseHints(props);
+
+    assertFalse(result.containsKey(PIPELINE_OPTION),
+        "pipeline entry must not appear when pipeline value is empty string");
+    assertTrue(result.isEmpty());
+  }
+
+  // Verify providers() returns a collection and that forEachRemaining was called
+  // (i.e., the list is populated from loader). Since no SPI providers are registered in test,
+  // verify the result is non-null and that a registered provider IS returned.
+  @Test
+  void testProvidersWithRegisteredProviderIsNonNull() {
+    Collection<DeployerProvider> providers = DeploymentService.providers();
+    assertNotNull(providers, "providers() must never return null");
+    // Sort is called on the list — if VoidMethodCall removes providers::add, list is empty
+    // We can't easily inject via ServiceLoader, but we verify the infrastructure doesn't crash
+    // and a single-provider scenario works via the package-private overload.
+    Deployable deployable = new Deployable() { };
+    BaseTestProvider provider = new BaseTestProvider(mockDeployer1);
+    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection,
+        Collections.singletonList(provider));
+    assertEquals(1, deployers.size(),
+        "deployers() from a single provider must return exactly 1 deployer");
   }
 }

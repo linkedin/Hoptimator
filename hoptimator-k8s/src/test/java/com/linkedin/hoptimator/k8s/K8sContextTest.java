@@ -333,6 +333,54 @@ class K8sContextTest {
   }
 
   @Test
+  void getPodNamespaceReturnsSelfPodNamespaceSystemProperty() {
+    // Tests getPodNamespace() when SELF_POD_NAMESPACE system property is set
+    String original = System.getProperty("SELF_POD_NAMESPACE");
+    try {
+      System.setProperty("SELF_POD_NAMESPACE", "my-pod-namespace");
+      // create() needs a namespace set via NAMESPACE_KEY or falls back to getPodNamespace()
+      HoptimatorConnection mockConn = mock(HoptimatorConnection.class);
+      Properties props = new Properties();
+      // No NAMESPACE_KEY - will fall through to getPodNamespace()
+      props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
+      props.setProperty(K8sContext.TOKEN_KEY, "token");
+      doReturn(props).when(mockConn).connectionProperties();
+
+      K8sContext ctx = K8sContext.create(mockConn);
+      assertEquals("my-pod-namespace", ctx.namespace());
+    } finally {
+      if (original == null) {
+        System.clearProperty("SELF_POD_NAMESPACE");
+      } else {
+        System.setProperty("SELF_POD_NAMESPACE", original);
+      }
+    }
+  }
+
+  @Test
+  void getPodNamespaceReturnsDefaultWhenNeitherEnvNorPropertySet() {
+    // Tests getPodNamespace() fallback to DEFAULT_NAMESPACE
+    // Ensure the system property is not set
+    String original = System.getProperty("SELF_POD_NAMESPACE");
+    System.clearProperty("SELF_POD_NAMESPACE");
+    try {
+      HoptimatorConnection mockConn = mock(HoptimatorConnection.class);
+      Properties props = new Properties();
+      props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
+      props.setProperty(K8sContext.TOKEN_KEY, "token");
+      doReturn(props).when(mockConn).connectionProperties();
+
+      K8sContext ctx = K8sContext.create(mockConn);
+      // Should use DEFAULT_NAMESPACE when no env var or property is set
+      assertEquals(K8sContext.DEFAULT_NAMESPACE, ctx.namespace());
+    } finally {
+      if (original != null) {
+        System.setProperty("SELF_POD_NAMESPACE", original);
+      }
+    }
+  }
+
+  @Test
   void constantsAreDefined() {
     assertEquals("k8s.namespace", K8sContext.NAMESPACE_KEY);
     assertEquals("k8s.watch.namespace", K8sContext.WATCH_NAMESPACE_KEY);

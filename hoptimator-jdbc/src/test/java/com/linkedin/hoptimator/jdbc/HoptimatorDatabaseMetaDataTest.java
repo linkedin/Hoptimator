@@ -414,4 +414,165 @@ class HoptimatorDatabaseMetaDataTest {
     assertTrue(rs.next());
     assertEquals("t1", rs.getString("TABLE_NAME"));
   }
+
+  @Test
+  void testGetSchemasWithExactSchemaNonMatchingPatternReturnsEmpty() throws SQLException {
+    // regexPattern check: non-matching exact pattern must be filtered out
+    ResultSet mockRs = mock(ResultSet.class);
+    when(mockRs.next()).thenReturn(true, false);
+    when(mockRs.getString("TABLE_CATALOG")).thenReturn("cat");
+    when(mockRs.wasNull()).thenReturn(false, false);
+    when(mockRs.getString("TABLE_SCHEM")).thenReturn("mySchema");
+
+    when(mockCalciteConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockRs);
+
+    // Pattern "otherSchema" does not match "mySchema"
+    ResultSet rs = metaData.getSchemas(null, "otherSchema");
+
+    assertNotNull(rs);
+    assertFalse(rs.next());
+  }
+
+  @Test
+  void testGetSchemasWithExactSchemaPatternMatchReturnsRow() throws SQLException {
+    // Tests that exact schema name pattern returns matching row
+    ResultSet mockRs = mock(ResultSet.class);
+    when(mockRs.next()).thenReturn(true, false);
+    when(mockRs.getString("TABLE_CATALOG")).thenReturn("cat");
+    when(mockRs.wasNull()).thenReturn(false, false);
+    when(mockRs.getString("TABLE_SCHEM")).thenReturn("mySchema");
+
+    when(mockCalciteConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockRs);
+
+    // Exact match: pattern equals schema name
+    ResultSet rs = metaData.getSchemas(null, "mySchema");
+
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    assertEquals("mySchema", rs.getString("TABLE_SCHEM"));
+    assertFalse(rs.next());
+  }
+
+  @Test
+  void testGetSchemasWithWildcardPatternMatchesAll() throws SQLException {
+    // Tests that "%" pattern matches all schemas
+    ResultSet mockRs = mock(ResultSet.class);
+    when(mockRs.next()).thenReturn(true, true, false);
+    when(mockRs.getString("TABLE_CATALOG")).thenReturn("cat", "cat");
+    when(mockRs.wasNull()).thenReturn(false, false, false, false);
+    when(mockRs.getString("TABLE_SCHEM")).thenReturn("schema1", "schema2");
+
+    when(mockCalciteConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockRs);
+
+    ResultSet rs = metaData.getSchemas(null, "%");
+
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    assertEquals("schema1", rs.getString("TABLE_SCHEM"));
+    assertTrue(rs.next());
+    assertEquals("schema2", rs.getString("TABLE_SCHEM"));
+    assertFalse(rs.next());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testGetTablesWithViewTypeFilterIncludesViewExcludesTable() throws SQLException {
+    // Tests that types=["VIEW"] only returns view tables
+    ResultSet mockSchemaRs = mock(ResultSet.class);
+    when(mockSchemaRs.next()).thenReturn(true, false);
+    when(mockSchemaRs.getString("TABLE_CATALOG")).thenReturn("cat");
+    when(mockSchemaRs.wasNull()).thenReturn(false, false);
+    when(mockSchemaRs.getString("TABLE_SCHEM")).thenReturn("sch");
+
+    when(mockCalciteConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockSchemaRs);
+
+    SchemaPlus mockRootSchema = mock(SchemaPlus.class);
+    SchemaPlus mockCatalogSchema = mock(SchemaPlus.class);
+    SchemaPlus mockDbSchema = mock(SchemaPlus.class);
+    Lookup<SchemaPlus> mockRootSub = mock(Lookup.class);
+    Lookup<SchemaPlus> mockCatSub = mock(Lookup.class);
+    Lookup<Table> mockTables = mock(Lookup.class);
+
+    when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
+    doReturn(mockRootSub).when(mockRootSchema).subSchemas();
+    when(mockRootSub.get("cat")).thenReturn(mockCatalogSchema);
+    doReturn(mockCatSub).when(mockCatalogSchema).subSchemas();
+    when(mockCatSub.get("sch")).thenReturn(mockDbSchema);
+    doReturn(mockTables).when(mockDbSchema).tables();
+    doReturn(Set.of("v1")).when(mockTables).getNames(any());
+
+    Table mockView = mock(Table.class);
+    when(mockTables.get("v1")).thenReturn(mockView);
+    when(mockView.getJdbcTableType()).thenReturn(Schema.TableType.VIEW);
+
+    // Filter by VIEW — should include the view
+    ResultSet rs = metaData.getTables("cat", "sch", null, new String[]{"VIEW"});
+
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    assertEquals("v1", rs.getString("TABLE_NAME"));
+    assertEquals("VIEW", rs.getString("TABLE_TYPE"));
+    assertFalse(rs.next());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testGetTablesSchemaPatternFiltersNonMatchingSchemas() throws SQLException {
+    // Tests that non-matching schemaPattern yields empty result
+    ResultSet mockSchemaRs = mock(ResultSet.class);
+    // getSchemas(catalog, schemaPattern) with non-matching pattern returns empty
+    when(mockSchemaRs.next()).thenReturn(false);
+
+    when(mockCalciteConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockSchemaRs);
+
+    ResultSet rs = metaData.getTables(null, "nonExistentSchema", null, null);
+
+    assertNotNull(rs);
+    assertFalse(rs.next());
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void testGetTablesWithNullTypesIncludesBothTablesAndViews() throws SQLException {
+    // types=null means all types — tests the `types != null && types.length > 0` condition
+    ResultSet mockSchemaRs = mock(ResultSet.class);
+    when(mockSchemaRs.next()).thenReturn(true, false);
+    when(mockSchemaRs.getString("TABLE_CATALOG")).thenReturn("cat");
+    when(mockSchemaRs.wasNull()).thenReturn(false, false);
+    when(mockSchemaRs.getString("TABLE_SCHEM")).thenReturn("sch");
+
+    when(mockCalciteConnection.prepareStatement(anyString())).thenReturn(mockPreparedStatement);
+    when(mockPreparedStatement.executeQuery()).thenReturn(mockSchemaRs);
+
+    SchemaPlus mockRootSchema = mock(SchemaPlus.class);
+    SchemaPlus mockCatalogSchema = mock(SchemaPlus.class);
+    SchemaPlus mockDbSchema = mock(SchemaPlus.class);
+    Lookup<SchemaPlus> mockRootSub = mock(Lookup.class);
+    Lookup<SchemaPlus> mockCatSub = mock(Lookup.class);
+    Lookup<Table> mockTables = mock(Lookup.class);
+
+    when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
+    doReturn(mockRootSub).when(mockRootSchema).subSchemas();
+    when(mockRootSub.get("cat")).thenReturn(mockCatalogSchema);
+    doReturn(mockCatSub).when(mockCatalogSchema).subSchemas();
+    when(mockCatSub.get("sch")).thenReturn(mockDbSchema);
+    doReturn(mockTables).when(mockDbSchema).tables();
+    doReturn(Set.of("t1")).when(mockTables).getNames(any());
+
+    Table mockTable = mock(Table.class);
+    when(mockTables.get("t1")).thenReturn(mockTable);
+    when(mockTable.getJdbcTableType()).thenReturn(Schema.TableType.VIEW);
+
+    // types=null — VIEW should still be included
+    ResultSet rs = metaData.getTables("cat", "sch", null, null);
+
+    assertNotNull(rs);
+    assertTrue(rs.next());
+    assertEquals("t1", rs.getString("TABLE_NAME"));
+  }
 }

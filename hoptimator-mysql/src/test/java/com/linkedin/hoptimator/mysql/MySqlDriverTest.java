@@ -155,4 +155,77 @@ class MySqlDriverTest {
     TableSchema schema = driver.createTableSchema(props, "testdb");
     assertNotNull(schema);
   }
+
+  // --- connect() setAutoCommit: verify autocommit is true ---
+
+  @Test
+  void connectSetsAutoCommitToTrue() throws SQLException {
+    when(mockMySqlConnection.getMetaData()).thenReturn(mockMetaData);
+    when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(false);
+
+    MySqlDriver driver = new MySqlDriver() {
+      @Override
+      protected Connection createMySqlConnection(String url, String user, String password) {
+        return mockMySqlConnection;
+      }
+
+      @Override
+      protected TableSchema createTableSchema(Properties properties, String schemaName) {
+        return mockTableSchema;
+      }
+    };
+
+    Properties props = new Properties();
+    props.setProperty("url", "jdbc:mysql://localhost:3306");
+    Connection connection = driver.connect("jdbc:mysql-hoptimator://", props);
+    assertNotNull(connection);
+    // setAutoCommit(true) was called — verify the resulting connection has autocommit=true
+    assertTrue(connection.getAutoCommit(),
+        "Connection should have autoCommit=true after connect()");
+    connection.close();
+  }
+
+  // --- connect() called twice succeeds ---
+
+  @Test
+  void connectCalledTwiceSucceeds() throws SQLException {
+    when(mockMySqlConnection.getMetaData()).thenReturn(mockMetaData);
+    when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(false);
+
+    MySqlDriver driver = new MySqlDriver() {
+      @Override
+      protected Connection createMySqlConnection(String url, String user, String password) {
+        return mockMySqlConnection;
+      }
+
+      @Override
+      protected TableSchema createTableSchema(Properties properties, String schemaName) {
+        return mockTableSchema;
+      }
+    };
+
+    Properties props = new Properties();
+    props.setProperty("url", "jdbc:mysql://localhost:3306");
+
+    Connection c1 = driver.connect("jdbc:mysql-hoptimator://", props);
+    assertNotNull(c1);
+    c1.close();
+
+    // Reset the resultset mock for the second call
+    when(mockResultSet.next()).thenReturn(false);
+    Connection c2 = driver.connect("jdbc:mysql-hoptimator://", props);
+    assertNotNull(c2);
+    c2.close();
+  }
+
+  // --- connect() with null url in props: already tested via connectWithMissingUrlThrowsSQLException ---
+  // --- Additional: connect with wrong prefix returns null ---
+
+  @Test
+  void connectReturnsNullForNonMatchingUrl() throws SQLException {
+    MySqlDriver driver = new MySqlDriver();
+    assertNull(driver.connect("jdbc:other://localhost/db", new Properties()));
+  }
 }

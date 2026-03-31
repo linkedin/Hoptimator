@@ -258,6 +258,50 @@ public class LazyTableLookupTest {
     assertTrue(exception.getMessage().contains("Failed to load tables from Test Schema"));
   }
 
+  @Test
+  void testGetNonExistentTableReturnsNull() {
+    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("table1", "table2");
+    MockTable result = lookup.get("nonExistentTable");
+    // Must be null, not a non-null placeholder
+    assertNull(result);
+    assertEquals(1, lookup.loadTableCallCount.get());
+    assertEquals(0, lookup.loadAllTablesCallCount.get());
+  }
+
+  @Test
+  void testGetNamesSimpleAlphanumericPatternUsesGetNotLoadAll() {
+    // Ensures alphanumeric fast-path
+    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("PRINT", "OTHER");
+    Set<String> names = lookup.getNames(new LikePattern("PRINT"));
+    assertEquals(1, names.size());
+    assertTrue(names.contains("PRINT"));
+    // Fast path must call get(), NOT loadAllTables
+    assertEquals(1, lookup.loadTableCallCount.get());
+    assertEquals(0, lookup.loadAllTablesCallCount.get());
+  }
+
+  @Test
+  void testGetNamesWildcardPatternCallsLoadAll() {
+    // Contrasts with simple pattern — ensures the branch is actually taken differently
+    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("PRINT", "OTHER");
+    Set<String> names = lookup.getNames(new LikePattern("%"));
+    assertEquals(2, names.size());
+    // Wildcard pattern must call loadAllTables, NOT get()
+    assertEquals(1, lookup.loadAllTablesCallCount.get());
+    assertEquals(0, lookup.loadTableCallCount.get());
+  }
+
+  @Test
+  void testGetNamesSimplePatternForMissingTableReturnsEmpty() {
+    // If alphanumeric fast-path is removed, missing table would trigger loadAll
+    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("PRINT");
+    Set<String> names = lookup.getNames(new LikePattern("MISSING"));
+    assertTrue(names.isEmpty());
+    // Must use get() (fast path), not loadAllTables
+    assertEquals(1, lookup.loadTableCallCount.get());
+    assertEquals(0, lookup.loadAllTablesCallCount.get());
+  }
+
   // Concurrent access
 
   @Test

@@ -94,4 +94,35 @@ class KafkaDriverTest {
     ClusterSchema schema = driver.createClusterSchema(props);
     assertNotNull(schema);
   }
+
+  @Test
+  void connectAutoCommitIsSetToTrue() throws SQLException {
+    // Verifies setAutoCommit(true) is called.
+    KafkaDriver driver = new KafkaDriver() {
+      @Override
+      protected ClusterSchema createClusterSchema(Properties properties) {
+        return mockClusterSchema;
+      }
+    };
+    Connection connection = driver.connect("jdbc:kafka://", new Properties());
+    assertTrue(connection.getAutoCommit(),
+        "setAutoCommit(true) must be called");
+    connection.close();
+  }
+
+  @Test
+  void connectAddsKafkaSchemaToRootSchema() throws SQLException {
+    // Verifies rootSchema.add("KAFKA", schema) is called.
+    KafkaDriver driver = new KafkaDriver() {
+      @Override
+      protected ClusterSchema createClusterSchema(Properties properties) {
+        return mockClusterSchema;
+      }
+    };
+    Connection connection = driver.connect("jdbc:kafka://", new Properties());
+    CalciteConnection calciteConnection = (CalciteConnection) connection;
+    assertNotNull(calciteConnection.getRootSchema().subSchemas().get("KAFKA"),
+        "rootSchema.add(KAFKA) must be called");
+    connection.close();
+  }
 }

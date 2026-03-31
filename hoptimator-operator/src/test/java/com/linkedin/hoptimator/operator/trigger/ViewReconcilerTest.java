@@ -32,6 +32,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -212,5 +213,109 @@ class ViewReconcilerTest {
   @Test
   void pendingRetryDurationIsOneMinute() {
     assertEquals(Duration.ofMinutes(1), reconciler.pendingRetryDuration());
+  }
+
+  // if (status != null) — null status means triggers are NOT fired
+  @Test
+  void viewWithNullStatusDoesNotFireTriggers() {
+    // View with null status
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("null-status-view"));
+    views.add(view);
+
+    // A trigger that would match if we incorrectly entered the trigger-fire block
+    Map<String, String> labels = new HashMap<>();
+    labels.put("view", "null-status-view");
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("should-not-fire").labels(labels));
+    triggers.add(trigger);
+
+    reconciler.reconcile(new Request("ns", "null-status-view"));
+
+    // Trigger status must remain null — the block was not entered
+    assertNull(trigger.getStatus());
+  }
+
+  // status != null but watermark == null — triggers NOT fired
+  @Test
+  void viewWithNullWatermarkDoesNotFireTriggers() {
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("null-watermark-view"))
+        .status(new V1alpha1ViewStatus());  // status non-null, watermark null
+    views.add(view);
+
+    Map<String, String> labels = new HashMap<>();
+    labels.put("view", "null-watermark-view");
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("should-not-fire-2").labels(labels));
+    triggers.add(trigger);
+
+    reconciler.reconcile(new Request("ns", "null-watermark-view"));
+
+    assertNull(trigger.getStatus());
+  }
+
+  // tableTriggerApi.updateStatus is called
+  @Test
+  void updateStatusIsCalledWhenTriggerFires() {
+    OffsetDateTime watermark = OffsetDateTime.now();
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("update-status-view"))
+        .status(new V1alpha1ViewStatus().watermark(watermark));
+    views.add(view);
+
+    Map<String, String> labels = new HashMap<>();
+    labels.put("view", "update-status-view");
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("counted-trigger").labels(labels));
+
+    List<V1alpha1TableTrigger> countedTriggers = new ArrayList<>();
+    countedTriggers.add(trigger);
+
+    int[] updateCount = {0};
+    FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> countingTriggerApi =
+        new FakeK8sApi<>(countedTriggers) {
+          @Override
+          public void updateStatus(V1alpha1TableTrigger obj, Object status) throws SQLException {
+            updateCount[0]++;
+            super.updateStatus(obj, status);
+          }
+        };
+
+    ViewReconciler trackingReconciler = new ViewReconciler(
+        countingTriggerApi,
+        new FakeK8sApi<>(views));
+
+    trackingReconciler.reconcile(new Request("ns", "update-status-view"));
+
+    assertTrue(updateCount[0] > 0, "tableTriggerApi.updateStatus should have been called");
+    assertEquals(watermark, trigger.getStatus().getTimestamp());
+  }
+
+  // trigger loop with existing (non-null) trigger status — sets timestamp
+  @Test
+  void existingTriggerStatusTimestampIsUpdated() {
+    OffsetDateTime watermark = OffsetDateTime.now();
+    OffsetDateTime oldTimestamp = watermark.minusDays(1);
+
+    V1alpha1View view = new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("existing-status-view"))
+        .status(new V1alpha1ViewStatus().watermark(watermark));
+    views.add(view);
+
+    Map<String, String> labels = new HashMap<>();
+    labels.put("view", "existing-status-view");
+    V1alpha1TableTriggerStatus existingStatus = new V1alpha1TableTriggerStatus()
+        .timestamp(oldTimestamp);
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("existing-trigger").labels(labels))
+        .status(existingStatus);
+    triggers.add(trigger);
+
+    reconciler.reconcile(new Request("ns", "existing-status-view"));
+
+    // Timestamp must be updated from oldTimestamp to watermark
+    assertEquals(watermark, trigger.getStatus().getTimestamp());
+    assertFalse(oldTimestamp.equals(trigger.getStatus().getTimestamp()));
   }
 }

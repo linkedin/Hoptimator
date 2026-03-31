@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
@@ -141,5 +142,28 @@ class ClusterSchemaTest {
     Set<String> names = schema.tables().getNames(LikePattern.any());
 
     assertEquals(Collections.emptySet(), names);
+  }
+
+  @Test
+  void getSchemaDescriptionContainsBootstrapServersValue() {
+    // getSchemaDescription() is called inside the error message when loadTable throws.
+    // Trigger that path by having describeTopics throw a non-UnknownTopicOrPartitionException,
+    // which causes get() to wrap it with the schema description in the message.
+    when(mockAdminClient.describeTopics(eq(Collections.singleton("any-topic"))))
+        .thenReturn(mockDescribeTopicsResult);
+    Map<String, KafkaFuture<TopicDescription>> topicMap =
+        Collections.singletonMap("any-topic", mockTopicDescFuture);
+    when(mockDescribeTopicsResult.topicNameValues()).thenReturn(topicMap);
+    try {
+      when(mockTopicDescFuture.get()).thenThrow(new ExecutionException(new RuntimeException("auth error")));
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+
+    ClusterSchema schema = new ClusterSchema(properties);
+    RuntimeException ex = assertThrows(RuntimeException.class, () -> schema.tables().get("any-topic"));
+    // The error message from LazyTableLookup.get() includes getSchemaDescription() output
+    assertTrue(ex.getMessage().contains("localhost:9092"),
+        "Schema description should include the bootstrap.servers value");
   }
 }

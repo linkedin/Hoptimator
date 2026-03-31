@@ -19,6 +19,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -27,7 +28,9 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -294,6 +297,142 @@ class HoptimatorDdlUtilsTest {
 
       assertThrows(IllegalArgumentException.class,
           () -> HoptimatorDdlUtils.catalog(context, false, id));
+    }
+  }
+
+  @Test
+  void testCatalogWithThreePartIdentifierReturnsDotJoinedSchemaTable() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context context = connection.createPrepareContext();
+      SqlIdentifier id = new SqlIdentifier(Arrays.asList("UTIL", "DEFAULT", "PRINT"), SqlParserPos.ZERO);
+
+      Pair<CalciteSchema, String> result = HoptimatorDdlUtils.catalog(context, false, id);
+
+      assertNotNull(result);
+      assertEquals("DEFAULT.PRINT", result.right);
+    }
+  }
+
+  @Test
+  void testRenameColumnsWithColumnListRenamesOnlySpecifiedColumns() {
+    SqlNode query = SqlLiteral.createCharString("test", SqlParserPos.ZERO);
+    SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
+    columnList.add(new SqlIdentifier("renamedCol", SqlParserPos.ZERO));
+
+    SqlNode result = HoptimatorDdlUtils.renameColumns(columnList, query);
+
+    // Non-null result means the column list was used; null means query was returned as-is
+    assertNotNull(result);
+    // If columnList == null always true, result would be the original query literal
+    assertFalse(result == query, "Expected wrapped SELECT node, not the original query");
+  }
+
+  @Test
+  void testOptionsWithSingleLiteralKeyValuePair() {
+    SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+    nodeList.add(SqlLiteral.createCharString("connector", SqlParserPos.ZERO));
+    nodeList.add(SqlLiteral.createCharString("kafka", SqlParserPos.ZERO));
+
+    Map<String, String> result = HoptimatorDdlUtils.options(nodeList);
+
+    assertEquals(1, result.size());
+    assertEquals("kafka", result.get("connector"));
+  }
+
+  @Test
+  void testOptionsWithCompoundIdentifierKeyAndLiteralValue() {
+    SqlNodeList nodeList = new SqlNodeList(SqlParserPos.ZERO);
+    nodeList.add(new SqlIdentifier(Arrays.asList("kafka", "bootstrap.servers"), SqlParserPos.ZERO));
+    nodeList.add(SqlLiteral.createCharString("localhost:9092", SqlParserPos.ZERO));
+
+    Map<String, String> result = HoptimatorDdlUtils.options(nodeList);
+
+    assertEquals(1, result.size());
+    assertEquals("localhost:9092", result.get("kafka.bootstrap.servers"));
+  }
+
+  @Test
+  void testViewNameWithThreePartIdentifierReturnsLastPart() {
+    SqlIdentifier id = new SqlIdentifier(
+        Arrays.asList("catalog", "schema", "myView"), SqlParserPos.ZERO);
+
+    String result = HoptimatorDdlUtils.viewName(id);
+
+    assertEquals("myView", result);
+  }
+
+  @Test
+  void testSnapshotAndSetSinkSchemaAddsViewToSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context context = connection.createPrepareContext();
+      HoptimatorDriver.Prepare prepare = new HoptimatorDriver.Prepare(connection);
+      PipelineRel.Implementor plan = new PipelineRel.Implementor(
+          ImmutablePairList.of(), Collections.emptyMap());
+
+      Schema dbSchema = new TestDatabaseSchema("test-db");
+      CalciteSchema calciteSchema =
+          CalciteSchema.createRootSchema(false, false, "testdb", dbSchema);
+      Pair<CalciteSchema, String> schemaPair = Pair.of(calciteSchema, "newView");
+
+      Pair<SchemaPlus, Table> result =
+          HoptimatorDdlUtils.snapshotAndSetSinkSchema(context, prepare, plan, "SELECT 1 AS X", schemaPair);
+
+      // schemaPlus.add(viewName, materializedViewTable) should have been called — verify table is present
+      assertNotNull(result.left);
+      assertNotNull(result.left.tables().get("newView"),
+          "Expected view 'newView' to be registered in schema after snapshotAndSetSinkSchema");
+    }
+  }
+
+  @Test
+  void testSnapshotAndSetSinkSchemaSetsNonNullSinkOnPlan() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context context = connection.createPrepareContext();
+      HoptimatorDriver.Prepare prepare = new HoptimatorDriver.Prepare(connection);
+      PipelineRel.Implementor plan = new PipelineRel.Implementor(
+          ImmutablePairList.of(), Collections.emptyMap());
+
+      Schema dbSchema = new TestDatabaseSchema("test-db");
+      CalciteSchema calciteSchema =
+          CalciteSchema.createRootSchema(false, false, "testdb", dbSchema);
+      Pair<CalciteSchema, String> schemaPair = Pair.of(calciteSchema, "sinkView");
+
+      HoptimatorDdlUtils.snapshotAndSetSinkSchema(context, prepare, plan, "SELECT 1 AS X", schemaPair);
+
+      // Verify plan.setSink(...) was actually called by checking private field via reflection
+      Field sinkField = PipelineRel.Implementor.class.getDeclaredField("sink");
+      sinkField.setAccessible(true);
+      Object sink = sinkField.get(plan);
+      assertNotNull(sink, "Expected plan.sink to be non-null after snapshotAndSetSinkSchema");
+    }
+  }
+
+  @Test
+  void testSnapshotReturnsCurrentViewTableBeforeAdd() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      CalcitePrepare.Context context = connection.createPrepareContext();
+      HoptimatorDriver.Prepare prepare = new HoptimatorDriver.Prepare(connection);
+      PipelineRel.Implementor plan = new PipelineRel.Implementor(
+          ImmutablePairList.of(), Collections.emptyMap());
+
+      Schema dbSchema = new TestDatabaseSchema("test-db");
+      CalciteSchema calciteSchema =
+          CalciteSchema.createRootSchema(false, false, "testdb", dbSchema);
+      Pair<CalciteSchema, String> schemaPair = Pair.of(calciteSchema, "brandNewView");
+
+      Pair<SchemaPlus, Table> result =
+          HoptimatorDdlUtils.snapshotAndSetSinkSchema(context, prepare, plan, "SELECT 1 AS X", schemaPair);
+
+      // The right-side is the snapshot BEFORE the call — view didn't exist, so it must be null
+      assertNull(result.right, "Expected snapshot of non-existent view to be null");
     }
   }
 

@@ -2,13 +2,16 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.jdbc.MaterializedViewTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.ViewTable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,12 +25,16 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -277,6 +284,174 @@ class K8sViewTableTest {
     tableWithApi.registerMaterializations(connection);
     // No exception means success
     assertNotNull(tableWithApi);
+  }
+
+  @Test
+  void addViewsCreatesSchemaWhenMissing() {
+    // When subschema is missing it must be created
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("test-view"))
+        .spec(new V1alpha1ViewSpec().schema("NEWSCHEMA").view("MYVIEW")
+            .sql("SELECT 1").materialized(false)));
+    stubRows();
+
+    SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
+    // NEWSCHEMA does not exist yet — addViews must create it
+    assertNull(root.subSchemas().get("NEWSCHEMA"), "precondition: schema must not exist");
+
+    tableWithApi.addViews(root);
+
+    SchemaPlus created = root.subSchemas().get("NEWSCHEMA");
+    assertNotNull(created, "schema must be created when missing");
+  }
+
+  @Test
+  void addViewsAddsViewToSchemaPlus() {
+    // Verify view IS accessible after addViews
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("test-view"))
+        .spec(new V1alpha1ViewSpec().schema("MYSCH").view("MY_VIEW")
+            .sql("SELECT 1").materialized(false)));
+    stubRows();
+
+    SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
+
+    tableWithApi.addViews(root);
+
+    SchemaPlus schema = root.subSchemas().get("MYSCH");
+    assertNotNull(schema, "schema must exist");
+    Table table = schema.getTable("MY_VIEW");
+    assertNotNull(table, "View must be added to schema via schemaPlus.add()");
+  }
+
+  @Test
+  void makeViewReturnsMaterializedViewTableWhenMaterialized() {
+    // Conditional on materialized — must return MaterializedViewTable not plain ViewTable
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("mv"))
+        .spec(new V1alpha1ViewSpec().schema("MYSCH").view("MV_VIEW")
+            .sql("SELECT 1").materialized(true)));
+    stubRows();
+
+    SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
+
+    tableWithApi.addViews(root);
+
+    SchemaPlus schema = root.subSchemas().get("MYSCH");
+    assertNotNull(schema);
+    Table table = schema.getTable("MV_VIEW");
+    assertNotNull(table);
+    assertInstanceOf(MaterializedViewTable.class, table,
+        "materialized=true must produce MaterializedViewTable, not plain ViewTable");
+  }
+
+  @Test
+  void makeViewReturnsViewTableWhenNotMaterialized() {
+    // non-materialized must return ViewTable
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("vt"))
+        .spec(new V1alpha1ViewSpec().schema("MYSCH").view("VT_VIEW")
+            .sql("SELECT 1").materialized(false)));
+    stubRows();
+
+    SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
+
+    tableWithApi.addViews(root);
+
+    SchemaPlus schema = root.subSchemas().get("MYSCH");
+    assertNotNull(schema);
+    Table table = schema.getTable("VT_VIEW");
+    assertNotNull(table);
+    assertInstanceOf(ViewTable.class, table,
+        "materialized=false must produce ViewTable");
+    assertFalse(table instanceof MaterializedViewTable,
+        "non-materialized view must not be wrapped in MaterializedViewTable");
+  }
+
+  @Test
+  void registerMaterializationsCallsConnectionForEachMaterialized() {
+    // registerMaterializations — verify connection.registerMaterialization IS called
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("mv1"))
+        .spec(new V1alpha1ViewSpec().catalog("cat").schema("sch").view("vw1").sql("SELECT 1")
+            .materialized(true)));
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("mv2"))
+        .spec(new V1alpha1ViewSpec().catalog("cat").schema("sch").view("vw2").sql("SELECT 2")
+            .materialized(true)));
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("nonmv"))
+        .spec(new V1alpha1ViewSpec().sql("SELECT 3").materialized(false)));
+    stubRows();
+
+    tableWithApi.registerMaterializations(connection);
+
+    // Must be called exactly twice — once for each materialized view
+    verify(connection).registerMaterialization(argThat(path -> path.contains("vw1")), eq("SELECT 1"));
+    verify(connection).registerMaterialization(argThat(path -> path.contains("vw2")), eq("SELECT 2"));
+  }
+
+  @Test
+  void validateWithDuplicateNameRecordsError() {
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("dup-view"))
+        .spec(new V1alpha1ViewSpec().sql("SELECT 1")));
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("dup-view"))
+        .spec(new V1alpha1ViewSpec().sql("SELECT 2")));
+    stubRows();
+
+    Validator.Issues issues = new Validator.Issues("test");
+    tableWithApi.validate(issues);
+
+    assertFalse(issues.valid(),
+        "Duplicate view name must record an error, making issues invalid");
+  }
+
+  @Test
+  void validateWithUniqueValidNamesIsValid() {
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("view-one"))
+        .spec(new V1alpha1ViewSpec().sql("SELECT 1")));
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("view-two"))
+        .spec(new V1alpha1ViewSpec().sql("SELECT 2")));
+    stubRows();
+
+    Validator.Issues issues = new Validator.Issues("test");
+    tableWithApi.validate(issues);
+
+    assertTrue(issues.valid(), "unique valid names must not produce errors");
+  }
+
+  @Test
+  void findThrowsForNonExistentName() {
+    // lambda$find$0 — filter always returns true
+    // If the filter always returns true, find("nonexistent") would return the first row instead of throwing
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("real-view"))
+        .spec(new V1alpha1ViewSpec().sql("SELECT 1")));
+    stubRows();
+
+    assertThrows(IllegalArgumentException.class, () -> tableWithApi.find("nonexistent"),
+        "find() with non-existent name must throw, not return a random row");
+  }
+
+  @Test
+  void findReturnsCorrectRowNotFirstRow() {
+    // Complement: find("second") must return "second", not "first"
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("first"))
+        .spec(new V1alpha1ViewSpec().sql("SELECT 1")));
+    views.add(new V1alpha1View()
+        .metadata(new V1ObjectMeta().name("second"))
+        .spec(new V1alpha1ViewSpec().sql("SELECT 2")));
+    stubRows();
+
+    K8sViewTable.Row row = tableWithApi.find("second");
+    assertEquals("second", row.NAME,
+        "find() must filter by name, not return first row");
+    assertEquals("SELECT 2", row.SQL);
   }
 
 }

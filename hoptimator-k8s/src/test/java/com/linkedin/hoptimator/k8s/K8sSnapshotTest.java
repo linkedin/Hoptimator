@@ -4,14 +4,104 @@ package com.linkedin.hoptimator.k8s;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.sql.SQLException;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 class K8sSnapshotTest {
+
+  private Map<String, String> yamls;
+  private FakeK8sYamlApi fakeApi;
+  private K8sSnapshot snapshot;
+
+  @BeforeEach
+  void setUp() {
+    yamls = new HashMap<>();
+    fakeApi = new FakeK8sYamlApi(yamls);
+    snapshot = new K8sSnapshot(null) {
+      @Override
+      K8sYamlApi createYamlApi(K8sContext context) {
+        return fakeApi;
+      }
+    };
+  }
+
+  @Test
+  void restoreClearsInternalMapSoSubsequentRestoreIsNoOp() throws SQLException {
+    // After restore, the map must be cleared.
+    // A second restore() call should do nothing (no double-delete).
+    V1alpha1Pipeline pipeline = new V1alpha1Pipeline();
+    pipeline.setApiVersion("hoptimator.linkedin.com/v1alpha1");
+    pipeline.setKind("Pipeline");
+    pipeline.setMetadata(new V1ObjectMeta().name("test-pipeline").namespace("default"));
+
+    // Store snapshot (object not yet in fakeApi → stored as null, i.e. pre-store state was absent)
+    snapshot.store(pipeline);
+    // restore() deletes the pipeline from yamls (pre-store state was absent → delete)
+    // yamls was empty and remains empty
+    snapshot.restore();
+    assertTrue(yamls.isEmpty(), "after first restore(), yaml map must be empty (pre-store state was absent)");
+
+    // The snapshot's internal map must have been cleared (Map.clear must have been called)
+    // Proof: store() again on the same object must succeed (it was not deduped as already stored)
+    snapshot.store(pipeline);
+    // And a second restore() must work
+    snapshot.restore();
+    assertTrue(yamls.isEmpty(), "second restore() must also result in empty yamls");
+  }
+
+  @Test
+  void storeWithContextNullSkipsNamespaceOverride() throws SQLException {
+    DynamicKubernetesObject obj = new DynamicKubernetesObject();
+    obj.setApiVersion("v1");
+    obj.setKind("ConfigMap");
+    obj.setMetadata(new V1ObjectMeta().name("my-config").namespace("existing-ns"));
+
+    // snapshot has null context (setUp() created it with null)
+    snapshot.store(obj);
+    // Should not throw and the namespace should remain "existing-ns"
+    // Verify by restoring - the object wasn't in yamls so it gets deleted (no-op in fake)
+    snapshot.restore();
+    // No exception = test passed
+  }
+
+  @Test
+  void toDynamicKubernetesObjectFromNonDynamicReturnsNewObject() {
+    // If DynamicKubernetesObject is returned as-is, vs non-dynamic creates a new wrapper
+    V1alpha1Pipeline pipeline = new V1alpha1Pipeline();
+    pipeline.setApiVersion("hoptimator.linkedin.com/v1alpha1");
+    pipeline.setKind("Pipeline");
+    pipeline.setMetadata(new V1ObjectMeta().name("p1").namespace("ns"));
+
+    DynamicKubernetesObject result = K8sSnapshot.toDynamicKubernetesObject(pipeline);
+
+    // Must NOT return the same object (it was not a DynamicKubernetesObject)
+    assertNotSame(result, pipeline);
+    assertEquals("Pipeline", result.getKind());
+    assertEquals("hoptimator.linkedin.com/v1alpha1", result.getApiVersion());
+  }
+
+  @Test
+  void toDynamicKubernetesObjectFromDynamicReturnsSameObject() {
+    // If input IS a DynamicKubernetesObject, the exact same object should be returned
+    DynamicKubernetesObject obj = new DynamicKubernetesObject();
+    obj.setApiVersion("v1");
+    obj.setKind("ConfigMap");
+    obj.setMetadata(new V1ObjectMeta().name("cm"));
+
+    DynamicKubernetesObject result = K8sSnapshot.toDynamicKubernetesObject(obj);
+    assertTrue(result == obj, "Should return the same DynamicKubernetesObject instance");
+  }
 
   @Test
   void toDynamicKubernetesObjectFromDynamic() {

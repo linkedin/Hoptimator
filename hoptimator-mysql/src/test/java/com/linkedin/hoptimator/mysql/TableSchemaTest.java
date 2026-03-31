@@ -21,10 +21,12 @@ import java.util.Properties;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -154,5 +156,57 @@ class TableSchemaTest {
     Set<String> names = schema.tables().getNames(LikePattern.any());
 
     assertEquals(Set.of(), names);
+  }
+
+  // --- getSchemaDescription() returns non-empty string ---
+  // getSchemaDescription() is used inside error messages in LazyTableLookup.
+  // When loadTable() throws, the RuntimeException message contains getSchemaDescription().
+  // If getSchemaDescription() returns "", the error message would be "Failed to load table 'x' from ".
+  // We assert that the error message contains the database name and URL, proving it is non-empty.
+
+  @Test
+  void getSchemaDescriptionIsNonEmptyInErrorMessage() {
+    // Make the DriverManager throw so that loadTable() throws, triggering the
+    // RuntimeException that includes getSchemaDescription() in its message.
+    driverManagerStatic.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+        .thenThrow(new RuntimeException("simulated connection error"));
+
+    TableSchema schema = new TableSchema(properties, DATABASE);
+    Lookup<Table> lookup = schema.tables();
+
+    RuntimeException ex = assertThrows(RuntimeException.class, () -> lookup.get("some_table"));
+
+    // The error message should contain the database name and URL from getSchemaDescription()
+    // If getSchemaDescription() returned "", the message would NOT contain these strings.
+    String message = ex.getMessage();
+    assertNotNull(message);
+    assertFalse(message.isEmpty());
+    // getSchemaDescription() returns "MySQL database 'test_db' at jdbc:mysql://localhost:3306/test"
+    assertTrue(message.contains(DATABASE) || message.contains("MySQL database"),
+        "Error message should contain database description from getSchemaDescription(), got: " + message);
+  }
+
+  @Test
+  void getSchemaDescriptionIsNonEmptyInGetNamesErrorMessage() {
+    // Make the DriverManager throw during loadAllTables() to trigger the RuntimeException
+    // that includes getSchemaDescription() in its error message.
+    driverManagerStatic.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+        .thenThrow(new RuntimeException("simulated connection error"));
+
+    TableSchema schema = new TableSchema(properties, DATABASE);
+    Lookup<Table> lookup = schema.tables();
+
+    // getNames(LikePattern.any()) uses "%" which triggers loadAllTables()
+    RuntimeException ex = assertThrows(RuntimeException.class,
+        () -> lookup.getNames(LikePattern.any()));
+
+    String message = ex.getMessage();
+    assertNotNull(message);
+    assertFalse(message.isEmpty());
+    // If getSchemaDescription() were "", the message would be "Failed to load tables from "
+    // With proper implementation it should contain the database/URL info
+    assertTrue(message.contains(DATABASE) || message.contains("MySQL database")
+            || message.contains("jdbc:mysql"),
+        "Error message should reference the schema description, got: " + message);
   }
 }

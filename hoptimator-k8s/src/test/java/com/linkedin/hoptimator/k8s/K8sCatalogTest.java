@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -84,6 +85,69 @@ class K8sCatalogTest {
     catalog.register(wrapper);
 
     assertNotNull(schemaPlus.subSchemas().get("k8s"));
+  }
+
+  @Test
+  void registerAddsViewsToSchema() throws SQLException {
+    // Tests register() VoidMethodCall: metadata.viewTable().addViews(schemaPlus) must be called
+    SchemaPlus schemaPlus = CalciteSchema.createRootSchema(true).plus();
+    doReturn(schemaPlus).when(wrapper).unwrap(SchemaPlus.class);
+    doReturn(connection).when(wrapper).unwrap(HoptimatorConnection.class);
+    mockedK8sContext.when(() -> K8sContext.create(any())).thenReturn(mockContext);
+
+    K8sCatalog catalog = new K8sCatalog() {
+      @Override
+      K8sMetadata createMetadata(HoptimatorConnection conn, K8sContext ctx) {
+        return new K8sMetadata(conn, ctx) {
+          @Override
+          public K8sDatabaseTable databaseTable() {
+            return mockDatabaseTable;
+          }
+
+          @Override
+          public K8sViewTable viewTable() {
+            return mockViewTable;
+          }
+        };
+      }
+    };
+
+    catalog.register(wrapper);
+
+    // After register(), addViews() should have been called on the view table
+    assertNotNull(schemaPlus.subSchemas().get("k8s"), "k8s schema must be registered");
+    verify(mockViewTable).addViews(any(SchemaPlus.class));
+  }
+
+  @Test
+  void registerAddsDatabasesViaAddDatabases() throws SQLException {
+    // Tests register() VoidMethodCall: metadata.databaseTable().addDatabases(schemaPlus, conn)
+    SchemaPlus schemaPlus = CalciteSchema.createRootSchema(true).plus();
+    doReturn(schemaPlus).when(wrapper).unwrap(SchemaPlus.class);
+    doReturn(connection).when(wrapper).unwrap(HoptimatorConnection.class);
+    mockedK8sContext.when(() -> K8sContext.create(any())).thenReturn(mockContext);
+
+    K8sCatalog catalog = new K8sCatalog() {
+      @Override
+      K8sMetadata createMetadata(HoptimatorConnection conn, K8sContext ctx) {
+        return new K8sMetadata(conn, ctx) {
+          @Override
+          public K8sDatabaseTable databaseTable() {
+            return mockDatabaseTable;
+          }
+
+          @Override
+          public K8sViewTable viewTable() {
+            return mockViewTable;
+          }
+        };
+      }
+    };
+
+    catalog.register(wrapper);
+
+    // mockDatabaseTable is a Mockito mock, so verify() works directly
+    verify(mockDatabaseTable).addDatabases(any(SchemaPlus.class), any());
   }
 
   @Test

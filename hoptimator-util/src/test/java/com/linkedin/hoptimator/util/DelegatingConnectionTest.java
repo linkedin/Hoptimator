@@ -76,6 +76,13 @@ class DelegatingConnectionTest {
     assertTrue(connection.isClosed());
   }
 
+  // isClosed() must return false on an open connection
+  @Test
+  void testIsClosedReturnsFalseOnOpenConnection() throws Exception {
+    when(mockInner.isClosed()).thenReturn(false);
+    assertFalse(connection.isClosed());
+  }
+
   @Test
   void testGetSchemaDelegates() throws Exception {
     when(mockInner.getSchema()).thenReturn("public");
@@ -177,6 +184,13 @@ class DelegatingConnectionTest {
   void testIsReadOnlyDelegates() throws Exception {
     when(mockInner.isReadOnly()).thenReturn(true);
     assertTrue(connection.isReadOnly());
+  }
+
+  // isReadOnly() must return false on a non-read-only connection
+  @Test
+  void testIsReadOnlyReturnsFalseOnWritableConnection() throws Exception {
+    when(mockInner.isReadOnly()).thenReturn(false);
+    assertFalse(connection.isReadOnly());
   }
 
   @Test

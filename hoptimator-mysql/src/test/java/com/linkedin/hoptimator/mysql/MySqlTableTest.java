@@ -26,6 +26,7 @@ import java.util.Properties;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -179,5 +180,59 @@ class MySqlTableTest {
 
     assertNotNull(rowType);
     assertTrue(rowType.getFieldList().get(0).getType().isNullable());
+  }
+
+  // --- nullable vs non-nullable column → different isNullable() result ---
+
+  @Test
+  void testGetRowTypeNonNullableColumnIsNotNullable() throws SQLException {
+    stubSuccessfulConnection();
+    when(mockMetaData.getColumns(eq(DATABASE), isNull(), eq(TABLE), isNull())).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true, false);
+    when(mockResultSet.getString("COLUMN_NAME")).thenReturn("required_col");
+    when(mockResultSet.getInt("DATA_TYPE")).thenReturn(Types.INTEGER);
+    when(mockResultSet.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls);
+
+    MySqlTable table = new MySqlTable(DATABASE, TABLE, properties);
+    RelDataType rowType = table.getRowType(typeFactory);
+
+    assertNotNull(rowType);
+    assertFalse(rowType.getFieldList().get(0).getType().isNullable(),
+        "Non-nullable column (columnNoNulls) should not be nullable");
+  }
+
+  @Test
+  void testGetRowTypeNullableAndNonNullableColumnsDiffer() throws SQLException {
+    stubSuccessfulConnection();
+    when(mockMetaData.getColumns(eq(DATABASE), isNull(), eq(TABLE), isNull())).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true, true, false);
+    when(mockResultSet.getString("COLUMN_NAME")).thenReturn("id", "name");
+    when(mockResultSet.getInt("DATA_TYPE")).thenReturn(Types.INTEGER, Types.VARCHAR);
+    when(mockResultSet.getInt("NULLABLE")).thenReturn(
+        DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable);
+
+    MySqlTable table = new MySqlTable(DATABASE, TABLE, properties);
+    RelDataType rowType = table.getRowType(typeFactory);
+
+    assertNotNull(rowType);
+    assertEquals(2, rowType.getFieldCount());
+    assertFalse(rowType.getFieldList().get(0).getType().isNullable(),
+        "id column (columnNoNulls) should not be nullable");
+    assertTrue(rowType.getFieldList().get(1).getType().isNullable(),
+        "name column (columnNullable) should be nullable");
+  }
+
+  @Test
+  void testGetRowTypeWithEmptyTableReturnsZeroColumns() throws SQLException {
+    stubSuccessfulConnection();
+    when(mockMetaData.getColumns(eq(DATABASE), isNull(), eq(TABLE), isNull())).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(false);
+
+    MySqlTable table = new MySqlTable(DATABASE, TABLE, properties);
+    RelDataType rowType = table.getRowType(typeFactory);
+
+    assertNotNull(rowType);
+    assertEquals(0, rowType.getFieldCount(),
+        "Empty table (no columns) should have 0 fields — distinct from error fallback (1 field)");
   }
 }

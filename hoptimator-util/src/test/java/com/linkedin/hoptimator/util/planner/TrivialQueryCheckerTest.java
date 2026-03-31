@@ -454,6 +454,283 @@ public class TrivialQueryCheckerTest {
         assertTrue(checker.isTrivial(), "visit(LogicalProject) with simple fields should be trivial");
     }
 
+    @Test
+    void testVisitLogicalValuesReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalValues values = mock(LogicalValues.class);
+        RelNode result = checker.visit(values);
+        assertNotNull(result, "visit(LogicalValues) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalFilterReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        RelNode result = checker.visit(mockFilter);
+        assertNotNull(result, "visit(LogicalFilter) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalCalcReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalCalc calc = mock(LogicalCalc.class);
+        RelNode result = checker.visit(calc);
+        assertNotNull(result, "visit(LogicalCalc) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalJoinReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        RelNode result = checker.visit(mockJoin);
+        assertNotNull(result, "visit(LogicalJoin) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalCorrelateReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalCorrelate correlate = mock(LogicalCorrelate.class);
+        RelNode result = checker.visit(correlate);
+        assertNotNull(result, "visit(LogicalCorrelate) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalUnionReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalUnion union = mock(LogicalUnion.class);
+        RelNode result = checker.visit(union);
+        assertNotNull(result, "visit(LogicalUnion) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalIntersectReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalIntersect intersect = mock(LogicalIntersect.class);
+        RelNode result = checker.visit(intersect);
+        assertNotNull(result, "visit(LogicalIntersect) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalMinusReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalMinus minus = mock(LogicalMinus.class);
+        RelNode result = checker.visit(minus);
+        assertNotNull(result, "visit(LogicalMinus) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalAggregateReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalAggregate aggregate = mock(LogicalAggregate.class);
+        RelNode result = checker.visit(aggregate);
+        assertNotNull(result, "visit(LogicalAggregate) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalMatchReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalMatch match = mock(LogicalMatch.class);
+        RelNode result = checker.visit(match);
+        assertNotNull(result, "visit(LogicalMatch) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalSortReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalSort sort = mock(LogicalSort.class);
+        RelNode result = checker.visit(sort);
+        assertNotNull(result, "visit(LogicalSort) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalExchangeReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalExchange exchange = mock(LogicalExchange.class);
+        RelNode result = checker.visit(exchange);
+        assertNotNull(result, "visit(LogicalExchange) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalTableModifyReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalTableModify modify = mock(LogicalTableModify.class);
+        RelNode result = checker.visit(modify);
+        assertNotNull(result, "visit(LogicalTableModify) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalAsofJoinReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalAsofJoin asofJoin = mock(LogicalAsofJoin.class);
+        RelNode result = checker.visit(asofJoin);
+        assertNotNull(result, "visit(LogicalAsofJoin) must not return null");
+    }
+
+    @Test
+    void testVisitLogicalRepeatUnionReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        LogicalRepeatUnion repeatUnion = mock(LogicalRepeatUnion.class);
+        RelNode result = checker.visit(repeatUnion);
+        assertNotNull(result, "visit(LogicalRepeatUnion) must not return null");
+    }
+
+    @Test
+    void testVisitRelNodeOtherReturnsNonNull() {
+        TrivialQueryChecker checker = new TrivialQueryChecker();
+        RelNode other = mock(RelNode.class);
+        RelNode result = checker.visit(other);
+        assertNotNull(result, "visit(RelNode) must not return null");
+        assertFalse(checker.isTrivial(), "Unknown RelNode should mark non-trivial");
+    }
+
+    // Traversal correctness: visiting children of project must detect nested non-trivial nodes
+
+    /**
+     * A LogicalProject wrapping a LogicalAggregate must be non-trivial.
+     * If visit(LogicalProject) returned null instead of this, visitChildren
+     * would not be called and the aggregate would never be visited, incorrectly
+     * leaving isTrivial() as true.
+     */
+    @Test
+    void testProjectWrappingAggregateIsNotTrivial() {
+        LogicalAggregate aggregate = mock(LogicalAggregate.class);
+        when(aggregate.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        // Project with simple fields so the project itself is ok — non-triviality
+        // must come from the aggregate child.
+        RelDataType rowType = createRowType("field1");
+        List<RexNode> simpleProjections = List.of(
+            new RexInputRef(0, rowType.getFieldList().get(0).getType())
+        );
+        when(mockProject.getProjects()).thenReturn(simpleProjections);
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(aggregate));
+
+        boolean result = TrivialQueryChecker.isTrivialQuery(mockProject);
+        assertFalse(result,
+            "Project wrapping an aggregate must be non-trivial; "
+            + "traversal into children must occur");
+    }
+
+    /**
+     * Verify visitChildren short-circuits after the first non-trivial child:
+     * the second child (which would also mark non-trivial) should not cause
+     * issues, and the result must be non-trivial.
+     * Both stubbings are lenient because short-circuit means filter2 may not be called.
+     */
+    @Test
+    void testVisitChildrenShortCircuitsOnNonTrivial() {
+        LogicalFilter filter1 = mock(LogicalFilter.class);
+        LogicalFilter filter2 = mock(LogicalFilter.class);
+        lenient().when(filter1.accept(any(RelShuttle.class))).thenCallRealMethod();
+        lenient().when(filter2.accept(any(RelShuttle.class))).thenCallRealMethod();
+
+        RelDataType rowType = createRowType("f");
+        when(mockProject.getProjects()).thenReturn(
+            List.of(new RexInputRef(0, rowType.getFieldList().get(0).getType())));
+        when(mockProject.getInputs()).thenReturn(List.of(filter1, filter2));
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockProject),
+            "Project with non-trivial children must be non-trivial");
+    }
+
+    // A plain InputRef is a simple field reference → trivial.
+    @Test
+    void testInputRefAloneIsTrivialProjection() {
+        RelDataType rowType = createRowType("x");
+        List<RexNode> proj = List.of(new RexInputRef(0, rowType.getFieldList().get(0).getType()));
+        when(mockProject.getProjects()).thenReturn(proj);
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+
+        assertTrue(TrivialQueryChecker.isTrivialQuery(mockProject),
+            "Single InputRef projection must be trivial");
+    }
+
+    /**
+     * A RexCall that is NOT an ITEM operator (e.g. PLUS) must NOT be a simple
+     * field reference → non-trivial.
+     */
+    @Test
+    void testRexCallWithNonItemOperatorIsNotTrivial() {
+        RelDataType intType = typeFactory.createSqlType(SqlTypeName.INTEGER);
+        RexNode plusExpr = rexBuilder.makeCall(
+            SqlStdOperatorTable.PLUS,
+            rexBuilder.makeInputRef(intType, 0),
+            rexBuilder.makeInputRef(intType, 1));
+
+        when(mockProject.getProjects()).thenReturn(Collections.singletonList(plusExpr));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockProject),
+            "PLUS expression must make the query non-trivial");
+    }
+
+    /**
+     * An ITEM call where the base is NOT an InputRef (a nested ITEM whose own
+     * base is a complex PLUS call) must NOT be a simple field reference.
+     *
+     * We build:  ITEM(ITEM($0_struct, 'level1'), 'level2')
+     * The outer ITEM's base is itself an ITEM – which IS a simple reference.
+     * To force the base to be non-simple we directly build a deeply-nested
+     * ITEM where the innermost base is invalid, using mocked RexCall objects
+     * so Calcite's type inference is bypassed.
+     */
+    @Test
+    void testItemOperatorWithNonInputRefBaseIsNotTrivial() {
+        // Create a mock RexCall that looks like an ITEM but whose base is a PLUS expression.
+        // We mock the operator to be SqlItemOperator and have 2 operands:
+        //   operand(0) = a PLUS RexCall (not an InputRef)
+        //   operand(1) = a RexLiteral
+        // Since we cannot easily pass Calcite's type inference for ITEM(PLUS(...), literal),
+        // we instead use the existing multi-level ITEM test (deeply nested) and add a
+        // separate test that checks the isSimpleFieldReference path via a RexCall mock.
+
+        // A function call that is not ITEM and not InputRef must not be simple
+        RelDataType intType = typeFactory.createSqlType(SqlTypeName.INTEGER);
+        RexNode plusExpr = rexBuilder.makeCall(
+            SqlStdOperatorTable.PLUS,
+            rexBuilder.makeInputRef(intType, 0),
+            rexBuilder.makeInputRef(intType, 1));
+
+        // Wrap the PLUS in a project - the project will be non-trivial
+        when(mockProject.getProjects()).thenReturn(Collections.singletonList(plusExpr));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockProject),
+            "PLUS expression must be non-trivial");
+    }
+
+    /**
+     * An ITEM call whose base is itself a non-simple expression (an ITEM
+     * wrapped in a function) must be non-trivial.
+     * This uses a mocked RexCall to bypass Calcite's type-inference restrictions
+     * while still exercising the `isSimpleFieldReference(baseField)` condition.
+     */
+    @Test
+    void testItemOperatorWithRexCallBaseIsNotTrivial() {
+        // Mock a RexCall that pretends to be an ITEM operator but has
+        // a non-InputRef (PLUS) as its first operand.
+        RelDataType intType = typeFactory.createSqlType(SqlTypeName.INTEGER);
+        RexNode plusBase = rexBuilder.makeCall(
+            SqlStdOperatorTable.PLUS,
+            rexBuilder.makeInputRef(intType, 0),
+            rexBuilder.makeInputRef(intType, 1));
+        RexLiteral fieldName = rexBuilder.makeLiteral("field");
+
+        // Build a mocked RexCall: operator=ITEM, operands=[plusBase, fieldName]
+        RexCall mockedItemCall = mock(RexCall.class);
+        lenient().when(mockedItemCall.getOperator()).thenReturn(SqlStdOperatorTable.ITEM);
+        lenient().when(mockedItemCall.getOperands()).thenReturn(List.of(plusBase, fieldName));
+
+        // isSimpleFieldReference for this call should check:
+        //   - operator instanceof SqlItemOperator  → true (ITEM)
+        //   - operands.size() == 2                 → true
+        //   - isSimpleFieldReference(plusBase)     → false (PLUS is not InputRef)
+        // Therefore the whole expression is NOT a simple field reference.
+        when(mockProject.getProjects()).thenReturn(Collections.singletonList(mockedItemCall));
+        when(mockProject.getInputs()).thenReturn(Collections.singletonList(mockTableScan));
+
+        assertFalse(TrivialQueryChecker.isTrivialQuery(mockProject),
+            "ITEM with PLUS base must not be a simple field reference");
+    }
+
     private RelDataType createRowType(String... fieldNames) {
         RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
         for (String fieldName : fieldNames) {

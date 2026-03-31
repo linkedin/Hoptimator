@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
@@ -197,5 +198,89 @@ class K8sJobDeployerTest {
     assertEquals(1, specs.size());
     assertTrue(specs.get(0).contains("INSERT INTO sink SELECT * FROM source"));
     assertTrue(specs.get(0).contains("srcdb"));
+  }
+
+  @Test
+  void specifyLambdasReturnNonEmptyValues() throws SQLException {
+    // Verify each key field is non-empty.
+    doReturn(new Properties()).when(connection).connectionProperties();
+
+    templates.add(new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("template1"))
+        .spec(new V1alpha1JobTemplateSpec()
+            .databases(Collections.singletonList("sinkdb"))
+            .yaml("name: {{name}}\ndatabase: {{database}}\n"
+                + "table: {{table}}\n"
+                + "sourceDatabases: {{sourceDatabases}}\nsourceSchemas: {{sourceSchemas}}\n"
+                + "sourceTables: {{sourceTables}}\nsql: {{sql}}\nflinksql: {{flinksql}}\n"
+                + "fieldMap: {{fieldMap}}")));
+
+    Sink sink = new Sink("sinkdb", Arrays.asList("myschema", "mytable"),
+        Collections.emptyMap());
+    Job job = createTestJob(sink);
+    K8sJobDeployer deployer = makeDeployer(job);
+
+    List<String> specs = deployer.specify();
+
+    assertEquals(1, specs.size());
+    String yaml = specs.get(0);
+    assertFalse(yaml.isEmpty());
+    // Each lambda must produce a non-empty value
+    assertTrue(yaml.contains("srcdb"), "sourceDatabases lambda must return non-empty");
+    assertTrue(yaml.contains("src_table"), "sourceTables lambda must return non-empty");
+    assertTrue(yaml.contains("INSERT INTO sink SELECT * FROM source"), "sql lambda must return non-empty");
+    assertTrue(yaml.contains("sinkdb"), "database must appear");
+    assertTrue(yaml.contains("mytable"), "table must appear");
+    assertTrue(yaml.contains("{\"a\":\"b\"}"), "fieldMap lambda must return non-empty");
+  }
+
+  @Test
+  void specifyWithFlinkConfigPropertiesIncludesThem() throws SQLException {
+    // Verify that sink options ARE merged into the environment
+    Properties connProps = new Properties();
+    connProps.setProperty("flinkConfig1", "value1");
+    doReturn(connProps).when(connection).connectionProperties();
+
+    Map<String, String> sinkOptions = new HashMap<>();
+    sinkOptions.put("sinkOption", "sinkVal");
+    Sink sink = new Sink("sinkdb", Arrays.asList("schema", "sink_table"), sinkOptions);
+
+    templates.add(new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("template1"))
+        .spec(new V1alpha1JobTemplateSpec()
+            .yaml("option: {{sinkOption}}")));
+
+    Job job = createTestJob(sink);
+    K8sJobDeployer deployer = makeDeployer(job);
+
+    List<String> specs = deployer.specify();
+
+    assertEquals(1, specs.size());
+    // sinkOption comes from sink options putAll — if putAll is removed, "sinkVal" won't appear
+    assertTrue(specs.get(0).contains("sinkVal"),
+        "sink options must be merged into template environment via putAll");
+  }
+
+  @Test
+  void specifyConditionalRenderedTemplateNotNull() throws SQLException {
+    // Verify null templates are skipped
+    doReturn(new Properties()).when(connection).connectionProperties();
+
+    templates.add(new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("template1"))
+        .spec(new V1alpha1JobTemplateSpec()
+            .yaml("name: {{name}}")));
+
+    Sink sink = new Sink("sinkdb", Arrays.asList("schema", "sink_table"),
+        Collections.emptyMap());
+    Job job = createTestJob(sink);
+    K8sJobDeployer deployer = makeDeployer(job);
+
+    List<String> specs = deployer.specify();
+
+    assertEquals(1, specs.size());
+    assertFalse(specs.get(0).isEmpty(), "rendered template must be non-empty");
+    // The name should be canonicalized from "sinkdb" + "test-job"
+    assertTrue(specs.get(0).contains("sinkdb"), "rendered template must contain database name");
   }
 }

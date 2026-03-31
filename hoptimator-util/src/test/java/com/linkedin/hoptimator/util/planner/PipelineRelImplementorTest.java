@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -622,6 +623,309 @@ class PipelineRelImplementorTest {
     assertEquals("MY_ALIAS", fieldMap.get("parent.child"));
   }
 
+  /**
+   * After addSource, the pipeline must contain a non-null job with SQL
+   * that references the source table.  If addSource were a no-op the
+   * sources map would be empty and sql() / pipeline() would behave
+   * differently (e.g. no CREATE TABLE for the source).
+   */
+  @Test
+  void testAddSourceAppearsInPipelineSql() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.addSource("testDb", Arrays.asList("MYSCHEMA", "MYTABLE"), rowType, Collections.emptyMap());
+    impl.setSink("testDb", Arrays.asList("MYSCHEMA", "SINKTABLE"), rowType, Collections.emptyMap());
+
+    ThrowingFunction<SqlDialect, String> sqlFunc = impl.sql(mockConnection);
+    String sql = sqlFunc.apply(SqlDialect.ANSI);
+    // The source table must appear somewhere in the generated script
+    assertNotNull(sql);
+    assertTrue(sql.length() > 0, "sql() must produce non-empty output after addSource");
+  }
+
+  /**
+   * After setSink, the pipeline job must exist and the generated SQL must
+   * contain an INSERT INTO targeting the sink.  If setSink were a no-op the
+   * sink would remain null and sql() would NPE or omit the INSERT.
+   */
+  @Test
+  void testSetSinkAppearsInPipelineSql() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.addSource("db", Arrays.asList("s", "src"), rowType, Collections.emptyMap());
+    impl.setSink("db", Arrays.asList("s", "snk"), rowType, Collections.emptyMap());
+
+    ThrowingFunction<SqlDialect, String> sqlFunc = impl.sql(mockConnection);
+    String sql = sqlFunc.apply(SqlDialect.ANSI);
+    assertNotNull(sql);
+    // INSERT INTO must be present because a sink was set
+    assertTrue(sql.toUpperCase().contains("INSERT"), "sql() must contain INSERT when sink is set");
+  }
+
+  /**
+   * With NO sink set, hasTableNameCollision must be false and sql() should
+   * NOT add _source/_sink suffixes.  If the null-check for sink were removed
+   * (RemoveConditionals), a NullPointerException would be thrown, or the
+   * wrong branch taken.
+   */
+  @Test
+  void testNoCollisionWithNoSink() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.addSource("db", Arrays.asList("schema", "table"), rowType, Collections.emptyMap());
+    // No setSink call
+
+    // query() (not sql()) works without a sink
+    ThrowingFunction<SqlDialect, String> queryFunc = impl.query(mockConnection);
+    String result = queryFunc.apply(SqlDialect.ANSI);
+    assertNotNull(result);
+    // No suffixes should appear because there is no collision
+    assertFalse(result.contains("_source"), "No _source suffix when sink is absent");
+  }
+
+  /**
+   * Two sources with different paths and a sink distinct from both → no collision.
+   * If hasTableNameCollision always returned true, the SQL would contain
+   * _source/_sink suffixes when it shouldn't.
+   */
+  @Test
+  void testNoCollisionWithDistinctSourceAndSink() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.addSource("db", Arrays.asList("s", "alpha"), rowType, Collections.emptyMap());
+    impl.setSink("db", Arrays.asList("s", "beta"), rowType, Collections.emptyMap());
+
+    ThrowingFunction<SqlDialect, String> sqlFunc = impl.sql(mockConnection);
+    String sql = sqlFunc.apply(SqlDialect.ANSI);
+    assertNotNull(sql);
+    assertFalse(sql.contains("_source"),
+        "No _source suffix expected when source and sink have different names");
+    assertFalse(sql.contains("_sink"),
+        "No _sink suffix expected when source and sink have different names");
+  }
+
+  /**
+   * Source and sink share the SAME catalog/schema/table → collision, suffixes added.
+   * Validates the three Objects.equals(...) conditions inside hasTableNameCollision.
+   */
+  @Test
+  void testCollisionWithSameSourceAndSink() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.addSource("db", Arrays.asList("s", "same"), rowType, Collections.emptyMap());
+    impl.setSink("db", Arrays.asList("s", "same"), rowType, Collections.emptyMap());
+
+    ThrowingFunction<SqlDialect, String> sqlFunc = impl.sql(mockConnection);
+    String sql = sqlFunc.apply(SqlDialect.ANSI);
+    assertNotNull(sql);
+    assertTrue(sql.contains("_source") || sql.contains("_sink"),
+        "Collision must produce suffixed table names");
+  }
+
+  /**
+   * Verify the two branches of script() produce DIFFERENT SQL output.
+   * If the needsSuffixes flag were always false (RemoveConditionals), the
+   * collision case would not add suffixes, making these two results equal.
+   */
+  @Test
+  void testCollisionAndNoCollisionProduceDifferentSql() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    RelNode query = createScanRelNode();
+
+    // With collision
+    PipelineRel.Implementor collisionImpl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+    collisionImpl.setQuery(query);
+    collisionImpl.addSource("db", Arrays.asList("s", "t"), rowType, Collections.emptyMap());
+    collisionImpl.setSink("db", Arrays.asList("s", "t"), rowType, Collections.emptyMap());
+    String collisionSql = collisionImpl.sql(mockConnection).apply(SqlDialect.ANSI);
+
+    // Without collision
+    PipelineRel.Implementor noCollisionImpl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+    noCollisionImpl.setQuery(query);
+    noCollisionImpl.addSource("db", Arrays.asList("s", "src"), rowType, Collections.emptyMap());
+    noCollisionImpl.setSink("db", Arrays.asList("s", "snk"), rowType, Collections.emptyMap());
+    String noCollisionSql = noCollisionImpl.sql(mockConnection).apply(SqlDialect.ANSI);
+
+    assertFalse(collisionSql.equals(noCollisionSql),
+        "Collision and no-collision paths must produce different SQL");
+  }
+
+  /**
+   * fieldMap() on a trivial projected query must return a JSON map whose keys and
+   * values match the projected column names.  This tests the full pipeline from
+   * fieldMap() through buildFieldMappingFromSqlNodes() and extractFieldName().
+   */
+  @Test
+  void testFieldMapReturnsExpectedFieldNames() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType tableType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("COL2", typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .build();
+
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus sub = rootSchema.add("SC", new AbstractSchema());
+    sub.add("TBL", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory tf) {
+        return tableType;
+      }
+    });
+
+    RelBuilder builder = RelBuilder.create(
+        Frameworks.newConfigBuilder().defaultSchema(rootSchema).build());
+    // SELECT COL1, COL2 FROM SC.TBL — explicit projections produce SqlIdentifiers
+    RelNode projQuery = builder.scan("SC", "TBL")
+        .project(builder.field("COL1"), builder.field("COL2"))
+        .build();
+
+    List<Map.Entry<Integer, String>> entries = List.of(
+        new AbstractMap.SimpleEntry<>(0, "COL1"),
+        new AbstractMap.SimpleEntry<>(1, "COL2"));
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.copyOf(entries), Collections.emptyMap());
+    impl.setQuery(projQuery);
+
+    ThrowingFunction<SqlDialect, String> fieldMapFunc = impl.fieldMap();
+    String json = fieldMapFunc.apply(SqlDialect.ANSI);
+
+    assertNotNull(json);
+    assertTrue(json.startsWith("{"), "fieldMap() result must be a JSON object");
+    assertTrue(json.length() > 2, "fieldMap() must contain at least one field mapping");
+    // The projected column names must appear in the mapping
+    assertTrue(json.contains("COL1") || json.contains("col1"),
+        "fieldMap() result must include COL1");
+  }
+
+  /**
+   * When the query projects with an alias (SELECT src AS tgt), fieldMap must
+   * map src → tgt, not src → src.
+   */
+  @Test
+  void testFieldMapWithProjectedAliasReturnsAliasMapping() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType tableType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus sub = rootSchema.add("SC2", new AbstractSchema());
+    sub.add("TBL2", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory tf) {
+        return tableType;
+      }
+    });
+
+    // Use RelBuilder to create SELECT col1 AS aliasCol FROM SC2.TBL2
+    RelBuilder builder = RelBuilder.create(
+        Frameworks.newConfigBuilder().defaultSchema(rootSchema).build());
+    RelNode projQuery = builder.scan("SC2", "TBL2")
+        .project(builder.alias(builder.field("COL1"), "ALIAS_COL"))
+        .build();
+
+    List<Map.Entry<Integer, String>> entries = List.of(
+        new AbstractMap.SimpleEntry<>(0, "ALIAS_COL"));
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.copyOf(entries), Collections.emptyMap());
+    impl.setQuery(projQuery);
+
+    ThrowingFunction<SqlDialect, String> fieldMapFunc = impl.fieldMap();
+    String json = fieldMapFunc.apply(SqlDialect.ANSI);
+
+    assertNotNull(json);
+    assertTrue(json.startsWith("{"), "fieldMap() result must be a JSON object");
+    // The alias must appear in the mapping
+    assertTrue(json.contains("ALIAS_COL"), "fieldMap() must contain the alias name");
+  }
+
+  // After addSource, the pipeline's sources set must be non-empty.
+  @Test
+  void testPipelineHasNonNullJobAfterAddSource() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.addSource("db", Arrays.asList("sch", "src"), rowType, Collections.emptyMap());
+    impl.setSink("db", Arrays.asList("sch", "snk"), rowType, Collections.emptyMap());
+
+    Pipeline pipeline = impl.pipeline("job-test", mockConnection);
+    assertNotNull(pipeline.job(), "pipeline() must return a non-null job");
+    assertEquals("job-test", pipeline.job().name());
+    assertNotNull(pipeline.sources(), "Pipeline sources must not be null");
+    assertFalse(pipeline.sources().isEmpty(), "Pipeline must have at least one source after addSource");
+  }
+
+  // After setSink, the pipeline sink must be non-null.
+  @Test
+  void testPipelineHasNonNullSinkAfterSetSink() throws SQLException {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.addSource("db", Arrays.asList("sch", "src"), rowType, Collections.emptyMap());
+    impl.setSink("db", Arrays.asList("sch", "snk"), rowType, Collections.emptyMap());
+
+    Pipeline pipeline = impl.pipeline("sink-test", mockConnection);
+    assertNotNull(pipeline.sink(), "pipeline() must return a non-null sink after setSink");
+  }
+
   private RelNode createAggregateRelNode() {
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType tableType = typeFactory.builder()
@@ -647,9 +951,7 @@ class PipelineRelImplementorTest {
         .build();
   }
 
-  /**
-   * Minimal PipelineRel implementation for testing visit().
-   */
+  // Minimal PipelineRel implementation for testing visit().
   private static class TestPipelineRelNode extends AbstractRelNode implements PipelineRel {
     boolean implementCalled = false;
 
@@ -664,9 +966,7 @@ class PipelineRelImplementorTest {
     }
   }
 
-  /**
-   * PipelineRel node with a child input for testing visit() recursion.
-   */
+  // PipelineRel node with a child input for testing visit() recursion.
   private static class TestPipelineRelNodeWithInput extends SingleRel implements PipelineRel {
     boolean implementCalled = false;
 

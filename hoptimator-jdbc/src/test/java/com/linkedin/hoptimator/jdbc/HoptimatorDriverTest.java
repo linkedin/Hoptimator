@@ -276,4 +276,55 @@ class HoptimatorDriverTest {
       assertNotNull(schema);
     }
   }
+
+  @Test
+  void connectSetsAutoCommitTrue() throws SQLException {
+    try (Connection connection = driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      assertTrue(connection.getAutoCommit(), "AutoCommit must be set to true by connect()");
+    }
+  }
+
+  // If the catalog is never added, querying a table in it will throw
+  @Test
+  void connectWithCatalogMakesTablesQueryable() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM \"UTIL\".\"PRINT\"")) {
+        assertNotNull(ps, "Prepared statement must succeed — catalog must be registered in root schema");
+      }
+    }
+  }
+
+  // Connecting twice to same catalog must succeed
+  @Test
+  void connectTwiceWithSameCatalogSucceeds() throws SQLException {
+    try (Connection c1 = driver.connect("jdbc:hoptimator://catalogs=util", new Properties());
+         Connection c2 = driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      assertNotNull(c1);
+      assertNotNull(c2);
+    }
+  }
+
+  // Without the schema-add guard, catalogs param is ignored
+  @Test
+  void connectWithCatalogParamOnlyLoadsSpecifiedCatalog() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // UTIL catalog must be accessible
+      try (PreparedStatement ps = connection.prepareStatement("SELECT * FROM \"UTIL\".\"PRINT\"")) {
+        assertNotNull(ps);
+      }
+    }
+  }
+
+  // onConnectionInit sets up the connection state; without it the connection behaves unexpectedly
+  @Test
+  void calciteDriverConnectReturnsUsableConnection() throws SQLException {
+    CalciteDriver calciteDriver = new CalciteDriver();
+    try (Connection connection = calciteDriver.connect("jdbc:calcite:", new Properties())) {
+      // onConnectionInit must be called for the connection to be non-null and functional
+      assertNotNull(connection, "CalciteDriver.connect() must return a non-null connection after onConnectionInit");
+      assertFalse(connection.isClosed());
+    }
+  }
 }

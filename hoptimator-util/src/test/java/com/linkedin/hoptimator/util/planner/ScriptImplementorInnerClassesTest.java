@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -487,5 +488,220 @@ class ScriptImplementorInnerClassesTest {
 
     // $-separated names are converted to underscores
     assertTrue(sql.contains("FOO_BAR"));
+  }
+
+  @Test
+  void testDropFieldsOnProjectRemovesExtraFields() {
+    // Source has [A, B, C]; target is only [A, B] — C must be absent from the INSERT
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType tableType = typeFactory.builder()
+        .add("A", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("B", typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .add("C", typeFactory.createSqlType(SqlTypeName.BOOLEAN))
+        .build();
+
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus testSchema = rootSchema.add("T", new AbstractSchema());
+    testSchema.add("SRC", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory tf) {
+        return tableType;
+      }
+    });
+
+    RelBuilder builder = RelBuilder.create(
+        Frameworks.newConfigBuilder().defaultSchema(rootSchema).build());
+    // Project selects all three fields explicitly — matches the "relNode instanceof Project" path
+    RelNode project = builder.scan("T", "SRC")
+        .project(builder.field("A"), builder.field("B"), builder.field("C"))
+        .build();
+
+    // Target only wants A and B
+    ImmutablePairList<Integer, String> targetFields = ImmutablePairList.copyOf(Arrays.asList(
+        new AbstractMap.SimpleEntry<>(0, "A"),
+        new AbstractMap.SimpleEntry<>(1, "B")));
+
+    String sql = ScriptImplementor.empty()
+        .insert(null, "S", "DEST", null, project, targetFields)
+        .sql();
+
+    assertTrue(sql.contains("`A`"), "Should contain field A. Got: " + sql);
+    assertTrue(sql.contains("`B`"), "Should contain field B. Got: " + sql);
+    assertFalse(sql.contains("`C`"), "Should NOT contain field C. Got: " + sql);
+  }
+
+  @Test
+  void testDropFieldsOnTableScanRemovesExtraFieldsByIndex() {
+    // Non-Project (TableScan) path: index-based matching — source has [ID, NAME, AGE],
+    // target only wants [ID, NAME] by index; AGE must be absent from the SELECT.
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType tableType = typeFactory.builder()
+        .add("ID",   typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .add("NAME", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("AGE",  typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .build();
+
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus testSchema = rootSchema.add("S2", new AbstractSchema());
+    testSchema.add("SRC2", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory tf) {
+        return tableType;
+      }
+    });
+
+    RelBuilder builder = RelBuilder.create(
+        Frameworks.newConfigBuilder().defaultSchema(rootSchema).build());
+    // Raw scan — exercises the non-Project (index-based) branch
+    RelNode scan = builder.scan("S2", "SRC2").build();
+
+    ImmutablePairList<Integer, String> targetFields = ImmutablePairList.copyOf(Arrays.asList(
+        new AbstractMap.SimpleEntry<>(0, "ID"),
+        new AbstractMap.SimpleEntry<>(1, "NAME")));
+
+    String sql = ScriptImplementor.empty()
+        .insert(null, "DEST", "T2", null, scan, targetFields)
+        .sql();
+
+    assertTrue(sql.contains("`ID`"), "Should contain ID. Got: " + sql);
+    assertTrue(sql.contains("`NAME`"), "Should contain NAME. Got: " + sql);
+    assertFalse(sql.contains("`AGE`"), "Should NOT contain AGE. Got: " + sql);
+  }
+
+  @Test
+  void testDropNullFieldsRemovesNullTypedColumns() {
+    // A NULL-typed column must be dropped; a VARCHAR column must be retained.
+    // Use a schema-based table with an explicit NULL-typed column.
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType tableType = typeFactory.builder()
+        .add("GOOD_COL", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("NULL_COL", typeFactory.createSqlType(SqlTypeName.NULL))
+        .build();
+
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus testSchema = rootSchema.add("NULL_SCH", new AbstractSchema());
+    testSchema.add("NULL_TBL", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory tf) {
+        return tableType;
+      }
+    });
+
+    RelBuilder builder = RelBuilder.create(
+        Frameworks.newConfigBuilder().defaultSchema(rootSchema).build());
+    RelNode scan = builder.scan("NULL_SCH", "NULL_TBL").build();
+
+    // insert() with null targetFields triggers dropNullFields()
+    String sql = ScriptImplementor.empty()
+        .insert(null, "S", "T", scan)
+        .sql();
+
+    assertTrue(sql.contains("`GOOD_COL`"), "Should retain non-null column. Got: " + sql);
+    assertFalse(sql.contains("`NULL_COL`"), "Should drop NULL-typed column. Got: " + sql);
+  }
+
+  @Test
+  void testDropNullFieldsRetainsAllNonNullColumns() {
+    // When no NULL-typed columns exist, all columns should be present
+    RelBuilder builder = RelBuilder.create(
+        Frameworks.newConfigBuilder()
+            .defaultSchema(Frameworks.createRootSchema(true))
+            .build());
+    RelNode values = builder.values(new String[]{"COL_A", "COL_B"}, "x", "y").build();
+
+    String sql = ScriptImplementor.empty()
+        .insert(null, "S", "T", values)
+        .sql();
+
+    assertTrue(sql.contains("`COL_A`"), "Should retain COL_A. Got: " + sql);
+    assertTrue(sql.contains("`COL_B`"), "Should retain COL_B. Got: " + sql);
+  }
+
+  // The ANSI SQL unparser does not emit "NOT NULL" in the column spec text,
+  // so we verify the behavior indirectly: both nullable and non-nullable
+  // columns appear correctly in the CREATE TABLE output, and crucially
+  // the SQL does NOT incorrectly include a "NULL" keyword for either case.
+
+  @Test
+  void testNonNullableColumnAppearsInCreateTable() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType notNullVarchar = typeFactory.createTypeWithNullability(
+        typeFactory.createSqlType(SqlTypeName.VARCHAR), false);
+    RelDataType rowType = typeFactory.createStructType(
+        Collections.singletonList(notNullVarchar),
+        Collections.singletonList("STRICT_COL"));
+
+    String sql = ScriptImplementor.empty()
+        .connector(null, "S", "T", rowType, Collections.emptyMap())
+        .sql();
+
+    // Column must be present in the CREATE TABLE DDL
+    assertTrue(sql.contains("STRICT_COL"), "Non-nullable column must appear in DDL. Got: " + sql);
+    assertTrue(sql.contains("VARCHAR"), "Non-nullable column type must appear in DDL. Got: " + sql);
+    // NULL keyword must not appear — the code comment says "we don't want VARCHAR NULL"
+    assertFalse(sql.contains("VARCHAR NULL"),
+        "Non-nullable column must not have VARCHAR NULL. Got: " + sql);
+  }
+
+  @Test
+  void testNullableColumnAppearsInCreateTableWithoutNullKeyword() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    // createSqlType produces nullable by default
+    RelDataType nullableVarchar = typeFactory.createSqlType(SqlTypeName.VARCHAR);
+    RelDataType rowType = typeFactory.createStructType(
+        Collections.singletonList(nullableVarchar),
+        Collections.singletonList("NULLABLE_COL"));
+
+    String sql = ScriptImplementor.empty()
+        .connector(null, "S", "T", rowType, Collections.emptyMap())
+        .sql();
+
+    assertTrue(sql.contains("NULLABLE_COL"), "Nullable column must appear in DDL. Got: " + sql);
+    assertTrue(sql.contains("VARCHAR"), "Nullable column type must appear in DDL. Got: " + sql);
+    // The spec comment: "we don't want 'VARCHAR NULL', only 'VARCHAR NOT NULL'"
+    assertFalse(sql.contains("VARCHAR NULL"),
+        "Nullable column must not produce VARCHAR NULL. Got: " + sql);
+  }
+
+  // When relNode is a Project AND targetFields != null → column list comes from
+  // project.getRowType().getFieldNames(), not targetFields.rightList().
+  @Test
+  void testInsertColumnListComesFromProjectFieldNamesWhenProjectWithTargetFields() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType tableType = typeFactory.builder()
+        .add("SRC_A", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("SRC_B", typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .build();
+
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus testSchema = rootSchema.add("SRC_SCH", new AbstractSchema());
+    testSchema.add("SRC_TBL", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory tf) {
+        return tableType;
+      }
+    });
+
+    RelBuilder builder = RelBuilder.create(
+        Frameworks.newConfigBuilder().defaultSchema(rootSchema).build());
+    // Project renames fields — the column list in INSERT should use projected names
+    RelNode project = builder.scan("SRC_SCH", "SRC_TBL")
+        .project(
+            builder.alias(builder.field("SRC_A"), "RENAMED_A"),
+            builder.alias(builder.field("SRC_B"), "RENAMED_B"))
+        .build();
+
+    ImmutablePairList<Integer, String> targetFields = ImmutablePairList.copyOf(Arrays.asList(
+        new AbstractMap.SimpleEntry<>(0, "RENAMED_A"),
+        new AbstractMap.SimpleEntry<>(1, "RENAMED_B")));
+
+    String sql = ScriptImplementor.empty()
+        .insert(null, "DEST_SCH", "DEST_TBL", null, project, targetFields)
+        .sql();
+
+    assertTrue(sql.contains("INSERT INTO"), "Should produce INSERT INTO. Got: " + sql);
+    // Column list should reference the projected (renamed) field names
+    assertTrue(sql.contains("RENAMED_A"), "Column list should contain RENAMED_A. Got: " + sql);
+    assertTrue(sql.contains("RENAMED_B"), "Column list should contain RENAMED_B. Got: " + sql);
   }
 }

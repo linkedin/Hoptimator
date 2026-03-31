@@ -3,6 +3,9 @@ package com.linkedin.hoptimator.k8s;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.openapi.models.V1Namespace;
+import io.kubernetes.client.openapi.models.V1NamespaceList;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
@@ -10,6 +13,7 @@ import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.options.DeleteOptions;
 import io.kubernetes.client.util.generic.options.ListOptions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -27,9 +31,13 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -405,6 +413,274 @@ class K8sApiTest {
 
     List<V1OwnerReference> owners = pipeline.getMetadata().getOwnerReferences();
     assertEquals(2, owners.size());
+  }
+
+  // ── Cluster-scoped endpoint tests (NAMESPACES is cluster-scoped) ──
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
+      justification = "Mocked AutoCloseable and return values not needed in tests")
+  class ClusterScopedEndpointTests {
+
+    @Mock
+    private K8sContext mockClusterContext;
+
+    @Mock
+    private GenericKubernetesApi<V1Namespace, V1NamespaceList> mockNsApi;
+
+    @Mock
+    private KubernetesApiResponse<V1Namespace> mockNsResponse;
+
+    @Mock
+    private KubernetesApiResponse<V1NamespaceList> mockNsListResponse;
+
+    private K8sApi<V1Namespace, V1NamespaceList> nsApi;
+
+    @BeforeEach
+    void setUp() {
+      nsApi = new K8sApi<>(mockClusterContext, K8sApiEndpoints.NAMESPACES);
+      lenient().when(mockClusterContext.generic(K8sApiEndpoints.NAMESPACES)).thenReturn(mockNsApi);
+      lenient().when(mockClusterContext.namespace()).thenReturn("test-ns");
+    }
+
+    private V1Namespace makeNamespace(String name) {
+      V1Namespace ns = new V1Namespace();
+      ns.setMetadata(new V1ObjectMeta().name(name));
+      return ns;
+    }
+
+    @Test
+    void getByNameUsesNameOnlyVariantForClusterScoped() throws SQLException {
+      V1Namespace ns = makeNamespace("my-ns");
+      when(mockNsApi.get(eq("my-ns"))).thenReturn(mockNsResponse);
+      when(mockNsResponse.getObject()).thenReturn(ns);
+
+      V1Namespace result = nsApi.get("my-ns");
+
+      verify(mockNsApi, times(1)).get(eq("my-ns"));
+      verify(mockNsApi, never()).get(anyNsNamespace(), eq("my-ns"));
+      assertEquals("my-ns", result.getMetadata().getName());
+    }
+
+    @Test
+    void getByObjectUsesNameOnlyForClusterScopedWhenNamespaceIsNull() throws SQLException {
+      V1Namespace ns = makeNamespace("my-ns");
+      when(mockNsApi.get(eq("my-ns"))).thenReturn(mockNsResponse);
+      when(mockNsResponse.getObject()).thenReturn(ns);
+
+      nsApi.get(ns);
+
+      verify(mockNsApi, times(1)).get(eq("my-ns"));
+      verify(mockNsApi, never()).get(any(String.class), eq("my-ns"));
+    }
+
+    @Test
+    void getByObjectDoesNotSetNamespaceForClusterScoped() throws SQLException {
+      V1Namespace ns = makeNamespace("my-ns");
+      // namespace is null on the object
+      when(mockNsApi.get(eq("my-ns"))).thenReturn(mockNsResponse);
+      when(mockNsResponse.getObject()).thenReturn(ns);
+
+      nsApi.get(ns);
+
+      // Namespace should NOT be set on a cluster-scoped object
+      assertNull(ns.getMetadata().getNamespace());
+    }
+
+    @Test
+    void createDoesNotSetNamespaceForClusterScoped() throws SQLException {
+      V1Namespace ns = makeNamespace("my-ns");
+      when(mockNsApi.create(any(V1Namespace.class))).thenReturn(mockNsResponse);
+
+      nsApi.create(ns);
+
+      verify(mockNsApi, times(1)).create(ns);
+      assertNull(ns.getMetadata().getNamespace());
+    }
+
+    @Test
+    void deleteDoesNotSetNamespaceForClusterScoped() throws SQLException {
+      V1Namespace ns = makeNamespace("my-ns");
+      when(mockNsApi.delete(any(), any(), any(DeleteOptions.class))).thenReturn(mockNsResponse);
+
+      nsApi.delete(ns);
+
+      // Should use null namespace (as-is), not context namespace
+      assertNull(ns.getMetadata().getNamespace());
+    }
+
+    @Test
+    void updateUsesNameOnlyGetForClusterScoped() throws SQLException {
+      V1Namespace ns = makeNamespace("my-ns");
+      V1Namespace existing = makeNamespace("my-ns");
+      existing.getMetadata().setResourceVersion("rv-cs");
+
+      when(mockNsApi.get(eq("my-ns"))).thenReturn(mockNsResponse);
+      when(mockNsResponse.isSuccess()).thenReturn(true);
+      when(mockNsResponse.getObject()).thenReturn(existing);
+      when(mockNsApi.update(any(V1Namespace.class))).thenReturn(mockNsResponse);
+
+      nsApi.update(ns);
+
+      verify(mockNsApi, times(1)).get(eq("my-ns"));
+      verify(mockNsApi, never()).get(any(String.class), eq("my-ns"));
+      verify(mockNsApi, times(1)).update(ns);
+    }
+
+    @Test
+    void updateStatusDoesNotSetNamespaceForClusterScoped() throws SQLException {
+      V1Namespace ns = makeNamespace("my-ns");
+      when(mockNsApi.updateStatus(any(V1Namespace.class), any())).thenReturn(mockNsResponse);
+
+      nsApi.updateStatus(ns, new Object());
+
+      assertNull(ns.getMetadata().getNamespace());
+    }
+
+    @Test
+    void updateWhenObjectNotFoundForClusterScopedCallsCreate() throws SQLException {
+      V1Namespace ns = makeNamespace("my-ns");
+
+      when(mockNsApi.get(eq("my-ns"))).thenReturn(mockNsResponse);
+      when(mockNsResponse.isSuccess()).thenReturn(false);
+      when(mockNsApi.create(any(V1Namespace.class))).thenReturn(mockNsResponse);
+
+      nsApi.update(ns);
+
+      verify(mockNsApi, times(1)).create(ns);
+      verify(mockNsApi, never()).update(any());
+    }
+
+    @Test
+    void listUsesNameOnlyVariantForClusterScoped() throws SQLException {
+      V1NamespaceList nsList = new V1NamespaceList();
+      nsList.setItems(Collections.emptyList());
+      when(mockNsApi.list(any(ListOptions.class))).thenReturn(mockNsListResponse);
+      when(mockNsListResponse.getObject()).thenReturn(nsList);
+
+      Collection<V1Namespace> result = nsApi.list();
+
+      verify(mockNsApi, times(1)).list(any(ListOptions.class));
+      verify(mockNsApi, never()).list(eq("test-ns"), any(ListOptions.class));
+      assertEquals(0, result.size());
+    }
+
+    // Helper for never() verification — matches any string argument
+    private String anyNsNamespace() {
+      return any(String.class);
+    }
+  }
+
+  // ── K8sUtils.checkResponse throws on error ──
+
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
+      justification = "Mocked AutoCloseable and return values not needed in tests")
+  class CheckResponseMutationTests {
+
+    @Mock
+    private K8sContext mockErrContext;
+
+    @Mock
+    private GenericKubernetesApi<V1alpha1Pipeline, V1alpha1PipelineList> mockErrApi;
+
+    @Mock
+    private KubernetesApiResponse<V1alpha1Pipeline> mockErrResponse;
+
+    private K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> errApi;
+
+    @BeforeEach
+    void setUp() {
+      errApi = new K8sApi<>(mockErrContext, K8sApiEndpoints.PIPELINES);
+      lenient().when(mockErrContext.generic(K8sApiEndpoints.PIPELINES)).thenReturn(mockErrApi);
+      lenient().when(mockErrContext.namespace()).thenReturn("test-ns");
+    }
+
+    @Test
+    void getThrowsWhenResponseIsErrorStatus() throws ApiException {
+      ApiException apiEx = new ApiException(500, "Internal Server Error");
+      when(mockErrApi.get(eq("test-ns"), eq("bad-pipeline"))).thenReturn(mockErrResponse);
+      when(mockErrResponse.getHttpStatusCode()).thenReturn(500);
+      // throwsApiException() throws when response is not success
+      lenient().doThrow(apiEx).when(mockErrResponse).throwsApiException();
+
+      assertThrows(SQLException.class, () -> errApi.get("test-ns", "bad-pipeline"));
+    }
+
+    @Test
+    void createThrowsWhenResponseIsErrorStatus() throws ApiException {
+      V1alpha1Pipeline pipeline = makePipeline("bad-pipeline", null);
+      ApiException apiEx = new ApiException(500, "Internal Server Error");
+      when(mockErrApi.create(any(V1alpha1Pipeline.class))).thenReturn(mockErrResponse);
+      when(mockErrResponse.getHttpStatusCode()).thenReturn(500);
+      lenient().doThrow(apiEx).when(mockErrResponse).throwsApiException();
+
+      assertThrows(SQLException.class, () -> errApi.create(pipeline));
+    }
+
+    @Test
+    void deleteThrowsWhenResponseIsErrorStatus() throws ApiException {
+      ApiException apiEx = new ApiException(500, "Internal Server Error");
+      when(mockErrApi.delete(eq("test-ns"), eq("bad-pipeline"), any(DeleteOptions.class)))
+          .thenReturn(mockErrResponse);
+      when(mockErrResponse.getHttpStatusCode()).thenReturn(500);
+      lenient().doThrow(apiEx).when(mockErrResponse).throwsApiException();
+
+      assertThrows(SQLException.class, () -> errApi.delete("test-ns", "bad-pipeline"));
+    }
+
+    @Test
+    void updateThrowsWhenResponseIsErrorStatusOnFinalUpdate() throws ApiException {
+      V1alpha1Pipeline pipeline = makePipeline("bad-pipeline", "test-ns");
+      V1alpha1Pipeline existing = makePipeline("bad-pipeline", "test-ns");
+      existing.getMetadata().setResourceVersion("rv1");
+
+      KubernetesApiResponse<V1alpha1Pipeline> existingResp = mock(KubernetesApiResponse.class);
+      when(existingResp.isSuccess()).thenReturn(true);
+      when(existingResp.getObject()).thenReturn(existing);
+      when(mockErrApi.get(eq("test-ns"), eq("bad-pipeline"))).thenReturn(existingResp);
+
+      ApiException apiEx = new ApiException(500, "Internal Server Error");
+      when(mockErrApi.update(any(V1alpha1Pipeline.class))).thenReturn(mockErrResponse);
+      when(mockErrResponse.getHttpStatusCode()).thenReturn(500);
+      lenient().doThrow(apiEx).when(mockErrResponse).throwsApiException();
+
+      assertThrows(SQLException.class, () -> errApi.update(pipeline));
+    }
+
+    @Test
+    void updateStatusThrowsWhenResponseIsErrorStatus() throws ApiException {
+      V1alpha1Pipeline pipeline = makePipeline("bad-pipeline", "test-ns");
+      ApiException apiEx = new ApiException(500, "Internal Server Error");
+      when(mockErrApi.updateStatus(any(V1alpha1Pipeline.class), any())).thenReturn(mockErrResponse);
+      when(mockErrResponse.getHttpStatusCode()).thenReturn(500);
+      lenient().doThrow(apiEx).when(mockErrResponse).throwsApiException();
+
+      assertThrows(SQLException.class, () -> errApi.updateStatus(pipeline, new Object()));
+    }
+
+    @Test
+    void getByObjectThrowsWhenResponseIsErrorStatus() throws ApiException {
+      V1alpha1Pipeline pipeline = makePipeline("bad-pipeline", "test-ns");
+      ApiException apiEx = new ApiException(500, "Internal Server Error");
+      when(mockErrApi.get(eq("test-ns"), eq("bad-pipeline"))).thenReturn(mockErrResponse);
+      when(mockErrResponse.getHttpStatusCode()).thenReturn(500);
+      lenient().doThrow(apiEx).when(mockErrResponse).throwsApiException();
+
+      assertThrows(SQLException.class, () -> errApi.get(pipeline));
+    }
+
+    @Test
+    void getIfExistsThrowsWhenNon404ErrorStatus() throws ApiException {
+      ApiException apiEx = new ApiException(500, "Internal Server Error");
+      when(mockErrApi.get(eq("test-ns"), eq("bad-pipeline"))).thenReturn(mockErrResponse);
+      when(mockErrResponse.getHttpStatusCode()).thenReturn(500);
+      lenient().doThrow(apiEx).when(mockErrResponse).throwsApiException();
+
+      assertThrows(SQLException.class, () -> errApi.getIfExists("test-ns", "bad-pipeline"));
+    }
   }
 
   private V1alpha1Pipeline makePipeline(String name, String namespace) {

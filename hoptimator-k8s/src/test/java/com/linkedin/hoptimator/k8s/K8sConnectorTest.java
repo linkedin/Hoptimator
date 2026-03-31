@@ -250,6 +250,70 @@ class K8sConnectorTest {
   }
 
   @Test
+  void configureHintsExactKeyAfterStrippingPrefix() throws SQLException {
+    // Tests getConnectorHints: the substring(connectorHintPrefix.length() + 1)
+    // change +1 to something else, altering the stripped key
+    RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
+    builder.add("value", SqlTypeName.VARCHAR);
+    RelDataType rowType = builder.build();
+
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), any()))
+        .thenReturn(rowType);
+
+    List<V1alpha1TableTemplate> templates = new ArrayList<>();
+    templates.add(new V1alpha1TableTemplate()
+        .metadata(new V1ObjectMeta().name("tpl"))
+        .spec(new V1alpha1TableTemplateSpec()
+            .connector("connector=kafka\ntopic=base-topic")));
+
+    FakeK8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> templateApi =
+        new FakeK8sApi<>(templates);
+
+    // hint key: "kafka.source.bootstrap-servers" → should become "bootstrap-servers"
+    Map<String, String> options = new HashMap<>();
+    options.put("kafka.source.bootstrap-servers", "broker:9092");
+    Source source = new Source("testdb", Arrays.asList("schema", "table"), options);
+
+    K8sConnector connector = makeConnector(source, templateApi);
+    Map<String, String> config = connector.configure();
+
+    // The hint key stripped of "kafka.source." prefix should be exactly "bootstrap-servers"
+    assertEquals("broker:9092", config.get("bootstrap-servers"));
+  }
+
+  @Test
+  void configureOnlyIncludesMatchingHints() throws SQLException {
+    // Filter should exclude non-matching entries
+    RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
+    builder.add("value", SqlTypeName.VARCHAR);
+    RelDataType rowType = builder.build();
+
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), any()))
+        .thenReturn(rowType);
+
+    List<V1alpha1TableTemplate> templates = new ArrayList<>();
+    templates.add(new V1alpha1TableTemplate()
+        .metadata(new V1ObjectMeta().name("tpl"))
+        .spec(new V1alpha1TableTemplateSpec()
+            .connector("connector=kafka\ntopic=base-topic")));
+
+    FakeK8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> templateApi =
+        new FakeK8sApi<>(templates);
+
+    Map<String, String> options = new HashMap<>();
+    options.put("kafka.source.group-id", "my-group");
+    options.put("otherconnector.source.something", "should-not-appear");
+    Source source = new Source("testdb", Arrays.asList("schema", "table"), options);
+
+    K8sConnector connector = makeConnector(source, templateApi);
+    Map<String, String> config = connector.configure();
+
+    assertEquals("my-group", config.get("group-id"));
+    // Non-matching hint should not appear in config
+    assertFalse(config.containsKey("something"));
+  }
+
+  @Test
   void configureWithSink() throws SQLException {
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("value", SqlTypeName.VARCHAR);

@@ -204,4 +204,148 @@ class K8sTriggerDeployerTest {
     assertNotNull(specs);
     assertEquals(1, specs.size());
   }
+
+  @Test
+  void toK8sObjectWithNoJobPropertiesHasNullJobProperties() throws SQLException {
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    // No job.properties.* options — spec should NOT have jobProperties set
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
+        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertNotNull(specs);
+    // The YAML for the trigger should not have jobProperties section since it was not set
+    assertFalse(specs.get(0).contains("jobProperties"));
+  }
+
+  @Test
+  void toK8sObjectWithJobPropertiesIncludesThemInSpec() throws SQLException {
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    Map<String, String> options = new HashMap<>();
+    options.put("job.properties.parallelism", "4");
+    options.put("job.properties.restart-strategy", "never");
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
+        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", options);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertNotNull(specs);
+    assertFalse(specs.isEmpty());
+    // The YAML should include jobProperties since we set job.properties.* options
+    assertTrue(specs.get(0).contains("jobProperties"));
+    assertTrue(specs.get(0).contains("parallelism"));
+    assertTrue(specs.get(0).contains("restart-strategy"));
+  }
+
+  @Test
+  void toK8sObjectOptionsPutAllIncludedInEnvironment() throws SQLException {
+    // Verify options ARE in template rendering
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("table: {{table}}\nschedule: {{schedule}}"));
+    jobTemplates.add(jobTemplate);
+
+    Map<String, String> options = new HashMap<>();
+    options.put("someKey", "someValue");
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
+        Arrays.asList("SCHEMA", "MY_TABLE"), "5 4 * * *", options);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    // schedule and table ARE rendered — proves the environment was set up (putAll had effect)
+    assertTrue(specs.get(0).contains("5 4 * * *"), "schedule must appear in rendered YAML");
+    assertTrue(specs.get(0).contains("MY_TABLE"), "table must appear in rendered YAML");
+  }
+
+  @Test
+  void toK8sObjectForEachAppliesJobPropertiesFilter() throws SQLException {
+    // Verify ALL matching hints ARE applied
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    Map<String, String> options = new HashMap<>();
+    options.put("job.properties.key1", "val1");
+    options.put("job.properties.key2", "val2");
+    options.put("other.option", "ignored");
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
+        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", options);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    String yaml = specs.get(0);
+    assertTrue(yaml.contains("key1"), "job property key1 must be in spec");
+    assertTrue(yaml.contains("key2"), "job property key2 must be in spec");
+    assertFalse(yaml.contains("other.option"), "non-job.properties option must not appear as job property");
+  }
+
+  @Test
+  void updateWithPausedOptionCallsApiUpdate() throws SQLException {
+    // Verify update IS called
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().paused(false));
+    triggers.add(existing);
+
+    Map<String, String> options = new HashMap<>();
+    options.put(Trigger.PAUSED_OPTION, "true");
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
+        Arrays.asList("schema", "table"), "0 * * * *", options);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    deployer.update();
+
+    // FakeK8sApi.update() removes and re-adds. Verify the object is still present.
+    assertEquals(1, triggers.size());
+    assertTrue(triggers.get(0).getSpec().getPaused(),
+        "api.update() must have been called — paused state must be persisted");
+  }
+
+  @Test
+  void updateWithChangedSpecCallsSuperUpdate() throws SQLException {
+    // spec HAS changed (no PAUSED_OPTION) → super.update() is triggered
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    // No PAUSED_OPTION → should fall through to super.update()
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
+        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    // super.update() calls api.update() via K8sDeployer; FakeK8sApi.update adds to list
+    deployer.update();
+
+    assertEquals(1, triggers.size(), "update() must have added the object via api.update()");
+  }
+
+  @Test
+  void deleteOnNonExistingTriggerThrowsSqlException() {
+    // Graceful handling when trigger not found
+    Trigger trigger = new Trigger("NONEXISTENT", new UserJob(null, "myjob"),
+        Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+
+    // FakeK8sApi.get() throws SQLException(404) for unknown names
+    assertThrows(SQLException.class, deployer::delete,
+        "delete() on a non-existing trigger must throw");
+  }
 }

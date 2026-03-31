@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.operator.pipeline;
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
 import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
@@ -19,6 +20,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.sql.SQLException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -184,5 +187,94 @@ class PipelineReconcilerTest {
     Controller controller = PipelineReconciler.controller(mockContext);
 
     assertNotNull(controller);
+  }
+
+  // failureRetryDuration() returns exactly 5 minutes
+  @Test
+  void failureRetryDurationIsFiveMinutes() {
+    assertEquals(Duration.ofMinutes(5), reconciler.failureRetryDuration());
+  }
+
+  // pendingRetryDuration() returns exactly 1 minute
+  @Test
+  void pendingRetryDurationIsOneMinute() {
+    assertEquals(Duration.ofMinutes(1), reconciler.pendingRetryDuration());
+  }
+
+  // null-status initialisation: assert specific fields after init
+  @Test
+  void reconcileWithNullStatusInitializesStatusAndSetsMessage() {
+    V1alpha1Pipeline pipeline = new V1alpha1Pipeline()
+        .metadata(new V1ObjectMeta().name("null-status-msg").namespace("ns"))
+        .spec(new V1alpha1PipelineSpec().yaml("kind: Job\nmetadata:\n  name: job1"));
+    pipelines.add(pipeline);
+
+    K8sPipelineElementStatus pendingStatus =
+        new K8sPipelineElementStatus("Job/job1", false, false, "Deployed.");
+    when(elementStatusEstimator.estimateStatuses(any()))
+        .thenReturn(Collections.singletonList(pendingStatus));
+
+    reconciler.reconcile(new Request("ns", "null-status-msg"));
+
+    assertNotNull(pipeline.getStatus());
+    assertEquals("Deployed.", pipeline.getStatus().getMessage());
+    assertFalse(pipeline.getStatus().getReady());
+    assertFalse(pipeline.getStatus().getFailed());
+  }
+
+  // updateStatus is called after reconciliation
+  @Test
+  void updateStatusIsCalledAfterSuccessfulReconcile() {
+    List<V1alpha1Pipeline> tracked = new ArrayList<>();
+    V1alpha1Pipeline pipeline = new V1alpha1Pipeline()
+        .metadata(new V1ObjectMeta().name("tracked-pipeline").namespace("ns"))
+        .spec(new V1alpha1PipelineSpec().yaml("kind: Job\nmetadata:\n  name: job1"))
+        .status(new V1alpha1PipelineStatus());
+    tracked.add(pipeline);
+
+    int[] updateCount = {0};
+    FakeK8sApi<V1alpha1Pipeline, V1alpha1PipelineList> countingApi =
+        new FakeK8sApi<>(tracked) {
+          @Override
+          public void updateStatus(V1alpha1Pipeline obj, Object status) throws SQLException {
+            updateCount[0]++;
+            super.updateStatus(obj, status);
+          }
+        };
+
+    PipelineReconciler trackingReconciler =
+        new PipelineReconciler(null, countingApi, elementStatusEstimator);
+
+    K8sPipelineElementStatus readyStatus =
+        new K8sPipelineElementStatus("Job/job1", true, false, "Ready.");
+    when(elementStatusEstimator.estimateStatuses(any()))
+        .thenReturn(Collections.singletonList(readyStatus));
+
+    trackingReconciler.reconcile(new Request("ns", "tracked-pipeline"));
+
+    assertTrue(updateCount[0] > 0, "updateStatus should have been called");
+  }
+
+  // All elements ready: ready=true with correct field values
+
+  @Test
+  void reconcileAllElementsReadySetsReadyTrueAndFalseAndMessage() {
+    V1alpha1Pipeline pipeline = new V1alpha1Pipeline()
+        .metadata(new V1ObjectMeta().name("all-ready-fields").namespace("ns"))
+        .spec(new V1alpha1PipelineSpec().yaml("kind: Job\nmetadata:\n  name: job1"))
+        .status(new V1alpha1PipelineStatus());
+    pipelines.add(pipeline);
+
+    K8sPipelineElementStatus readyStatus =
+        new K8sPipelineElementStatus("Job/job1", true, false, "Ready.");
+    when(elementStatusEstimator.estimateStatuses(any()))
+        .thenReturn(Collections.singletonList(readyStatus));
+
+    Result result = reconciler.reconcile(new Request("ns", "all-ready-fields"));
+
+    assertFalse(result.isRequeue());
+    assertTrue(pipeline.getStatus().getReady());
+    assertFalse(pipeline.getStatus().getFailed());
+    assertEquals("Ready.", pipeline.getStatus().getMessage());
   }
 }

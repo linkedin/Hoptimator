@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -166,5 +167,42 @@ class HoptimatorJdbcSchemaTest {
 
     assertNotNull(names);
     assertTrue(names.isEmpty());
+  }
+
+  // If getNames() returns empty set, the non-empty result below would not be found.
+  @Test
+  void testTablesGetNamesReturnsNonEmptySetWhenTablesExist() throws Exception {
+    Connection dsConnection = mock(Connection.class);
+    DatabaseMetaData metaData = mock(DatabaseMetaData.class);
+    ResultSet resultSet = mock(ResultSet.class);
+
+    when(mockDataSource.getConnection()).thenReturn(dsConnection);
+    when(dsConnection.getMetaData()).thenReturn(metaData);
+    when(metaData.getTables(
+        anyString(),
+        anyString(),
+        anyString(),
+        isNull())).thenReturn(resultSet);
+    // Two rows returned — JdbcSchema.metaDataMapper reads getString(1)=catalog, getString(2)=schema,
+    // getString(3)=tableName, getString(4)=tableType. Provide all values Mockito strict mode requires.
+    when(resultSet.next()).thenReturn(true, true, false);
+    when(resultSet.getString(1)).thenReturn("myCatalog", "myCatalog");
+    when(resultSet.getString(2)).thenReturn("mySchema", "mySchema");
+    when(resultSet.getString(3)).thenReturn("TABLE_A", "TABLE_B");
+    when(resultSet.getString(4)).thenReturn("TABLE", "TABLE");
+
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+    HoptimatorJdbcSchema schema = new HoptimatorJdbcSchema(
+        "myDb", "myCatalog", "mySchema", mockDataSource,
+        AnsiSqlDialect.DEFAULT, convention, Collections.emptyList());
+
+    Lookup<Table> tables = schema.tables();
+    Set<String> names = tables.getNames(LikePattern.any());
+
+    assertNotNull(names);
+    assertFalse(names.isEmpty(), "getNames() must return a non-empty set when tables exist");
+    assertTrue(names.contains("TABLE_A") || names.size() >= 1,
+        "at least one table name must appear in getNames() result");
   }
 }

@@ -133,6 +133,42 @@ class DeployerUtilsTest {
     assertEquals(-3.14, DeployerUtils.parseDoubleOption(options, "threshold", 1.5));
   }
 
+  @Test
+  void testParseIntOptionKeyPresentEmptyValueReturnsDefault() {
+    Map<String, String> options = Map.of("key", "");
+    assertEquals(42, DeployerUtils.parseIntOption(options, "key", 42));
+  }
+
+  @Test
+  void testParseIntOptionKeyAbsentReturnsDefault42() {
+    Map<String, String> options = Collections.emptyMap();
+    assertEquals(42, DeployerUtils.parseIntOption(options, "key", 42));
+  }
+
+  @Test
+  void testParseIntOptionKeyPresentValueTenReturns10() {
+    Map<String, String> options = Map.of("key", "10");
+    assertEquals(10, DeployerUtils.parseIntOption(options, "key", 42));
+  }
+
+  @Test
+  void testParseLongOptionKeyPresentEmptyValueReturnsDefault() {
+    Map<String, String> options = Map.of("key", "");
+    assertEquals(42L, DeployerUtils.parseLongOption(options, "key", 42L));
+  }
+
+  @Test
+  void testParseLongOptionKeyAbsentReturnsDefault42L() {
+    Map<String, String> options = Collections.emptyMap();
+    assertEquals(42L, DeployerUtils.parseLongOption(options, "key", 42L));
+  }
+
+  @Test
+  void testParseLongOptionKeyPresentValueTenReturns10L() {
+    Map<String, String> options = Map.of("key", "10");
+    assertEquals(10L, DeployerUtils.parseLongOption(options, "key", 42L));
+  }
+
   // --- extractPropertiesFromJdbcSchema tests ---
 
   @Test

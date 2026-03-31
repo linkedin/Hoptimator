@@ -15,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.sql.Connection;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -120,6 +121,37 @@ class VeniceDeployerProviderTest {
     Source source = new Source(null, List.of("VENICE", "MyStore"), Collections.emptyMap());
     Collection<Deployer> deployers = provider.deployers(source, connection);
     assertTrue(deployers.isEmpty());
+  }
+
+  @Test
+  void testReturnsEmptyWhenConnectionIsNotHoptimatorConnection() {
+    // Use a plain Connection mock (not HoptimatorConnection) → should return empty
+    Source source = new Source("venice", List.of("VENICE", "MyStore"), Collections.emptyMap());
+    Connection plainConnection = mock(Connection.class);
+    Collection<Deployer> deployers = provider.deployers(source, plainConnection);
+    assertTrue(deployers.isEmpty());
+  }
+
+  @Test
+  void testReturnsDeployerForCaseInsensitiveVeniceDatabase() {
+    // equalsIgnoreCase — database name "venice" (lowercase) should still match CATALOG_NAME "VENICE"
+    Source source = new Source("venice", List.of("VENICE", "MyStore"), Collections.emptyMap());
+
+    HoptimatorJdbcSchema jdbcSchema = mock(HoptimatorJdbcSchema.class);
+    BasicDataSource dataSource = new BasicDataSource();
+    dataSource.setUrl("jdbc:venice://clusters=test-cluster;router.url=test-url");
+
+    when(connection.calciteConnection()).thenReturn(calciteConnection);
+    when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
+    doReturn(subSchemaLookup).when(rootSchema).subSchemas();
+    when(subSchemaLookup.get("VENICE")).thenReturn(veniceSubSchema);
+    when(veniceSubSchema.unwrap(HoptimatorJdbcSchema.class)).thenReturn(jdbcSchema);
+    when(jdbcSchema.getDataSource()).thenReturn(dataSource);
+
+    Collection<Deployer> deployers = provider.deployers(source, connection);
+    // Source database is "venice" (lowercase) which equalsIgnoreCase "VENICE"
+    assertEquals(1, deployers.size());
+    assertInstanceOf(VeniceDeployer.class, deployers.iterator().next());
   }
 
   @Test

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.SQLException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -228,4 +229,112 @@ class TemplateTest {
   void testEnvironmentProcessNotNull() {
     assertNotNull(Template.Environment.PROCESS);
   }
+
+  @Test
+  void testGetOrDefaultReturnsEnvValueWhenKeyPresent() throws SQLException {
+    Template.SimpleEnvironment env = new Template.SimpleEnvironment().with("myKey", "envValue");
+
+    String result = env.getOrDefault("myKey", () -> "defaultValue");
+
+    // Returns the default
+    assertEquals("envValue", result,
+        "Should return env value when key is present, not the default");
+  }
+
+  @Test
+  void testGetOrDefaultReturnsDefaultWhenKeyAbsent() throws SQLException {
+    Template.SimpleEnvironment env = new Template.SimpleEnvironment();
+
+    String result = env.getOrDefault("absent", () -> "theDefault");
+
+    assertEquals("theDefault", result,
+        "Should return the default supplier value when key is absent");
+  }
+
+  @Test
+  void testGetOrDefaultReturnsDefaultWhenSupplierThrows() throws SQLException {
+    // Key present but supplier throws → fallback default is returned
+    Template.SimpleEnvironment env = new Template.SimpleEnvironment()
+        .with("badKey", () -> {
+          throw new RuntimeException("forced failure");
+        });
+
+    String result = env.getOrDefault("badKey", () -> "safeDefault");
+
+    assertEquals("safeDefault", result,
+        "Should return default when the registered supplier throws");
+  }
+
+  @Test
+  void testGetOrDefaultEnvValueIsDistinctFromDefault() throws SQLException {
+    // Verify env value and default are different so neither assertion is trivially true
+    Template.SimpleEnvironment env = new Template.SimpleEnvironment()
+        .with("k", "envResult");
+
+    String result = env.getOrDefault("k", () -> "otherResult");
+
+    assertNotNull(result);
+    assertEquals("envResult", result);
+    assertNotEquals("otherResult", result,
+        "env value and default must differ for the test to be meaningful");
+  }
+
+  @Test
+  void testDummyEnvironmentReturnsDefaultWhenSupplierProvides() throws SQLException {
+    Template.DummyEnvironment env = new Template.DummyEnvironment();
+
+    String result = env.getOrDefault("anyKey", () -> "suppliedDefault");
+
+    assertEquals("suppliedDefault", result,
+        "DummyEnvironment should return non-null supplier result");
+  }
+
+  @Test
+  void testDummyEnvironmentReturnsPlaceholderWhenSupplierReturnsNull() throws SQLException {
+    Template.DummyEnvironment env = new Template.DummyEnvironment();
+
+    String result = env.getOrDefault("myVar", () -> null);
+
+    assertEquals("{{myVar}}", result,
+        "DummyEnvironment should return placeholder when supplier returns null");
+  }
+
+  @Test
+  void testDummyEnvironmentPlaceholderAndDefaultAreDistinct() throws SQLException {
+    // Ensure the two branches in DummyEnvironment.getOrDefault produce different results
+    Template.DummyEnvironment env = new Template.DummyEnvironment();
+
+    String withNull    = env.getOrDefault("x", () -> null);
+    String withDefault = env.getOrDefault("x", () -> "real");
+
+    assertEquals("{{x}}", withNull);
+    assertEquals("real",   withDefault);
+    assertNotEquals(withNull, withDefault,
+        "Placeholder branch and default branch must return different values");
+  }
+
+  @Test
+  void testConditionalDefaultValueIsUsedWhenKeyMissing() throws SQLException {
+    // {{key:default}} — when key is absent, default text is rendered
+    Template.Environment env = new Template.SimpleEnvironment();
+    Template template = new Template.SimpleTemplate("result={{missing:fallbackText}}");
+
+    String result = template.render(env);
+
+    assertEquals("result=fallbackText", result,
+        "When key is absent, the default from the template should be used");
+  }
+
+  @Test
+  void testConditionalDefaultValueIsOverriddenByEnvKey() throws SQLException {
+    // {{key:default}} — when key IS present, env value overrides the default
+    Template.Environment env = new Template.SimpleEnvironment().with("myKey", "envOverride");
+    Template template = new Template.SimpleTemplate("result={{myKey:defaultText}}");
+
+    String result = template.render(env);
+
+    assertEquals("result=envOverride", result,
+        "When key is present, the env value should override the template default");
+  }
+
 }

@@ -598,4 +598,235 @@ class VeniceDeployerValidationTest {
     VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection);
     deployer.restore();
   }
+
+  // --- validate() empty (not null) router.url still triggers error ---
+
+  @Test
+  void testValidateFailsWithEmptyRouterUrl() {
+    Properties props = new Properties();
+    props.setProperty("router.url", ""); // empty, not null
+    props.setProperty("clusters", "test-cluster");
+    Source source = new Source("venice", List.of("VENICE", "myStore"), Collections.emptyMap());
+
+    VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+        throw new SQLException("not available");
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    assertFalse(issues.valid());
+    assertTrue(issues.toString().contains("Missing required property 'router.url'"));
+  }
+
+  // --- validate() empty (not null) clusters still triggers error ---
+
+  @Test
+  void testValidateFailsWithEmptyClusters() {
+    Properties props = new Properties();
+    props.setProperty("router.url", "http://test-url");
+    props.setProperty("clusters", ""); // empty, not null
+    Source source = new Source("venice", List.of("VENICE", "myStore"), Collections.emptyMap());
+
+    VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+        throw new SQLException("not available");
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    assertFalse(issues.valid());
+    assertTrue(issues.toString().contains("Missing required property 'clusters'"));
+  }
+
+  // --- validate() valid properties produce no config errors ---
+
+  @Test
+  void testValidatePassesWithBothRequiredProperties() {
+    Properties props = new Properties();
+    props.setProperty("router.url", "http://test-url");
+    props.setProperty("clusters", "test-cluster");
+    Source source = new Source("venice", List.of("VENICE", "myStore"), Collections.emptyMap());
+
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(null); // store doesn't exist → skip schema comparison
+    when(mockControllerClient.getStore("myStore")).thenReturn(storeResponse);
+
+    VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() {
+        return new Pair<>(keySchema, valueSchema);
+      }
+
+      @Override
+      protected ControllerClient createControllerClient() {
+        return mockControllerClient;
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    assertTrue(issues.valid());
+  }
+
+  // --- validate() keySchemaResponse.isError()==true → skips key-schema-change check (no error) ---
+
+  @Test
+  void testValidateSkipsKeySchemaCheckWhenResponseHasError() {
+    Properties props = new Properties();
+    props.setProperty("router.url", "http://test-url");
+    props.setProperty("clusters", "test-cluster");
+    Source source = new Source("venice", List.of("VENICE", "myStore"), Collections.emptyMap());
+
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo); // store exists
+    when(mockControllerClient.getStore("myStore")).thenReturn(storeResponse);
+
+    SchemaResponse keySchemaResponse = mock(SchemaResponse.class);
+    when(keySchemaResponse.isError()).thenReturn(true); // error → skip key schema comparison
+    when(mockControllerClient.getKeySchema("myStore")).thenReturn(keySchemaResponse);
+
+    SchemaResponse valueSchemaResponse = mock(SchemaResponse.class);
+    when(valueSchemaResponse.isError()).thenReturn(true); // error → skip value schema comparison
+    when(mockControllerClient.getValueSchema("myStore", -1)).thenReturn(valueSchemaResponse);
+
+    VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() {
+        return new Pair<>(keySchema, valueSchema);
+      }
+
+      @Override
+      protected ControllerClient createControllerClient() {
+        return mockControllerClient;
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    // No error should be recorded — both schema responses had errors so comparisons were skipped
+    assertTrue(issues.valid());
+  }
+
+  // --- validate() keySchemaResponse.getSchemaStr()==null → skips key-schema-change check ---
+
+  @Test
+  void testValidateSkipsKeySchemaCheckWhenSchemaStrIsNull() {
+    Properties props = new Properties();
+    props.setProperty("router.url", "http://test-url");
+    props.setProperty("clusters", "test-cluster");
+    Source source = new Source("venice", List.of("VENICE", "myStore"), Collections.emptyMap());
+
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo); // store exists
+    when(mockControllerClient.getStore("myStore")).thenReturn(storeResponse);
+
+    SchemaResponse keySchemaResponse = mock(SchemaResponse.class);
+    when(keySchemaResponse.isError()).thenReturn(false);
+    when(keySchemaResponse.getSchemaStr()).thenReturn(null); // null schema str → skip
+    when(mockControllerClient.getKeySchema("myStore")).thenReturn(keySchemaResponse);
+
+    SchemaResponse valueSchemaResponse = mock(SchemaResponse.class);
+    when(valueSchemaResponse.isError()).thenReturn(false);
+    when(valueSchemaResponse.getSchemaStr()).thenReturn(null); // null schema str → skip
+    when(mockControllerClient.getValueSchema("myStore", -1)).thenReturn(valueSchemaResponse);
+
+    VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() {
+        return new Pair<>(keySchema, valueSchema);
+      }
+
+      @Override
+      protected ControllerClient createControllerClient() {
+        return mockControllerClient;
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    // No error: both schema strs were null so comparisons were skipped
+    assertTrue(issues.valid());
+  }
+
+  // --- valueSchemaResponse.isError()==false && schemaStr!=null → performs compatibility check ---
+
+  @Test
+  void testValidatePassesWhenValueSchemaIsCompatible() {
+    Properties props = new Properties();
+    props.setProperty("router.url", "http://test-url");
+    props.setProperty("clusters", "test-cluster");
+    Source source = new Source("venice", List.of("VENICE", "myStore"), Collections.emptyMap());
+
+    // Both key and value schema are STRING — compatible
+    Schema keySchema = Schema.create(Schema.Type.STRING);
+    Schema valueSchema = Schema.create(Schema.Type.STRING);
+
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    StoreInfo storeInfo = mock(StoreInfo.class);
+    when(storeResponse.getStore()).thenReturn(storeInfo);
+    when(mockControllerClient.getStore("myStore")).thenReturn(storeResponse);
+
+    SchemaResponse keySchemaResponse = mock(SchemaResponse.class);
+    when(keySchemaResponse.isError()).thenReturn(false);
+    when(keySchemaResponse.getSchemaStr()).thenReturn(keySchema.toString());
+    when(mockControllerClient.getKeySchema("myStore")).thenReturn(keySchemaResponse);
+
+    SchemaResponse valueSchemaResponse = mock(SchemaResponse.class);
+    when(valueSchemaResponse.isError()).thenReturn(false);
+    when(valueSchemaResponse.getSchemaStr()).thenReturn(valueSchema.toString()); // same schema → compatible
+    when(mockControllerClient.getValueSchema("myStore", -1)).thenReturn(valueSchemaResponse);
+
+    VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection) {
+      @Override
+      protected Pair<Schema, Schema> getKeyPayloadSchema() {
+        return new Pair<>(keySchema, valueSchema);
+      }
+
+      @Override
+      protected ControllerClient createControllerClient() {
+        return mockControllerClient;
+      }
+    };
+
+    Validator.Issues issues = new Validator.Issues("test");
+    deployer.validate(issues);
+
+    assertTrue(issues.valid());
+  }
+
+  // --- createControllerClient() without ssl-config-path → uses plain client via localhost ---
+
+  @Test
+  void testCreateControllerClientWithoutSslUsesLocalhostClient() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", "myStore"), Collections.emptyMap());
+    Properties props = new Properties();
+    props.setProperty("clusters", "test-cluster");
+    props.setProperty("router.url", "http://localhost:1234"); // no ssl-config-path
+
+    VeniceDeployer deployer = new VeniceDeployer(source, props, mockConnection);
+    ControllerClient client = deployer.createControllerClient();
+    assertTrue(client instanceof LocalControllerClient);
+    client.close();
+  }
 }

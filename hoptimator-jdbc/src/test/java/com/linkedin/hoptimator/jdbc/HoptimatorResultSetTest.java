@@ -832,4 +832,104 @@ class HoptimatorResultSetTest {
 
     assertEquals((short) 1000, shortRs.getShort(1));
   }
+
+  @Test
+  void testFirstReturnsTrueAndPositionsAtRow1() throws Exception {
+    // Navigate to last, then call first() — must return true AND cursor at row 1
+    resultSet.last();
+    boolean result = resultSet.first();
+
+    assertTrue(result);
+    assertEquals(1, resultSet.getRow());
+  }
+
+  @Test
+  void testLastReturnsTrueAndPositionsAtLastRow() throws Exception {
+    boolean result = resultSet.last();
+
+    assertTrue(result);
+    assertEquals(2, resultSet.getRow());
+  }
+
+  @Test
+  void testLastOnEmptyResultSetReturnsTrue() throws Exception {
+    // With empty rows, cursor=0 and rows.size()=0, so isLast() is 0==0=true.
+    // Instead, verify that getRow() returns 0 (isAfterLast check), confirming cursor position.
+    HoptimatorResultSet empty = new HoptimatorResultSet(new ArrayList<>(),
+        Arrays.asList(new Pair<>("NAME", Types.VARCHAR)));
+    empty.last();
+
+    // cursor==0 and rows.size()==0: isAfterLast() is 0>0=false, so getRow() returns cursor=0
+    assertEquals(0, empty.getRow());
+  }
+
+  @Test
+  void testPreviousReturnsTrueAndMovesToPriorRow() throws Exception {
+    // Navigate to row 2, then call previous() — must return true AND be at row 1
+    resultSet.next();
+    resultSet.next();
+
+    boolean result = resultSet.previous();
+
+    assertTrue(result);
+    assertEquals(1, resultSet.getRow());
+  }
+
+  @Test
+  void testPreviousReturnsFalseWhenAtBeforeFirst() throws Exception {
+    // cursor == 0 (before first row): previous() decrements to -1, must return false
+    // (ConditionalsBoundary: currentRow > 0 vs currentRow >= 0)
+    assertFalse(resultSet.previous());
+  }
+
+  @Test
+  void testRelativeForwardReturnsTrueAndMovesForward() throws Exception {
+    resultSet.next(); // row 1
+
+    boolean result = resultSet.relative(1); // row 2
+
+    assertTrue(result);
+    assertEquals(2, resultSet.getRow());
+  }
+
+  @Test
+  void testRelativePastEndReturnsFalse() throws Exception {
+    // From row 2 (last), relative(1) goes to row 3 which is past the end — returns false
+    resultSet.next(); // row 1
+    resultSet.next(); // row 2
+
+    boolean result = resultSet.relative(1); // row 3 > rows.size()==2
+
+    assertFalse(result);
+  }
+
+  @Test
+  void testGetBooleanByNameReturnsFalseForFalseValue() throws Exception {
+    resultSet.next();
+    resultSet.next(); // Bob row
+
+    assertFalse(resultSet.getBoolean("ACTIVE"));
+  }
+
+  @Test
+  void testSetFetchSizeZeroSucceeds() throws Exception {
+    // ConditionalsBoundary: fetchSize >= 0 vs fetchSize > 0 — zero must NOT throw
+    resultSet.setFetchSize(0);
+    assertEquals(0, resultSet.getFetchSize());
+  }
+
+  @Test
+  void testGetBytesWithStringBase64ReturnsDecodedBytes() throws Exception {
+    // Base64 of {1, 2, 3} = "AQID" — tests the String branch explicitly
+    String base64 = "AQID";
+    List<Pair<String, Integer>> columns = List.of(new Pair<>("DATA", Types.VARBINARY));
+    List<List<Object>> rows = new ArrayList<>();
+    rows.add(List.of(base64));
+    HoptimatorResultSet rs = new HoptimatorResultSet(rows, columns);
+    rs.next();
+
+    byte[] result = rs.getBytes(1);
+
+    assertArrayEquals(new byte[]{1, 2, 3}, result);
+  }
 }

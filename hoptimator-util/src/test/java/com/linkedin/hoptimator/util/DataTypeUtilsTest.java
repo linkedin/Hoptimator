@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -313,5 +314,133 @@ class DataTypeUtilsTest {
     assertEquals(2, result.getFieldCount());
     assertEquals("m$__MAPKEYTYPE__", result.getFieldList().get(0).getName());
     assertEquals("m$__MAPVALUETYPE__$V", result.getFieldList().get(1).getName());
+  }
+
+  // A plain primitive field (no children) must round-trip through unflatten unchanged.
+
+  @Test
+  void testUnflattenPrimitiveSingleFieldRoundTrip() {
+    RelDataType original = typeFactory.builder()
+        .add("simpleInt", typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .build();
+
+    RelDataType unflattened = DataTypeUtils.unflatten(original, typeFactory);
+
+    assertEquals(1, unflattened.getFieldCount());
+    assertEquals("simpleInt", unflattened.getFieldList().get(0).getName());
+    assertEquals(SqlTypeName.INTEGER,
+        unflattened.getFieldList().get(0).getType().getSqlTypeName(),
+        "Primitive field type must survive unflatten unchanged");
+  }
+
+  @Test
+  void testUnflattenMultiplePrimitiveFields() {
+    RelDataType original = typeFactory.builder()
+        .add("alpha", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .add("beta",  typeFactory.createSqlType(SqlTypeName.BOOLEAN))
+        .add("gamma", typeFactory.createSqlType(SqlTypeName.BIGINT))
+        .build();
+
+    RelDataType result = DataTypeUtils.unflatten(original, typeFactory);
+
+    assertEquals(3, result.getFieldCount());
+    assertEquals(SqlTypeName.VARCHAR,
+        result.getFieldList().get(0).getType().getSqlTypeName());
+    assertEquals(SqlTypeName.BOOLEAN,
+        result.getFieldList().get(1).getType().getSqlTypeName());
+    assertEquals(SqlTypeName.BIGINT,
+        result.getFieldList().get(2).getType().getSqlTypeName());
+  }
+
+  //   if (node.children.size() == 1 && node.children.containsKey(ARRAY_TYPE))
+  // A single __ARRTYPE__ child must produce an ARRAY type, not a struct.
+  @Test
+  void testUnflattenNestedArrayPlaceholderProducesArrayType() {
+    // matrix$__ARRTYPE__ represents a nested array; unflatten must reconstruct it as ARRAY.
+    RelDataType struct = typeFactory.builder()
+        .add("matrix$__ARRTYPE__", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    RelDataType result = DataTypeUtils.unflatten(struct, typeFactory);
+
+    assertEquals(1, result.getFieldCount(), "Should have exactly one top-level field");
+    assertEquals("matrix", result.getFieldList().get(0).getName());
+    RelDataType matrixType = result.getFieldList().get(0).getType();
+    assertNotNull(matrixType.getComponentType(),
+        "__ARRTYPE__ placeholder must produce an ARRAY type (non-null component)");
+    assertFalse(matrixType.isStruct(),
+        "__ARRTYPE__ must NOT produce a struct type");
+  }
+
+  @Test
+  void testUnflattenNestedArrayPreservesInnerType() {
+    // Outer array element type should be VARCHAR after unflattening
+    RelDataType struct = typeFactory.builder()
+        .add("arr$__ARRTYPE__", typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .build();
+
+    RelDataType result = DataTypeUtils.unflatten(struct, typeFactory);
+
+    RelDataType arrType = result.getFieldList().get(0).getType();
+    assertNotNull(arrType.getComponentType());
+    // Component type should not be a struct — it should be the INTEGER leaf
+    assertFalse(arrType.getComponentType().isStruct(),
+        "Inner component of simple nested array must not be a struct");
+  }
+
+  // A struct-type field at the leaf path must be recursed into, not treated
+  // as a primitive. Otherwise, the struct is added as a primitive and the $ path is lost.
+
+  @Test
+  void testFlattenNestedStructProducesDollarSeparatedLeaf() {
+    // FOO.BAR (struct.struct) → must produce FOO$BAR$LEAF, not FOO as a struct
+    RelDataType leaf = typeFactory.builder()
+        .add("LEAF", typeFactory.createSqlType(SqlTypeName.DOUBLE))
+        .build();
+    RelDataType mid = typeFactory.builder()
+        .add("BAR", leaf)
+        .build();
+    RelDataType outer = typeFactory.builder()
+        .add("FOO", mid)
+        .build();
+
+    RelDataType result = DataTypeUtils.flatten(outer, typeFactory);
+
+    assertEquals(1, result.getFieldCount(),
+        "Deeply nested struct should flatten to a single leaf");
+    assertEquals("FOO$BAR$LEAF", result.getFieldList().get(0).getName(),
+        "Nested struct path must be $-separated");
+    assertEquals(SqlTypeName.DOUBLE,
+        result.getFieldList().get(0).getType().getSqlTypeName(),
+        "Leaf field type must be preserved");
+    assertFalse(result.getFieldList().get(0).getType().isStruct(),
+        "Flattened leaf must not be a struct");
+  }
+
+  @Test
+  void testFlattenStructAndPrimitiveSiblings() {
+    // Top-level has one nested struct and one plain primitive — both must be handled
+    RelDataType nested = typeFactory.builder()
+        .add("CHILD_FIELD", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+    RelDataType outer = typeFactory.builder()
+        .add("NESTED",    nested)
+        .add("PRIMITIVE", typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .build();
+
+    RelDataType result = DataTypeUtils.flatten(outer, typeFactory);
+
+    assertEquals(2, result.getFieldCount(),
+        "One nested struct + one primitive must flatten to exactly 2 leaf fields");
+
+    // Nested struct produces NESTED$CHILD_FIELD
+    assertEquals("NESTED$CHILD_FIELD", result.getFieldList().get(0).getName());
+    assertEquals(SqlTypeName.VARCHAR,
+        result.getFieldList().get(0).getType().getSqlTypeName());
+
+    // Primitive passes through unchanged
+    assertEquals("PRIMITIVE", result.getFieldList().get(1).getName());
+    assertEquals(SqlTypeName.INTEGER,
+        result.getFieldList().get(1).getType().getSqlTypeName());
   }
 }

@@ -17,6 +17,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
@@ -78,5 +79,34 @@ class ConnectionServiceTest {
     assertEquals(2, result.size());
     assertEquals("localhost:9092", result.get("bootstrap.servers"));
     assertEquals("test-topic", result.get("topic"));
+  }
+
+  // If forEachRemaining is removed (VoidMethodCall), providers list stays empty regardless.
+  // If providers() returns empty collection (EmptyObjectReturnVals), configure() sees no connectors.
+  // Test: inject a known provider and verify configure() returns its configs.
+  @Test
+  void testProvidersViaStaticMockReturnsNonEmptyProviderList() throws SQLException {
+    Map<String, String> connectorConfigs = new LinkedHashMap<>();
+    connectorConfigs.put("key1", "val1");
+    when(mockConnector.configure()).thenReturn(connectorConfigs);
+
+    ConnectorProvider provider = new ConnectorProvider() {
+      @Override
+      public <T> Collection<Connector> connectors(T obj, Connection conn) {
+        return Collections.singletonList(mockConnector);
+      }
+    };
+
+    mockedConnectionService.when(ConnectionService::providers).thenReturn(Collections.singletonList(provider));
+
+    Collection<ConnectorProvider> providers = ConnectionService.providers();
+    assertFalse(providers.isEmpty(),
+        "providers() must return the providers populated by forEachRemaining");
+    assertEquals(1, providers.size());
+
+    Map<String, String> result = ConnectionService.configure("obj", mockConnection);
+    assertFalse(result.isEmpty(),
+        "configure() must return non-empty map when provider returns configs");
+    assertEquals("val1", result.get("key1"));
   }
 }

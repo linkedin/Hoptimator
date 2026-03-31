@@ -92,6 +92,14 @@ class DelegatingStatementTest {
     assertTrue(delegatingStatement.isClosed());
   }
 
+  // isClosed() must return false on an open statement
+  @Test
+  void testIsClosedReturnsFalseOnOpenStatement() throws Exception {
+    when(mockConnection.isClosed()).thenReturn(false);
+
+    assertFalse(delegatingStatement.isClosed());
+  }
+
   @Test
   void testClearWarningsIsNop() throws Exception {
     delegatingStatement.clearWarnings();

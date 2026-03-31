@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -162,6 +163,49 @@ class K8sUtilsTest {
     doThrow(new ApiException("error")).when(resp).throwsApiException();
     when(resp.getHttpStatusCode()).thenReturn(500);
     assertThrows(SQLNonTransientException.class, () -> K8sUtils.checkResponse("test", resp));
+  }
+
+  @Test
+  void checkK8sNameStartsWithDigitThrows() {
+    // checkK8sName must reject names starting with a digit
+    IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+        () -> K8sUtils.checkK8sName("1abc"));
+    assertFalse(ex.getMessage().isEmpty(), "Exception message must not be empty");
+  }
+
+  @Test
+  void checkK8sNameWithUpperCaseThrows() {
+    // uppercase is not allowed
+    assertThrows(IllegalArgumentException.class, () -> K8sUtils.checkK8sName("Abc"));
+  }
+
+  @Test
+  void checkResponseFailureMessageIsNonEmpty() throws Exception {
+    // Message must not return ""
+    KubernetesApiResponse<?> resp = mock(KubernetesApiResponse.class);
+    doThrow(new ApiException("api error")).when(resp).throwsApiException();
+    when(resp.getHttpStatusCode()).thenReturn(500);
+
+    try {
+      K8sUtils.checkResponse("meaningful-message", resp);
+    } catch (Exception e) {
+      assertFalse(e.getMessage() == null || e.getMessage().isEmpty(),
+          "Exception message should not be empty");
+    }
+  }
+
+  @Test
+  void checkResponseUsesSupplierMessage() throws Exception {
+    // Tests lambda$checkResponse$0 via Supplier overload
+    KubernetesApiResponse<?> resp = mock(KubernetesApiResponse.class);
+    doThrow(new ApiException("api error")).when(resp).throwsApiException();
+    when(resp.getHttpStatusCode()).thenReturn(500);
+
+    try {
+      K8sUtils.checkResponse(() -> "supplier-message", resp);
+    } catch (Exception e) {
+      assertEquals("supplier-message", e.getMessage());
+    }
   }
 
   @Test

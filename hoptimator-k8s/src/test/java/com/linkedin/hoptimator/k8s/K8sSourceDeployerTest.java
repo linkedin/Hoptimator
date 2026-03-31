@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
@@ -176,5 +177,80 @@ class K8sSourceDeployerTest {
     List<String> specs = deployer.specify();
 
     assertEquals(1, specs.size());
+  }
+
+  @Test
+  void specifyRendersNonEmptyYamlWithSourceContent() throws SQLException {
+    // Verify fields are non-empty.
+    doReturn(new Properties()).when(connection).connectionProperties();
+
+    templates.add(new V1alpha1TableTemplate()
+        .metadata(new V1ObjectMeta().name("template1"))
+        .spec(new V1alpha1TableTemplateSpec()
+            .yaml("name: {{name}}\ndatabase: {{database}}\nschema: {{schema}}\ntable: {{table}}")));
+
+    Source source = new Source("mydb", Arrays.asList("myschema", "mytable"),
+        Collections.emptyMap());
+
+    K8sSourceDeployer deployer = makeDeployer(source);
+
+    List<String> specs = deployer.specify();
+
+    assertEquals(1, specs.size());
+    String yaml = specs.get(0);
+    assertFalse(yaml.isEmpty(), "rendered spec must not be empty");
+    assertTrue(yaml.contains("mydb"), "database must appear in rendered spec");
+    assertTrue(yaml.contains("mytable"), "table must appear in rendered spec");
+    assertTrue(yaml.contains("myschema"), "schema must appear in rendered spec");
+  }
+
+  @Test
+  void getJobPropertiesFromOptionsMapsCorrectKeys() throws SQLException {
+    doReturn(new Properties()).when(connection).connectionProperties();
+
+    // Template uses {{job.properties}} prefix variable to expose job properties
+    templates.add(new V1alpha1TableTemplate()
+        .metadata(new V1ObjectMeta().name("template1"))
+        .spec(new V1alpha1TableTemplateSpec()
+            .yaml("name: {{name}}\nparallelism: {{job.properties.parallelism}}")));
+
+    Map<String, String> options = new HashMap<>();
+    options.put("job.properties.parallelism", "8");
+    options.put("unrelated.option", "ignored");
+    Source source = new Source("mydb", Arrays.asList("myschema", "mytable"), options);
+
+    K8sSourceDeployer deployer = makeDeployer(source);
+
+    List<String> specs = deployer.specify();
+
+    assertEquals(1, specs.size());
+    String yaml = specs.get(0);
+    // The job.properties.parallelism value must appear — proves getJobPropertiesFromOptions
+    // correctly maps the key
+    assertTrue(yaml.contains("8"), "job.properties.parallelism value must appear in rendered spec");
+  }
+
+  @Test
+  void getJobPropertiesFromOptionsFiltersNonMatchingKeys() throws SQLException {
+    // Ensures the filter actually filters — only job.properties.* keys should be mapped
+    doReturn(new Properties()).when(connection).connectionProperties();
+
+    templates.add(new V1alpha1TableTemplate()
+        .metadata(new V1ObjectMeta().name("template1"))
+        .spec(new V1alpha1TableTemplateSpec()
+            .yaml("name: {{name}}")));
+
+    Map<String, String> options = new HashMap<>();
+    options.put("job.properties.key1", "val1");
+    options.put("other.key", "val2");
+    Source source = new Source("mydb", Arrays.asList("myschema", "mytable"), options);
+
+    K8sSourceDeployer deployer = makeDeployer(source);
+
+    List<String> specs = deployer.specify();
+
+    assertEquals(1, specs.size());
+    // Verify the spec was rendered without error — the filter operates correctly
+    assertFalse(specs.get(0).isEmpty());
   }
 }

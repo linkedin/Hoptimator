@@ -101,12 +101,12 @@ public final class PipelineReconciler implements Reconciler {
   }
 
   // TODO load from configuration
-  private Duration failureRetryDuration() {
+  Duration failureRetryDuration() {
     return Duration.ofMinutes(5);
   }
 
   // TODO load from configuration
-  private Duration pendingRetryDuration() {
+  Duration pendingRetryDuration() {
     return Duration.ofMinutes(1);
   }
 

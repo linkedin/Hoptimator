@@ -1,9 +1,11 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Source;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.plan.RelOptMaterialization;
+import org.apache.calcite.rel.type.RelDataType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -183,6 +185,26 @@ class HoptimatorConnectionTest {
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       assertThrows(SQLException.class, () ->
           conn.resolve(Arrays.asList("UTIL", "PRINT"), Collections.emptyMap()));
+    }
+  }
+
+  @Test
+  @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
+      justification = "Connection closed in try-with-resources")
+  void resolveReturnsNonNullTypeForExistingTwoPartPath() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // "UTIL.PRINT" is the known 2-part path in the util catalog
+      RelDataType result =
+          HoptimatorDriver.rowType(
+              new Source("UTIL", Arrays.asList("UTIL", "PRINT"), Collections.emptyMap()),
+              conn);
+      assertNotNull(result, "resolve() must find the PRINT table");
+      assertTrue(result.getFieldCount() > 0, "resolve() must return a non-empty row type");
+      // "OUTPUT" is a known field in UTIL.PRINT — ensures correct path math, not empty Optional
+      boolean hasOutput = result.getFieldNames().stream().anyMatch(n -> n.contains("OUTPUT"));
+      assertTrue(hasOutput, "resolve() must resolve to UTIL.PRINT with its OUTPUT field");
     }
   }
 

@@ -79,4 +79,29 @@ class HoptimatorJdbcConventionTest {
 
     verify(mockPlanner, atLeastOnce()).addRule(any());
   }
+
+  // Verify that register() adds at least the PipelineRules.rules() count + 2 specific rules.
+  @Test
+  void testRegisterAddsAtLeastPipelineRulesCount() {
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+
+    convention.register(mockPlanner);
+
+    // PipelineRules.rules() has 6 rules, plus PipelineTableScanRule and
+    // PipelineTableModifyRule. So at least 8 addRule calls from hoptimator code alone.
+    int expectedMinimum = PipelineRules.rules().size() + 2;
+    verify(mockPlanner, atLeast(expectedMinimum)).addRule(any());
+  }
+
+  // --- register() returns the convention object (sanity check) ---
+  @Test
+  void testRegisterWithEmptyEnginesDoesNotThrow() {
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+
+    // Should not throw
+    convention.register(mockPlanner);
+    assertNotNull(convention);
+  }
 }

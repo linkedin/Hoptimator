@@ -243,8 +243,9 @@ public final class AvroConverter {
   }
 
   private static String sanitize(String name) {
-    if (name.matches("^[^A-Za-z_]")) {
-      // avoid starting with numbers, etc
+    if (name.matches("^[^A-Za-z_].*")) {
+      // avoid starting with numbers, etc — note: matches() requires full-string match,
+      // so the pattern must include .* to match names longer than one character
       return sanitize("_" + name);
     }
     // avoid $, etc

@@ -343,6 +343,81 @@ public class K8sPipelineElementStatusEstimatorTest {
   }
 
   @Test
+  void testEstimateStatusReadyFieldWithFailedTrue() {
+    // Tests estimateBasedOnStatusReadyField statusJson.has("failed") && ...
+    // If "failed" check is removed, failed=true even without "failed" key
+    mockJobDynamicObjectWithStatusField();
+    JsonElement readyElement = mock(JsonElement.class);
+    when(readyElement.getAsBoolean()).thenReturn(true);
+    when(jobDynamicObjectStatusJsonObject.get("ready")).thenReturn(readyElement);
+    when(jobDynamicObjectStatusJsonObject.has("failed")).thenReturn(true);
+    JsonElement failedElement = mock(JsonElement.class);
+    when(failedElement.getAsBoolean()).thenReturn(true);
+    when(jobDynamicObjectStatusJsonObject.get("failed")).thenReturn(failedElement);
+    when(jobDynamicObjectStatusJsonObject.has("message")).thenReturn(false);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertTrue(status.isReady());
+    assertTrue(status.isFailed());
+  }
+
+  @Test
+  void testEstimateStatusReadyFieldWithFailedKeyAbsent() {
+    // Tests estimateBasedOnStatusReadyField: when "failed" key is absent, isFailed() must be false
+    mockJobDynamicObjectWithStatusField();
+    JsonElement readyElement = mock(JsonElement.class);
+    when(readyElement.getAsBoolean()).thenReturn(true);
+    when(jobDynamicObjectStatusJsonObject.get("ready")).thenReturn(readyElement);
+    when(jobDynamicObjectStatusJsonObject.has("failed")).thenReturn(false);
+    when(jobDynamicObjectStatusJsonObject.has("message")).thenReturn(false);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertTrue(status.isReady());
+    // Without the "failed" key, isFailed must be false
+    assertFalse(status.isFailed());
+  }
+
+  @Test
+  void testEstimateStatusesWithEmptyYamlSpec() {
+    // Empty YAML (after trim) should produce zero statuses
+    when(pipelineSpec.getYaml()).thenReturn("   \n---\n   \n");
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    assertTrue(statuses.isEmpty(), "Empty YAML spec should result in no statuses");
+  }
+
+  @Test
+  void testEstimateElementStatusUsesObjectNamespaceWhenPresent() {
+    // when namespace is present in YAML, it must be used (not pipelineNamespace)
+    String yamlWithNs = "apiVersion: foo.org/v1beta1\nkind: FakeJob\nmetadata:\n  name: fake-job-name\n  namespace: object-ns\nspec:\n  foo: bar";
+    when(pipelineSpec.getYaml()).thenReturn(yamlWithNs);
+    // Return a null object to cause failure message that includes namespace
+    when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    // The failure message should reference "object-ns", not "fake-namespace"
+    assertTrue(status.getMessage().contains("object-ns"),
+        "Expected 'object-ns' but got: " + status.getMessage());
+  }
+
+  @Test
+  void testEstimateElementStatusUsesPipelineNamespaceWhenObjectNamespaceNull() {
+    // When namespace is null in YAML, use pipelineNamespace
+    String yamlNoNs = "apiVersion: foo.org/v1beta1\nkind: FakeJob\nmetadata:\n  name: fake-job-name\nspec:\n  foo: bar";
+    when(pipelineSpec.getYaml()).thenReturn(yamlNoNs);
+    when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    // The failure message should reference "fake-namespace" (from pipeline metadata)
+    assertTrue(status.getMessage().contains("fake-namespace"),
+        "Expected 'fake-namespace' but got: " + status.getMessage());
+  }
+
+  @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingNoRawJson() {
     setUpPipelineMocks();
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(jobDynamicObject);

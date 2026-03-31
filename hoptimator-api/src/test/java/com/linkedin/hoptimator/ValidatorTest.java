@@ -190,4 +190,58 @@ class ValidatorTest {
     validator.validate(issues);
     assertFalse(issues.valid());
   }
+
+  @Test
+  void testInfoMessageAppearsInToString() {
+    Validator.Issues issues = new Validator.Issues("ctx");
+    issues.info("some message");
+    String result = issues.toString();
+    assertTrue(result.contains("some message"), "info() message must appear in formatted output");
+  }
+
+  @Test
+  void testFullPathIncludesBothParentAndChildSegments() {
+    Validator.Issues parent = new Validator.Issues("parentCtx");
+    Validator.Issues child = parent.child("childCtx");
+    // Trigger fullPath() indirectly by causing an exception from a closed context
+    child.close();
+    IllegalStateException ex = assertThrows(IllegalStateException.class, () -> child.error("late"));
+    // fullPath() must contain both segments joined by "/"
+    assertTrue(ex.getMessage().contains("parentCtx"), "fullPath should contain parent context");
+    assertTrue(ex.getMessage().contains("childCtx"), "fullPath should contain child context");
+    // If reverse() were removed, parent and child would appear in wrong order — verify ordering
+    int parentIdx = ex.getMessage().indexOf("parentCtx");
+    int childIdx = ex.getMessage().indexOf("childCtx");
+    assertTrue(parentIdx < childIdx, "parent segment must appear before child segment in full path");
+  }
+
+  // The conditional is: context != null && !context.isEmpty()
+  // If removed (always true), an empty-context Issues would emit an empty ":\n" header line.
+
+  @Test
+  void testFormatOnValidIssuesObjectReturnsNonEmptyString() {
+    Validator.Issues issues = new Validator.Issues("myRoot");
+    issues.error("an error");
+    String result = issues.toString();
+    assertNotNull(result);
+    assertFalse(result.isEmpty(), "formatted output must be non-empty when issues exist");
+    assertTrue(result.contains("myRoot"), "formatted output must contain context name");
+  }
+
+  @Test
+  void testFormatWithChildIssuesShowsCorrectIndentation() {
+    Validator.Issues parent = new Validator.Issues("parent");
+    Validator.Issues child = parent.child("child");
+    child.error("child error");
+    String result = parent.toString();
+    // Child context should be indented with extra spaces (indentLevel + 1)
+    // Parent at indentLevel 0: "parent:\n"
+    // Child at indentLevel 1: "  child:\n"
+    assertTrue(result.contains("parent:"), "parent context header must appear");
+    assertTrue(result.contains("  child:"), "child context must be indented at level 1");
+    // If indentLevel+1 were replaced by indentLevel, child would have same indent as parent
+    int parentPos = result.indexOf("parent:");
+    int childPos = result.indexOf("  child:");
+    assertTrue(parentPos < childPos, "parent header must appear before child header");
+  }
 }

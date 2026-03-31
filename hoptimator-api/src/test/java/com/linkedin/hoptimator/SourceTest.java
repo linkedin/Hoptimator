@@ -73,4 +73,18 @@ class SourceTest {
     Source source = new Source("db", List.of("a", "b"), Collections.emptyMap());
     assertEquals("Source[a.b]", source.toString());
   }
+
+  @Test
+  void testSchemaReturnsValueForExactlyTwoElementPath() {
+    Source source = new Source("db", List.of("mySchema", "myTable"), Collections.emptyMap());
+    assertEquals("mySchema", source.schema(),
+        "schema() must return the second-to-last element when path has exactly 2 elements");
+  }
+
+  @Test
+  void testSchemaReturnsNullForExactlyOneElementPath() {
+    Source source = new Source("db", List.of("onlyTable"), Collections.emptyMap());
+    assertNull(source.schema(),
+        "schema() must return null when path has only 1 element");
+  }
 }

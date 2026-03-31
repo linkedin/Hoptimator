@@ -26,12 +26,14 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -433,5 +435,192 @@ class K8sPipelineElementApiTest {
         DynamicKubernetesApi mockDynamicApi = mock(DynamicKubernetesApi.class);
         when(mockDynamicApi.get(anyString(), anyString())).thenReturn(mockApiResponse);
         when(mockContext.dynamic(anyString(), anyString())).thenReturn(mockDynamicApi);
+    }
+
+    @Test
+    void testGetElementConfigurationUsesNamespaceFromElement() {
+        // Namespace from element metadata overrides pipelineNamespace
+        String elementYaml = "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
+            + "kind: SqlJob\n"
+            + "metadata:\n"
+            + "  name: test-sqljob\n"
+            + "  namespace: element-ns";  // explicit namespace
+
+        JsonObject rootJson = new JsonObject();
+        rootJson.add("spec", new JsonObject()); // no configs
+
+        k8sUtilsMockedStatic.when(() -> K8sUtils.guessPlural(any(KubernetesType.class))).thenReturn("sqljobs");
+
+        when(mockApiResponse.isSuccess()).thenReturn(true);
+        when(mockApiResponse.getObject()).thenReturn(mockDynamicObject);
+        when(mockDynamicObject.getRaw()).thenReturn(rootJson);
+
+        // The dynamic API is called — namespace in call must be "element-ns", not "pipeline-ns"
+        DynamicKubernetesApi mockDynamicApi = mock(DynamicKubernetesApi.class);
+        when(mockDynamicApi.get("element-ns", "test-sqljob")).thenReturn(mockApiResponse);
+        when(mockContext.dynamic(anyString(), anyString())).thenReturn(mockDynamicApi);
+
+        Map<String, String> result = api.getElementConfiguration(elementYaml, "pipeline-ns");
+
+        // No configs section → empty map, but the call using element-ns must have been made
+        assertTrue(result.isEmpty(),
+            "empty spec.configs should produce empty map");
+        verify(mockDynamicApi).get("element-ns", "test-sqljob");
+    }
+
+    @Test
+    void testGetElementConfigurationFallsBackToPipelineNamespace() {
+        // When element has no namespace, pipelineNamespace is used
+        String elementYaml = "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
+            + "kind: SqlJob\n"
+            + "metadata:\n"
+            + "  name: test-sqljob";  // no namespace
+
+        JsonObject rootJson = new JsonObject();
+        rootJson.add("spec", new JsonObject());
+
+        k8sUtilsMockedStatic.when(() -> K8sUtils.guessPlural(any(KubernetesType.class))).thenReturn("sqljobs");
+
+        when(mockApiResponse.isSuccess()).thenReturn(true);
+        when(mockApiResponse.getObject()).thenReturn(mockDynamicObject);
+        when(mockDynamicObject.getRaw()).thenReturn(rootJson);
+
+        DynamicKubernetesApi mockDynamicApi = mock(DynamicKubernetesApi.class);
+        when(mockDynamicApi.get("fallback-ns", "test-sqljob")).thenReturn(mockApiResponse);
+        when(mockContext.dynamic(anyString(), anyString())).thenReturn(mockDynamicApi);
+
+        Map<String, String> result = api.getElementConfiguration(elementYaml, "fallback-ns");
+
+        assertTrue(result.isEmpty());
+        verify(mockDynamicApi).get("fallback-ns", "test-sqljob");
+    }
+
+    @Test
+    void testGetElementConfigurationExtractsAllConfigEntries() {
+        // Verify that ALL entries are extracted correctly (not empty key/value)
+        String elementYaml = "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
+            + "kind: SqlJob\n"
+            + "metadata:\n"
+            + "  name: test-sqljob\n"
+            + "  namespace: default";
+
+        JsonObject configsJson = new JsonObject();
+        configsJson.addProperty("parallelism", "4");
+        configsJson.addProperty("restart-strategy", "never");
+        configsJson.addProperty("taskmanager.memory.process.size", "4096m");
+
+        JsonObject specJson = new JsonObject();
+        specJson.add("configs", configsJson);
+        JsonObject rootJson = new JsonObject();
+        rootJson.add("spec", specJson);
+
+        setupMockForElementConfiguration(rootJson, true);
+
+        Map<String, String> result = api.getElementConfiguration(elementYaml, "default");
+
+        assertEquals(3, result.size(), "all 3 config entries must be extracted");
+        assertEquals("4", result.get("parallelism"),
+            "entry.getKey() must return 'parallelism', not empty string");
+        assertEquals("never", result.get("restart-strategy"),
+            "entry.getValue() must return 'never', not empty string");
+        assertEquals("4096m", result.get("taskmanager.memory.process.size"));
+    }
+
+    @Test
+    void testGetElementConfigurationKeysMappedCorrectly() {
+        String elementYaml = "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
+            + "kind: SqlJob\n"
+            + "metadata:\n"
+            + "  name: test-sqljob\n"
+            + "  namespace: default";
+
+        JsonObject configsJson = new JsonObject();
+        configsJson.addProperty("unique-key", "unique-value");
+
+        JsonObject specJson = new JsonObject();
+        specJson.add("configs", configsJson);
+        JsonObject rootJson = new JsonObject();
+        rootJson.add("spec", specJson);
+
+        setupMockForElementConfiguration(rootJson, true);
+
+        Map<String, String> result = api.getElementConfiguration(elementYaml, "default");
+
+        assertEquals(1, result.size());
+        assertTrue(result.containsKey("unique-key"),
+            "key must not be empty string — must be 'unique-key'");
+        assertEquals("unique-value", result.get("unique-key"),
+            "value must not be empty string — must be 'unique-value'");
+    }
+
+    @Test
+    void testGetElementConfigurationHasSpecAndConfigs() {
+        // When both `has("spec") && has("configs")` present, configs extracted
+        String elementYaml = "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
+            + "kind: SqlJob\n"
+            + "metadata:\n"
+            + "  name: test-sqljob\n"
+            + "  namespace: default";
+
+        JsonObject configsJson = new JsonObject();
+        configsJson.addProperty("myKey", "myVal");
+        JsonObject specJson = new JsonObject();
+        specJson.add("configs", configsJson);
+        JsonObject rootJson = new JsonObject();
+        rootJson.add("spec", specJson);
+
+        setupMockForElementConfiguration(rootJson, true);
+
+        Map<String, String> result = api.getElementConfiguration(elementYaml, "default");
+
+        assertFalse(result.isEmpty(),
+            "when spec AND configs are present, result must not be empty");
+        assertEquals("myVal", result.get("myKey"));
+    }
+
+    @Test
+    void testGetElementConfigurationSpecExistsButNoConfigs() {
+        // Spec exists but no configs → return empty map
+        String elementYaml = "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
+            + "kind: SqlJob\n"
+            + "metadata:\n"
+            + "  name: test-sqljob\n"
+            + "  namespace: default";
+
+        JsonObject specJson = new JsonObject(); // no "configs" key
+        JsonObject rootJson = new JsonObject();
+        rootJson.add("spec", specJson);
+
+        setupMockForElementConfiguration(rootJson, true);
+
+        Map<String, String> result = api.getElementConfiguration(elementYaml, "default");
+
+        assertTrue(result.isEmpty(),
+            "Spec without configs must return empty map");
+    }
+
+    @Test
+    void testGetElementConfigurationSingleEntryExtractionIsCorrect() {
+        String elementYaml = "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
+            + "kind: SqlJob\n"
+            + "metadata:\n"
+            + "  name: test-sqljob\n"
+            + "  namespace: default";
+
+        JsonObject configsJson = new JsonObject();
+        configsJson.addProperty("singleKey", "singleValue");
+
+        JsonObject specJson = new JsonObject();
+        specJson.add("configs", configsJson);
+        JsonObject rootJson = new JsonObject();
+        rootJson.add("spec", specJson);
+
+        setupMockForElementConfiguration(rootJson, true);
+
+        Map<String, String> result = api.getElementConfiguration(elementYaml, "default");
+
+        assertEquals(1, result.size());
+        assertEquals("singleValue", result.get("singleKey"),
+            "getAsString() must return the actual value, not empty string");
     }
 }

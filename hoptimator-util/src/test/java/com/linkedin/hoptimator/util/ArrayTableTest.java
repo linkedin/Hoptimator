@@ -11,6 +11,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,6 +35,20 @@ class ArrayTableTest {
 
     assertNotNull(table.getModifiableCollection());
     assertEquals(table.rows(), table.getModifiableCollection());
+  }
+
+  // getModifiableCollection() must return the actual rows, not empty
+  @Test
+  void testGetModifiableCollectionIsNonEmptyAfterRowsAdded() {
+    TestArrayTable table = new TestArrayTable();
+    table.rows().add("row1");
+    table.rows().add("row2");
+
+    assertFalse(table.getModifiableCollection().isEmpty(),
+        "getModifiableCollection() must return the backing collection including added rows");
+    assertEquals(2, table.getModifiableCollection().size());
+    assertTrue(table.getModifiableCollection().contains("row1"));
+    assertTrue(table.getModifiableCollection().contains("row2"));
   }
 
   @Test

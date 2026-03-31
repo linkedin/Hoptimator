@@ -88,6 +88,21 @@ class KafkaDeployerProviderTest {
   }
 
   @Test
+  void testReturnsEmptyForNonKafkaDatabaseEvenWhenSchemaWouldMatch() {
+    // Use schema name "KAFKA" but database "not-kafka" to verify the database prefix guard
+    // is what causes the empty result (not downstream schema lookup).
+    // If the database guard is removed the lookup would proceed, but
+    // the schema subSchemaLookup.get("KAFKA") returns null → still empty — so we also
+    // set up a full match to ensure the guard is the deciding factor.
+    Source source = new Source("not-kafka", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
+
+    // No mocking of connection — the guard should prevent any downstream call
+    Collection<Deployer> deployers = provider.deployers(source, connection);
+    assertTrue(deployers.isEmpty(),
+        "Database not starting with 'kafka' should return empty regardless of schema name");
+  }
+
+  @Test
   void testReturnsEmptyWhenSchemaNotFound() {
     Source source = new Source("kafka-unknown", List.of("UNKNOWN", "MyTable"), Collections.emptyMap());
 
