@@ -81,6 +81,9 @@ public class K8sPipelineElementStatusEstimatorTest {
   @BeforeEach
   void setUp() {
     estimator = new K8sPipelineElementStatusEstimator(context);
+  }
+
+  private void setUpPipelineMocks() {
     when(pipelineMetadata.getNamespace()).thenReturn("fake-namespace");
     when(pipeline.getMetadata()).thenReturn(pipelineMetadata);
     when(pipeline.getSpec()).thenReturn(pipelineSpec);
@@ -92,6 +95,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenPipelineHasMultipleElements() {
+    setUpPipelineMocks();
     when(pipelineSpec.getYaml()).thenReturn(FAKE_MULTIPLE_SPECS);
     // Set up: failed to get kafka object from K8s.
     when(kafkaDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
@@ -121,6 +125,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingStatusFieldWithReadyInfo() {
+    setUpPipelineMocks();
     mockJobDynamicObjectWithStatusField();
     JsonElement readyElement = mock(JsonElement.class);
     when(readyElement.getAsBoolean()).thenReturn(true);
@@ -152,6 +157,7 @@ public class K8sPipelineElementStatusEstimatorTest {
   @FieldSource("READY_STRINGS")
   @FieldSource("FAILED_STRINGS")
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingStatusFieldWithStateInfo(String state) {
+    setUpPipelineMocks();
     mockJobDynamicObjectWithStatusField();
     JsonElement stateElement = mock(JsonElement.class);
     when(stateElement.getAsString()).thenReturn(state);
@@ -169,6 +175,7 @@ public class K8sPipelineElementStatusEstimatorTest {
   @FieldSource("READY_STRINGS")
   @FieldSource("FAILED_STRINGS")
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingStatusFieldWithJobStatusStateInfo(String state) {
+    setUpPipelineMocks();
     mockJobDynamicObjectWithStatusField();
     JsonElement stateElement = mock(JsonElement.class);
     when(stateElement.getAsString()).thenReturn(state);
@@ -189,6 +196,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingNoStatusField() {
+    setUpPipelineMocks();
     when(jobDynamicObjectRawJsonObject.has("status")).thenReturn(false);
     mockDynamicObjectWithMetadata();
 
@@ -211,6 +219,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenCallToK8sFails() {
+    setUpPipelineMocks();
     when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
     List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
     K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
@@ -221,6 +230,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenK8sReturnsNullObject() {
+    setUpPipelineMocks();
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(null);
     List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
     K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
@@ -285,6 +295,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingNoRawJson() {
+    setUpPipelineMocks();
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(jobDynamicObject);
     when(jobDynamicObject.getRaw()).thenReturn(null);
     List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);

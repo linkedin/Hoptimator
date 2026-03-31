@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.operator.subscription;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,9 +59,7 @@ public class SubscriptionReconcilerFetchAttributesTest {
     Method fetchAttributes = SubscriptionReconciler.class.getDeclaredMethod("fetchAttributes", String.class);
     fetchAttributes.setAccessible(true);
 
-    @SuppressWarnings("unchecked")
-    Map<String, String> result = assertDoesNotThrow(
-        () -> (Map<String, String>) fetchAttributes.invoke(reconciler, CLASS_CAST_EXCEPTION_YAML));
+    assertDoesNotThrow(() -> fetchAttributes.invoke(reconciler, CLASS_CAST_EXCEPTION_YAML));
   }
 
   @Test
@@ -70,21 +67,14 @@ public class SubscriptionReconcilerFetchAttributesTest {
     // Same protection: fetchAttributes() must not throw for YAML that triggers ScannerException.
     Method fetchAttributes = SubscriptionReconciler.class.getDeclaredMethod("fetchAttributes", String.class);
     fetchAttributes.setAccessible(true);
-
-    @SuppressWarnings("unchecked")
-    Map<String, String> result = assertDoesNotThrow(
-        () -> (Map<String, String>) fetchAttributes.invoke(reconciler, SCANNER_EXCEPTION_YAML));
+    assertDoesNotThrow(() -> fetchAttributes.invoke(reconciler, SCANNER_EXCEPTION_YAML));
   }
 
   @Test
   void testFetchAttributesDoesNotThrowOnNullMetadata() throws Exception {
-    // Reproduce null metadata scenario: fetchAttributes() must not throw NPE when
-    // the parsed YAML has no metadata field.
+    // fetchAttributes() must not throw NPE when the parsed YAML has no metadata field.
     Method fetchAttributes = SubscriptionReconciler.class.getDeclaredMethod("fetchAttributes", String.class);
     fetchAttributes.setAccessible(true);
-
-    @SuppressWarnings("unchecked")
-    Map<String, String> result = assertDoesNotThrow(
-        () -> (Map<String, String>) fetchAttributes.invoke(reconciler, NO_METADATA_YAML));
+    assertDoesNotThrow(() -> fetchAttributes.invoke(reconciler, NO_METADATA_YAML));
   }
 }
