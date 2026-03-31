@@ -9,8 +9,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import com.linkedin.hoptimator.catalog.Resource;
 import com.linkedin.hoptimator.operator.Operator;
@@ -21,11 +19,10 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 /**
  * Tests for SubscriptionReconciler.fetchAttributes() YAML parsing exception handling.
- * Reproduces EXC-475778 where ClassCastException from malformed YAML in fetchAttributes()
- * was unhandled and propagated up through reconcile().
+ * Verifies that malformed or unexpected YAML in fetchAttributes() returns an empty map
+ * rather than propagating an exception through reconcile().
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class SubscriptionReconcilerFetchAttributesTest {
 
   @Mock
@@ -58,9 +55,8 @@ public class SubscriptionReconcilerFetchAttributesTest {
 
   @Test
   void testFetchAttributesDoesNotThrowClassCastException() throws Exception {
-    // Reproduce EXC-475778: SubscriptionReconciler.fetchAttributes() threw ClassCastException
-    // when snakeyaml produced an unexpected node type during YAML parsing.
-    // fetchAttributes() must catch the exception and return an empty map.
+    // fetchAttributes() must catch the exception and return an empty map when snakeyaml produces
+    // an unexpected node type (e.g. a type-tagged YAML value like !!java.util.Date).
     Method fetchAttributes = SubscriptionReconciler.class.getDeclaredMethod("fetchAttributes", String.class);
     fetchAttributes.setAccessible(true);
 

@@ -21,8 +21,7 @@ import static org.mockito.Mockito.when;
 
 /**
  * Tests for Operator focusing on YAML parsing exception handling.
- * Reproduces EXC-459069 and EXC-463453 where ScannerException/ParserException
- * from malformed YAML in Operator.isReady() was unhandled.
+ * Verifies that malformed YAML in isReady() and isFailed() returns false rather than throwing.
  */
 @ExtendWith(MockitoExtension.class)
 public class OperatorTest {
@@ -58,16 +57,14 @@ public class OperatorTest {
 
   @Test
   void testIsReadyReturnsFalseOnScannerException() {
-    // Reproduce EXC-459069, EXC-463453: Operator.isReady(yaml) threw ScannerException
-    // when YAML was malformed. It should return false instead.
+    // isReady(yaml) must return false rather than throw when YAML triggers a ScannerException.
     boolean result = operator.isReady(SCANNER_EXCEPTION_YAML);
     assertFalse(result);
   }
 
   @Test
   void testIsReadyReturnsFalseOnParserException() {
-    // Reproduce EXC-463453: Operator.isReady(yaml) threw ParserException
-    // when YAML had invalid document structure. It should return false instead.
+    // isReady(yaml) must return false rather than throw when YAML triggers a ParserException.
     boolean result = operator.isReady(PARSER_EXCEPTION_YAML);
     assertFalse(result);
   }
@@ -88,8 +85,7 @@ public class OperatorTest {
 
   @Test
   void testIsReadyReturnsFalseOnNullNamespace() {
-    // Reproduce EXC-489889: Operator.isReady(yaml) threw IllegalArgumentException
-    // when YAML had no namespace. It should return false instead.
+    // isReady(yaml) must return false rather than throw when the YAML has no namespace.
     boolean result = operator.isReady(NO_NAMESPACE_YAML);
     assertFalse(result);
   }

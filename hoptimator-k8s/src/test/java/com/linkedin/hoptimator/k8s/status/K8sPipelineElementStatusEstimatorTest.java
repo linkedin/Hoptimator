@@ -10,8 +10,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.FieldSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -36,7 +34,6 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class K8sPipelineElementStatusEstimatorTest {
   @Mock
   private K8sContext context;
@@ -234,9 +231,8 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenElementYamlIsMalformed() {
-    // Reproduce EXC-511258: snakeyaml throws IndexOutOfBoundsException for malformed YAML.
-    // estimateElementStatus() must catch this and return an unready status rather than propagating.
-    // Call estimateElementStatus() directly to avoid triggering unused @BeforeEach stubs.
+    // estimateElementStatus() must catch snakeyaml exceptions and return an unready status rather
+    // than propagating. Call estimateElementStatus() directly to avoid triggering unused @BeforeEach stubs.
     K8sPipelineElementStatus status = estimator.estimateElementStatus("malformed: yaml: [unclosed", "test-namespace");
     assertFalse(status.isReady());
     assertFalse(status.isFailed());
@@ -245,9 +241,8 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenElementYamlTriggersScannerException() {
-    // Reproduce EXC-539039, EXC-531252, EXC-459069: snakeyaml throws ScannerException for YAML
-    // with invalid characters or mapping structure (e.g. a colon in an unquoted value).
-    // estimateElementStatus() must catch ScannerException and return an unready status.
+    // snakeyaml throws ScannerException for YAML with invalid characters or mapping structure
+    // (e.g. a colon in an unquoted value). estimateElementStatus() must catch it and return an unready status.
     K8sPipelineElementStatus status =
         estimator.estimateElementStatus("key: value: with: colons: everywhere:", "test-namespace");
     assertFalse(status.isReady());
@@ -257,9 +252,8 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenElementYamlTriggersParserException() {
-    // Reproduce EXC-527794, EXC-517011, EXC-474816, EXC-463453: snakeyaml throws ParserException
-    // for YAML with invalid document structure (e.g. duplicate document markers).
-    // estimateElementStatus() must catch ParserException and return an unready status.
+    // snakeyaml throws ParserException for YAML with invalid document structure
+    // (e.g. duplicate document markers). estimateElementStatus() must catch it and return an unready status.
     K8sPipelineElementStatus status =
         estimator.estimateElementStatus("--- invalid\n--- also invalid\n---", "test-namespace");
     assertFalse(status.isReady());
@@ -269,9 +263,8 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenElementYamlTriggersConstructorException() {
-    // Reproduce EXC-468615: snakeyaml throws ConstructorException for YAML with duplicate keys
-    // that cannot be merged. estimateElementStatus() must catch ConstructorException and return
-    // an unready status.
+    // snakeyaml throws ConstructorException for YAML with type tags that cannot be constructed.
+    // estimateElementStatus() must catch it and return an unready status.
     K8sPipelineElementStatus status =
         estimator.estimateElementStatus("!!java.util.Date 2021-01-01", "test-namespace");
     assertFalse(status.isReady());
@@ -281,10 +274,8 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenElementYamlHasNullMetadata() {
-    // Reproduce EXC-475353, EXC-475359: Dynamics.newFromYaml() returns an object with null
-    // metadata, causing NPE on obj.getMetadata().getName(). estimateElementStatus() must guard
-    // against null metadata and return an unready status rather than propagating.
-    // A YAML with no 'metadata' field at all produces a DynamicKubernetesObject with null metadata.
+    // A YAML with no 'metadata' field produces a DynamicKubernetesObject with null metadata.
+    // estimateElementStatus() must guard against this and return an unready status.
     K8sPipelineElementStatus status =
         estimator.estimateElementStatus("apiVersion: v1\nkind: ConfigMap", "test-namespace");
     assertFalse(status.isReady());
