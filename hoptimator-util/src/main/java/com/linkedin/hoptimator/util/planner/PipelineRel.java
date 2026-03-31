@@ -98,6 +98,10 @@ public interface PipelineRel extends RelNode {
       this.sink = new Sink(database, path, newOptions);
     }
 
+    public boolean hasSink() {
+      return sink != null;
+    }
+
     public void setQuery(RelNode query) {
       this.query = query;
     }

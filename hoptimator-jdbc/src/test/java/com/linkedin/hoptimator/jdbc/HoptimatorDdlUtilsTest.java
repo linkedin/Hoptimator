@@ -19,7 +19,6 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -389,7 +388,7 @@ class HoptimatorDdlUtilsTest {
   }
 
   @Test
-  void testSnapshotAndSetSinkSchemaSetsNonNullSinkOnPlan() throws Exception {
+  void testSnapshotAndSetSinkSchemaSetsNonNullSinkOnPlan() throws SQLException {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
@@ -405,11 +404,8 @@ class HoptimatorDdlUtilsTest {
 
       HoptimatorDdlUtils.snapshotAndSetSinkSchema(context, prepare, plan, "SELECT 1 AS X", schemaPair);
 
-      // Verify plan.setSink(...) was actually called by checking private field via reflection
-      Field sinkField = PipelineRel.Implementor.class.getDeclaredField("sink");
-      sinkField.setAccessible(true);
-      Object sink = sinkField.get(plan);
-      assertNotNull(sink, "Expected plan.sink to be non-null after snapshotAndSetSinkSchema");
+      // Verify plan.setSink(...) was actually called
+      assertTrue(plan.hasSink(), "Expected plan.sink to be non-null after snapshotAndSetSinkSchema");
     }
   }
 
