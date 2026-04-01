@@ -171,7 +171,7 @@ class AvroConverterTypeMappingTest {
     RelDataType relType = AvroConverter.rel(nullSchema, typeFactory);
 
     assertTrue(relType.isNullable());
-    assertEquals(SqlTypeName.UNKNOWN, relType.getSqlTypeName());
+    assertEquals(SqlTypeName.NULL, relType.getSqlTypeName());
   }
 
   @Test

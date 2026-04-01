@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -346,6 +345,7 @@ public class K8sPipelineElementStatusEstimatorTest {
   void testEstimateStatusReadyFieldWithFailedTrue() {
     // Tests estimateBasedOnStatusReadyField statusJson.has("failed") && ...
     // If "failed" check is removed, failed=true even without "failed" key
+    setUpPipelineMocks();
     mockJobDynamicObjectWithStatusField();
     JsonElement readyElement = mock(JsonElement.class);
     when(readyElement.getAsBoolean()).thenReturn(true);
@@ -365,6 +365,7 @@ public class K8sPipelineElementStatusEstimatorTest {
   @Test
   void testEstimateStatusReadyFieldWithFailedKeyAbsent() {
     // Tests estimateBasedOnStatusReadyField: when "failed" key is absent, isFailed() must be false
+    setUpPipelineMocks();
     mockJobDynamicObjectWithStatusField();
     JsonElement readyElement = mock(JsonElement.class);
     when(readyElement.getAsBoolean()).thenReturn(true);
@@ -381,7 +382,9 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateStatusesWithEmptyYamlSpec() {
-    // Empty YAML (after trim) should produce zero statuses
+    // Empty YAML (after trim) should produce zero statuses — no K8s API calls are made.
+    when(pipeline.getMetadata()).thenReturn(pipelineMetadata);
+    when(pipeline.getSpec()).thenReturn(pipelineSpec);
     when(pipelineSpec.getYaml()).thenReturn("   \n---\n   \n");
 
     List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
@@ -391,6 +394,7 @@ public class K8sPipelineElementStatusEstimatorTest {
   @Test
   void testEstimateElementStatusUsesObjectNamespaceWhenPresent() {
     // when namespace is present in YAML, it must be used (not pipelineNamespace)
+    setUpPipelineMocks();
     String yamlWithNs = "apiVersion: foo.org/v1beta1\nkind: FakeJob\nmetadata:\n  name: fake-job-name\n  namespace: object-ns\nspec:\n  foo: bar";
     when(pipelineSpec.getYaml()).thenReturn(yamlWithNs);
     // Return a null object to cause failure message that includes namespace
@@ -406,6 +410,7 @@ public class K8sPipelineElementStatusEstimatorTest {
   @Test
   void testEstimateElementStatusUsesPipelineNamespaceWhenObjectNamespaceNull() {
     // When namespace is null in YAML, use pipelineNamespace
+    setUpPipelineMocks();
     String yamlNoNs = "apiVersion: foo.org/v1beta1\nkind: FakeJob\nmetadata:\n  name: fake-job-name\nspec:\n  foo: bar";
     when(pipelineSpec.getYaml()).thenReturn(yamlNoNs);
     when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
