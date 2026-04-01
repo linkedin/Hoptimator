@@ -157,7 +157,7 @@ class MySqlDeployerProviderTest {
   void testReturnsEmptyWhenConnectionIsNotHoptimatorConnection() {
     Source source = new Source("mysql", List.of("MYSQL", "testdb", "users"), Collections.emptyMap());
 
-    // Use a =Connection (not HoptimatorConnection) as the connection parameter
+    // Use a Connection (not HoptimatorConnection) as the connection parameter
     Connection rawConnection = mock(Connection.class);
 
     // The provider uses a Connection param (not HoptimatorConnection typed directly here)

@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @SuppressFBWarnings(value = "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD",
     justification = "Intentional: static state used to control test behavior across SPI-loaded instances")
-public class TestValidatorProvider implements ValidatorProvider {
+public class ValidatorProviderTest implements ValidatorProvider {
 
   /** When true, every call to validate() records an error into issues. */
   private static final AtomicBoolean SHOULD_ERROR = new AtomicBoolean(false);
@@ -44,7 +44,7 @@ public class TestValidatorProvider implements ValidatorProvider {
   public <T> Collection<Validator> validators(T obj) {
     lastSeen = obj;
     if (SHOULD_ERROR.get()) {
-      return Collections.singletonList(issues -> issues.error("TestValidatorProvider injected error"));
+      return Collections.singletonList(issues -> issues.error("ValidatorProviderTest injected error"));
     }
     return Collections.emptyList();
   }

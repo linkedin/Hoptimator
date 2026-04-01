@@ -8,7 +8,7 @@ import java.util.Collections;
 
 
 /** Test implementation of ControllerProvider for use in ServiceLoader-based tests. */
-public class TestControllerProvider implements ControllerProvider {
+public class ControllerProviderTest implements ControllerProvider {
 
   @Override
   public Collection<Controller> controllers(K8sContext context) {

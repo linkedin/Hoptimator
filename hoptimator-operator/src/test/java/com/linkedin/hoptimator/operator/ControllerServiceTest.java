@@ -27,7 +27,7 @@ class ControllerServiceTest {
   }
 
   /**
-   * The test SPI file registers TestControllerProvider so ServiceLoader finds at least one provider.
+   * The test SPI file registers ControllerProviderTest so ServiceLoader finds at least one provider.
    * If forEachRemaining() is removed (VoidMethodCall), providers() returns an empty list.
    * If providers() returns empty object (EmptyObjectReturnVals), size is 0.
    */
@@ -35,7 +35,7 @@ class ControllerServiceTest {
   void providersReturnsAtLeastOneRegisteredProvider() {
     Collection<ControllerProvider> providers = ControllerService.providers();
     assertNotNull(providers);
-    // TestControllerProvider is registered via META-INF/services in test resources
+    // ControllerProviderTest is registered via META-INF/services in test resources
     assertFalse(providers.isEmpty(), "ServiceLoader must find at least one ControllerProvider in test classpath");
   }
 
@@ -54,7 +54,7 @@ class ControllerServiceTest {
   }
 
   /**
-   * TestControllerProvider returns empty list, so controllers() maps to an empty stream.
+   * ControllerProviderTest returns empty list, so controllers() maps to an empty stream.
    * We verify that controllers() returns exactly the flat-mapped result of all providers.
    */
   @Test
