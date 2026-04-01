@@ -81,6 +81,9 @@ public class K8sPipelineElementStatusEstimatorTest {
   @BeforeEach
   void setUp() {
     estimator = new K8sPipelineElementStatusEstimator(context);
+  }
+
+  private void setUpPipelineMocks() {
     when(pipelineMetadata.getNamespace()).thenReturn("fake-namespace");
     when(pipeline.getMetadata()).thenReturn(pipelineMetadata);
     when(pipeline.getSpec()).thenReturn(pipelineSpec);
@@ -92,6 +95,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenPipelineHasMultipleElements() {
+    setUpPipelineMocks();
     when(pipelineSpec.getYaml()).thenReturn(FAKE_MULTIPLE_SPECS);
     // Set up: failed to get kafka object from K8s.
     when(kafkaDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
@@ -121,6 +125,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingStatusFieldWithReadyInfo() {
+    setUpPipelineMocks();
     mockJobDynamicObjectWithStatusField();
     JsonElement readyElement = mock(JsonElement.class);
     when(readyElement.getAsBoolean()).thenReturn(true);
@@ -152,6 +157,7 @@ public class K8sPipelineElementStatusEstimatorTest {
   @FieldSource("READY_STRINGS")
   @FieldSource("FAILED_STRINGS")
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingStatusFieldWithStateInfo(String state) {
+    setUpPipelineMocks();
     mockJobDynamicObjectWithStatusField();
     JsonElement stateElement = mock(JsonElement.class);
     when(stateElement.getAsString()).thenReturn(state);
@@ -169,6 +175,7 @@ public class K8sPipelineElementStatusEstimatorTest {
   @FieldSource("READY_STRINGS")
   @FieldSource("FAILED_STRINGS")
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingStatusFieldWithJobStatusStateInfo(String state) {
+    setUpPipelineMocks();
     mockJobDynamicObjectWithStatusField();
     JsonElement stateElement = mock(JsonElement.class);
     when(stateElement.getAsString()).thenReturn(state);
@@ -189,6 +196,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingNoStatusField() {
+    setUpPipelineMocks();
     when(jobDynamicObjectRawJsonObject.has("status")).thenReturn(false);
     mockDynamicObjectWithMetadata();
 
@@ -211,6 +219,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenCallToK8sFails() {
+    setUpPipelineMocks();
     when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
     List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
     K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
@@ -221,6 +230,7 @@ public class K8sPipelineElementStatusEstimatorTest {
 
   @Test
   void testEstimateWhenK8sReturnsNullObject() {
+    setUpPipelineMocks();
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(null);
     List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
     K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
@@ -230,7 +240,62 @@ public class K8sPipelineElementStatusEstimatorTest {
   }
 
   @Test
+  void testEstimateWhenElementYamlIsMalformed() {
+    // estimateElementStatus() must catch snakeyaml exceptions and return an unready status rather
+    // than propagating. Call estimateElementStatus() directly to avoid triggering unused @BeforeEach stubs.
+    K8sPipelineElementStatus status = estimator.estimateElementStatus("malformed: yaml: [unclosed", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("Failed to parse element YAML"));
+  }
+
+  @Test
+  void testEstimateWhenElementYamlTriggersScannerException() {
+    // snakeyaml throws ScannerException for YAML with invalid characters or mapping structure
+    // (e.g. a colon in an unquoted value). estimateElementStatus() must catch it and return an unready status.
+    K8sPipelineElementStatus status =
+        estimator.estimateElementStatus("key: value: with: colons: everywhere:", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("Failed to parse element YAML"));
+  }
+
+  @Test
+  void testEstimateWhenElementYamlTriggersParserException() {
+    // snakeyaml throws ParserException for YAML with invalid document structure
+    // (e.g. duplicate document markers). estimateElementStatus() must catch it and return an unready status.
+    K8sPipelineElementStatus status =
+        estimator.estimateElementStatus("--- invalid\n--- also invalid\n---", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("Failed to parse element YAML"));
+  }
+
+  @Test
+  void testEstimateWhenElementYamlTriggersConstructorException() {
+    // snakeyaml throws ConstructorException for YAML with type tags that cannot be constructed.
+    // estimateElementStatus() must catch it and return an unready status.
+    K8sPipelineElementStatus status =
+        estimator.estimateElementStatus("!!java.util.Date 2021-01-01", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("Failed to parse element YAML"));
+  }
+
+  @Test
+  void testEstimateWhenElementYamlHasNullMetadata() {
+    // A YAML with no 'metadata' field produces a DynamicKubernetesObject with null metadata.
+    // estimateElementStatus() must guard against this and return an unready status.
+    K8sPipelineElementStatus status =
+        estimator.estimateElementStatus("apiVersion: v1\nkind: ConfigMap", "test-namespace");
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("null metadata"));
+  }
+
+  @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingNoRawJson() {
+    setUpPipelineMocks();
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(jobDynamicObject);
     when(jobDynamicObject.getRaw()).thenReturn(null);
     List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);

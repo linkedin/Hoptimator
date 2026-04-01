@@ -251,6 +251,15 @@ class K8sPipelineElementApiTest {
     }
 
     @Test
+    void testGetElementConfigurationMalformedYaml() {
+      // snakeyaml throws IndexOutOfBoundsException for malformed YAML.
+      // getElementConfiguration() must catch this and return an empty map rather than propagating.
+      String malformedYaml = "malformed: yaml: [unclosed";
+      Map<String, String> result = api.getElementConfiguration(malformedYaml, "default");
+      assertTrue(result.isEmpty());
+    }
+
+    @Test
     void testGetElementConfigurationExceptionThrown() {
         // Given
         String elementYaml = "apiVersion: apps/v1\n"
