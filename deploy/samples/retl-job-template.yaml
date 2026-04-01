@@ -17,7 +17,7 @@ spec:
             image: alpine/k8s:1.33.0
             env:
               - name: TABLE_TRIGGER_NAME
-                value: "{{name}}-trigger"
+                value: "{{trigger}}"
               - name: SOURCE_TABLE_NAME
                 value: "{{offline.table.name}}"
               - name: ONLINE_TABLE_NAME
