@@ -1,0 +1,118 @@
+!set outputformat mysql
+!use k8s
+
+# Integration tests for logical table DDL.
+#
+# Prerequisites (handled by test infrastructure):
+#   kubectl apply -f deploy/logicaltables.crd.yaml
+#   kubectl apply -f deploy/samples/logicaldb.yaml       (defines LOGICAL schema)
+#   kubectl apply -f deploy/samples/kafkadb.yaml         (defines kafka-database / KAFKA schema)
+#   kubectl apply -f deploy/samples/venicedb.yaml        (defines venice / VENICE schema)
+#   Kafka + Venice running (see deploy/dev/ and deploy/docker/venice/)
+#
+# The LOGICAL schema is backed by: jdbc:logical://nearline=kafka-database;online=venice
+# Each CREATE TABLE creates a KafkaTopic CRD (nearline) + Venice store (online) + Pipeline CRD.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 1: CREATE TABLE — basic two-column logical table
+# ─────────────────────────────────────────────────────────────────────────────
+create table "LOGICAL"."testevent" ("memberId" bigint, "pageKey" varchar);
+(0 rows modified)
+
+!update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 2: !describe — columns should match the CREATE TABLE definition
+# ─────────────────────────────────────────────────────────────────────────────
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| memberId   | BIGINT   | 19         | YES        |
+| pageKey    | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(2 rows)
+
+!describe "LOGICAL"."testevent"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 3: Pipeline CRD created for nearline→online sync
+# ─────────────────────────────────────────────────────────────────────────────
+select name from "k8s".pipelines where name = 'logical-testevent-nearline-to-online';
++--------------------------------------+
+| NAME                                 |
++--------------------------------------+
+| logical-testevent-nearline-to-online |
++--------------------------------------+
+(1 row)
+
+!ok
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 4: Duplicate CREATE TABLE is rejected
+# ─────────────────────────────────────────────────────────────────────────────
+create table "LOGICAL"."testevent" ("memberId" bigint, "pageKey" varchar);
+Table TESTEVENT already exists.
+!error
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 5: CREATE TABLE with composite schema (nested ROW + array)
+# ─────────────────────────────────────────────────────────────────────────────
+create table "LOGICAL"."pageview" (
+  "header" row("memberId" bigint, "timestamp" bigint),
+  "body" row("pageKey" varchar, "tags" varchar array)
+);
+(0 rows modified)
+
+!update
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| header     | RECORD   | null       | YES        |
+| body       | RECORD   | null       | YES        |
++------------+----------+------------+------------+
+(2 rows)
+
+!describe "LOGICAL"."pageview"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 6: DROP TABLE removes the logical table and its owned Pipeline CRDs
+# ─────────────────────────────────────────────────────────────────────────────
+drop table "LOGICAL"."testevent";
+(0 rows modified)
+
+!update
+
+# Pipeline CRD should be gone (cascade delete from LogicalTable CRD ownership)
+select count(*) from "k8s".pipelines where name = 'logical-testevent-nearline-to-online';
++--------+
+| EXPR$0 |
++--------+
+|      0 |
++--------+
+(1 row)
+
+!ok
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 7: DROP TABLE on already-dropped table is rejected
+# ─────────────────────────────────────────────────────────────────────────────
+drop table "LOGICAL"."testevent";
+Element TESTEVENT not found
+!error
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 8: CREATE TABLE against a schema that does not exist is rejected
+# ─────────────────────────────────────────────────────────────────────────────
+create table "LOGICAL-NONEXISTENT"."testevent" ("id" bigint);
+Schema for LOGICAL-NONEXISTENT.TESTEVENT not found.
+!error
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Clean up remaining test tables
+# ─────────────────────────────────────────────────────────────────────────────
+drop table "LOGICAL"."pageview";
+(0 rows modified)
+
+!update

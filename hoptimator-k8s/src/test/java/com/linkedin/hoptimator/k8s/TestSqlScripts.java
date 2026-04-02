@@ -43,4 +43,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void k8sTriggerOptions() throws Exception {
     run("k8s-trigger-options.id");
   }
+
+  @Test
+  public void k8sLogicalTableDdl() throws Exception {
+    run("k8s-logical.id");
+  }
 }
