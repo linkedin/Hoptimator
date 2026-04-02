@@ -1,0 +1,116 @@
+!set outputformat mysql
+!use util
+
+# Test CREATE FUNCTION with default return type (VARCHAR)
+create function my_udf as 'com.example.MyUdf';
+(0 rows modified)
+
+!update
+
+# VARCHAR UDF validates against inline data; returns null (opaque placeholder)
+select my_udf(x) as val from (values ('hello'), ('world')) as t(x);
++-----+
+| VAL |
++-----+
+|     |
+|     |
++-----+
+(2 rows)
+
+!ok
+
+# Test CREATE FUNCTION with explicit INTEGER return type
+create function int_udf returns integer as 'com.example.IntUdf';
+(0 rows modified)
+
+!update
+
+# Integer UDF validates against integer input
+select int_udf(x) as val from (values (10), (20), (30)) as t(x);
++-----+
+| VAL |
++-----+
+|     |
+|     |
+|     |
++-----+
+(3 rows)
+
+!ok
+
+# Test CREATE FUNCTION with BOOLEAN return type
+create function bool_udf returns boolean as 'com.example.BoolUdf';
+(0 rows modified)
+
+!update
+
+# Boolean UDF validates against varchar input
+select bool_udf(x) as val from (values ('a')) as t(x);
++-----+
+| VAL |
++-----+
+|     |
++-----+
+(1 row)
+
+!ok
+
+# Test CREATE FUNCTION with LANGUAGE clause (LANGUAGE before AS)
+create function py_udf returns varchar language python as 'my_func' in 'my_module';
+(0 rows modified)
+
+!update
+
+# Multi-arg UDF validates with two arguments
+select py_udf(x, y) as val from (values ('a', 'b'), ('c', 'd')) as t(x, y);
++-----+
+| VAL |
++-----+
+|     |
+|     |
++-----+
+(2 rows)
+
+!ok
+
+# Test CREATE FUNCTION with inline code via dollar-quoting
+create function inline_udf returns varchar language python as 'inline_udf' in $$x = 1$$;
+(0 rows modified)
+
+!update
+
+select inline_udf(x) as val from (values ('a')) as t(x);
++-----+
+| VAL |
++-----+
+|     |
++-----+
+(1 row)
+
+!ok
+
+# Clean up
+drop function my_udf;
+(0 rows modified)
+
+!update
+
+drop function int_udf;
+(0 rows modified)
+
+!update
+
+drop function bool_udf;
+(0 rows modified)
+
+!update
+
+drop function py_udf;
+(0 rows modified)
+
+!update
+
+drop function inline_udf;
+(0 rows modified)
+
+!update

@@ -58,6 +58,7 @@ deploy-flink: deploy
 	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest --set-json='watchNamespaces=["default","flink"]' flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
 	kubectl apply -f ./deploy/dev/flink-session-cluster.yaml
 	kubectl apply -f ./deploy/dev/flink-sql-gateway.yaml
+	kubectl apply -f ./deploy/dev/flink-sqljob-rbac.yaml
 	kubectl apply -f ./deploy/samples/flink-template.yaml
 	kubectl apply -f ./deploy/samples/flink-beam-template.yaml
 

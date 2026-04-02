@@ -8,8 +8,9 @@ dependencies {
   implementation project(':hoptimator-catalog')
   implementation project(':hoptimator-k8s')
   implementation project(':hoptimator-operator')
-  implementation libs.kubernetesClient
-  implementation libs.kubernetesExtendedClient
+  implementation project(':hoptimator-util')
+  implementation libs.kubernetes.client
+  implementation libs.kubernetes.extended.client
 
   testImplementation libs.assertj
 }

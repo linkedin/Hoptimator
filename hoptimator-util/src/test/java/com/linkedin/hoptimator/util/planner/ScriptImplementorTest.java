@@ -16,10 +16,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.AbstractMap;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -172,6 +174,68 @@ public class ScriptImplementorTest {
         "Should include blackhole connector. Got: " + sql);
     assertTrue(sql.contains("INSERT INTO `ADS`.`AD_CLICKS_sink`"),
         "Should insert into sink table. Got: " + sql);
+  }
+
+  @Test
+  public void testFunctionWithoutLanguage() {
+    String sql = ScriptImplementor.empty()
+        .function("my_udf", "com.example.MyUdf", Collections.emptyMap())
+        .sql();
+
+    assertTrue(sql.contains("CREATE FUNCTION IF NOT EXISTS"),
+        "Should contain CREATE FUNCTION IF NOT EXISTS. Got: " + sql);
+    assertTrue(sql.contains("my_udf") || sql.contains("`my_udf`"),
+        "Should contain function name. Got: " + sql);
+    assertTrue(sql.contains("'com.example.MyUdf'"),
+        "Should contain AS clause. Got: " + sql);
+    assertFalse(sql.contains("LANGUAGE"),
+        "Should not contain LANGUAGE clause when not specified. Got: " + sql);
+  }
+
+  @Test
+  public void testFunctionWithLanguage() {
+    Map<String, String> options = new HashMap<>();
+    options.put("LANGUAGE", "PYTHON");
+
+    String sql = ScriptImplementor.empty()
+        .function("my_udf", "my_module.my_func", options)
+        .sql();
+
+    assertTrue(sql.contains("CREATE FUNCTION IF NOT EXISTS"),
+        "Should contain CREATE FUNCTION IF NOT EXISTS. Got: " + sql);
+    assertTrue(sql.contains("'my_module.my_func'"),
+        "Should contain AS clause. Got: " + sql);
+    assertTrue(sql.contains("LANGUAGE"),
+        "Should contain LANGUAGE clause. Got: " + sql);
+    assertTrue(sql.contains("PYTHON"),
+        "Should contain PYTHON language. Got: " + sql);
+  }
+
+  @Test
+  public void testFunctionBeforeConnector() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("ID", typeFactory.createSqlType(SqlTypeName.INTEGER))
+        .build();
+
+    Map<String, String> config = new HashMap<>();
+    config.put("connector", "datagen");
+
+    Map<String, String> funcOptions = new HashMap<>();
+    funcOptions.put("LANGUAGE", "PYTHON");
+
+    String sql = ScriptImplementor.empty()
+        .function("my_udf", "my_module.my_func", funcOptions)
+        .database(null, "TEST")
+        .connector(null, "TEST", "MY_TABLE", rowType, config)
+        .sql();
+
+    int funcIdx = sql.indexOf("CREATE FUNCTION");
+    int tableIdx = sql.indexOf("CREATE TABLE");
+    assertTrue(funcIdx >= 0, "Should contain CREATE FUNCTION. Got: " + sql);
+    assertTrue(tableIdx >= 0, "Should contain CREATE TABLE. Got: " + sql);
+    assertTrue(funcIdx < tableIdx,
+        "CREATE FUNCTION should appear before CREATE TABLE. Got: " + sql);
   }
 
   @Test

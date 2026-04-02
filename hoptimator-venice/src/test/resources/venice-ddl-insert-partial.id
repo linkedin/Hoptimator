@@ -23,22 +23,19 @@ drop materialized view "VENICE"."test-store$insert-partial";
 !update
 
 insert into "VENICE"."test-store" ("KEY_name", "KEY_age", "intField") select "stringField" AS "KEY_name", "KEY" AS "KEY_age", "intField" from "VENICE"."test-store-primitive";
-apiVersion: flink.apache.org/v1beta1
-kind: FlinkSessionJob
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: SqlJob
 metadata:
   name: venice-test-store
 spec:
-  deploymentName: basic-session-deployment
-  job:
-    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
-    args:
-    - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
-    - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store-primitive` (`KEY` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY', 'key.fields-prefix'='', 'key.type'='PRIMITIVE', 'partial-update-mode'='true', 'storeName'='test-store-primitive', 'value.fields-include'='EXCEPT_KEY')
-    - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
-    - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store` (`KEY_name` VARCHAR, `KEY_age` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_name;KEY_age', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='test-store', 'value.fields-include'='EXCEPT_KEY')
-    - INSERT INTO `VENICE`.`test-store` (`KEY_name`, `KEY_age`, `intField`) SELECT `stringField` AS `KEY_name`, `KEY` AS `KEY_age`, `intField` FROM `VENICE`.`test-store-primitive`
-    jarURI: file:///opt/hoptimator-flink-runner.jar
-    parallelism: 1
-    upgradeMode: stateless
-    state: running
+  dialect: Flink
+  executionMode: Streaming
+  sql:
+  - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
+  - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store-primitive` (`KEY` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY', 'key.fields-prefix'='', 'key.type'='PRIMITIVE', 'partial-update-mode'='true', 'storeName'='test-store-primitive', 'value.fields-include'='EXCEPT_KEY')
+  - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
+  - CREATE TABLE IF NOT EXISTS `VENICE`.`test-store` (`KEY_name` VARCHAR, `KEY_age` INTEGER, `intField` INTEGER, `stringField` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY_name;KEY_age', 'key.fields-prefix'='KEY_', 'key.type'='RECORD', 'partial-update-mode'='true', 'storeName'='test-store', 'value.fields-include'='EXCEPT_KEY')
+  - INSERT INTO `VENICE`.`test-store` (`KEY_name`, `KEY_age`, `intField`) SELECT `stringField` AS `KEY_name`, `KEY` AS `KEY_age`, `intField` FROM `VENICE`.`test-store-primitive`
+  files:
+    {}
 !specify test-store

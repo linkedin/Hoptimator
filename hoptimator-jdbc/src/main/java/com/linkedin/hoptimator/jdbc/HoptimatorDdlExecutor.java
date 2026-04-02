@@ -26,9 +26,11 @@ import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
+import com.linkedin.hoptimator.UserFunction;
 import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.jdbc.ddl.HoptimatorDdlParserImpl;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
@@ -113,7 +115,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public static final SqlParserImplFactory PARSER_FACTORY = new SqlParserImplFactory() {
     @Override
     public SqlAbstractParserImpl getParser(Reader stream) {
-      SqlAbstractParserImpl parser = HoptimatorDdlParserImpl.FACTORY.getParser(stream);
+      Reader preprocessed = DollarQuoting.preprocess(stream);
+      SqlAbstractParserImpl parser = HoptimatorDdlParserImpl.FACTORY.getParser(preprocessed);
       parser.setConformance(SqlConformanceEnum.BABEL);
       return parser;
     }
@@ -264,6 +267,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       // Plan a pipeline to materialize the view.
       RelRoot root = new HoptimatorDriver.Prepare(connection).convert(context, sql).root;
       PipelineRel.Implementor plan = DeploymentService.plan(root, connection.materializations(), connectionProperties);
+      // Pass registered functions to the implementor
+      for (UserFunction func : connection.functions()) {
+        plan.addFunction(func);
+      }
       schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(context, new HoptimatorDriver.Prepare(connection), plan, sql, pair);
       logger.info("Added materialized view {} to schema {}", viewName, schemaPlus.getName());
       Pipeline pipeline = plan.pipeline(viewName, connection);
@@ -364,6 +371,80 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
       throw new DdlException(create, e.getMessage(), e);
     }
+  }
+
+  /** Executes a {@code CREATE FUNCTION} command. */
+  public void execute(SqlCreateFunction create, CalcitePrepare.Context context) {
+    logger.info("Validating statement: {}", create);
+    try {
+      ValidationService.validateOrThrow(create);
+    } catch (SQLException e) {
+      throw new DdlException(create, e.getMessage(), e);
+    }
+
+    String name = create.name.names.get(create.name.names.size() - 1);
+    String as = ((SqlLiteral) create.job).getValueAs(String.class);
+    String inClause = create.namespace != null
+        ? ((SqlLiteral) create.namespace).getValueAs(String.class) : null;
+    Map<String, String> options = HoptimatorDdlUtils.options(create.options);
+
+    // Extract LANGUAGE from the dedicated clause
+    if (create.language != null) {
+      options.put("LANGUAGE", create.language.getSimple());
+    }
+
+    // The IN clause provides the source for the function. Its interpretation depends on context:
+    //   - JAR archive (.jar extension or URL): stored as JAR option for USING JAR emission
+    //   - Inline code (contains whitespace, e.g. from $$...$$): stored as CODE option
+    //   - File path or URL (contains '/'): read content and stored as CODE option
+    //   - Module reference (simple name, e.g. 'demo_udfs'): combined with AS as module.function
+    if (inClause != null) {
+      if (inClause.endsWith(".jar")) {
+        // JAR archive: AS is the class, IN is the JAR location
+        options.put("JAR", inClause);
+      } else if (inClause.contains(" ") || inClause.contains("\n")) {
+        // Inline code: derive module.function reference from function name
+        String funcName = as;
+        String moduleName = name.toLowerCase(java.util.Locale.ROOT);
+        as = moduleName + "." + funcName;
+        options.put("CODE", inClause);
+      } else if (inClause.contains("/") || inClause.contains(":\\")) {
+        // File path or URL: read content and treat as inline code
+        String code = readSource(inClause);
+        String funcName = as;
+        String moduleName = name.toLowerCase(java.util.Locale.ROOT);
+        as = moduleName + "." + funcName;
+        options.put("CODE", code);
+      } else {
+        // Module reference: IN names the module, AS names the function within it
+        as = inClause + "." + as;
+      }
+    }
+
+    UserFunction userFunction = new UserFunction(name, as, null, options);
+
+    // Determine return type from RETURNS clause (default: VARCHAR)
+    String returnsName = create.returnType != null
+        ? create.returnType.getTypeName().getSimple() : "VARCHAR";
+    org.apache.calcite.sql.type.SqlTypeName returnType;
+    try {
+      returnType = org.apache.calcite.sql.type.SqlTypeName.valueOf(returnsName.toUpperCase(java.util.Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new DdlException(create, "Unknown return type: " + returnsName);
+    }
+
+    // Register opaque function overloads in Calcite schema so queries pass validation.
+    // Each overload accepts ANY-typed parameters and returns the specified type.
+    final Pair<CalciteSchema, String> pair = HoptimatorDdlUtils.schema(context, true, create.name);
+    SchemaPlus schemaPlus = pair.left != null ? pair.left.plus() : context.getRootSchema().plus();
+    for (OpaqueFunction fn : OpaqueFunction.overloads(returnType)) {
+      schemaPlus.add(name, fn);
+    }
+
+    // Register in session for pipeline DDL emission
+    connection.registerFunction(userFunction);
+
+    logger.info("CREATE FUNCTION {} completed", name);
   }
 
   // N.B. originally copy-pasted from Apache Calcite
@@ -629,6 +710,18 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       throw new DdlException(drop, e.getMessage(), e);
     }
 
+    // Handle DROP FUNCTION
+    if (drop.getKind().equals(SqlKind.DROP_FUNCTION)) {
+      String name = drop.name.names.get(drop.name.names.size() - 1);
+      final Pair<CalciteSchema, String> fnPair = HoptimatorDdlUtils.schema(context, false, drop.name);
+      if (fnPair.left != null) {
+        fnPair.left.removeFunction(name);
+      }
+      connection.removeFunction(name);
+      logger.info("DROP FUNCTION {} completed", name);
+      return;
+    }
+
     // The logic below is only applicable for DROP VIEW and DROP MATERIALIZED VIEW.
     if (!drop.getKind().equals(SqlKind.DROP_MATERIALIZED_VIEW)
         && !drop.getKind().equals(SqlKind.DROP_VIEW)
@@ -782,6 +875,22 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     String databaseName() {
       return databaseName;
+    }
+  }
+
+  /** Reads source code from a file path or URL. */
+  private static String readSource(String location) {
+    try {
+      java.net.URI uri;
+      if (location.contains("://")) {
+        uri = new java.net.URI(location);
+      } else {
+        uri = java.nio.file.Paths.get(location).toUri();
+      }
+      return new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(uri)),
+          java.nio.charset.StandardCharsets.UTF_8);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to read source from " + location, e);
     }
   }
 }

@@ -6,6 +6,7 @@ include 'hoptimator-avro'
 include 'hoptimator-catalog'          // <-- marked for deletion
 include 'hoptimator-cli'
 include 'hoptimator-demodb'
+include 'hoptimator-flink-adapter'
 include 'hoptimator-flink-runner'
 include 'hoptimator-jdbc'
 include 'hoptimator-jdbc-driver'

@@ -24,6 +24,11 @@ public class TestSqlScripts extends QuidemTestBase {
   }
 
   @Test
+  public void createFunctionDdlScript() throws Exception {
+    run("create-function-ddl.id");
+  }
+
+  @Test
   public void createViewWithAValidatorRejectingCreateViewThrowsException() throws Exception {
     // Runs the test in a separate thread to isolate the context class loader changes.
     Thread testThread = new Thread(() -> {

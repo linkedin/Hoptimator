@@ -340,17 +340,21 @@ SqlCreate SqlCreateFunction(Span s, boolean replace) :
     final SqlIdentifier id;
     final SqlNode template;
     SqlNode namespace = null;
+    SqlDataTypeSpec returnType = null;
+    SqlIdentifier language = null;
     SqlNodeList optionList = null;
 }
 {
     <FUNCTION> ifNotExists = IfNotExistsOpt()
     id = CompoundIdentifier()
+    [ <RETURNS> returnType = DataType() ]
+    [ <LANGUAGE> language = SimpleIdentifier() ]
     <AS> template = StringLiteral()
     [ <IN> namespace = StringLiteral() ]
     [ optionList = Options() ]
     {
         return new SqlCreateFunction(s.end(this), replace, ifNotExists, id, template,
-              namespace, optionList);
+              namespace, returnType, language, optionList);
     }
 }
 

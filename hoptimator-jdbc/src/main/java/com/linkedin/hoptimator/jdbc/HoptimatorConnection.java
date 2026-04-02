@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.UserFunction;
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.hoptimator.util.DelegatingConnection;
@@ -32,6 +33,7 @@ public class HoptimatorConnection extends DelegatingConnection {
   private final CalciteConnection connection;
   private final Properties connectionProperties;
   private final List<RelOptMaterialization> materializations = new ArrayList<>();
+  private final List<UserFunction> functions = new ArrayList<>();
 
   private final List<Consumer<String>> logHooks = new ArrayList<>();
 
@@ -94,6 +96,18 @@ public class HoptimatorConnection extends DelegatingConnection {
 
   public HoptimatorConnection withProperties(Properties properties) {
     return new HoptimatorConnection(connection, properties);
+  }
+
+  public void registerFunction(UserFunction func) {
+    functions.add(func);
+  }
+
+  public void removeFunction(String name) {
+    functions.removeIf(f -> f.name().equals(name));
+  }
+
+  public List<UserFunction> functions() {
+    return functions;
   }
 
   public void registerMaterialization(List<String> viewPath, String querySql) {

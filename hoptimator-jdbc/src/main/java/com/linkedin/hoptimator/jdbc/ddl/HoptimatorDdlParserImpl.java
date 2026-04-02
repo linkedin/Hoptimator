@@ -6735,10 +6735,22 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
     final SqlIdentifier id;
     final SqlNode template;
     SqlNode namespace = null;
+    SqlDataTypeSpec returnType = null;
+    SqlIdentifier language = null;
     SqlNodeList optionList = null;
     jj_consume_token(FUNCTION);
     ifNotExists = IfNotExistsOpt();
     id = CompoundIdentifier();
+    // optional: RETURNS <type>
+    if (jj_ntk == RETURNS || (jj_ntk == -1 && jj_ntk() == RETURNS)) {
+      jj_consume_token(RETURNS);
+      returnType = DataType();
+    }
+    // optional: LANGUAGE <identifier> (before AS)
+    if (jj_ntk == LANGUAGE || (jj_ntk == -1 && jj_ntk() == LANGUAGE)) {
+      jj_consume_token(LANGUAGE);
+      language = SimpleIdentifier();
+    }
     jj_consume_token(AS);
     template = StringLiteral();
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -6759,7 +6771,7 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
       ;
     }
         {if (true) return new SqlCreateFunction(s.end(this), replace, ifNotExists, id, template,
-              namespace, optionList);}
+              namespace, returnType, language, optionList);}
     throw new Error("Missing return statement in function");
   }
 
