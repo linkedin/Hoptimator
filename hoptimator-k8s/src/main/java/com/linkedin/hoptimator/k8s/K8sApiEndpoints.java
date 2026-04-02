@@ -21,6 +21,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 
@@ -61,6 +63,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1TableTrigger, V1alpha1TableTriggerList> TABLE_TRIGGERS =
       new K8sApiEndpoint<>("TableTrigger", "hoptimator.linkedin.com", "v1alpha1", "tabletriggers", false,
           V1alpha1TableTrigger.class, V1alpha1TableTriggerList.class);
+  public static final K8sApiEndpoint<V1alpha1LogicalTable, V1alpha1LogicalTableList> LOGICAL_TABLES =
+      new K8sApiEndpoint<>("LogicalTable", "hoptimator.linkedin.com", "v1alpha1", "logicaltables", false,
+          V1alpha1LogicalTable.class, V1alpha1LogicalTableList.class);
 
   private K8sApiEndpoints() {
   }

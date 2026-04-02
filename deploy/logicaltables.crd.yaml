@@ -1,0 +1,77 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: logicaltables.hoptimator.linkedin.com
+spec:
+  group: hoptimator.linkedin.com
+  names:
+    kind: LogicalTable
+    listKind: LogicalTableList
+    plural: logicaltables
+    singular: logicaltable
+    shortNames:
+    - lt
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          description: Logical Table spanning multiple physical storage tiers.
+          type: object
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              description: Desired logical table configuration.
+              type: object
+              properties:
+                avroSchema:
+                  description: Canonical Avro schema JSON for the table.
+                  type: string
+                tiers:
+                  description: Map of tier name to tier binding.
+                  type: object
+                  additionalProperties:
+                    type: object
+                    properties:
+                      databaseCrdName:
+                        description: Name of the Database CRD backing this tier.
+                        type: string
+                    required:
+                    - databaseCrdName
+                pipelines:
+                  description: List of implicit inter-tier pipelines created for this table.
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        description: Pipeline name, e.g. __logical-foo-nearline-to-online.
+                        type: string
+                      pipelineCrdName:
+                        description: Name of the Pipeline CRD.
+                        type: string
+                      fromTier:
+                        description: Source tier name.
+                        type: string
+                      toTier:
+                        description: Sink tier name.
+                        type: string
+                    required:
+                    - name
+                    - pipelineCrdName
+                    - fromTier
+                    - toTier
+            status:
+              description: Current state of the logical table.
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+      subresources:
+        status: {}

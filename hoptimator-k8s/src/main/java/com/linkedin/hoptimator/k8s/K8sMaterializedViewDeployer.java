@@ -36,14 +36,7 @@ class K8sMaterializedViewDeployer implements Deployer {
       String name = name();
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.createAndReference();
-      K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql(), viewContext);
-      deployers.add(pipelineDeployer);
-      V1OwnerReference pipelineRef = pipelineDeployer.createAndReference();
-      K8sContext pipelineContext = viewContext.withLabel("pipeline", name).withOwner(pipelineRef);
-      K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
-      deployers.add(yamlDeployer);
-      yamlDeployer.update();  // update, cuz some elements may already exist
+      createPipelineWithOwner(name, pipelineSpecs, sql(), context.withOwner(viewRef));
     }
   }
 
@@ -53,11 +46,39 @@ class K8sMaterializedViewDeployer implements Deployer {
       String name = name();
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.updateAndReference();
-      K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql(), viewContext);
+      updatePipelineWithOwner(name, pipelineSpecs, sql(), context.withOwner(viewRef));
+    }
+  }
+
+  /**
+   * Creates a Pipeline CRD (and its child YAML elements) owned by an external owner reference
+   * instead of by this deployer's View CRD. No View CRD is created or modified.
+   *
+   * <p>This is used by LogicalTableDeployer to create Pipeline CRDs owned by a LogicalTable CRD.
+   */
+  void createPipelineWithOwner(String name, List<String> pipelineSpecs, String sql,
+      K8sContext ownerContext) throws SQLException {
+    synchronized (crudLock) {
+      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql, ownerContext);
+      deployers.add(pipelineDeployer);
+      V1OwnerReference pipelineRef = pipelineDeployer.createAndReference();
+      K8sContext pipelineContext = ownerContext.withLabel("pipeline", name).withOwner(pipelineRef);
+      K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
+      deployers.add(yamlDeployer);
+      yamlDeployer.update();  // update, cuz some elements may already exist
+    }
+  }
+
+  /**
+   * Updates a Pipeline CRD (and its child YAML elements) owned by an external owner reference.
+   */
+  void updatePipelineWithOwner(String name, List<String> pipelineSpecs, String sql,
+      K8sContext ownerContext) throws SQLException {
+    synchronized (crudLock) {
+      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql, ownerContext);
       deployers.add(pipelineDeployer);
       V1OwnerReference pipelineRef = pipelineDeployer.updateAndReference();
-      K8sContext pipelineContext = viewContext.withLabel("pipeline", name).withOwner(pipelineRef);
+      K8sContext pipelineContext = ownerContext.withLabel("pipeline", name).withOwner(pipelineRef);
       K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
       deployers.add(yamlDeployer);
       yamlDeployer.update();
