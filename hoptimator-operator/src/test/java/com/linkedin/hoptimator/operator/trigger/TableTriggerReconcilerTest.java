@@ -17,6 +17,7 @@ import io.kubernetes.client.openapi.models.V1JobCondition;
 import io.kubernetes.client.openapi.models.V1JobList;
 import io.kubernetes.client.openapi.models.V1JobStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.Yaml;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -956,6 +957,62 @@ class TableTriggerReconcilerTest {
       assertTrue(result.isRequeue());
       verify(triggerApiSpy, times(1)).updateStatus(eq(trigger), any());
       assertEquals(ts, trigger.getStatus().getWatermark());
+    }
+
+    @Test
+    void jobCreatedWithSyntheticOwnerReferenceWhenTriggerHasNone() throws Exception {
+      // When the trigger has no ownerReferences, the reconciler should synthesise one
+      // pointing back to the trigger itself (apiVersion/kind/name/uid).
+      V1Job job = jobWithApiVersion("owner-ref-job", "ns");
+      OffsetDateTime ts = OffsetDateTime.parse("2024-01-01T00:00:00Z");
+      V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+          .apiVersion("hoptimator.linkedin.com/v1alpha1")
+          .kind("TableTrigger")
+          .metadata(new V1ObjectMeta().name("ownerless-trigger").uid("trigger-uid-abc"))
+          // no ownerReferences set
+          .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
+          .status(new V1alpha1TableTriggerStatus().timestamp(ts));
+      triggers.add(trigger);
+
+      reconciler.reconcile(new Request("ns", "ownerless-trigger"));
+
+      @SuppressWarnings("unchecked")
+      ArgumentCaptor<List<V1OwnerReference>> ownerRefCaptor = forClass((Class) List.class);
+      verify(yamlApiSpy).createWithMetadata(anyString(), anyMap(), anyMap(), ownerRefCaptor.capture());
+      List<V1OwnerReference> ownerRefs = ownerRefCaptor.getValue();
+      assertEquals(1, ownerRefs.size());
+      V1OwnerReference ref = ownerRefs.get(0);
+      assertEquals("hoptimator.linkedin.com/v1alpha1", ref.getApiVersion());
+      assertEquals("TableTrigger", ref.getKind());
+      assertEquals("ownerless-trigger", ref.getName());
+      assertEquals("trigger-uid-abc", ref.getUid());
+    }
+
+    @Test
+    void jobCreatedWithExistingOwnerReferencesWhenTriggerHasThem() throws Exception {
+      // When the trigger already has ownerReferences, they should be passed through unchanged.
+      V1Job job = jobWithApiVersion("existing-owner-ref-job", "ns");
+      OffsetDateTime ts = OffsetDateTime.parse("2024-01-01T00:00:00Z");
+      V1OwnerReference existingRef = new V1OwnerReference()
+          .apiVersion("apps/v1")
+          .kind("Deployment")
+          .name("parent-deployment")
+          .uid("parent-uid-xyz");
+      V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+          .metadata(new V1ObjectMeta().name("owned-trigger")
+              .ownerReferences(List.of(existingRef)))
+          .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(job)))
+          .status(new V1alpha1TableTriggerStatus().timestamp(ts));
+      triggers.add(trigger);
+
+      reconciler.reconcile(new Request("ns", "owned-trigger"));
+
+      @SuppressWarnings("unchecked")
+      ArgumentCaptor<List<V1OwnerReference>> ownerRefCaptor = forClass((Class) List.class);
+      verify(yamlApiSpy).createWithMetadata(anyString(), anyMap(), anyMap(), ownerRefCaptor.capture());
+      List<V1OwnerReference> ownerRefs = ownerRefCaptor.getValue();
+      assertEquals(1, ownerRefs.size());
+      assertEquals(existingRef, ownerRefs.get(0));
     }
   }
 }
