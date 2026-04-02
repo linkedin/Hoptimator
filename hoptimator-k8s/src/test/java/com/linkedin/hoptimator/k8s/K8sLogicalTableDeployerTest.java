@@ -53,8 +53,8 @@ class K8sLogicalTableDeployerTest {
       }
       String params = url.substring(prefix.length());
       Map<String, String> tiers = new java.util.LinkedHashMap<>();
-      for (String segment : params.split(";")) {
-        segment = segment.trim();
+      for (String rawSeg : params.split(";")) {
+        String segment = rawSeg.trim();
         if (segment.isEmpty()) {
           continue;
         }

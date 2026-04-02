@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.logical;
 
+import java.util.Objects;
+
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -68,10 +70,11 @@ public class LogicalTableTest {
     RelDataType rowType = table.getRowType(typeFactory);
 
     assertThat(rowType.isStruct()).isTrue();
-    RelDataType innerType = rowType.getField("inner", false, false).getType();
+    assertThat(rowType.getField("inner", false, false)).isNotNull();
+    RelDataType innerType = Objects.requireNonNull(rowType.getField("inner", false, false)).getType();
     assertThat(innerType.isStruct()).isTrue();
     assertThat(innerType.getField("x", false, false)).isNotNull();
-    assertThat(innerType.getField("x", false, false).getType().getSqlTypeName())
+    assertThat(Objects.requireNonNull(innerType.getField("x", false, false)).getType().getSqlTypeName())
         .isEqualTo(SqlTypeName.INTEGER);
   }
 
@@ -88,7 +91,8 @@ public class LogicalTableTest {
     LogicalTable table = tableWithSchema(avroSchema);
     RelDataType rowType = table.getRowType(typeFactory);
 
-    RelDataType fieldType = rowType.getField("maybeString", false, false).getType();
+    assertThat(rowType.getField("maybeString", false, false)).isNotNull();
+    RelDataType fieldType = Objects.requireNonNull(rowType.getField("maybeString", false, false)).getType();
     assertThat(fieldType.isNullable()).isTrue();
     assertThat(fieldType.getSqlTypeName()).isEqualTo(SqlTypeName.VARCHAR);
   }
@@ -106,7 +110,8 @@ public class LogicalTableTest {
     LogicalTable table = tableWithSchema(avroSchema);
     RelDataType rowType = table.getRowType(typeFactory);
 
-    RelDataType fieldType = rowType.getField("tags", false, false).getType();
+    assertThat(rowType.getField("tags", false, false)).isNotNull();
+    RelDataType fieldType = Objects.requireNonNull(rowType.getField("tags", false, false)).getType();
     assertThat(fieldType.getSqlTypeName()).isEqualTo(SqlTypeName.ARRAY);
     assertThat(fieldType.getComponentType()).isNotNull();
     assertThat(fieldType.getComponentType().getSqlTypeName()).isEqualTo(SqlTypeName.VARCHAR);

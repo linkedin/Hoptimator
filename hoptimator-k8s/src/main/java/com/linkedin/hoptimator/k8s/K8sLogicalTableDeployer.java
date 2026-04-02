@@ -303,8 +303,8 @@ class K8sLogicalTableDeployer implements Deployer {
     }
     String params = url.substring(prefix.length());
     Map<String, String> tiers = new LinkedHashMap<>();
-    for (String segment : params.split(";")) {
-      segment = segment.trim();
+    for (String rawSegment : params.split(";")) {
+      String segment = rawSegment.trim();
       if (segment.isEmpty()) {
         continue;
       }
