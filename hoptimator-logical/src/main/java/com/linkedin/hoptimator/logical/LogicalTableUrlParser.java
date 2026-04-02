@@ -20,7 +20,25 @@ public final class LogicalTableUrlParser {
   public static final String CONNECT_STRING_PREFIX = "jdbc:logical://";
   static final String PIPELINE_PREFIX = "pipeline.";
 
-  private LogicalTableUrlParser() {
+  private final String url;
+
+  /** Instance-based API: parse once, query multiple times. */
+  public LogicalTableUrlParser(String url) {
+    if (url == null || !url.startsWith(CONNECT_STRING_PREFIX)) {
+      throw new IllegalArgumentException(
+          "URL must start with " + CONNECT_STRING_PREFIX + " but was: " + url);
+    }
+    this.url = url;
+  }
+
+  /** Returns tier name → Database CRD name mappings. */
+  public Map<String, String> tiers() {
+    return tierMap(url);
+  }
+
+  /** Returns reserved {@code pipeline.*} overrides (without the prefix). */
+  public Map<String, String> pipelineOverrides() {
+    return pipelineParams(url);
   }
 
   /**
