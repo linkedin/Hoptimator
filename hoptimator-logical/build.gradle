@@ -8,7 +8,10 @@ dependencies {
   implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
   implementation project(':hoptimator-k8s')
+  implementation project(':hoptimator-avro')
   implementation libs.calcite.core
+  implementation libs.avro
+  implementation libs.kubernetes.client
   compileOnly libs.findbugs
 
   testImplementation libs.assertj
