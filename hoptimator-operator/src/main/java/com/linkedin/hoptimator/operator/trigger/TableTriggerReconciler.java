@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -221,7 +223,17 @@ public final class TableTriggerReconciler implements Reconciler {
     annotations.put(TRIGGER_TIMESTAMP_KEY, trigger.getStatus().getTimestamp().toString());
     Map<String, String> labels = new HashMap<>();
     labels.put(TRIGGER_KEY, trigger.getMetadata().getName());
-    yamlApi.createWithMetadata(yaml, annotations, labels, trigger.getMetadata().getOwnerReferences());
+    List<V1OwnerReference> ownerReference;
+    if (trigger.getMetadata().getOwnerReferences() != null && !trigger.getMetadata().getOwnerReferences().isEmpty()) {
+      ownerReference = trigger.getMetadata().getOwnerReferences();
+    } else {
+      ownerReference = Collections.singletonList(new V1OwnerReference()
+          .apiVersion(trigger.getApiVersion())
+          .kind(trigger.getKind())
+          .name(trigger.getMetadata().getName())
+          .uid(trigger.getMetadata().getUid()));
+    }
+    yamlApi.createWithMetadata(yaml, annotations, labels, ownerReference);
   }
 
   private ExecutionTime scheduledExecution(V1alpha1TableTrigger object) {
