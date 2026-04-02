@@ -22,9 +22,9 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTablePipeline;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecPipelines;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableTier;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 import com.linkedin.hoptimator.util.DeploymentService;
 
 
@@ -115,7 +115,7 @@ class K8sLogicalTableDeployer implements Deployer {
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
     for (Map.Entry<String, String> entry : tierMap.entrySet()) {
       spec.putTiersItem(entry.getKey(),
-          new V1alpha1LogicalTableTier().databaseCrdName(entry.getValue()));
+          new V1alpha1LogicalTableSpecTiers().databaseCrdName(entry.getValue()));
     }
     spec.pipelines(new ArrayList<>());
     spec.avroSchema(avroSchema);
@@ -151,12 +151,12 @@ class K8sLogicalTableDeployer implements Deployer {
     }
 
     // 4. Create implicit pipelines based on which tiers are present
-    List<V1alpha1LogicalTablePipeline> pipelineRecords = new ArrayList<>();
+    List<V1alpha1LogicalTableSpecPipelines> pipelineRecords = new ArrayList<>();
     K8sContext logicalTableContext = context.withOwner(logicalTableRef);
 
     try {
       if (tierMap.containsKey("nearline") && tierMap.containsKey("online")) {
-        V1alpha1LogicalTablePipeline p = createImplicitPipeline(
+        V1alpha1LogicalTableSpecPipelines p = createImplicitPipeline(
             "nearline", "online", tableName, tierMap, tierDatabases, tierConnections,
             logicalTableContext);
         pipelineRecords.add(p);
@@ -217,7 +217,7 @@ class K8sLogicalTableDeployer implements Deployer {
     }
 
     if (logicalTable.getSpec() != null && logicalTable.getSpec().getTiers() != null) {
-      for (Map.Entry<String, V1alpha1LogicalTableTier> entry
+      for (Map.Entry<String, V1alpha1LogicalTableSpecTiers> entry
           : logicalTable.getSpec().getTiers().entrySet()) {
         String databaseCrdName = entry.getValue().getDatabaseCrdName();
         try {
@@ -326,7 +326,7 @@ class K8sLogicalTableDeployer implements Deployer {
    * Creates a single implicit Pipeline CRD (fromTier to toTier) and returns the record for it.
    * The created pipeline deployers are tracked in {@link #pipelineDeployers} for rollback.
    */
-  private V1alpha1LogicalTablePipeline createImplicitPipeline(
+  private V1alpha1LogicalTableSpecPipelines createImplicitPipeline(
       String fromTier,
       String toTier,
       String tableName,
@@ -359,7 +359,8 @@ class K8sLogicalTableDeployer implements Deployer {
     String sql = buildPipelineSql(sourceSchema, sinkSchema, tableName);
 
     // Pipeline name uses double underscore prefix to avoid accidental user collisions
-    String pipelineName = "__logical-" + tableName.toLowerCase() + "-" + fromTier + "-to-" + toTier;
+    // K8s names must be [a-z0-9-]+ — "logical-" prefix distinguishes system-managed pipelines.
+    String pipelineName = "logical-" + K8sUtils.canonicalizeName(tableName) + "-" + fromTier + "-to-" + toTier;
 
     // Use K8sPipelineDeployer directly (package-private) to create the Pipeline CRD
     // owned by the LogicalTable CRD. Then create the YAML child resources.
@@ -372,7 +373,7 @@ class K8sLogicalTableDeployer implements Deployer {
     pipelineDeployers.add(yamlDeployer);
     yamlDeployer.update();  // update, since some elements may already exist
 
-    return new V1alpha1LogicalTablePipeline()
+    return new V1alpha1LogicalTableSpecPipelines()
         .name(pipelineName)
         .pipelineCrdName(pipelineName)
         .fromTier(fromTier)

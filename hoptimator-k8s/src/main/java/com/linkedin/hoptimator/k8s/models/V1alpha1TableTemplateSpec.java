@@ -30,7 +30,7 @@ import java.util.List;
  * TableTemplate spec.
  */
 @ApiModel(description = "TableTemplate spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-20T18:46:28.037Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-02T18:33:48.223Z[Etc/UTC]")
 public class V1alpha1TableTemplateSpec {
   public static final String SERIALIZED_NAME_CONNECTOR = "connector";
   @SerializedName(SERIALIZED_NAME_CONNECTOR)

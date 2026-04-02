@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableTier;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,9 +60,9 @@ public class LogicalTableSchemaTest {
 
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
     spec.setAvroSchema("{\"type\":\"record\",\"name\":\"T\",\"namespace\":\"test\",\"fields\":[]}");
-    Map<String, V1alpha1LogicalTableTier> tiers = new HashMap<>();
+    Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
     for (String tier : tierNames) {
-      tiers.put(tier, new V1alpha1LogicalTableTier());
+      tiers.put(tier, new V1alpha1LogicalTableSpecTiers());
     }
     spec.setTiers(tiers);
     crd.setSpec(spec);

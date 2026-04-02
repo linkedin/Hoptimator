@@ -9,7 +9,7 @@ import org.apache.calcite.schema.impl.AbstractTable;
 
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableTier;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 
 
 /**
@@ -36,7 +36,7 @@ public class LogicalTable extends AbstractTable {
    * Keys are tier names (e.g. "nearline", "offline", "online");
    * values carry the physical database CRD binding.
    */
-  public Map<String, V1alpha1LogicalTableTier> tiers() {
+  public Map<String, V1alpha1LogicalTableSpecTiers> tiers() {
     if (spec.getTiers() == null) {
       return Collections.emptyMap();
     }

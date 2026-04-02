@@ -6,6 +6,7 @@ docker run \
   --rm \
   --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
   --mount type=bind,src="$(pwd)",dst="$(pwd)" \
+  -e DOCKER_API_VERSION=1.44 \
   -ti \
   --network host \
   ghcr.io/kubernetes-client/java/crd-model-gen:v1.0.6 \
@@ -13,6 +14,7 @@ docker run \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/databases.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/engines.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/jobtemplates.crd.yaml" \
+  -u "$(pwd)/hoptimator-k8s/src/main/resources/logicaltables.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/pipelines.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/sqljobs.crd.yaml" \
   -u "$(pwd)/hoptimator-k8s/src/main/resources/subscriptions.crd.yaml" \

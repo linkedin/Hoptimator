@@ -15,7 +15,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableTier;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -152,8 +152,9 @@ class K8sLogicalTableDeployerTest {
     String tableName = "MyTable";
     String fromTier = "nearline";
     String toTier = "online";
-    String pipelineName = "__logical-" + tableName.toLowerCase() + "-" + fromTier + "-to-" + toTier;
-    assertThat(pipelineName).isEqualTo("__logical-mytable-nearline-to-online");
+    // K8sUtils.canonicalizeName strips underscores and lowercases — mirroring the deployer
+    String pipelineName = "logical-" + K8sUtils.canonicalizeName(tableName) + "-" + fromTier + "-to-" + toTier;
+    assertThat(pipelineName).isEqualTo("logical-mytable-nearline-to-online");
   }
 
   // -----------------------------------------------------------------------
@@ -163,8 +164,8 @@ class K8sLogicalTableDeployerTest {
   @Test
   void testLogicalTableSpecTierBindings() {
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
-    spec.putTiersItem("nearline", new V1alpha1LogicalTableTier().databaseCrdName("xinfra-tracking"));
-    spec.putTiersItem("online", new V1alpha1LogicalTableTier().databaseCrdName("venice"));
+    spec.putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("xinfra-tracking"));
+    spec.putTiersItem("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice"));
 
     assertThat(spec.getTiers()).hasSize(2);
     assertThat(spec.getTiers().get("nearline").getDatabaseCrdName()).isEqualTo("xinfra-tracking");
