@@ -2,19 +2,18 @@ package com.linkedin.hoptimator.operator.kafka;
 
 import com.linkedin.hoptimator.k8s.K8sApiEndpoint;
 import com.linkedin.hoptimator.k8s.K8sContext;
-import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collection;
-
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-
 import com.linkedin.hoptimator.models.V1alpha1Acl;
 import com.linkedin.hoptimator.models.V1alpha1AclList;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopic;
 import com.linkedin.hoptimator.models.V1alpha1KafkaTopicList;
 import com.linkedin.hoptimator.operator.ControllerProvider;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Collection;
 
 
 /** Provides a Controller plugin for KafkaTopics. */

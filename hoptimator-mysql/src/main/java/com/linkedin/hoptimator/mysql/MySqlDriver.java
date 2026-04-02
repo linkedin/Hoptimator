@@ -1,6 +1,13 @@
 package com.linkedin.hoptimator.mysql;
 
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
+import org.apache.calcite.avatica.ConnectStringParser;
+import org.apache.calcite.avatica.DriverVersion;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.schema.SchemaPlus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -9,13 +16,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Properties;
-
-import org.apache.calcite.avatica.ConnectStringParser;
-import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.schema.SchemaPlus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * JDBC driver for MySQL databases.
@@ -67,13 +67,13 @@ public class MySqlDriver extends CalciteDriver {
       String user = properties.getProperty("user", "");
       String password = properties.getProperty("password", "");
 
-      try (Connection conn = DriverManager.getConnection(mySqlUrl, user, password)) {
+      try (Connection conn = createMySqlConnection(mySqlUrl, user, password)) {
         DatabaseMetaData metaData = conn.getMetaData();
         // MySQL catalogs are the databases
         try (ResultSet rs = metaData.getCatalogs()) {
           while (rs.next()) {
             String schemaName = rs.getString("TABLE_CAT");
-            TableSchema tableSchema = new TableSchema(properties, schemaName);
+            TableSchema tableSchema = createTableSchema(properties, schemaName);
             rootSchema.add(schemaName, tableSchema);
             log.debug("Registered MySQL schema: {}", schemaName);
           }
@@ -84,5 +84,14 @@ public class MySqlDriver extends CalciteDriver {
     } catch (IOException e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
+  }
+
+  protected Connection createMySqlConnection(String url, String user, String password)
+      throws SQLException {
+    return DriverManager.getConnection(url, user, password);
+  }
+
+  protected TableSchema createTableSchema(Properties properties, String schemaName) {
+    return new TableSchema(properties, schemaName);
   }
 }

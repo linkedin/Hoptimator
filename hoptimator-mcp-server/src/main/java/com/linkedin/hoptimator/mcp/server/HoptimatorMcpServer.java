@@ -2,6 +2,8 @@ package com.linkedin.hoptimator.mcp.server;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.gson.Gson;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
@@ -10,6 +12,17 @@ import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
+import io.modelcontextprotocol.server.McpServer;
+import io.modelcontextprotocol.server.McpSyncServer;
+import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.util.Pair;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -20,26 +33,13 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.List;
-
-import com.google.gson.Gson;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import io.modelcontextprotocol.server.McpServer;
-import io.modelcontextprotocol.server.McpSyncServer;
-import io.modelcontextprotocol.server.transport.StdioServerTransportProvider;
+import java.util.Map;
 import java.util.Properties;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.RelRoot;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.dialect.CalciteSqlDialect;
-import org.apache.calcite.util.Pair;
 
-import static io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
-import static io.modelcontextprotocol.server.McpServerFeatures.SyncResourceSpecification;
 import static io.modelcontextprotocol.server.McpServerFeatures.SyncPromptSpecification;
+import static io.modelcontextprotocol.server.McpServerFeatures.SyncResourceSpecification;
+import static io.modelcontextprotocol.server.McpServerFeatures.SyncToolSpecification;
 import static io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import static io.modelcontextprotocol.spec.McpSchema.ServerCapabilities;
 import static io.modelcontextprotocol.spec.McpSchema.Tool;
@@ -88,20 +88,7 @@ public class HoptimatorMcpServer {
     SyncToolSpecification fetchSchemas = new SyncToolSpecification(
         new Tool("fetch_schemas", "Fetches all catalogs and schemas", fetchSchemaSchema), (x, args2) -> {
           String catalog = (String) args2.get("catalog");
-          try {
-            DatabaseMetaData metaData = conn.getMetaData();
-            ResultSet rs = metaData.getSchemas(catalog, null);
-            List<Map<String, String>> schemas = new ArrayList<>();
-            while (rs.next()) {
-              Map<String, String> schema = new HashMap<>();
-              schema.put("TABLE_SCHEM", rs.getString(1));
-              schema.put("TABLE_CAT", rs.getString(2));
-              schemas.add(schema);
-            }
-            return new CallToolResult(gson.toJson(schemas), false);
-          } catch (Exception e) {
-            return new CallToolResult("ERROR: " + e, true);
-          }
+          return handleFetchSchemas(conn, gson, catalog);
         });
 
     String fetchTableSchema = "{\"type\" : \"object\", \"properties\" : {\"catalog\" : {\"type\" : \"string\"}, \"schema\" : {\"type\" : \"string\"}}}";
@@ -109,34 +96,13 @@ public class HoptimatorMcpServer {
         new Tool("fetch_tables", "Fetches all Tables with optional catalog and schema arguments to filter tables", fetchTableSchema), (x, args2) -> {
           String catalog = (String) args2.get("catalog");
           String schema = (String) args2.get("schema");
-          try {
-            DatabaseMetaData metaData = conn.getMetaData();
-            ResultSet rs = metaData.getTables(catalog, schema, "%", null);
-            List<Map<String, String>> tables = new ArrayList<>();
-            while (rs.next()) {
-              Map<String, String> table = new HashMap<>();
-              table.put("TABLE_CAT", rs.getString(1));
-              table.put("TABLE_SCHEM", rs.getString(2));
-              table.put("TABLE_NAME", rs.getString(3));
-              table.put("TABLE_TYPE", rs.getString(4));
-              tables.add(table);
-            }
-            return new CallToolResult(gson.toJson(tables), false);
-          } catch (Exception e) {
-            return new CallToolResult("ERROR: " + e, true);
-          }
+          return handleFetchTables(conn, gson, catalog, schema);
         });
 
     String fetchPipelineSchema = "{\"type\" : \"object\", \"properties\" : {}}";
     SyncToolSpecification fetchPipelines = new SyncToolSpecification(
-        new Tool("fetch_pipelines", "Fetches all currently deployed pipelines", fetchPipelineSchema), (x, args2) -> {
-          try (Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery("select * from \"k8s\".pipelines");
-            return new CallToolResult(gson.toJson(collect(rs)), false);
-          } catch (Exception e) {
-            return new CallToolResult("ERROR: " + e, true);
-          }
-        });
+        new Tool("fetch_pipelines", "Fetches all currently deployed pipelines", fetchPipelineSchema),
+            (x, args2) -> handleFetchPipelines(conn, gson));
 
     String fetchPipelineStatusSchema = "{\"type\" : \"object\", \"properties\" : {\"pipeline\" : {\"type\" : \"string\"}},"
         + "\"required\" : [\"pipeline\"]}";
@@ -144,28 +110,7 @@ public class HoptimatorMcpServer {
         new Tool("fetch_pipeline_status", "Fetches the deployment and running status of a "
             + " specified pipeline", fetchPipelineStatusSchema), (x, args2) -> {
           String name = (String) args2.get("pipeline");
-          List<Map<String, String>> status;
-          try (PreparedStatement stmt = conn.prepareStatement(PIPELINE_STATUS_QUERY)) {
-            stmt.setString(1, name);
-            ResultSet rs = stmt.executeQuery();
-            status = collect(rs);
-          } catch (Exception e) {
-            return new CallToolResult("ERROR: " + e, true);
-          }
-
-          if (!status.isEmpty()) {
-            try (PreparedStatement stmt = conn.prepareStatement(PIPELINE_ELEMENT_STATUS_QUERY)) {
-              stmt.setString(1, name);
-              ResultSet rs = stmt.executeQuery();
-              List<Map<String, String>> elementStatus = collect(rs);
-              status.get(0).put("elementStatuses", gson.toJson(elementStatus));
-            } catch (Exception e) {
-              return new CallToolResult("ERROR: " + e, true);
-            }
-          } else {
-            return new CallToolResult(String.format("ERROR: Pipeline %s not found.", name), true);
-          }
-          return new CallToolResult(gson.toJson(status), false);
+          return handleFetchPipelineStatus(conn, gson, name);
         });
 
     String describeTableSchema = "{\"type\" : \"object\", \"properties\" : {\"catalog\" : {\"type\" : \"string\"}, \"schema\" : {\"type\" : \"string\"},"
@@ -176,24 +121,7 @@ public class HoptimatorMcpServer {
           String table = (String) args2.get("table");
           String catalog = (String) args2.get("catalog");
           String schema = (String) args2.get("schema");
-          List<Map<String, Object>> tableDefinitions = new ArrayList<>();
-
-          try {
-            DatabaseMetaData metaData = conn.getMetaData();
-            ResultSet rs = metaData.getTables(catalog, schema, table, null);
-
-            if (rs.next()) {
-              tableDefinitions.add(getTableInfo(conn, rs.getString(1),
-                  rs.getString(2), rs.getString(3),
-                  rs.getString(4)));
-            }
-            if (tableDefinitions.isEmpty()) {
-              return new CallToolResult(String.format("ERROR: Table %s not found.", table), true);
-            }
-            return new CallToolResult(gson.toJson(tableDefinitions), false);
-          } catch (Exception e) {
-            return new CallToolResult("ERROR: " + e, true);
-          }
+          return handleDescribeTable(conn, gson, table, catalog, schema);
         });
 
     String describePipelineSchema = "{\"type\" : \"object\", \"properties\" : {\"pipeline\" : {\"type\" : \"string\"}},"
@@ -202,17 +130,7 @@ public class HoptimatorMcpServer {
         new Tool("describe_pipeline", "Describes the SQL that makes up a specified deployed pipeline",
             describePipelineSchema), (x, args2) -> {
           String pipeline = (String) args2.get("pipeline");
-          try (PreparedStatement stmt = conn.prepareStatement(PIPELINE_DESCRIBE_QUERY)) {
-            stmt.setString(1, pipeline);
-            ResultSet rs = stmt.executeQuery();
-            List<Map<String, String>> pipelineDescription = collect(rs);
-            if (pipelineDescription.isEmpty()) {
-              return new CallToolResult(String.format("ERROR: Pipeline %s not found.", pipeline), true);
-            }
-            return new CallToolResult(gson.toJson(pipelineDescription), false);
-          } catch (Exception e) {
-            return new CallToolResult("ERROR: " + e, true);
-          }
+          return handleDescribePipeline(conn, gson, pipeline);
         });
 
     String planSchema = "{\"type\" : \"object\", \"properties\" : {\"sql\" : {\"type\" : \"string\"}},"
@@ -222,58 +140,7 @@ public class HoptimatorMcpServer {
             + "or update SQL. This call should always be used prior to modifying a pipeline", planSchema),
         (x, args2) -> {
           String sql = (String) args2.get("sql");
-          // Validate the SQL is a query statement
-          if (!isModifyStatement(sql)) {
-            return new CallToolResult("ERROR: The provided SQL is not a valid modify statement.", true);
-          }
-
-          Pair<SchemaPlus, Table> schemaSnapshot = null;
-          String viewName = null;
-          CallToolResult result;
-          try {
-            String querySql;
-            SqlCreateMaterializedView create;
-            SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
-            if (sqlNode instanceof SqlCreateMaterializedView) {
-              create = (SqlCreateMaterializedView) sqlNode;
-              final SqlNode q = HoptimatorDdlUtils.renameColumns(create.columnList, create.query);
-              querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
-            } else {
-              return new CallToolResult("Unsupported DDL statement: " + sql, true);
-            }
-            viewName = HoptimatorDdlUtils.viewName(create.name);
-
-            RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
-            Properties connectionProperties = conn.connectionProperties();
-            RelOptTable table = root.rel.getTable();
-            if (table != null) {
-              connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
-            }
-            PipelineRel.Implementor sqlPlan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
-            schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
-                  new HoptimatorDriver.Prepare(conn), sqlPlan, create, querySql);
-            Pipeline pipeline = sqlPlan.pipeline(viewName, conn);
-            List<String> specs = new ArrayList<>();
-            for (Source source : pipeline.sources()) {
-              specs.addAll(DeploymentService.specify(source, conn));
-            }
-            specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-            specs.addAll(DeploymentService.specify(pipeline.job(), conn));
-            List<Object> mappedObjs = new ArrayList<>();
-            for (String spec : specs) {
-              mappedObjs.add(yamlMapper.readValue(spec, Object.class));
-            }
-            result = new CallToolResult(gson.toJson(mappedObjs), false);
-          } catch (SQLException | JsonProcessingException e) {
-            result = new CallToolResult("ERROR: " + e, true);
-          }
-          if (schemaSnapshot != null) {
-            if (schemaSnapshot.right != null) {
-              schemaSnapshot.left.add(viewName, schemaSnapshot.right);
-            }
-            schemaSnapshot.left.removeTable(viewName);
-          }
-          return result;
+          return handlePlan(conn, gson, yamlMapper, sql);
         });
 
     String querySchema = "{\"type\" : \"object\", \"properties\" : {\"sql\" : {\"type\" : \"string\"}},"
@@ -282,20 +149,7 @@ public class HoptimatorMcpServer {
         new Tool("query", "Executes select queries against supported data sources. "
             + "This will often only work for system tables.", querySchema), (x, args2) -> {
           String sql = (String) args2.get("sql");
-          // Validate the SQL is a query statement
-          if (!isQueryStatement(sql)) {
-            return new CallToolResult("ERROR: The provided SQL is not a valid query statement.", true);
-          }
-          if (!isQueryableSource(sql)) {
-            return new CallToolResult("ERROR: The provided source is not queryable.", true);
-          }
-
-          try (Statement stmt = conn.createStatement()) {
-            ResultSet rs = stmt.executeQuery(sql);
-            return new CallToolResult(gson.toJson(collect(rs)), false);
-          } catch (Exception e) {
-            return new CallToolResult("ERROR: " + e, true);
-          }
+          return handleQuery(conn, gson, sql);
         });
 
     String modifySchema = "{\"type\" : \"object\", \"properties\" : {\"sql\" : {\"type\" : \"string\"}},"
@@ -306,17 +160,7 @@ public class HoptimatorMcpServer {
             + " 'plan' call to validate the statement for created or updated pipelines.",
             modifySchema), (x, args2) -> {
           String sql = (String) args2.get("sql");
-          // Validate the SQL is a data modification statement
-          if (!isModifyStatement(sql)) {
-            return new CallToolResult("ERROR: The provided SQL is not a valid data modification statement.", true);
-          }
-
-          try (Statement stmt = conn.createStatement()) {
-            int rowCount = stmt.executeUpdate(sql);
-            return new CallToolResult(rowCount + " rows modified", false);
-          } catch (Exception e) {
-            return new CallToolResult("ERROR: " + e, true);
-          }
+          return handleModify(conn, gson, sql);
         });
 
     McpSyncServer server = McpServer.sync(transportProvider)
@@ -353,7 +197,194 @@ public class HoptimatorMcpServer {
     }
   }
 
-  private static Map<String, Object> getTableInfo(Connection conn, String cat, String sch, String table, String type) throws SQLException {
+  static CallToolResult handleFetchSchemas(Connection conn, Gson gson, String catalog) {
+    try {
+      DatabaseMetaData metaData = conn.getMetaData();
+      ResultSet rs = metaData.getSchemas(catalog, null);
+      List<Map<String, String>> schemas = new ArrayList<>();
+      while (rs.next()) {
+        Map<String, String> schema = new HashMap<>();
+        schema.put("TABLE_SCHEM", rs.getString(1));
+        schema.put("TABLE_CAT", rs.getString(2));
+        schemas.add(schema);
+      }
+      return new CallToolResult(gson.toJson(schemas), false);
+    } catch (Exception e) {
+      return new CallToolResult("ERROR: " + e, true);
+    }
+  }
+
+  static CallToolResult handleFetchTables(Connection conn, Gson gson, String catalog, String schema) {
+    try {
+      DatabaseMetaData metaData = conn.getMetaData();
+      ResultSet rs = metaData.getTables(catalog, schema, "%", null);
+      List<Map<String, String>> tables = new ArrayList<>();
+      while (rs.next()) {
+        Map<String, String> table = new HashMap<>();
+        table.put("TABLE_CAT", rs.getString(1));
+        table.put("TABLE_SCHEM", rs.getString(2));
+        table.put("TABLE_NAME", rs.getString(3));
+        table.put("TABLE_TYPE", rs.getString(4));
+        tables.add(table);
+      }
+      return new CallToolResult(gson.toJson(tables), false);
+    } catch (Exception e) {
+      return new CallToolResult("ERROR: " + e, true);
+    }
+  }
+
+  static CallToolResult handleFetchPipelines(Connection conn, Gson gson) {
+    try (Statement stmt = conn.createStatement()) {
+      ResultSet rs = stmt.executeQuery("select * from \"k8s\".pipelines");
+      return new CallToolResult(gson.toJson(collect(rs)), false);
+    } catch (Exception e) {
+      return new CallToolResult("ERROR: " + e, true);
+    }
+  }
+
+  static CallToolResult handleFetchPipelineStatus(Connection conn, Gson gson, String name) {
+    List<Map<String, String>> status;
+    try (PreparedStatement stmt = conn.prepareStatement(PIPELINE_STATUS_QUERY)) {
+      stmt.setString(1, name);
+      ResultSet rs = stmt.executeQuery();
+      status = collect(rs);
+    } catch (Exception e) {
+      return new CallToolResult("ERROR: " + e, true);
+    }
+
+    if (!status.isEmpty()) {
+      try (PreparedStatement stmt = conn.prepareStatement(PIPELINE_ELEMENT_STATUS_QUERY)) {
+        stmt.setString(1, name);
+        ResultSet rs = stmt.executeQuery();
+        List<Map<String, String>> elementStatus = collect(rs);
+        status.get(0).put("elementStatuses", gson.toJson(elementStatus));
+      } catch (Exception e) {
+        return new CallToolResult("ERROR: " + e, true);
+      }
+    } else {
+      return new CallToolResult(String.format("ERROR: Pipeline %s not found.", name), true);
+    }
+    return new CallToolResult(gson.toJson(status), false);
+  }
+
+  static CallToolResult handleDescribeTable(Connection conn, Gson gson, String table, String catalog, String schema) {
+    List<Map<String, Object>> tableDefinitions = new ArrayList<>();
+    try {
+      DatabaseMetaData metaData = conn.getMetaData();
+      ResultSet rs = metaData.getTables(catalog, schema, table, null);
+
+      if (rs.next()) {
+        tableDefinitions.add(getTableInfo(conn, rs.getString(1),
+            rs.getString(2), rs.getString(3),
+            rs.getString(4)));
+      }
+      if (tableDefinitions.isEmpty()) {
+        return new CallToolResult(String.format("ERROR: Table %s not found.", table), true);
+      }
+      return new CallToolResult(gson.toJson(tableDefinitions), false);
+    } catch (Exception e) {
+      return new CallToolResult("ERROR: " + e, true);
+    }
+  }
+
+  static CallToolResult handleDescribePipeline(Connection conn, Gson gson, String pipeline) {
+    try (PreparedStatement stmt = conn.prepareStatement(PIPELINE_DESCRIBE_QUERY)) {
+      stmt.setString(1, pipeline);
+      ResultSet rs = stmt.executeQuery();
+      List<Map<String, String>> pipelineDescription = collect(rs);
+      if (pipelineDescription.isEmpty()) {
+        return new CallToolResult(String.format("ERROR: Pipeline %s not found.", pipeline), true);
+      }
+      return new CallToolResult(gson.toJson(pipelineDescription), false);
+    } catch (Exception e) {
+      return new CallToolResult("ERROR: " + e, true);
+    }
+  }
+
+  static CallToolResult handlePlan(HoptimatorConnection conn, Gson gson, ObjectMapper yamlMapper, String sql) {
+    if (!isModifyStatement(sql)) {
+      return new CallToolResult("ERROR: The provided SQL is not a valid modify statement.", true);
+    }
+
+    Pair<SchemaPlus, Table> schemaSnapshot = null;
+    String viewName = null;
+    CallToolResult result;
+    try {
+      String querySql;
+      SqlCreateMaterializedView create;
+      SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
+      if (sqlNode instanceof SqlCreateMaterializedView) {
+        create = (SqlCreateMaterializedView) sqlNode;
+        final SqlNode q = HoptimatorDdlUtils.renameColumns(create.columnList, create.query);
+        querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
+      } else {
+        return new CallToolResult("Unsupported DDL statement: " + sql, true);
+      }
+      viewName = HoptimatorDdlUtils.viewName(create.name);
+
+      RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
+      Properties connectionProperties = conn.connectionProperties();
+      RelOptTable table = root.rel.getTable();
+      if (table != null) {
+        connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
+      }
+      PipelineRel.Implementor sqlPlan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
+      schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
+            new HoptimatorDriver.Prepare(conn), sqlPlan, create, querySql);
+      Pipeline pipeline = sqlPlan.pipeline(viewName, conn);
+      List<String> specs = new ArrayList<>();
+      for (Source source : pipeline.sources()) {
+        specs.addAll(DeploymentService.specify(source, conn));
+      }
+      specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
+      specs.addAll(DeploymentService.specify(pipeline.job(), conn));
+      List<Object> mappedObjs = new ArrayList<>();
+      for (String spec : specs) {
+        mappedObjs.add(yamlMapper.readValue(spec, Object.class));
+      }
+      result = new CallToolResult(gson.toJson(mappedObjs), false);
+    } catch (SQLException | JsonProcessingException e) {
+      result = new CallToolResult("ERROR: " + e, true);
+    }
+    if (schemaSnapshot != null) {
+      if (schemaSnapshot.right != null) {
+        schemaSnapshot.left.add(viewName, schemaSnapshot.right);
+      }
+      schemaSnapshot.left.removeTable(viewName);
+    }
+    return result;
+  }
+
+  static CallToolResult handleQuery(Connection conn, Gson gson, String sql) {
+    if (!isQueryStatement(sql)) {
+      return new CallToolResult("ERROR: The provided SQL is not a valid query statement.", true);
+    }
+    if (!isQueryableSource(sql)) {
+      return new CallToolResult("ERROR: The provided source is not queryable.", true);
+    }
+
+    try (Statement stmt = conn.createStatement()) {
+      ResultSet rs = stmt.executeQuery(sql);
+      return new CallToolResult(gson.toJson(collect(rs)), false);
+    } catch (Exception e) {
+      return new CallToolResult("ERROR: " + e, true);
+    }
+  }
+
+  static CallToolResult handleModify(Connection conn, Gson gson, String sql) {
+    if (!isModifyStatement(sql)) {
+      return new CallToolResult("ERROR: The provided SQL is not a valid data modification statement.", true);
+    }
+
+    try (Statement stmt = conn.createStatement()) {
+      int rowCount = stmt.executeUpdate(sql);
+      return new CallToolResult(rowCount + " rows modified", false);
+    } catch (Exception e) {
+      return new CallToolResult("ERROR: " + e, true);
+    }
+  }
+
+  static Map<String, Object> getTableInfo(Connection conn, String cat, String sch, String table, String type) throws SQLException {
     List<Map<String, Object>> columns = getColumns(conn, cat, sch, table);
     Map<String, Object> pkConstraint = getPkConstraint(conn, cat, sch, table);
 
@@ -380,7 +411,7 @@ public class HoptimatorMcpServer {
     return tableInfo;
   }
 
-  private static List<Map<String, Object>> getColumns(Connection conn, String cat, String sch, String table) throws SQLException {
+  static List<Map<String, Object>> getColumns(Connection conn, String cat, String sch, String table) throws SQLException {
     List<Map<String, Object>> columns = new ArrayList<>();
     DatabaseMetaData metaData = conn.getMetaData();
     ResultSet rs = metaData.getColumns(cat, sch, table, null);
@@ -398,7 +429,7 @@ public class HoptimatorMcpServer {
     return columns;
   }
 
-  private static Map<String, Object> getPkConstraint(Connection conn, String cat, String sch, String table) throws SQLException {
+  static Map<String, Object> getPkConstraint(Connection conn, String cat, String sch, String table) throws SQLException {
     DatabaseMetaData metaData = conn.getMetaData();
     ResultSet rs = metaData.getPrimaryKeys(cat, sch, table);
 
@@ -422,7 +453,7 @@ public class HoptimatorMcpServer {
     return null;
   }
 
-  private static List<Map<String, Object>> getForeignKeys(Connection conn, String cat, String sch, String table) throws SQLException {
+  static List<Map<String, Object>> getForeignKeys(Connection conn, String cat, String sch, String table) throws SQLException {
     DatabaseMetaData metaData = conn.getMetaData();
     ResultSet rs = metaData.getImportedKeys(cat, sch, table);
 
@@ -456,7 +487,7 @@ public class HoptimatorMcpServer {
     return new ArrayList<>(fkeysMap.values());
   }
 
-  private static List<Map<String, String>> collect(ResultSet rs) throws SQLException {
+  static List<Map<String, String>> collect(ResultSet rs) throws SQLException {
     ResultSetMetaData meta = rs.getMetaData();
     int columnCount = meta.getColumnCount();
     List<Map<String, String>> data = new ArrayList<>();
@@ -479,19 +510,19 @@ public class HoptimatorMcpServer {
     return data;
   }
 
-  private static boolean isQueryStatement(String sql) {
+  static boolean isQueryStatement(String sql) {
     String upperSql = sql.trim().toUpperCase();
     return upperSql.startsWith("SELECT");
   }
 
-  private static boolean isQueryableSource(String sql) {
+  static boolean isQueryableSource(String sql) {
     String upperSql = sql.trim().toUpperCase();
     // TODO: Needs to be more robust
     String from = upperSql.substring(upperSql.indexOf("FROM"));
     return from.contains("ADS") || from.contains("PROFILE") || from.contains("METADATA") || from.contains("K8S");
   }
 
-  private static boolean isModifyStatement(String sql) {
+  static boolean isModifyStatement(String sql) {
     String upperSql = sql.trim().toUpperCase();
     return (upperSql.startsWith("CREATE") && upperSql.contains("MATERIALIZED") && upperSql.contains("VIEW")) || upperSql.startsWith("DROP");
   }

@@ -2,25 +2,25 @@ package com.linkedin.hoptimator.k8s;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
+import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
+import com.linkedin.hoptimator.util.Api;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
-import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
-import com.linkedin.hoptimator.util.Api;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /** Provides all pipeline elements in a {@link com.linkedin.hoptimator.k8s.K8sContext} instance. */
@@ -33,11 +33,11 @@ public class K8sPipelineElementApi implements Api<K8sPipelineElement> {
   }
 
   private Collection<K8sPipelineElement> discoverAllElements(K8sContext context) throws SQLException {
-    final K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi = new K8sApi<>(context, K8sApiEndpoints.PIPELINES);
+    final K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi = createPipelineApi(context);
     Collection<V1alpha1Pipeline> pipelines = pipelineApi.list();
 
     Map<String, K8sPipelineElement> elements = new HashMap<>();
-    K8sPipelineElementStatusEstimator statusEstimator = new K8sPipelineElementStatusEstimator(context);
+    K8sPipelineElementStatusEstimator statusEstimator = createStatusEstimator(context);
     for (V1alpha1Pipeline pipeline : pipelines) {
       String namespace = Objects.requireNonNull(pipeline.getMetadata()).getNamespace();
       List<String> elementYamls = getPipelineElements(pipeline);
@@ -119,5 +119,13 @@ public class K8sPipelineElementApi implements Api<K8sPipelineElement> {
   @Override
   public Collection<K8sPipelineElement> list() throws SQLException {
     return discoverAllElements(context);
+  }
+
+  K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> createPipelineApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.PIPELINES);
+  }
+
+  K8sPipelineElementStatusEstimator createStatusEstimator(K8sContext context) {
+    return new K8sPipelineElementStatusEstimator(context);
   }
 }

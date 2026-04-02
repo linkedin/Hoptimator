@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   build:
@@ -23,6 +24,17 @@ jobs:
         distribution: 'temurin'
     - name: Build
       run: make build
+    - name: Jacoco Report to PR
+      id: jacoco
+      uses: madrapps/jacoco-report@v1.7.2
+      with:
+        paths: ${{ github.workspace }}/build/reports/jacoco/aggregate/jacocoAggregateReport.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        title: Code Coverage
+        min-coverage-overall: 40
+        min-coverage-changed-files: 60
+        pass-emoji: ':green_circle:'
+        update-comment: true
     - name: Create K8s Kind Cluster
       uses: helm/kind-action@v1.4.0
       with:

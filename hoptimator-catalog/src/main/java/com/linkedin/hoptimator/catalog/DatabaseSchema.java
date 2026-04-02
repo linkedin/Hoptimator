@@ -1,15 +1,14 @@
 package com.linkedin.hoptimator.catalog;
 
-import java.util.Map;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-
+import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.util.LazyReference;
 
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import javax.annotation.Nullable;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 
 /** Exposes a Database to Apache Calcite. */

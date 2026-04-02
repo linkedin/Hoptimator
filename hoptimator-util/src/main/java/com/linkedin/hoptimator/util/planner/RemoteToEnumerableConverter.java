@@ -18,20 +18,9 @@
  */
 package com.linkedin.hoptimator.util.planner;
 
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-import java.util.TimeZone;
-import java.util.stream.Collectors;
-
-import javax.annotation.Nullable;
+import com.google.common.collect.ImmutableList;
+import com.linkedin.hoptimator.util.DelegatingDataSource;
+import com.linkedin.hoptimator.util.DeploymentService;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumerableRel;
 import org.apache.calcite.adapter.enumerable.EnumerableRelImplementor;
@@ -66,10 +55,20 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlString;
 import org.apache.calcite.util.BuiltInMethod;
 
-import com.google.common.collect.ImmutableList;
-
-import com.linkedin.hoptimator.util.DelegatingDataSource;
-import com.linkedin.hoptimator.util.DeploymentService;
+import javax.annotation.Nullable;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.sql.Array;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
+import java.util.TimeZone;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 import static org.apache.calcite.linq4j.Nullness.castNonNull;
@@ -311,7 +310,7 @@ public class RemoteToEnumerableConverter
           Expressions.convert_(
               Expressions.call(resultSet, jdbcGetMethod(primitive),
                   Expressions.constant(i + 1)),
-              java.sql.Array.class);
+              Array.class);
       source = Expressions.call(BuiltInMethod.JDBC_ARRAY_TO_LIST.method, x);
       break;
     case NULL:

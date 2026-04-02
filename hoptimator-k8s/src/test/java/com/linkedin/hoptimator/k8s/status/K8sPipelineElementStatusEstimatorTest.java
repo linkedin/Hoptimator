@@ -1,8 +1,16 @@
 package com.linkedin.hoptimator.k8s.status;
 
-import java.util.List;
-import java.util.Set;
-
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,18 +19,8 @@ import org.junit.jupiter.params.provider.FieldSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -153,7 +151,7 @@ public class K8sPipelineElementStatusEstimatorTest {
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(jobDynamicObject);
   }
 
-  @ParameterizedTest
+  @ParameterizedTest(name = "[{index}] state={0}")
   @FieldSource("READY_STRINGS")
   @FieldSource("FAILED_STRINGS")
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingStatusFieldWithStateInfo(String state) {
@@ -171,7 +169,7 @@ public class K8sPipelineElementStatusEstimatorTest {
     assertEquals(state, status.getMessage());
   }
 
-  @ParameterizedTest
+  @ParameterizedTest(name = "[{index}] state={0}")
   @FieldSource("READY_STRINGS")
   @FieldSource("FAILED_STRINGS")
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingStatusFieldWithJobStatusStateInfo(String state) {
@@ -236,7 +234,7 @@ public class K8sPipelineElementStatusEstimatorTest {
     K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
     assertFalse(status.isReady());
     assertFalse(status.isFailed());
-    assertEquals(status.getMessage(), "Returned K8s object is null or has no json");
+    assertEquals("Returned K8s object is null or has no json", status.getMessage());
   }
 
   @Test
@@ -294,6 +292,137 @@ public class K8sPipelineElementStatusEstimatorTest {
   }
 
   @Test
+  void testEstimateWhenAllStatusFieldsMissing() {
+    setUpPipelineMocks();
+    mockJobDynamicObjectWithStatusField();
+    when(jobDynamicObjectStatusJsonObject.get("ready")).thenReturn(null);
+    when(jobDynamicObjectStatusJsonObject.get("state")).thenReturn(null);
+    when(jobDynamicObjectStatusJsonObject.get("jobStatus")).thenReturn(null);
+    mockDynamicObjectWithMetadata();
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertTrue(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("considered ready by default"));
+  }
+
+  @Test
+  void testEstimateElementStatusWhenContextDynamicThrows() {
+    K8sContext throwingContext = mock(K8sContext.class);
+    K8sPipelineElementStatusEstimator throwingEstimator = new K8sPipelineElementStatusEstimator(throwingContext);
+    when(throwingContext.dynamic(any(), any())).thenThrow(new RuntimeException("connection error"));
+
+    V1alpha1Pipeline throwingPipeline = mock(V1alpha1Pipeline.class);
+    V1ObjectMeta throwingMeta = mock(V1ObjectMeta.class);
+    V1alpha1PipelineSpec throwingSpec = mock(V1alpha1PipelineSpec.class);
+    when(throwingMeta.getNamespace()).thenReturn("ns");
+    when(throwingPipeline.getMetadata()).thenReturn(throwingMeta);
+    when(throwingPipeline.getSpec()).thenReturn(throwingSpec);
+    when(throwingSpec.getYaml()).thenReturn(FAKE_JOB_SPEC);
+
+    List<K8sPipelineElementStatus> statuses = throwingEstimator.estimateStatuses(throwingPipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+    assertTrue(status.getMessage().contains("connection error"));
+  }
+
+  @Test
+  void testEstimateElementStatusUsesObjectNamespace() {
+    setUpPipelineMocks();
+    String yamlWithNamespace = "apiVersion: foo.org/v1beta1\nkind: FakeJob\nmetadata:\n  name: fake-job-name\n  namespace: explicit-ns\nspec:\n  foo: bar";
+    when(pipelineSpec.getYaml()).thenReturn(yamlWithNamespace);
+    when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(null);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertFalse(status.isReady());
+    assertFalse(status.isFailed());
+  }
+
+  @Test
+  void testEstimateStatusReadyFieldWithFailedTrue() {
+    // Tests estimateBasedOnStatusReadyField statusJson.has("failed") && ...
+    // If "failed" check is removed, failed=true even without "failed" key
+    setUpPipelineMocks();
+    mockJobDynamicObjectWithStatusField();
+    JsonElement readyElement = mock(JsonElement.class);
+    when(readyElement.getAsBoolean()).thenReturn(true);
+    when(jobDynamicObjectStatusJsonObject.get("ready")).thenReturn(readyElement);
+    when(jobDynamicObjectStatusJsonObject.has("failed")).thenReturn(true);
+    JsonElement failedElement = mock(JsonElement.class);
+    when(failedElement.getAsBoolean()).thenReturn(true);
+    when(jobDynamicObjectStatusJsonObject.get("failed")).thenReturn(failedElement);
+    when(jobDynamicObjectStatusJsonObject.has("message")).thenReturn(false);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertTrue(status.isReady());
+    assertTrue(status.isFailed());
+  }
+
+  @Test
+  void testEstimateStatusReadyFieldWithFailedKeyAbsent() {
+    // Tests estimateBasedOnStatusReadyField: when "failed" key is absent, isFailed() must be false
+    setUpPipelineMocks();
+    mockJobDynamicObjectWithStatusField();
+    JsonElement readyElement = mock(JsonElement.class);
+    when(readyElement.getAsBoolean()).thenReturn(true);
+    when(jobDynamicObjectStatusJsonObject.get("ready")).thenReturn(readyElement);
+    when(jobDynamicObjectStatusJsonObject.has("failed")).thenReturn(false);
+    when(jobDynamicObjectStatusJsonObject.has("message")).thenReturn(false);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    assertTrue(status.isReady());
+    // Without the "failed" key, isFailed must be false
+    assertFalse(status.isFailed());
+  }
+
+  @Test
+  void testEstimateStatusesWithEmptyYamlSpec() {
+    // Empty YAML (after trim) should produce zero statuses — no K8s API calls are made.
+    when(pipeline.getMetadata()).thenReturn(pipelineMetadata);
+    when(pipeline.getSpec()).thenReturn(pipelineSpec);
+    when(pipelineSpec.getYaml()).thenReturn("   \n---\n   \n");
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    assertTrue(statuses.isEmpty(), "Empty YAML spec should result in no statuses");
+  }
+
+  @Test
+  void testEstimateElementStatusUsesObjectNamespaceWhenPresent() {
+    // when namespace is present in YAML, it must be used (not pipelineNamespace)
+    setUpPipelineMocks();
+    String yamlWithNs = "apiVersion: foo.org/v1beta1\nkind: FakeJob\nmetadata:\n  name: fake-job-name\n  namespace: object-ns\nspec:\n  foo: bar";
+    when(pipelineSpec.getYaml()).thenReturn(yamlWithNs);
+    // Return a null object to cause failure message that includes namespace
+    when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    // The failure message should reference "object-ns", not "fake-namespace"
+    assertTrue(status.getMessage().contains("object-ns"),
+        "Expected 'object-ns' but got: " + status.getMessage());
+  }
+
+  @Test
+  void testEstimateElementStatusUsesPipelineNamespaceWhenObjectNamespaceNull() {
+    // When namespace is null in YAML, use pipelineNamespace
+    setUpPipelineMocks();
+    String yamlNoNs = "apiVersion: foo.org/v1beta1\nkind: FakeJob\nmetadata:\n  name: fake-job-name\nspec:\n  foo: bar";
+    when(pipelineSpec.getYaml()).thenReturn(yamlNoNs);
+    when(jobDynamicKubernetesApiResponse.isSuccess()).thenReturn(false);
+
+    List<K8sPipelineElementStatus> statuses = estimator.estimateStatuses(pipeline);
+    K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
+    // The failure message should reference "fake-namespace" (from pipeline metadata)
+    assertTrue(status.getMessage().contains("fake-namespace"),
+        "Expected 'fake-namespace' but got: " + status.getMessage());
+  }
+
+  @Test
   void testEstimateWhenPipelineHasSingleElementWithK8sObjectHavingNoRawJson() {
     setUpPipelineMocks();
     when(jobDynamicKubernetesApiResponse.getObject()).thenReturn(jobDynamicObject);
@@ -302,6 +431,6 @@ public class K8sPipelineElementStatusEstimatorTest {
     K8sPipelineElementStatus status = Iterables.getOnlyElement(statuses);
     assertFalse(status.isReady());
     assertFalse(status.isFailed());
-    assertEquals(status.getMessage(), "Returned K8s object is null or has no json");
+    assertEquals("Returned K8s object is null or has no json", status.getMessage());
   }
 }

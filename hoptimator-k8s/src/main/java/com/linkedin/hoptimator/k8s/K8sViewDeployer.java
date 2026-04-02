@@ -1,13 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.LinkedList;
-
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
 import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+
+import java.util.LinkedList;
 
 
 /** Deploys a View object. */

@@ -1,13 +1,13 @@
 package com.linkedin.hoptimator.operator;
 
 import com.linkedin.hoptimator.k8s.K8sContext;
+import io.kubernetes.client.extended.controller.Controller;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
-
-import io.kubernetes.client.extended.controller.Controller;
 
 
 /** Loads controller plugins via the ControllerProvider Service Provider Interface. */

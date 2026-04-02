@@ -1,5 +1,30 @@
 package com.linkedin.hoptimator.operator.trigger;
 
+import com.cronutils.model.definition.CronDefinition;
+import com.cronutils.model.definition.CronDefinitionBuilder;
+import com.cronutils.model.time.ExecutionTime;
+import com.cronutils.parser.CronParser;
+import com.linkedin.hoptimator.k8s.K8sApi;
+import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.K8sYamlApi;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
+import com.linkedin.hoptimator.util.Template;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobCondition;
+import io.kubernetes.client.openapi.models.V1JobList;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.SQLException;
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -12,56 +37,27 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
-import io.kubernetes.client.openapi.models.V1OwnerReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.openapi.models.V1Job;
-import io.kubernetes.client.openapi.models.V1JobCondition;
-import io.kubernetes.client.openapi.models.V1JobList;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-
-import com.linkedin.hoptimator.k8s.K8sApi;
-import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.k8s.K8sYamlApi;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
-import com.linkedin.hoptimator.util.Template;
-
-import com.cronutils.parser.CronParser;
-import com.cronutils.model.definition.CronDefinition;
-import com.cronutils.model.definition.CronDefinitionBuilder;
-import com.cronutils.model.time.ExecutionTime;
-
-
 /**
  * Launches Jobs when TableTriggers are fired.
- *
+ * <p>
  * TableTriggers maintain a timestamp and a watermark. The timestamp captures
  * the time at which a matching event occured, which could be far in the past.
  * The watermark records the last timestamp for which a corresponding job has
  * successfully completed, and is thus always older than or equal to the
  * timestamp.
- *
+ * <p>
  * At steady-state, a trigger can be in one of two states:
- *
+ * <p>
  * 1. Timestamp and watermark are the same: trigger has been fired and the
  *    corresponding job has successfully completed.
  * 2. Watermark is older than the timestamp: trigger has been fired, but a new
  *    corresponding job has not yet successfully completed.
- *
+ * <p>
  * At a high level, the reconciler checks whether the watermark is old and
  * creates a Job accordingly. If a Job already exists, we just wait for it
  * to complete. Once completed, we update the watermark to match the specific
  * timestamp that caused the Job to run.
- *
+ * <p>
  * Only one Job runs at a time, which means a trigger may be fired many times
  * before a Job successfully completes. Rather than fall behind, we pass the
  * current watermark and timestamp to each Job (e.g. via environment variables).
@@ -205,9 +201,9 @@ public final class TableTriggerReconciler implements Reconciler {
         .with("schema", trigger.getSpec().getSchema())
         .with("table", trigger.getSpec().getTable())
         .with("timestamp", Optional.ofNullable(trigger.getStatus().getTimestamp())
-            .map(x -> x.toString()).orElse(null))
+            .map(OffsetDateTime::toString).orElse(null))
         .with("watermark", Optional.ofNullable(trigger.getStatus().getWatermark())
-            .map(x -> x.toString()).orElse(null));
+            .map(OffsetDateTime::toString).orElse(null));
     Map<String, String> jobProperties = trigger.getSpec().getJobProperties();
     if (jobProperties != null) {
       Properties props = new Properties();

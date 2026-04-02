@@ -1,10 +1,5 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.Connection;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
@@ -13,6 +8,11 @@ import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.View;
+
+import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 public class K8sDeployerProvider implements DeployerProvider {
 

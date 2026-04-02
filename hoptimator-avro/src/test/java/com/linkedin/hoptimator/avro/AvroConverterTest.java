@@ -1,9 +1,5 @@
 package com.linkedin.hoptimator.avro;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 import org.apache.calcite.plan.RelOptUtil;
@@ -15,6 +11,11 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -267,6 +268,187 @@ public class AvroConverterTest {
   }
 
   @Test
+  public void sanitizeHandlesNameStartingWithNumber() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.INTEGER)),
+        List.of("1"));
+    Schema schema = AvroConverter.avro("ns", "Record", dataType);
+    // sanitize("1") prepends underscore → "_1"
+    assertEquals("_1", schema.getFields().get(0).name());
+  }
+
+  @Test
+  public void sanitizeHandlesMultiCharNameStartingWithNumber() {
+    // Regression test: "1abc" must be sanitized to "_1abc", not left as "1abc".
+    // Java String.matches() requires a full-string match, so the pattern must include .*
+    // to cover names longer than one character.
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
+        List.of("1fieldName"));
+    Schema schema = AvroConverter.avro("ns", "Record", dataType);
+    assertEquals("_1fieldName", schema.getFields().get(0).name());
+  }
+
+  @Test
+  public void relUnionNullStringProducesSingleNullableVarcharField() {
+    // UNION(NULL, STRING) should collapse to a single nullable VARCHAR, not two fields
+    Schema unionSchema = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rel = AvroConverter.rel(unionSchema, typeFactory);
+
+    // Must NOT be a struct (would indicate NULL wasn't filtered out or union wasn't collapsed)
+    assertFalse(rel.isStruct(), "UNION(NULL, STRING) should collapse to a scalar, not a struct");
+    assertEquals(SqlTypeName.VARCHAR, rel.getSqlTypeName());
+    assertTrue(rel.isNullable());
+  }
+
+  @Test
+  public void relUnionNullIntStringProducesStructWithTwoNonNullFields() {
+    // UNION(NULL, INT, STRING) — 3-type union — should produce a struct with INT and STRING fields only
+    // The NULL type must be filtered out
+    Schema unionSchema = Schema.createUnion(
+        Schema.create(Schema.Type.NULL),
+        Schema.create(Schema.Type.INT),
+        Schema.create(Schema.Type.STRING));
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rel = AvroConverter.rel(unionSchema, typeFactory);
+
+    assertTrue(rel.isStruct(), "3-type union should become a struct");
+    assertEquals(2, rel.getFieldCount(), "NULL type must be filtered out, leaving INT and STRING fields");
+    // Neither field should have SQL type NULL
+    rel.getFieldList().forEach(f ->
+        assertFalse(f.getType().getSqlTypeName() == SqlTypeName.NULL,
+            "No field in the result should have SQL type NULL"));
+  }
+
+  @Test
+  public void relUnionTwoTypesVsThreeTypesProduceDifferentStructures() {
+    // 2-type nullable union should produce a scalar; 3-type nullable union should produce a struct
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+
+    Schema twoType = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
+    RelDataType twoTypeRel = AvroConverter.rel(twoType, typeFactory);
+    assertFalse(twoTypeRel.isStruct(), "2-type union (NULL+STRING) should collapse to scalar");
+
+    Schema threeType = Schema.createUnion(
+        Schema.create(Schema.Type.NULL),
+        Schema.create(Schema.Type.STRING),
+        Schema.create(Schema.Type.INT));
+    RelDataType threeTypeRel = AvroConverter.rel(threeType, typeFactory);
+    assertTrue(threeTypeRel.isStruct(), "3-type union (NULL+STRING+INT) should produce a struct");
+    assertEquals(2, threeTypeRel.getFieldCount());
+  }
+
+  @Test
+  public void avroKeyPayloadSchemaNullKeysReturnsNullKeySchema() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
+        List.of("field1"));
+
+    // null keys value in map — keys == null branch
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
+        "ns", "key", "payload", dataType, Map.of());
+
+    assertNull(result.getKey(), "null keys should produce null key schema");
+    assertNotNull(result.getValue());
+  }
+
+  @Test
+  public void avroKeyPayloadSchemaEmptyKeysReturnsNullKeySchema() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
+        List.of("field1"));
+
+    // empty string keys — keys.isEmpty() branch
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
+        "ns", "key", "payload", dataType, Map.of("key.fields", ""));
+
+    assertNull(result.getKey(), "empty keys should produce null key schema");
+    assertNotNull(result.getValue());
+  }
+
+  @Test
+  public void avroKeyPayloadSchemaNonStructTypeReturnsNullKeySchema() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType primitiveType = typeFactory.createSqlType(SqlTypeName.INTEGER);
+
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
+        "ns", "key", "payload", primitiveType, Map.of("key.fields", "someField"));
+
+    assertNull(result.getKey(), "non-struct dataType should produce null key schema");
+    assertNotNull(result.getValue());
+    assertEquals(Schema.Type.INT, result.getValue().getType());
+  }
+
+  @Test
+  public void avroKeyPayloadSchemaFieldNotInKeyNamesGoesToPayload() {
+    // field "nonKeyField" is NOT in keyNames — must go to payload, not key
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
+        List.of("keyField", "nonKeyField"));
+
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
+        "ns", "keySchema", "payloadSchema", dataType, Map.of("key.fields", "keyField"));
+
+    assertNotNull(result.getKey());
+    assertEquals(1, result.getKey().getFields().size());
+    assertEquals("keyField", result.getKey().getFields().get(0).name());
+
+    assertNotNull(result.getValue());
+    assertEquals(1, result.getValue().getFields().size());
+    assertEquals("nonKeyField", result.getValue().getFields().get(0).name(),
+        "Field not in keyNames must appear in payload, not key");
+  }
+
+  @Test
+  public void avroFieldDocumentationIsNonEmpty() {
+    // describe() returns "fieldName TYPE_STRING" — verify it flows into schema field doc
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
+        List.of("myField"));
+
+    Schema avroSchema = AvroConverter.avro("ns", "Record", dataType);
+
+    assertEquals(1, avroSchema.getFields().size());
+    String doc = avroSchema.getFields().get(0).doc();
+    assertNotNull(doc, "field doc must not be null");
+    assertFalse(doc.isEmpty(), "field doc must not be empty");
+    assertTrue(doc.contains("myField"), "field doc should contain the field name");
+  }
+
+  @Test
+  public void avroConvertsUnknownTypedFieldsToNullUnion() {
+    // A struct with an UNKNOWN-typed field: avro() converts UNKNOWN → ["null"] union
+    // This test validates the if-condition (innerField.isUnion() && innerField.isNullable())
+    // which sets the null default value for nullable union fields
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType unknownType = typeFactory.createUnknownType();
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), unknownType),
+        List.of("goodField", "badField"));
+
+    Schema avroSchema = AvroConverter.avro("ns", "Record", dataType);
+
+    // Both fields are present (avro() converts them, not filters them)
+    assertEquals(2, avroSchema.getFields().size());
+    assertEquals("goodField", avroSchema.getFields().get(0).name());
+    assertEquals("badField", avroSchema.getFields().get(1).name());
+    // The UNKNOWN field is converted to a nullable union ["null"] and gets NULL_DEFAULT_VALUE
+    Schema badFieldSchema = avroSchema.getFields().get(1).schema();
+    assertTrue(badFieldSchema.isUnion(), "UNKNOWN field should become a union schema");
+    assertTrue(badFieldSchema.isNullable(), "UNKNOWN field union must contain null");
+    // The null default value must be set (exercises the innerField.isUnion() && isNullable() branch)
+    assertNotNull(avroSchema.getFields().get(1).defaultVal(),
+        "Nullable union field must have a non-null default value");
+  }
+
+  @Test
   public void handlesNamespaceInNestedArrayAndMapElements() {
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
 
@@ -309,7 +491,6 @@ public class AvroConverterTest {
     // The issue occurs because multiple records named "location" are created with the same namespace,
     // causing a collision when schema.toString(true) tries to serialize them
     String schemaJson = schema.toString(true);
-    assertNotNull("Schema toString(true) should succeed without 'Can't redefine' errors", schemaJson);
 
     // Verify the schema can be parsed back
     Schema.Parser parser = new Schema.Parser();

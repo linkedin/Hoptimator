@@ -23,6 +23,7 @@ dependencies {
 
   testRuntimeOnly project(':hoptimator-demodb')
   testCompileOnly libs.findbugs
+  testCompileOnly libs.findbugs.annotations
 }
 
 java {

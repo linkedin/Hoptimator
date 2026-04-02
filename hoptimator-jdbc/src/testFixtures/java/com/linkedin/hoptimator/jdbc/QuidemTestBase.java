@@ -1,7 +1,26 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
+import net.hydromatic.quidem.AbstractCommand;
+import net.hydromatic.quidem.Command;
+import net.hydromatic.quidem.CommandHandler;
+import net.hydromatic.quidem.Quidem;
+import org.apache.calcite.plan.RelOptTable;
+import org.apache.calcite.rel.RelRoot;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.sql.SqlKind;
+import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.junit.jupiter.api.Assertions;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -21,27 +40,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
-
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.RelRoot;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.dialect.CalciteSqlDialect;
-import org.apache.calcite.sql.type.SqlTypeName;
-import org.junit.jupiter.api.Assertions;
-
-import net.hydromatic.quidem.AbstractCommand;
-import net.hydromatic.quidem.Command;
-import net.hydromatic.quidem.CommandHandler;
-import net.hydromatic.quidem.Quidem;
-
-import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.util.DeploymentService;
 
 
 public abstract class QuidemTestBase {
@@ -157,7 +155,7 @@ public abstract class QuidemTestBase {
                 // Handle precision for types like VARCHAR, BINARY
                 Integer precision = field.getType().getPrecision();
                 String columnSize;
-                if (precision != null && precision != RelDataType.PRECISION_NOT_SPECIFIED) {
+                if (precision != RelDataType.PRECISION_NOT_SPECIFIED) {
                   columnSize = String.valueOf(precision);
                   // For types with precision, append it to type name
                   if (sqlType == SqlTypeName.VARCHAR || sqlType == SqlTypeName.CHAR

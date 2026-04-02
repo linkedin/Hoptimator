@@ -1,10 +1,9 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Validator;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-
-import com.linkedin.hoptimator.Validator;
 import org.apache.calcite.schema.lookup.LikePattern;
 
 

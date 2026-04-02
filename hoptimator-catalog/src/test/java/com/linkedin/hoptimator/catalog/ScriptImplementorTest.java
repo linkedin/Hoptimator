@@ -1,12 +1,11 @@
 package com.linkedin.hoptimator.catalog;
 
+import com.linkedin.hoptimator.avro.AvroConverter;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.junit.jupiter.api.Test;
-
-import com.linkedin.hoptimator.avro.AvroConverter;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;

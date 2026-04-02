@@ -18,22 +18,28 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
+
+import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.common.config.TopicConfig;
+import org.mockito.ArgumentCaptor;
 
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,7 +47,6 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class KafkaDeployerTest {
 
   private static final Properties PROPERTIES = new Properties();
@@ -216,16 +221,10 @@ class KafkaDeployerTest {
 
   // --- validate() tests ---
 
-  @SuppressWarnings("unchecked")
   @Test
-  void testValidatePassesForNewTopic() throws Exception {
+  void testValidatePassesForNewTopic() {
+    // No partitions option => validate() returns immediately without calling AdminClient
     Source source = new Source("db", List.of("KAFKA", "NewTopic"), Collections.emptyMap());
-
-    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
-    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
-    when(failedFuture.get()).thenThrow(new ExecutionException(new UnknownTopicOrPartitionException("not found")));
-    when(describeResult.topicNameValues()).thenReturn(Map.of("NewTopic", failedFuture));
-    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
 
     KafkaDeployer deployer = createDeployer(source);
     Validator.Issues issues = collectIssues(deployer);
@@ -433,6 +432,127 @@ class KafkaDeployerTest {
     assertTrue(issues.toString().contains("Failed to describe existing topic"));
   }
 
+  // --- topicExists() coverage ---
+
+  @Test
+  void testCreateExistingTopicSkipsCreation() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "ExistingTopic"), Collections.emptyMap());
+
+    TopicDescription topicDesc = mockTopicWithPartitions(10);
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> future = KafkaFuture.completedFuture(topicDesc);
+
+    when(describeResult.topicNameValues()).thenReturn(Map.of("ExistingTopic", future));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    deployer.create();
+
+    verify(mockAdmin, never()).createTopics(anyList());
+    verify(mockAdmin).close();
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void testCreateTopicExistsCheckThrowsGenericException() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "BrokenTopic"), Collections.emptyMap());
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get()).thenThrow(new InterruptedException("interrupted"));
+    when(describeResult.topicNameValues()).thenReturn(Map.of("BrokenTopic", failedFuture));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    SQLException exception = assertThrows(SQLException.class, deployer::create);
+
+    assertTrue(exception.getMessage().contains("Failed to check if topic exists: BrokenTopic"));
+  }
+
+  // --- describeTopic() coverage via update() ---
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void testUpdateCreatesTopicWhenNotExists() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "MissingTopic"), Collections.emptyMap());
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get()).thenThrow(new ExecutionException(new UnknownTopicOrPartitionException("not found")));
+    when(describeResult.topicNameValues()).thenReturn(Map.of("MissingTopic", failedFuture));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    CreateTopicsResult createResult = mock(CreateTopicsResult.class);
+    KafkaFuture<Void> createFuture = KafkaFuture.completedFuture(null);
+    when(createResult.all()).thenReturn(createFuture);
+    when(mockAdmin.createTopics(anyList())).thenReturn(createResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    deployer.update();
+
+    verify(mockAdmin).createTopics(anyList());
+    verify(mockAdmin).close();
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void testUpdateDescribeTopicThrowsNonTopicException() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "AuthFailTopic"), Collections.emptyMap());
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get()).thenThrow(new ExecutionException(new RuntimeException("auth failed")));
+    when(describeResult.topicNameValues()).thenReturn(Map.of("AuthFailTopic", failedFuture));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    SQLException exception = assertThrows(SQLException.class, deployer::update);
+
+    assertTrue(exception.getMessage().contains("Failed to describe topic AuthFailTopic"));
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void testUpdateDescribeTopicThrowsGenericException() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "BrokenTopic"), Collections.emptyMap());
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get()).thenThrow(new InterruptedException("interrupted"));
+    when(describeResult.topicNameValues()).thenReturn(Map.of("BrokenTopic", failedFuture));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    SQLException exception = assertThrows(SQLException.class, deployer::update);
+
+    assertTrue(exception.getMessage().contains("Failed to describe topic BrokenTopic"));
+  }
+
+  // --- update() with custom retention on new topic ---
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void testUpdateCreatesTopicWithCustomRetention() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "RetentionNewTopic"),
+        Map.of("retention", "86400000"));
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get()).thenThrow(new ExecutionException(new UnknownTopicOrPartitionException("not found")));
+    when(describeResult.topicNameValues()).thenReturn(Map.of("RetentionNewTopic", failedFuture));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    CreateTopicsResult createResult = mock(CreateTopicsResult.class);
+    KafkaFuture<Void> createFuture = KafkaFuture.completedFuture(null);
+    when(createResult.all()).thenReturn(createFuture);
+    when(mockAdmin.createTopics(anyList())).thenReturn(createResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    deployer.update();
+
+    verify(mockAdmin).createTopics(anyList());
+  }
+
   // --- helpers ---
 
   private TopicDescription mockTopicWithPartitions(int numPartitions) {
@@ -441,7 +561,8 @@ class KafkaDeployerTest {
     for (int i = 0; i < numPartitions; i++) {
       partitions.add(mock(TopicPartitionInfo.class));
     }
-    when(topicDesc.partitions()).thenReturn(partitions);
+    // lenient: some callers only need existence, not partition count
+    lenient().when(topicDesc.partitions()).thenReturn(partitions);
     return topicDesc;
   }
 
@@ -449,5 +570,161 @@ class KafkaDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues);
     return issues;
+  }
+
+  // --- createTopic() retention config assertion ---
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  @Test
+  void testCreateTopicWithCustomRetentionPassesRetentionToNewTopic() throws Exception {
+    long customRetention = 86400000L;
+    Source source = new Source("db", List.of("KAFKA", "RetentionConfigTopic"),
+        Map.of("retention", String.valueOf(customRetention)));
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get()).thenThrow(new ExecutionException(new UnknownTopicOrPartitionException("not found")));
+    when(describeResult.topicNameValues()).thenReturn(Map.of("RetentionConfigTopic", failedFuture));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    CreateTopicsResult createResult = mock(CreateTopicsResult.class);
+    KafkaFuture<Void> createFuture = KafkaFuture.completedFuture(null);
+    when(createResult.all()).thenReturn(createFuture);
+    when(mockAdmin.createTopics(anyList())).thenReturn(createResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    deployer.create();
+
+    ArgumentCaptor<Collection> captor = ArgumentCaptor.forClass(Collection.class);
+    verify(mockAdmin).createTopics(captor.capture());
+    NewTopic newTopic = (NewTopic) captor.getValue().iterator().next();
+    assertEquals(String.valueOf(customRetention), newTopic.configs().get(TopicConfig.RETENTION_MS_CONFIG),
+        "Custom retention should be set in NewTopic configs");
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  @Test
+  void testCreateTopicWithDefaultRetentionUsesDefaultRetentionValue() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "DefaultRetentionTopic"), Collections.emptyMap());
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> failedFuture = mock(KafkaFuture.class);
+    when(failedFuture.get()).thenThrow(new ExecutionException(new UnknownTopicOrPartitionException("not found")));
+    when(describeResult.topicNameValues()).thenReturn(Map.of("DefaultRetentionTopic", failedFuture));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    CreateTopicsResult createResult = mock(CreateTopicsResult.class);
+    KafkaFuture<Void> createFuture = KafkaFuture.completedFuture(null);
+    when(createResult.all()).thenReturn(createFuture);
+    when(mockAdmin.createTopics(anyList())).thenReturn(createResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    deployer.create();
+
+    ArgumentCaptor<Collection> captor = ArgumentCaptor.forClass(Collection.class);
+    verify(mockAdmin).createTopics(captor.capture());
+    NewTopic newTopic = (NewTopic) captor.getValue().iterator().next();
+    String expectedDefault = String.valueOf(Duration.ofDays(7).toMillis());
+    assertEquals(expectedDefault, newTopic.configs().get(TopicConfig.RETENTION_MS_CONFIG),
+        "Default retention (7 days ms) should be set when retention option is absent");
+  }
+
+  @Test
+  void testRestoreWithoutCreateDoesNotCallAdmin() {
+    Source source = new Source("db", List.of("KAFKA", "NeverCreated"), Collections.emptyMap());
+    KafkaDeployer deployer = createDeployer(source);
+
+    // restore() when created==false must be a no-op: no AdminClient interaction
+    deployer.restore();
+
+    // `if (!created) return` was removed, the code would attempt to log
+    // a warning (which itself doesn't call admin), but the guard is the distinction between
+    // "never created" and "was created". Verify admin was not used at all.
+    verify(mockAdmin, never()).deleteTopics(anyList());
+    verify(mockAdmin, never()).close();
+  }
+
+  // --- update() equal partitions ---
+
+  @Test
+  void testUpdateWithEqualPartitionsDoesNotAlterPartitions() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "SamePartsTopic"),
+        Map.of("partitions", "10"));
+
+    TopicDescription topicDesc = mockTopicWithPartitions(10);
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> future = KafkaFuture.completedFuture(topicDesc);
+
+    when(describeResult.topicNameValues()).thenReturn(Map.of("SamePartsTopic", future));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    deployer.update();
+
+    verify(mockAdmin, never()).createPartitions(any());
+    verify(mockAdmin, never()).createTopics(anyList());
+  }
+
+  // --- validate() boundary tests ---
+
+  @Test
+  void testValidatePassesWithExactlyOnePartition() {
+    Source source = new Source("db", List.of("KAFKA", "OnePart"),
+        Map.of("partitions", "1"));
+
+    TopicDescription topicDesc = mockTopicWithPartitions(1);
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> future = KafkaFuture.completedFuture(topicDesc);
+
+    when(describeResult.topicNameValues()).thenReturn(Map.of("OnePart", future));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    Validator.Issues issues = collectIssues(deployer);
+
+    assertTrue(issues.valid(), "Exactly 1 partition should be valid");
+  }
+
+  @Test
+  void testValidateRejectsZeroReplicationFactor() {
+    Source source = new Source("db", List.of("KAFKA", "ZeroReplTopic"),
+        Map.of("replicationFactor", "0"));
+
+    KafkaDeployer deployer = createDeployer(source);
+    Validator.Issues issues = collectIssues(deployer);
+
+    assertFalse(issues.valid());
+    assertTrue(issues.toString().contains("must be positive"),
+        "Zero replication factor should fail validation");
+  }
+
+  @Test
+  void testValidatePassesWithExactlyOneReplicationFactor() {
+    Source source = new Source("db", List.of("KAFKA", "OneReplTopic"),
+        Map.of("replicationFactor", "1"));
+
+    KafkaDeployer deployer = createDeployer(source);
+    Validator.Issues issues = collectIssues(deployer);
+
+    assertTrue(issues.valid(), "Exactly 1 replication factor should be valid (no partitions check needed)");
+  }
+
+  @Test
+  void testValidatePassesWhenPartitionsEqualsActual() {
+    // partitions == actualPartitions: NOT a decrease, should be valid
+    Source source = new Source("db", List.of("KAFKA", "EqualPartsTopic"),
+        Map.of("partitions", "5"));
+
+    TopicDescription topicDesc = mockTopicWithPartitions(5);
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> future = KafkaFuture.completedFuture(topicDesc);
+
+    when(describeResult.topicNameValues()).thenReturn(Map.of("EqualPartsTopic", future));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    KafkaDeployer deployer = createDeployer(source);
+    Validator.Issues issues = collectIssues(deployer);
+
+    assertTrue(issues.valid(), "partitions == actualPartitions should NOT be flagged as a decrease");
   }
 }

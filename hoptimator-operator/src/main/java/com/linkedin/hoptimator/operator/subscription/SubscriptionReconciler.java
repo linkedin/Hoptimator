@@ -1,5 +1,26 @@
 package com.linkedin.hoptimator.operator.subscription;
 
+import com.linkedin.hoptimator.catalog.HopTable;
+import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Subscription;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionStatus;
+import com.linkedin.hoptimator.operator.Operator;
+import com.linkedin.hoptimator.planner.HoptimatorPlanner;
+import com.linkedin.hoptimator.planner.Pipeline;
+import com.linkedin.hoptimator.planner.PipelineRel;
+import io.kubernetes.client.common.KubernetesObject;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -11,29 +32,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.kubernetes.client.common.KubernetesObject;
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
-
-import com.linkedin.hoptimator.catalog.HopTable;
-import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.k8s.models.V1alpha1Subscription;
-import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionSpec;
-import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionStatus;
-import com.linkedin.hoptimator.operator.Operator;
-import com.linkedin.hoptimator.planner.HoptimatorPlanner;
-import com.linkedin.hoptimator.planner.Pipeline;
-import com.linkedin.hoptimator.planner.PipelineRel;
-
 
 public final class SubscriptionReconciler implements Reconciler {
   private static final Logger log = LoggerFactory.getLogger(SubscriptionReconciler.class);
@@ -44,7 +42,7 @@ public final class SubscriptionReconciler implements Reconciler {
   private final Resource.Environment environment;
   private final Predicate<V1alpha1Subscription> filter;
 
-  private SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory,
+  SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory,
       Resource.Environment environment, Predicate<V1alpha1Subscription> filter) {
     this.operator = operator;
     this.plannerFactory = plannerFactory;

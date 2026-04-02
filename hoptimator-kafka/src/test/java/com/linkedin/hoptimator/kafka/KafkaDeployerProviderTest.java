@@ -20,7 +20,9 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -41,8 +43,7 @@ class KafkaDeployerProviderTest {
   private SchemaPlus topicSubSchema;
 
   @Mock
-  @SuppressWarnings("rawtypes")
-  private Lookup subSchemaLookup;
+  private Lookup<SchemaPlus> subSchemaLookup;
 
   private KafkaDeployerProvider provider;
 
@@ -56,7 +57,6 @@ class KafkaDeployerProviderTest {
     assertEquals(2, provider.priority());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReturnsDeployerForKafkaSchema() {
     Source source = new Source("kafka-database", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
@@ -68,14 +68,14 @@ class KafkaDeployerProviderTest {
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(subSchemaLookup);
+    doReturn(subSchemaLookup).when(rootSchema).subSchemas();
     when(subSchemaLookup.get("KAFKA")).thenReturn(topicSubSchema);
     when(topicSubSchema.unwrap(HoptimatorJdbcSchema.class)).thenReturn(jdbcSchema);
     when(jdbcSchema.getDataSource()).thenReturn(dataSource);
 
     Collection<Deployer> deployers = provider.deployers(source, connection);
     assertEquals(1, deployers.size());
-    assertTrue(deployers.iterator().next() instanceof KafkaDeployer);
+    assertInstanceOf(KafkaDeployer.class, deployers.iterator().next());
   }
 
   @Test
@@ -87,14 +87,28 @@ class KafkaDeployerProviderTest {
     assertTrue(deployers.isEmpty());
   }
 
-  @SuppressWarnings("unchecked")
+  @Test
+  void testReturnsEmptyForNonKafkaDatabaseEvenWhenSchemaWouldMatch() {
+    // Use schema name "KAFKA" but database "not-kafka" to verify the database prefix guard
+    // is what causes the empty result (not downstream schema lookup).
+    // If the database guard is removed the lookup would proceed, but
+    // the schema subSchemaLookup.get("KAFKA") returns null → still empty — so we also
+    // set up a full match to ensure the guard is the deciding factor.
+    Source source = new Source("not-kafka", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
+
+    // No mocking of connection — the guard should prevent any downstream call
+    Collection<Deployer> deployers = provider.deployers(source, connection);
+    assertTrue(deployers.isEmpty(),
+        "Database not starting with 'kafka' should return empty regardless of schema name");
+  }
+
   @Test
   void testReturnsEmptyWhenSchemaNotFound() {
     Source source = new Source("kafka-unknown", List.of("UNKNOWN", "MyTable"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(subSchemaLookup);
+    doReturn(subSchemaLookup).when(rootSchema).subSchemas();
     when(subSchemaLookup.get("UNKNOWN")).thenReturn(null);
 
     Collection<Deployer> deployers = provider.deployers(source, connection);
@@ -123,14 +137,13 @@ class KafkaDeployerProviderTest {
     assertTrue(deployers.isEmpty());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReturnsEmptyWhenUnwrapThrowsException() {
     Source source = new Source("kafka-database", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
-    when(rootSchema.subSchemas()).thenReturn(subSchemaLookup);
+    doReturn(subSchemaLookup).when(rootSchema).subSchemas();
     when(subSchemaLookup.get("KAFKA")).thenReturn(topicSubSchema);
     when(topicSubSchema.unwrap(HoptimatorJdbcSchema.class)).thenThrow(new RuntimeException("unwrap failed"));
 

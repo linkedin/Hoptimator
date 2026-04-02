@@ -1,5 +1,12 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Validator;
+import com.linkedin.hoptimator.ValidatorProvider;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.lookup.LikePattern;
+
 import java.sql.Connection;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
@@ -8,14 +15,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
-
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-
-import com.linkedin.hoptimator.Validator;
-import com.linkedin.hoptimator.ValidatorProvider;
-import org.apache.calcite.schema.lookup.LikePattern;
 
 
 public final class ValidationService {

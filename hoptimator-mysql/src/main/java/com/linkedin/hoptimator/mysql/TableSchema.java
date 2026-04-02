@@ -1,14 +1,6 @@
 package com.linkedin.hoptimator.mysql;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import javax.annotation.Nullable;
-
+import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
@@ -16,7 +8,14 @@ import org.apache.calcite.util.LazyReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import javax.annotation.Nullable;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 
 
 /**

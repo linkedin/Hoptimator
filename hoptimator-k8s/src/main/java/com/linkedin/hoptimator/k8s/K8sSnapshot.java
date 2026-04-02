@@ -2,12 +2,13 @@ package com.linkedin.hoptimator.k8s;
 
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 // Grabs information from each K8s spec to snapshot the current state of the resource.
@@ -25,13 +26,11 @@ public class K8sSnapshot {
   // Needed for ServiceLoader
   public K8sSnapshot(K8sContext context) {
     this.context = context;
-    this.api = new K8sYamlApi(context);
+    this.api = createYamlApi(context);
   }
 
-  // Used for testing purposes
-  K8sSnapshot(K8sYamlApi api) {
-    this.context = null;
-    this.api = api;
+  K8sYamlApi createYamlApi(K8sContext context) {
+    return new K8sYamlApi(context);
   }
 
   public void store(KubernetesObject obj) throws SQLException {
@@ -85,8 +84,8 @@ public class K8sSnapshot {
   }
 
 
-  // Private class intended to wrap necessary K8s information to deduplicate a resource
-  private static class K8sSpec {
+  // Package-private class intended to wrap necessary K8s information to deduplicate a resource
+  static class K8sSpec {
     private final String apiVersion;
     private final String kind;
     private final String namespace;

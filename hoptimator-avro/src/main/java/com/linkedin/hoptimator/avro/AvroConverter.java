@@ -1,12 +1,5 @@
 package com.linkedin.hoptimator.avro;
 
-import java.util.AbstractMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -17,6 +10,13 @@ import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Pair;
+
+import java.util.AbstractMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 /** Converts between Avro and Calcite's RelDataType */
@@ -159,7 +159,7 @@ public final class AvroConverter {
    * Nullability is preserved except for array types, JDBC is incapable of interpreting e.g. "FLOAT NOT NULL ARRAY"
    * causing "NOT NULL" arrays to get demoted to "ANY ARRAY" which is not desired. See HoptimatorArraySqlType for
    * more details.
-   *
+   * <p>
    * TODO: default field values are lost when converting from Avro to RelDataType
    */
   public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory, boolean nullable) {
@@ -243,8 +243,9 @@ public final class AvroConverter {
   }
 
   private static String sanitize(String name) {
-    if (name.matches("^[^A-Za-z_]")) {
-      // avoid starting with numbers, etc
+    if (name.matches("^[^A-Za-z_].*")) {
+      // avoid starting with numbers, etc — note: matches() requires full-string match,
+      // so the pattern must include .* to match names longer than one character
       return sanitize("_" + name);
     }
     // avoid $, etc

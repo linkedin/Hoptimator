@@ -1,12 +1,5 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
@@ -14,6 +7,13 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.Template;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /** Specifies an abstract Source with concrete YAML by applying TableTemplates. */
 class K8sSourceDeployer extends K8sYamlDeployer {
@@ -26,7 +26,11 @@ class K8sSourceDeployer extends K8sYamlDeployer {
     super(context);
     this.context = context;
     this.source = source;
-    this.tableTemplateApi = new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
+    this.tableTemplateApi = createTableTemplateApi(context);
+  }
+
+  K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> createTableTemplateApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
   }
 
   @Override

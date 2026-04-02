@@ -1,6 +1,16 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import org.apache.calcite.avatica.MetaImpl;
+import org.apache.calcite.jdbc.CalciteMetaImpl;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.lookup.LikePattern;
+import org.apache.calcite.util.Pair;
+import org.apache.commons.dbcp2.DelegatingConnection;
+import org.apache.commons.dbcp2.DelegatingDatabaseMetaData;
+
+import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -14,14 +24,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
-import org.apache.calcite.avatica.MetaImpl;
-import org.apache.calcite.jdbc.CalciteMetaImpl;
-import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.lookup.LikePattern;
-import org.apache.calcite.util.Pair;
-import org.apache.commons.dbcp2.DelegatingDatabaseMetaData;
 
 
 public class HoptimatorDatabaseMetaData extends DelegatingDatabaseMetaData {
@@ -91,7 +93,7 @@ public class HoptimatorDatabaseMetaData extends DelegatingDatabaseMetaData {
    * @param databaseMetaData the database metadata
    */
   public HoptimatorDatabaseMetaData(HoptimatorConnection connection, DatabaseMetaData databaseMetaData) {
-    super(new org.apache.commons.dbcp2.DelegatingConnection<>(connection), databaseMetaData);
+    super(new DelegatingConnection<>(connection), databaseMetaData);
     this.connection = connection;
   }
 
