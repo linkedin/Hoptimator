@@ -1,0 +1,28 @@
+# Sample logical database configuration for local development.
+#
+# This defines two "flavors" of logical tables:
+#   - logical: nearline (kafka-database) + online (venice) — the standard flavor
+#   - logical-nearline-offline: nearline only, for use without Venice
+#
+# Prerequisites: kafkadb.yaml and venicedb.yaml must also be applied.
+# The Database CRD names in the URL (kafka-database, venice) must match existing Database CRDs.
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: logical
+spec:
+  url: jdbc:logical://nearline=kafka-database;online=venice
+  schema: LOGICAL
+  dialect: Calcite
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: logical-nearline-only
+spec:
+  url: jdbc:logical://nearline=kafka-database
+  schema: LOGICAL-NEARLINE-ONLY
+  dialect: Calcite

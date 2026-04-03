@@ -14,7 +14,7 @@ import com.linkedin.hoptimator.util.DeploymentService;
 
 
 /** Deploys View and Pipeline objects, along with all the pipeline elements. */
-class K8sMaterializedViewDeployer implements Deployer {
+public class K8sMaterializedViewDeployer implements Deployer {
 
   private final MaterializedView view;
   private final K8sContext context;
@@ -56,32 +56,24 @@ class K8sMaterializedViewDeployer implements Deployer {
    *
    * <p>This is used by LogicalTableDeployer to create Pipeline CRDs owned by a LogicalTable CRD.
    */
-  void createPipelineWithOwner(String name, List<String> pipelineSpecs, String sql,
+  public void createPipelineWithOwner(String name, List<String> pipelineSpecs, String sql,
       K8sContext ownerContext) throws SQLException {
     synchronized (crudLock) {
-      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql, ownerContext);
-      deployers.add(pipelineDeployer);
-      V1OwnerReference pipelineRef = pipelineDeployer.createAndReference();
-      K8sContext pipelineContext = ownerContext.withLabel("pipeline", name).withOwner(pipelineRef);
-      K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
-      deployers.add(yamlDeployer);
-      yamlDeployer.update();  // update, cuz some elements may already exist
+      K8sPipelineCreator creator = new K8sPipelineCreator(name, pipelineSpecs, sql, ownerContext);
+      deployers.add(creator);
+      creator.create();
     }
   }
 
   /**
    * Updates a Pipeline CRD (and its child YAML elements) owned by an external owner reference.
    */
-  void updatePipelineWithOwner(String name, List<String> pipelineSpecs, String sql,
+  public void updatePipelineWithOwner(String name, List<String> pipelineSpecs, String sql,
       K8sContext ownerContext) throws SQLException {
     synchronized (crudLock) {
-      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql, ownerContext);
-      deployers.add(pipelineDeployer);
-      V1OwnerReference pipelineRef = pipelineDeployer.updateAndReference();
-      K8sContext pipelineContext = ownerContext.withLabel("pipeline", name).withOwner(pipelineRef);
-      K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
-      deployers.add(yamlDeployer);
-      yamlDeployer.update();
+      K8sPipelineCreator creator = new K8sPipelineCreator(name, pipelineSpecs, sql, ownerContext);
+      deployers.add(creator);
+      creator.update();
     }
   }
 

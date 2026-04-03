@@ -9,9 +9,6 @@
 #   kubectl apply -f deploy/samples/kafkadb.yaml         (defines kafka-database / KAFKA schema)
 #   kubectl apply -f deploy/samples/venicedb.yaml        (defines venice / VENICE schema)
 #   Kafka + Venice running (see deploy/dev/ and deploy/docker/venice/)
-#
-# The LOGICAL schema is backed by: jdbc:logical://nearline=kafka-database;online=venice
-# Each CREATE TABLE creates a KafkaTopic CRD (nearline) + Venice store (online) + Pipeline CRD.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 1: CREATE TABLE — basic two-column logical table
@@ -22,7 +19,7 @@ create table "LOGICAL"."testevent" ("memberId" bigint, "pageKey" varchar);
 !update
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 2: !describe — columns should match the CREATE TABLE definition
+# Test 2: !describe — columns resolved from nearline physical tier schema
 # ─────────────────────────────────────────────────────────────────────────────
 
 +------------+----------+------------+------------+
@@ -49,14 +46,7 @@ select name from "k8s".pipelines where name = 'logical-testevent-nearline-to-onl
 !ok
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 4: Duplicate CREATE TABLE is rejected
-# ─────────────────────────────────────────────────────────────────────────────
-create table "LOGICAL"."testevent" ("memberId" bigint, "pageKey" varchar);
-Table TESTEVENT already exists.
-!error
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Test 5: CREATE TABLE with composite schema (nested ROW + array)
+# Test 4: CREATE TABLE with nested ROW types
 # ─────────────────────────────────────────────────────────────────────────────
 create table "LOGICAL"."pageview" (
   "header" row("memberId" bigint, "timestamp" bigint),
@@ -77,40 +67,46 @@ create table "LOGICAL"."pageview" (
 !describe "LOGICAL"."pageview"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 6: DROP TABLE removes the logical table and its owned Pipeline CRDs
+# Test 5: CREATE OR REPLACE TABLE — update schema (add a column)
+# Each physical tier deployer validates backward compatibility.
 # ─────────────────────────────────────────────────────────────────────────────
-drop table "LOGICAL"."testevent";
+create or replace table "LOGICAL"."testevent" (
+  "memberId" bigint,
+  "pageKey" varchar,
+  "sessionId" varchar
+);
 (0 rows modified)
 
 !update
 
-# Pipeline CRD should be gone (cascade delete from LogicalTable CRD ownership)
+# After update, the pipeline SQL should reference the new schema.
+# The pipeline name should remain the same (idempotent update).
 select count(*) from "k8s".pipelines where name = 'logical-testevent-nearline-to-online';
 +--------+
 | EXPR$0 |
 +--------+
-|      0 |
+|      1 |
 +--------+
 (1 row)
 
 !ok
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 7: DROP TABLE on already-dropped table is rejected
+# Test 6: DROP TABLE — disabled; should fail with helpful error message
 # ─────────────────────────────────────────────────────────────────────────────
 drop table "LOGICAL"."testevent";
-Element TESTEVENT not found
+Logical table deletion is not yet supported
 !error
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 8: CREATE TABLE against a schema that does not exist is rejected
+# Test 7: CREATE TABLE against non-existent schema is rejected
 # ─────────────────────────────────────────────────────────────────────────────
 create table "LOGICAL-NONEXISTENT"."testevent" ("id" bigint);
 Schema for LOGICAL-NONEXISTENT.TESTEVENT not found.
 !error
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Clean up remaining test tables
+# Clean up
 # ─────────────────────────────────────────────────────────────────────────────
 drop table "LOGICAL"."pageview";
 (0 rows modified)

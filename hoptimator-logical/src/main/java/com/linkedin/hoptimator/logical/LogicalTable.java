@@ -7,26 +7,36 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.impl.AbstractTable;
 
-import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 
 
 /**
- * A Calcite table backed by a {@code LogicalTable} CRD. The row type is derived
- * from the Avro schema stored in the CRD spec.
+ * A Calcite table backed by a {@code LogicalTable} CRD.
+ *
+ * <p>The row type is resolved dynamically from the physical tier at schema load time
+ * (by {@link LogicalTableSchema}) and passed in at construction. This ensures the
+ * schema always reflects the current state of the underlying system rather than a
+ * cached Avro snapshot.
  */
 public class LogicalTable extends AbstractTable {
 
   private final String name;
-  private final V1alpha1LogicalTableSpec spec;
+  private final RelDataType rowType;
+  private final Map<String, V1alpha1LogicalTableSpecTiers> tiers;
 
-  public LogicalTable(String name, V1alpha1LogicalTableSpec spec) {
+  public LogicalTable(String name, RelDataType rowType,
+      Map<String, V1alpha1LogicalTableSpecTiers> tiers) {
     this.name = name;
-    this.spec = spec;
+    this.rowType = rowType;
+    this.tiers = tiers != null ? tiers : Collections.emptyMap();
   }
 
-  /** Returns the table name. */
+  /** Convenience constructor from a CRD spec with an empty row type fallback. */
+  public LogicalTable(String name, V1alpha1LogicalTableSpec spec) {
+    this(name, null, spec.getTiers());
+  }
+
   public String name() {
     return name;
   }
@@ -37,20 +47,16 @@ public class LogicalTable extends AbstractTable {
    * values carry the physical database CRD binding.
    */
   public Map<String, V1alpha1LogicalTableSpecTiers> tiers() {
-    if (spec.getTiers() == null) {
-      return Collections.emptyMap();
-    }
-    return spec.getTiers();
+    return tiers;
   }
 
   @Override
   public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-    String avroSchemaJson = spec.getAvroSchema();
-    if (avroSchemaJson == null || avroSchemaJson.isEmpty()) {
-      // Return an empty struct when no schema is available.
-      return typeFactory.builder().build();
+    if (rowType != null) {
+      return rowType;
     }
-    org.apache.avro.Schema avroSchema = new org.apache.avro.Schema.Parser().parse(avroSchemaJson);
-    return AvroConverter.rel(avroSchema, typeFactory);
+    // Row type not resolved — return empty struct.
+    // This happens when the physical tier was unreachable at schema load time.
+    return typeFactory.builder().build();
   }
 }

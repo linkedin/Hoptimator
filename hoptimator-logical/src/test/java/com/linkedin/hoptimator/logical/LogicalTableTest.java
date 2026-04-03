@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.logical;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 import org.apache.calcite.rel.type.RelDataType;
@@ -10,129 +13,62 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 
+/**
+ * Unit tests for {@link LogicalTable}.
+ */
 public class LogicalTableTest {
 
-  private final RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+  private static final RelDataTypeFactory TYPE_FACTORY =
+      new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
 
   @Test
-  public void flatSchemaConvertsBasicTypes() {
-    String avroSchema = "{"
-        + "\"type\":\"record\","
-        + "\"name\":\"FlatRecord\","
-        + "\"namespace\":\"test\","
-        + "\"fields\":["
-        + "  {\"name\":\"id\",\"type\":\"int\"},"
-        + "  {\"name\":\"count\",\"type\":\"long\"},"
-        + "  {\"name\":\"label\",\"type\":\"string\"},"
-        + "  {\"name\":\"active\",\"type\":\"boolean\"}"
-        + "]}";
+  public void rowTypeReturnedDirectlyWhenProvided() {
+    RelDataType rowType = TYPE_FACTORY.builder()
+        .add("memberId", SqlTypeName.BIGINT)
+        .add("pageKey", SqlTypeName.VARCHAR)
+        .build();
 
-    LogicalTable table = tableWithSchema(avroSchema);
-    RelDataType rowType = table.getRowType(typeFactory);
+    LogicalTable table = new LogicalTable("myTable", rowType, Collections.emptyMap());
+    RelDataType result = table.getRowType(TYPE_FACTORY);
 
-    assertThat(rowType.isStruct()).isTrue();
-    assertThat(rowType.getField("id", false, false)).isNotNull();
-    assertThat(rowType.getField("count", false, false)).isNotNull();
-    assertThat(rowType.getField("label", false, false)).isNotNull();
-    assertThat(rowType.getField("active", false, false)).isNotNull();
-
-    assertThat(rowType.getField("id", false, false).getType().getSqlTypeName())
-        .isEqualTo(SqlTypeName.INTEGER);
-    assertThat(rowType.getField("count", false, false).getType().getSqlTypeName())
-        .isEqualTo(SqlTypeName.BIGINT);
-    assertThat(rowType.getField("label", false, false).getType().getSqlTypeName())
-        .isEqualTo(SqlTypeName.VARCHAR);
-    assertThat(rowType.getField("active", false, false).getType().getSqlTypeName())
-        .isEqualTo(SqlTypeName.BOOLEAN);
+    assertThat(result.isStruct()).isTrue();
+    assertThat(result.getFieldNames()).containsExactly("memberId", "pageKey");
+    assertThat(Objects.requireNonNull(result.getField("memberId", false, false))
+        .getType().getSqlTypeName()).isEqualTo(SqlTypeName.BIGINT);
   }
 
   @Test
-  public void nestedRecordFieldConvertsToStruct() {
-    String avroSchema = "{"
-        + "\"type\":\"record\","
-        + "\"name\":\"Outer\","
-        + "\"namespace\":\"test\","
-        + "\"fields\":["
-        + "  {\"name\":\"inner\",\"type\":{"
-        + "    \"type\":\"record\","
-        + "    \"name\":\"Inner\","
-        + "    \"fields\":["
-        + "      {\"name\":\"x\",\"type\":\"int\"}"
-        + "    ]"
-        + "  }}"
-        + "]}";
-
-    LogicalTable table = tableWithSchema(avroSchema);
-    RelDataType rowType = table.getRowType(typeFactory);
-
-    assertThat(rowType.isStruct()).isTrue();
-    assertThat(rowType.getField("inner", false, false)).isNotNull();
-    RelDataType innerType = Objects.requireNonNull(rowType.getField("inner", false, false)).getType();
-    assertThat(innerType.isStruct()).isTrue();
-    assertThat(innerType.getField("x", false, false)).isNotNull();
-    assertThat(Objects.requireNonNull(innerType.getField("x", false, false)).getType().getSqlTypeName())
-        .isEqualTo(SqlTypeName.INTEGER);
+  public void emptyRowTypeWhenNullProvided() {
+    LogicalTable table = new LogicalTable("myTable", null, Collections.emptyMap());
+    RelDataType result = table.getRowType(TYPE_FACTORY);
+    assertThat(result.isStruct()).isTrue();
+    assertThat(result.getFieldList()).isEmpty();
   }
 
   @Test
-  public void nullableUnionFieldIsNullable() {
-    String avroSchema = "{"
-        + "\"type\":\"record\","
-        + "\"name\":\"NullableRecord\","
-        + "\"namespace\":\"test\","
-        + "\"fields\":["
-        + "  {\"name\":\"maybeString\",\"type\":[\"null\",\"string\"],\"default\":null}"
-        + "]}";
-
-    LogicalTable table = tableWithSchema(avroSchema);
-    RelDataType rowType = table.getRowType(typeFactory);
-
-    assertThat(rowType.getField("maybeString", false, false)).isNotNull();
-    RelDataType fieldType = Objects.requireNonNull(rowType.getField("maybeString", false, false)).getType();
-    assertThat(fieldType.isNullable()).isTrue();
-    assertThat(fieldType.getSqlTypeName()).isEqualTo(SqlTypeName.VARCHAR);
-  }
-
-  @Test
-  public void arrayFieldConvertsToArrayType() {
-    String avroSchema = "{"
-        + "\"type\":\"record\","
-        + "\"name\":\"ArrayRecord\","
-        + "\"namespace\":\"test\","
-        + "\"fields\":["
-        + "  {\"name\":\"tags\",\"type\":{\"type\":\"array\",\"items\":\"string\"}}"
-        + "]}";
-
-    LogicalTable table = tableWithSchema(avroSchema);
-    RelDataType rowType = table.getRowType(typeFactory);
-
-    assertThat(rowType.getField("tags", false, false)).isNotNull();
-    RelDataType fieldType = Objects.requireNonNull(rowType.getField("tags", false, false)).getType();
-    assertThat(fieldType.getSqlTypeName()).isEqualTo(SqlTypeName.ARRAY);
-    assertThat(fieldType.getComponentType()).isNotNull();
-    assertThat(fieldType.getComponentType().getSqlTypeName()).isEqualTo(SqlTypeName.VARCHAR);
-  }
-
-  @Test
-  public void emptyAvroSchemaReturnsEmptyStruct() {
+  public void specConvenienceConstructorHasNullRowType() {
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
-    // avroSchema is null
-    LogicalTable table = new LogicalTable("empty", spec);
-    RelDataType rowType = table.getRowType(typeFactory);
-
-    assertThat(rowType.isStruct()).isTrue();
-    assertThat(rowType.getFieldCount()).isEqualTo(0);
+    LogicalTable table = new LogicalTable("myTable", spec);
+    // Row type is null — getRowType returns empty struct
+    RelDataType result = table.getRowType(TYPE_FACTORY);
+    assertThat(result.isStruct()).isTrue();
+    assertThat(result.getFieldList()).isEmpty();
   }
 
-  // --- helpers ---
+  @Test
+  public void tiersExposedCorrectly() {
+    Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
+    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("xinfra-tracking"));
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice"));
 
-  private LogicalTable tableWithSchema(String avroSchemaJson) {
-    V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
-    spec.setAvroSchema(avroSchemaJson);
-    return new LogicalTable("test", spec);
+    LogicalTable table = new LogicalTable("myTable", null, tiers);
+    assertThat(table.tiers()).containsKey("nearline");
+    assertThat(table.tiers()).containsKey("online");
+    assertThat(table.tiers().get("nearline").getDatabaseCrdName()).isEqualTo("xinfra-tracking");
   }
 }

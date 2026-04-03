@@ -1,16 +1,25 @@
 package com.linkedin.hoptimator.logical;
 
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
+import java.util.Properties;
 import javax.annotation.Nullable;
 
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.LazyReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,118 +29,155 @@ import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
+import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 
 
 /**
- * A Calcite schema that lists {@link LogicalTable} instances from K8s CRDs,
- * filtered to those whose tier key set matches the configured tier map.
+ * A Calcite schema that lists {@link LogicalTable} instances from K8s CRDs.
  *
- * <p>Implements {@link Database} so the operator can discover the schema name.
+ * <p>CRDs are filtered by the {@link #SCHEMA_LABEL} label, which the deployer sets to the
+ * database/schema name at creation time. For each matching CRD, the row type is resolved
+ * dynamically from the nearline physical tier's JDBC schema.
  */
 public class LogicalTableSchema extends AbstractSchema implements Database {
 
+  /** K8s label key used to identify which logical schema a CRD belongs to. */
+  public static final String SCHEMA_LABEL = "logical-database";
+
   private static final Logger log = LoggerFactory.getLogger(LogicalTableSchema.class);
 
-  /** Cache TTL in milliseconds (30 seconds). */
-  static final long CACHE_TTL_MS = 30_000L;
-
-  private final Map<String, String> tierFilter;
   private final K8sContext context;
-  private final String schemaName;
-
-  // Simple TTL cache
-  private volatile Map<String, Table> cachedTableMap = null;
-  private volatile long cacheTimestamp = 0L;
+  private final String databaseName;
   private final LazyReference<Lookup<Table>> tableLookup = new LazyReference<>();
 
-  /**
-   * @param tierFilter  tier name to Database CRD name map parsed from the JDBC URL;
-   *                    only CRDs whose tier key set equals this key set are included
-   * @param context     K8s context used to list LogicalTable CRDs
-   * @param schemaName  name this schema will be registered under (e.g. "LOGICAL")
-   */
-  public LogicalTableSchema(Map<String, String> tierFilter, K8sContext context, String schemaName) {
-    this.tierFilter = Collections.unmodifiableMap(new HashMap<>(tierFilter));
+  public LogicalTableSchema(Properties properties, K8sContext context, String databaseName) {
     this.context = context;
-    this.schemaName = schemaName;
+    this.databaseName = databaseName;
   }
 
   @Override
   public String databaseName() {
-    return schemaName;
+    return databaseName;
   }
 
   @Override
   public Lookup<Table> tables() {
-    // Invalidate lazy reference if cache is stale so that we re-query K8s.
-    // LazyReference doesn't support invalidation, so we use our own TTL cache
-    // and wrap it in a fresh LazyTableLookup each time tables() is called.
-    return new LazyTableLookup<Table>() {
+    return tableLookup.getOrCompute(() -> new LazyTableLookup<Table>() {
       @Override
       protected Map<String, Table> loadAllTables() throws Exception {
-        return getTableMapCached();
+        return loadTableMap();
       }
 
       @Override
       @Nullable
       protected Table loadTable(String name) throws Exception {
-        return getTableMapCached().get(name);
+        return loadTableMap().get(name);
       }
 
       @Override
       protected String getSchemaDescription() {
-        return "LogicalTableSchema(" + schemaName + ")";
+        return "LogicalTableSchema(" + databaseName + ")";
       }
-    };
+    });
   }
 
-  // Keep getTableMap() for compatibility with tests / callers that call it directly.
   @Override
   protected Map<String, Table> getTableMap() {
     try {
-      return getTableMapCached();
+      return loadTableMap();
     } catch (Exception e) {
-      log.warn("Failed to load logical tables for schema {}", schemaName, e);
+      log.warn("Failed to load logical tables for schema {}", databaseName, e);
       return Collections.emptyMap();
     }
   }
 
-  private Map<String, Table> getTableMapCached() throws SQLException {
-    long now = System.currentTimeMillis();
-    if (cachedTableMap != null && (now - cacheTimestamp) < CACHE_TTL_MS) {
-      return cachedTableMap;
-    }
-    Map<String, Table> fresh = loadTableMap();
-    cachedTableMap = fresh;
-    cacheTimestamp = now;
-    return fresh;
-  }
-
   private Map<String, Table> loadTableMap() throws SQLException {
-    Set<String> expectedTierKeys = tierFilter.keySet();
     Collection<V1alpha1LogicalTable> crds =
-        new K8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList>(context, K8sApiEndpoints.LOGICAL_TABLES)
-            .list();
+        new K8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList>(context, K8sApiEndpoints.LOGICAL_TABLES).list();
+    K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
+        new K8sApi<V1alpha1Database, V1alpha1DatabaseList>(context, K8sApiEndpoints.DATABASES);
 
     Map<String, Table> result = new HashMap<>();
     for (V1alpha1LogicalTable crd : crds) {
-      if (crd.getSpec() == null) {
+      if (crd.getMetadata() == null || crd.getSpec() == null) {
         continue;
       }
-      Map<?, ?> crdTiers = crd.getSpec().getTiers();
-      Set<?> crdTierKeys = (crdTiers == null) ? Collections.emptySet() : crdTiers.keySet();
-      if (!crdTierKeys.equals(expectedTierKeys)) {
-        continue; // tier set mismatch — belongs to a different flavor
-      }
-      String tableName = crd.getMetadata() != null ? crd.getMetadata().getName() : null;
-      if (tableName == null) {
+      // Filter by schema label.
+      Map<String, String> labels = crd.getMetadata().getLabels();
+      String label = labels != null ? labels.get(SCHEMA_LABEL) : null;
+      if (!databaseName.equalsIgnoreCase(label)) {
         continue;
       }
-      result.put(tableName, new LogicalTable(tableName, crd.getSpec()));
+
+      String tableName = crd.getMetadata().getName();
+      Map<String, V1alpha1LogicalTableSpecTiers> tiers = crd.getSpec().getTiers();
+
+      // Resolve row type from the physical tier (prefer nearline; fall back to first available).
+      RelDataType rowType = resolveRowType(tableName, tiers, dbApi);
+      result.put(tableName, new LogicalTable(tableName, rowType, tiers));
     }
-    log.debug("Loaded {} logical tables for schema {}", result.size(), schemaName);
+    log.debug("Loaded {} logical tables for schema {}", result.size(), databaseName);
     return Collections.unmodifiableMap(result);
+  }
+
+  /**
+   * Resolves the row type for a logical table by opening a JDBC connection to the
+   * preferred physical tier (nearline first, then any other tier) and navigating
+   * to the table in that schema.
+   *
+   * @return resolved row type, or {@code null} if resolution fails (table will show
+   *         with an empty schema rather than being hidden entirely)
+   */
+  @Nullable
+  private RelDataType resolveRowType(String tableName,
+      @Nullable Map<String, V1alpha1LogicalTableSpecTiers> tiers,
+      K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi) {
+    if (tiers == null || tiers.isEmpty()) {
+      return null;
+    }
+
+    // Prefer nearline as the schema source of truth; fall back to the first tier.
+    Map.Entry<String, V1alpha1LogicalTableSpecTiers> preferredEntry =
+        tiers.containsKey("nearline")
+            ? Map.entry("nearline", tiers.get("nearline"))
+            : tiers.entrySet().iterator().next();
+    V1alpha1LogicalTableSpecTiers tierBinding = preferredEntry.getValue();
+    if (tierBinding == null || tierBinding.getDatabaseCrdName() == null) {
+      return null;
+    }
+
+    String databaseCrdName = tierBinding.getDatabaseCrdName();
+    try {
+      V1alpha1Database dbCrd = dbApi.get(databaseCrdName);
+      if (dbCrd.getSpec() == null) {
+        return null;
+      }
+      String tierUrl = dbCrd.getSpec().getUrl();
+      String tierSchema = dbCrd.getSpec().getSchema();
+
+      try (Connection tierConn = DriverManager.getConnection(tierUrl)) {
+        CalciteConnection calciteConn = tierConn.unwrap(CalciteConnection.class);
+        SchemaPlus rootSchema = calciteConn.getRootSchema();
+        SchemaPlus schema = rootSchema.subSchemas().get(tierSchema);
+        if (schema == null) {
+          log.warn("Schema {} not found in tier {} for table {}", tierSchema, databaseCrdName, tableName);
+          return null;
+        }
+        RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+        Table tierTable = schema.tables().get(tableName);
+        if (tierTable == null) {
+          log.debug("Table {} not yet present in tier {} schema {}", tableName, databaseCrdName, tierSchema);
+          return null;
+        }
+        return tierTable.getRowType(typeFactory);
+      }
+    } catch (Exception e) {
+      log.warn("Could not resolve row type for table {} from tier {}: {}",
+          tableName, databaseCrdName, e.getMessage());
+      return null;
+    }
   }
 }

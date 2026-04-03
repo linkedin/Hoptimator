@@ -8,14 +8,16 @@ dependencies {
   implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
   implementation project(':hoptimator-k8s')
-  implementation project(':hoptimator-avro')
   implementation libs.calcite.core
-  implementation libs.avro
-  implementation libs.kubernetes.client
+  implementation libs.kubernetes.client  // Direct K8s API types used in deployer (V1ObjectMeta, V1OwnerReference)
   compileOnly libs.findbugs
+  // Note: tier-specific drivers (Kafka, Venice, etc.) are NOT compile dependencies.
+  // They are discovered at runtime via the DeployerProvider SPI (ServiceLoader).
+  // Add them as testRuntimeOnly in your application build if needed for integration tests.
 
   testImplementation libs.assertj
   testImplementation libs.commons.dbcp2
+  testImplementation(testFixtures(project(':hoptimator-k8s')))
 }
 
 publishing {

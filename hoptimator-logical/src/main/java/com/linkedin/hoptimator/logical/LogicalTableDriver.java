@@ -5,7 +5,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
-import java.util.Map;
 import java.util.Properties;
 
 import org.apache.calcite.avatica.ConnectStringParser;
@@ -58,9 +57,6 @@ public class LogicalTableDriver extends CalciteDriver {
     properties.putAll(props);
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
 
-    // Parse the tier map from the URL.
-    Map<String, String> tierMap = LogicalTableUrlParser.tierMap(url);
-
     // Determine the schema name from connection properties (set by the operator).
     String schemaName = properties.getProperty(SCHEMA_PROPERTY, DEFAULT_SCHEMA_NAME);
 
@@ -75,7 +71,7 @@ public class LogicalTableDriver extends CalciteDriver {
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
 
       K8sContext context = K8sContext.create(connection);
-      LogicalTableSchema logicalSchema = new LogicalTableSchema(tierMap, context, schemaName);
+      LogicalTableSchema logicalSchema = new LogicalTableSchema(properties, context, schemaName);
       rootSchema.add(schemaName, logicalSchema);
 
       return connection;

@@ -1,11 +1,12 @@
-package com.linkedin.hoptimator.k8s;
+package com.linkedin.hoptimator.logical;
 
 import java.sql.Connection;
+import java.util.Properties;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,19 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecPipelines;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 import com.linkedin.hoptimator.util.DeploymentService;
+import java.util.HashSet;
+import java.util.Set;
+
+import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.ThrowingFunction;
+
+import com.linkedin.hoptimator.k8s.K8sApi;
+import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.K8sPipelineCreator;
+import com.linkedin.hoptimator.k8s.K8sUtils;
 
 
 /**
@@ -41,9 +55,9 @@ import com.linkedin.hoptimator.util.DeploymentService;
  * it needs package-private access to {@link K8sPipelineDeployer} and
  * {@link K8sYamlDeployerImpl}.
  */
-class K8sLogicalTableDeployer implements Deployer {
+public class LogicalTableDeployer implements Deployer {
 
-  private static final Logger log = LoggerFactory.getLogger(K8sLogicalTableDeployer.class);
+  private static final Logger log = LoggerFactory.getLogger(LogicalTableDeployer.class);
 
   private final Source source;
   private final K8sContext context;
@@ -58,27 +72,35 @@ class K8sLogicalTableDeployer implements Deployer {
    */
   private final List<Deployer> pipelineDeployers = new ArrayList<>();
 
-  K8sLogicalTableDeployer(Source source, K8sContext context) {
+  private final Properties tierProps;
+
+  LogicalTableDeployer(Source source, Properties tierProps, K8sContext context) {
     this.source = source;
+    this.tierProps = tierProps;
     this.context = context;
-    this.logicalTableApi = new K8sApi<>(context, K8sApiEndpoints.LOGICAL_TABLES);
+    this.logicalTableApi = new K8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList>(context, K8sApiEndpoints.LOGICAL_TABLES);
   }
 
   @Override
   public void create() throws SQLException {
-    // 1. Parse tier map from source options (the logical DB URL)
-    String logicalUrl = source.options().getOrDefault("url", "");
-    Map<String, String> tierMap = parseTiers(logicalUrl);
+    // 1. Build tier map from injected Properties (parsed from the JDBC URL by the provider).
+    // Keys are tier names (e.g. "nearline", "online"), values are Database CRD names.
+    Map<String, String> tierMap = new LinkedHashMap<>();
+    for (String key : tierProps.stringPropertyNames()) {
+      if (!key.startsWith("pipeline.")) {
+        tierMap.put(key, tierProps.getProperty(key));
+      }
+    }
 
     if (tierMap.isEmpty()) {
-      throw new SQLException("No tiers defined in logical URL: " + logicalUrl);
+      throw new SQLException("No tiers defined in logical database properties for table " + source.table());
     }
 
     // 2. For each tier: open connection, create tier resource
     Map<String, Connection> tierConnections = new LinkedHashMap<>();
     Map<String, V1alpha1Database> tierDatabases = new LinkedHashMap<>();
     K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
-        new K8sApi<>(context, K8sApiEndpoints.DATABASES);
+        new K8sApi<V1alpha1Database, V1alpha1DatabaseList>(context, K8sApiEndpoints.DATABASES);
 
     try {
       for (Map.Entry<String, String> entry : tierMap.entrySet()) {
@@ -110,7 +132,6 @@ class K8sLogicalTableDeployer implements Deployer {
     // 3. Create the LogicalTable CRD
     String tableName = source.table();
     String crdName = K8sUtils.canonicalizeName(source.path());
-    String avroSchema = source.options().getOrDefault("avroSchema", "");
 
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
     for (Map.Entry<String, String> entry : tierMap.entrySet()) {
@@ -118,12 +139,14 @@ class K8sLogicalTableDeployer implements Deployer {
           new V1alpha1LogicalTableSpecTiers().databaseCrdName(entry.getValue()));
     }
     spec.pipelines(new ArrayList<>());
-    spec.avroSchema(avroSchema);
 
+    // Label the CRD with the schema name so LogicalTableSchema can filter by database.
+    String schemaLabel = source.schema() != null ? source.schema() : "LOGICAL";
     V1alpha1LogicalTable logicalTable = new V1alpha1LogicalTable()
         .kind(K8sApiEndpoints.LOGICAL_TABLES.kind())
         .apiVersion(K8sApiEndpoints.LOGICAL_TABLES.apiVersion())
-        .metadata(new V1ObjectMeta().name(crdName))
+        .metadata(new V1ObjectMeta().name(crdName)
+            .putLabelsItem(LogicalTableSchema.SCHEMA_LABEL, schemaLabel))
         .spec(spec);
 
     try {
@@ -142,8 +165,8 @@ class K8sLogicalTableDeployer implements Deployer {
       // If we can't get the reference, delete what we created and bail out
       try {
         logicalTableApi.delete(crdName);
-      } catch (SQLException ignore) {
-        // best-effort
+      } catch (SQLException deleteEx) {
+        log.warn("Failed to delete LogicalTable CRD {} during rollback: {}", crdName, deleteEx.getMessage());
       }
       rollbackTierDeployers();
       closeConnections(tierConnections);
@@ -172,8 +195,8 @@ class K8sLogicalTableDeployer implements Deployer {
       rollbackPipelineDeployers();
       try {
         logicalTableApi.delete(crdName);
-      } catch (SQLException ignore) {
-        // best-effort
+      } catch (SQLException deleteEx) {
+        log.warn("Failed to delete LogicalTable CRD {} during pipeline rollback: {}", crdName, deleteEx.getMessage());
       }
       rollbackTierDeployers();
       closeConnections(tierConnections);
@@ -197,47 +220,103 @@ class K8sLogicalTableDeployer implements Deployer {
 
   @Override
   public void update() throws SQLException {
-    // Update is not yet implemented; re-create is the current strategy
-    create();
+    // Parse tier map from injected Properties.
+    Map<String, String> tierMap = new LinkedHashMap<>();
+    for (String key : tierProps.stringPropertyNames()) {
+      if (!key.startsWith("pipeline.")) {
+        tierMap.put(key, tierProps.getProperty(key));
+      }
+    }
+    if (tierMap.isEmpty()) {
+      throw new SQLException("No tiers defined in logical database properties for table " + source.table());
+    }
+
+    // Update physical tier resources (compatibility checks happen inside each tier deployer).
+    Map<String, Connection> tierConnections = new LinkedHashMap<>();
+    Map<String, V1alpha1Database> tierDatabases = new LinkedHashMap<>();
+    K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
+        new K8sApi<V1alpha1Database, V1alpha1DatabaseList>(context, K8sApiEndpoints.DATABASES);
+
+    try {
+      for (Map.Entry<String, String> entry : tierMap.entrySet()) {
+        String tierName = entry.getKey();
+        String databaseCrdName = entry.getValue();
+        log.info("Updating tier {} (database CRD: {}) for table {}", tierName, databaseCrdName, source.table());
+
+        V1alpha1Database dbCrd = dbApi.get(databaseCrdName);
+        tierDatabases.put(tierName, dbCrd);
+        Connection tierConn = DriverManager.getConnection(dbCrd.getSpec().getUrl());
+        tierConnections.put(tierName, tierConn);
+
+        Source tierSource = new Source(databaseCrdName, source.path(), source.options());
+        Collection<Deployer> deployers = DeploymentService.deployers(tierSource, tierConn);
+        for (Deployer deployer : deployers) {
+          deployer.update();
+          tierDeployers.add(deployer);
+        }
+      }
+    } catch (Exception e) {
+      rollbackTierDeployers();
+      closeConnections(tierConnections);
+      throw toSqlException("Failed to update tier resources", e);
+    }
+
+    // Update implicit pipelines via K8sPipelineCreator.update() which calls
+    // K8sPipelineDeployer.updateAndReference() — same as K8sMaterializedViewDeployer.updatePipelineWithOwner().
+    String tableName = source.table();
+    String crdName = K8sUtils.canonicalizeName(source.path());
+
+    // Re-read the existing LogicalTable CRD to get its owner reference.
+    V1alpha1LogicalTable existingCrd;
+    try {
+      existingCrd = logicalTableApi.get(crdName);
+    } catch (SQLException e) {
+      log.warn("LogicalTable CRD {} not found during update; treating as create", crdName);
+      create();
+      return;
+    }
+
+    K8sContext ownerContext = context.withOwner(logicalTableApi.reference(existingCrd));
+
+    try {
+      if (tierMap.containsKey("nearline") && tierMap.containsKey("online")) {
+        String pipelineName = "logical-" + K8sUtils.canonicalizeName(tableName) + "-nearline-to-online";
+        List<String> pipelineSpecs = buildPipelineSpecs("nearline", "online",
+            tierMap, tierDatabases, tierConnections);
+        String sql = buildPipelineSql(
+            tierDatabases.get("nearline").getSpec().getSchema(),
+            tierDatabases.get("online").getSpec().getSchema(),
+            tableName);
+        K8sPipelineCreator creator = new K8sPipelineCreator(pipelineName, pipelineSpecs, sql, ownerContext);
+        pipelineDeployers.add(creator);
+        creator.update();
+      }
+      if (tierMap.containsKey("nearline") && tierMap.containsKey("offline")) {
+        log.info("Kyoto integration (nearline->offline) pending; skipping pipeline update for {}", tableName);
+      }
+    } catch (Exception e) {
+      rollbackPipelineDeployers();
+      rollbackTierDeployers();
+      closeConnections(tierConnections);
+      throw toSqlException("Failed to update implicit pipeline", e);
+    }
+
+    closeConnections(tierConnections);
   }
 
   @Override
   public void delete() throws SQLException {
-    String crdName = K8sUtils.canonicalizeName(source.path());
-    K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
-        new K8sApi<>(context, K8sApiEndpoints.DATABASES);
-
-    // Read the LogicalTable CRD to recover tier bindings
-    V1alpha1LogicalTable logicalTable;
-    try {
-      logicalTable = logicalTableApi.get(crdName);
-    } catch (SQLException e) {
-      log.warn("LogicalTable CRD {} not found during delete; skipping tier cleanup", crdName);
-      return;
-    }
-
-    if (logicalTable.getSpec() != null && logicalTable.getSpec().getTiers() != null) {
-      for (Map.Entry<String, V1alpha1LogicalTableSpecTiers> entry
-          : logicalTable.getSpec().getTiers().entrySet()) {
-        String databaseCrdName = entry.getValue().getDatabaseCrdName();
-        try {
-          V1alpha1Database dbCrd = dbApi.get(databaseCrdName);
-          Connection tierConn = DriverManager.getConnection(dbCrd.getSpec().getUrl());
-          Source tierSource = new Source(databaseCrdName, source.path(), source.options());
-          Collection<Deployer> deployers = DeploymentService.deployers(tierSource, tierConn);
-          for (Deployer deployer : deployers) {
-            deployer.delete();
-          }
-          tierConn.close();
-        } catch (Exception e) {
-          log.warn("Failed to delete tier {} resources for table {}: {}",
-              entry.getKey(), crdName, e.getMessage());
-        }
-      }
-    }
-
-    // Delete the LogicalTable CRD; K8s cascade GC removes owned Pipeline CRDs
-    logicalTableApi.delete(crdName);
+    // TODO: Implement safe logical table deletion.
+    // Deletion is not yet supported because we cannot guarantee the logical table
+    // is not currently referenced by an existing pipeline (e.g. a CREATE MATERIALIZED VIEW
+    // that reads from this table). Deleting physical tier resources under an active pipeline
+    // would cause data loss and pipeline failures.
+    // Resolution: check for dependent pipelines in the K8s namespace before allowing deletion,
+    // and block or warn if any are found.
+    throw new SQLFeatureNotSupportedException(
+        "DROP TABLE on logical tables is not yet supported. "
+        + "Cannot safely delete physical tier resources without verifying no active pipelines "
+        + "depend on this table. See TODO in LogicalTableDeployer.delete().");
   }
 
   @Override
@@ -262,11 +341,15 @@ class K8sLogicalTableDeployer implements Deployer {
   @Override
   public List<String> specify() throws SQLException {
     List<String> specs = new ArrayList<>();
-    String logicalUrl = source.options().getOrDefault("url", "");
-    Map<String, String> tierMap = parseTiers(logicalUrl);
+    Map<String, String> tierMap = new LinkedHashMap<>();
+    for (String key : tierProps.stringPropertyNames()) {
+      if (!key.startsWith("pipeline.")) {
+        tierMap.put(key, tierProps.getProperty(key));
+      }
+    }
 
     K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
-        new K8sApi<>(context, K8sApiEndpoints.DATABASES);
+        new K8sApi<V1alpha1Database, V1alpha1DatabaseList>(context, K8sApiEndpoints.DATABASES);
 
     for (Map.Entry<String, String> entry : tierMap.entrySet()) {
       String databaseCrdName = entry.getValue();
@@ -285,42 +368,6 @@ class K8sLogicalTableDeployer implements Deployer {
 
   // --- Private helpers ---
 
-  /**
-   * Parses a {@code jdbc:logical://} URL into a tier map.
-   *
-   * <p>Mirrors {@code LogicalTableUrlParser.tiers()} from {@code hoptimator-logical}. The logic
-   * is duplicated here to avoid a circular module dependency (hoptimator-k8s cannot depend on
-   * hoptimator-logical because hoptimator-logical depends on hoptimator-k8s).
-   */
-  private Map<String, String> parseTiers(String url) {
-    if (url == null || url.isEmpty()) {
-      return Collections.emptyMap();
-    }
-    String prefix = "jdbc:logical://";
-    if (!url.startsWith(prefix)) {
-      log.warn("Not a logical URL (expected jdbc:logical://): {}", url);
-      return Collections.emptyMap();
-    }
-    String params = url.substring(prefix.length());
-    Map<String, String> tiers = new LinkedHashMap<>();
-    for (String rawSegment : params.split(";")) {
-      String segment = rawSegment.trim();
-      if (segment.isEmpty()) {
-        continue;
-      }
-      int eq = segment.indexOf('=');
-      if (eq < 0) {
-        continue;
-      }
-      String key = segment.substring(0, eq).trim();
-      String value = segment.substring(eq + 1).trim();
-      // Skip pipeline.* overrides; only tier keys go into the tiers map
-      if (!key.startsWith("pipeline.")) {
-        tiers.put(key, value);
-      }
-    }
-    return Collections.unmodifiableMap(tiers);
-  }
 
   /**
    * Creates a single implicit Pipeline CRD (fromTier to toTier) and returns the record for it.
@@ -351,27 +398,30 @@ class K8sLogicalTableDeployer implements Deployer {
     Source fromSource = new Source(fromCrdName, source.path(), source.options());
     Source toSource = new Source(toCrdName, source.path(), source.options());
 
+    String sql = buildPipelineSql(sourceSchema, sinkSchema, tableName);
+    String pipelineName = "logical-" + K8sUtils.canonicalizeName(tableName) + "-" + fromTier + "-to-" + toTier;
+
+    // Build source + sink connector YAML specs from TableTemplates.
     List<String> pipelineSpecs = new ArrayList<>();
     pipelineSpecs.addAll(DeploymentService.specify(fromSource, fromConn));
     pipelineSpecs.addAll(DeploymentService.specify(toSource, toConn));
 
-    // Generate SQL: INSERT INTO `sinkSchema`.`table` SELECT * FROM `sourceSchema`.`table`
-    String sql = buildPipelineSql(sourceSchema, sinkSchema, tableName);
+    // Build job YAML specs from JobTemplates (e.g. FlinkSessionJob) for the sink tier.
+    // The Job object carries the SQL and sink info needed for JobTemplate rendering.
+    Sink sinkObj = new Sink(toCrdName, source.path(), source.options());
+    Set<Source> sourcesSet = new HashSet<>();
+    sourcesSet.add(fromSource);
+    ThrowingFunction<SqlDialect, String> sqlFn = dialect -> sql;
+    ThrowingFunction<SqlDialect, String> queryFn =
+        dialect -> "SELECT * FROM `" + sourceSchema + "`.`" + tableName + "`";
+    ThrowingFunction<SqlDialect, String> fieldMapFn = dialect -> "{}";
+    Job job = new Job(pipelineName, sourcesSet, sinkObj,
+        java.util.Map.of("sql", sqlFn, "query", queryFn, "fieldMap", fieldMapFn));
+    pipelineSpecs.addAll(DeploymentService.specify(job, context.connection()));
 
-    // Pipeline name uses double underscore prefix to avoid accidental user collisions
-    // K8s names must be [a-z0-9-]+ — "logical-" prefix distinguishes system-managed pipelines.
-    String pipelineName = "logical-" + K8sUtils.canonicalizeName(tableName) + "-" + fromTier + "-to-" + toTier;
-
-    // Use K8sPipelineDeployer directly (package-private) to create the Pipeline CRD
-    // owned by the LogicalTable CRD. Then create the YAML child resources.
-    K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(pipelineName, pipelineSpecs, sql, ownerContext);
-    pipelineDeployers.add(pipelineDeployer);
-    V1OwnerReference pipelineRef = pipelineDeployer.createAndReference();
-
-    K8sContext pipelineContext = ownerContext.withLabel("pipeline", pipelineName).withOwner(pipelineRef);
-    K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
-    pipelineDeployers.add(yamlDeployer);
-    yamlDeployer.update();  // update, since some elements may already exist
+    K8sPipelineCreator pipelineCreator = new K8sPipelineCreator(pipelineName, pipelineSpecs, sql, ownerContext);
+    pipelineDeployers.add(pipelineCreator);
+    pipelineCreator.create();
 
     return new V1alpha1LogicalTableSpecPipelines()
         .name(pipelineName)
@@ -379,6 +429,22 @@ class K8sLogicalTableDeployer implements Deployer {
         .fromTier(fromTier)
         .toTier(toTier);
   }
+
+  private List<String> buildPipelineSpecs(String fromTier, String toTier,
+      Map<String, String> tierMap, Map<String, V1alpha1Database> tierDatabases,
+      Map<String, Connection> tierConnections) throws SQLException {
+    String fromCrdName = tierMap.get(fromTier);
+    String toCrdName = tierMap.get(toTier);
+    Connection fromConn = tierConnections.get(fromTier);
+    Connection toConn = tierConnections.get(toTier);
+    Source fromSource = new Source(fromCrdName, source.path(), source.options());
+    Source toSource = new Source(toCrdName, source.path(), source.options());
+    List<String> specs = new ArrayList<>();
+    specs.addAll(DeploymentService.specify(fromSource, fromConn));
+    specs.addAll(DeploymentService.specify(toSource, toConn));
+    return specs;
+  }
+
 
   private static String buildPipelineSql(String sourceSchema, String sinkSchema, String tableName) {
     return String.format(
