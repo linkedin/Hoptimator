@@ -44,6 +44,7 @@ deploy-demo: deploy
 	kubectl apply -f ./deploy/samples/retl-job-template.yaml
 	kubectl apply -f ./deploy/samples/crontrigger.yaml
 	kubectl apply -f ./deploy/samples/user-jobs.yaml
+	kubectl apply -f ./deploy/samples/table-provisioning-job-template.yaml
 
 undeploy-demo: undeploy
 	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"

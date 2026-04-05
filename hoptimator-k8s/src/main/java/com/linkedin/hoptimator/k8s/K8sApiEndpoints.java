@@ -17,6 +17,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableProvisionJob;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableProvisionJobList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
@@ -58,6 +60,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1JobTemplate, V1alpha1JobTemplateList> JOB_TEMPLATES =
       new K8sApiEndpoint<>("JobTemplate", "hoptimator.linkedin.com", "v1alpha1", "jobtemplates", false,
           V1alpha1JobTemplate.class, V1alpha1JobTemplateList.class);
+  public static final K8sApiEndpoint<V1alpha1TableProvisionJob, V1alpha1TableProvisionJobList> TABLE_PROVISION_JOBS =
+      new K8sApiEndpoint<>("TableProvisionJob", "hoptimator.linkedin.com", "v1alpha1",
+          "tableprovisionjobs", false, V1alpha1TableProvisionJob.class, V1alpha1TableProvisionJobList.class);
   public static final K8sApiEndpoint<V1alpha1TableTrigger, V1alpha1TableTriggerList> TABLE_TRIGGERS =
       new K8sApiEndpoint<>("TableTrigger", "hoptimator.linkedin.com", "v1alpha1", "tabletriggers", false,
           V1alpha1TableTrigger.class, V1alpha1TableTriggerList.class);
