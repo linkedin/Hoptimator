@@ -10,13 +10,15 @@ import com.linkedin.hoptimator.Deployer;
 
 
 /**
- * Creates or updates a Pipeline CRD with its child YAML elements, owned by an
- * externally provided owner reference (e.g. a LogicalTable or View CRD).
+ * Deploys a Pipeline CRD together with its YAML elements (e.g. SqlJob), owned by an
+ * externally provided owner (such as a LogicalTable CRD rather than a View CRD).
  *
- * <p>This is the public API for pipeline creation that can be called from outside
- * the {@code hoptimator-k8s} package (e.g. from {@code hoptimator-logical}).
+ * <p>Unlike {@link K8sPipelineDeployer} which only creates the Pipeline CRD record,
+ * this class creates both the Pipeline CRD and the child YAML elements as a bundle.
+ * The Pipeline CRD's K8s ownerReference points to whatever external resource is passed
+ * via {@code ownerContext}.
  */
-public class K8sPipelineCreator implements Deployer {
+public class K8sPipelineBundle implements Deployer {
 
   private final String name;
   private final List<String> pipelineSpecs;
@@ -24,7 +26,7 @@ public class K8sPipelineCreator implements Deployer {
   private final K8sContext ownerContext;
   private final List<Deployer> deployers = new ArrayList<>();
 
-  public K8sPipelineCreator(String name, List<String> pipelineSpecs, String sql,
+  public K8sPipelineBundle(String name, List<String> pipelineSpecs, String sql,
       K8sContext ownerContext) {
     this.name = name;
     this.pipelineSpecs = pipelineSpecs;
@@ -55,15 +57,18 @@ public class K8sPipelineCreator implements Deployer {
   }
 
   @Override
-  public void restore() {
-    for (int i = deployers.size() - 1; i >= 0; i--) {
-      deployers.get(i).restore();
-    }
+  public void delete() throws SQLException {
+    // Deleting the Pipeline CRD causes K8s to cascade-delete its owned YAML elements.
+    new K8sPipelineDeployer(name, pipelineSpecs, sql, ownerContext).delete();
   }
 
   @Override
-  public void delete() throws SQLException {
-    restore();
+  public void restore() {
+    // Restore each deployer; no strict ordering required since the Pipeline CRD
+    // cascade-deletes its owned elements on removal.
+    for (Deployer deployer : deployers) {
+      deployer.restore();
+    }
   }
 
   @Override

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 public class LogicalTableSchemaTest {
 
-  // Mirror of LogicalTableSchema.loadTableMap() filtering without K8s call.
+  // Mirror of LogicalTableSchema.tableFromCrd filtering logic without K8s call.
   private static Map<String, Table> filterCrds(String databaseName,
       Collection<V1alpha1LogicalTable> crds) {
     Map<String, Table> result = new HashMap<>();
@@ -38,8 +39,11 @@ public class LogicalTableSchemaTest {
       if (!databaseName.equalsIgnoreCase(label)) {
         continue;
       }
+      if (crd.getSpec().getTiers() == null || crd.getSpec().getTiers().isEmpty()) {
+        continue;
+      }
       String tableName = crd.getMetadata().getName();
-      result.put(tableName, new LogicalTable(tableName, crd.getSpec()));
+      result.put(tableName, new LogicalTable(tableName, crd.getSpec().getTiers(), null, null));
     }
     return Collections.unmodifiableMap(result);
   }
@@ -51,7 +55,11 @@ public class LogicalTableSchemaTest {
       meta.putLabelsItem(LogicalTableSchema.SCHEMA_LABEL, schemaLabel);
     }
     crd.setMetadata(meta);
-    crd.setSpec(new V1alpha1LogicalTableSpec());
+    V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
+    // Add a minimal tier so the CRD passes tiers validation
+    spec.putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("kafka-database"));
+    spec.putTiersItem("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice"));
+    crd.setSpec(spec);
     return crd;
   }
 

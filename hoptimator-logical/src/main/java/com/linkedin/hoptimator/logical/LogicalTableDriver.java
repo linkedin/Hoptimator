@@ -31,6 +31,8 @@ public class LogicalTableDriver extends CalciteDriver {
   public static final String CONNECT_STRING_PREFIX = "jdbc:logical://";
   static final String SCHEMA_PROPERTY = "schema";
   static final String DEFAULT_SCHEMA_NAME = "LOGICAL";
+  /** Connection property that hints which tier to resolve for pipeline planning (e.g. "nearline", "online"). */
+  public static final String TIER_PROPERTY = "tier";
 
   static {
     new LogicalTableDriver().register();
