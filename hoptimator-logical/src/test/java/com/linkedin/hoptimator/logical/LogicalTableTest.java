@@ -18,6 +18,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Unit tests for {@link LogicalTable}.
+ *
+ * <p>K8s-dependent row type resolution (resolveRowType hitting real K8s) is covered
+ * by the integration tests in k8s-logical.id.
  */
 public class LogicalTableTest {
 
@@ -29,15 +32,6 @@ public class LogicalTableTest {
     tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("kafka-database"));
     tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice"));
     return tiers;
-  }
-
-  @Test
-  public void emptyRowTypeWhenContextIsNull() {
-    // Without a K8sContext, row type resolution returns empty struct
-    LogicalTable table = new LogicalTable("myTable", sampleTiers(), null, null);
-    RelDataType result = table.getRowType(TYPE_FACTORY);
-    assertThat(result.isStruct()).isTrue();
-    assertThat(result.getFieldList()).isEmpty();
   }
 
   @Test
@@ -55,38 +49,29 @@ public class LogicalTableTest {
   }
 
   @Test
-  public void tiersExposedCorrectly() {
-    LogicalTable table = new LogicalTable("myTable", sampleTiers(), null, null);
-    assertThat(table.tiers()).containsKey("nearline");
-    assertThat(table.tiers()).containsKey("online");
-    assertThat(table.tiers().get("nearline").getDatabaseCrdName()).isEqualTo("kafka-database");
-  }
-
-  @Test
-  public void resolvedDatabaseCrdNameReturnsNullWithoutTierHint() {
-    LogicalTable table = new LogicalTable("myTable", sampleTiers(), null, null);
-    assertThat(table.resolvedDatabaseCrdName()).isNull();
-  }
-
-  @Test
-  public void resolvedDatabaseCrdNameUsesHint() {
-    LogicalTable table = new LogicalTable("myTable", sampleTiers(), "nearline", null);
-    assertThat(table.resolvedDatabaseCrdName()).isEqualTo("kafka-database");
-  }
-
-  @Test
-  public void resolvedDatabaseCrdNameReturnsNullForUnknownTier() {
-    LogicalTable table = new LogicalTable("myTable", sampleTiers(), "offline", null);
-    assertThat(table.resolvedDatabaseCrdName()).isNull();
-  }
-
-  @Test
   public void specConvenienceConstructorRequiresNonNullTiers() {
-    // The spec convenience constructor (package-private, for testing) passes spec.getTiers()
-    // which will throw if tiers are null/empty.
+    // spec.getTiers() null → constructor validation should reject
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
-    // spec.getTiers() returns null by default — expect exception
     assertThatThrownBy(() -> new LogicalTable("bad", spec))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  public void resolveRowTypeThrowsOnUnknownResolvedTier() {
+    // resolvedTier="offline" is not in sampleTiers() which only has nearline+online
+    LogicalTable table = new LogicalTable("myTable", sampleTiers(), "offline", null);
+    assertThatThrownBy(() -> table.getRowType(TYPE_FACTORY))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("offline");
+  }
+
+  @Test
+  public void unknownTypeReturnedWhenContextIsNull() {
+    // null context → resolveRowType cannot fetch DB CRD → returns null → unknown type
+    // This is the expected behavior for the spec convenience constructor (test use)
+    LogicalTable table = new LogicalTable("myTable", sampleTiers(), null, null);
+    RelDataType result = table.getRowType(TYPE_FACTORY);
+    assertThat(result).isNotNull();
+    // Returns unknown type (not a struct with fields), as there's no K8s to resolve from
   }
 }

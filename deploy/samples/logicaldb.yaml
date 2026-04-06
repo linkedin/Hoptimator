@@ -1,6 +1,6 @@
 # Sample logical database configuration for local development.
 #
-# This defines a "standard" logical table flavor: nearline (Kafka) + online (Venice).
+# This defines a logical table consisting of: nearline (Kafka) + online (Venice).
 # The tier=nearline hint tells the schema to resolve tables to their Kafka connector
 # config when used in a Flink streaming pipeline context.
 #

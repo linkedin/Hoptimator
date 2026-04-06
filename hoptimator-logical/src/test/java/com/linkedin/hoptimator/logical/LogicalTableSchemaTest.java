@@ -35,7 +35,7 @@ public class LogicalTableSchemaTest {
         continue;
       }
       Map<String, String> labels = crd.getMetadata().getLabels();
-      String label = labels != null ? labels.get(LogicalTableSchema.SCHEMA_LABEL) : null;
+      String label = labels != null ? labels.get(LogicalTableDriver.DATABASE_LABEL) : null;
       if (!databaseName.equalsIgnoreCase(label)) {
         continue;
       }
@@ -52,7 +52,7 @@ public class LogicalTableSchemaTest {
     V1alpha1LogicalTable crd = new V1alpha1LogicalTable();
     V1ObjectMeta meta = new V1ObjectMeta().name(name);
     if (schemaLabel != null) {
-      meta.putLabelsItem(LogicalTableSchema.SCHEMA_LABEL, schemaLabel);
+      meta.putLabelsItem(LogicalTableDriver.DATABASE_LABEL, schemaLabel);
     }
     crd.setMetadata(meta);
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
@@ -109,7 +109,7 @@ public class LogicalTableSchemaTest {
   public void crdWithNullSpecIsSkipped() {
     V1alpha1LogicalTable noSpec = new V1alpha1LogicalTable();
     noSpec.setMetadata(new V1ObjectMeta().name("broken")
-        .putLabelsItem(LogicalTableSchema.SCHEMA_LABEL, "LOGICAL"));
+        .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, "LOGICAL"));
     // spec is null
     Map<String, Table> result = filterCrds("LOGICAL", Arrays.asList(noSpec));
     assertThat(result).isEmpty();

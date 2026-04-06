@@ -22,20 +22,18 @@ import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
 
 
 /**
  * A Calcite schema that lists {@link LogicalTable} instances from K8s CRDs.
  *
- * <p>CRDs are filtered by the {@link LogicalTable#SCHEMA_LABEL} label, which the deployer
+ * <p>CRDs are filtered by the {@link LogicalTableSchema#LogicalTableDriver.DATABASE_LABEL} label, which the deployer
  * sets to the database/schema name at creation time. Row type resolution is performed
  * lazily inside each {@link LogicalTable} on first access — not eagerly here.
  */
 public class LogicalTableSchema extends AbstractSchema implements Database {
 
-  /** K8s label key used to identify which logical schema a CRD belongs to. */
-  public static final String SCHEMA_LABEL = "logical-database";
+  /** @see LogicalTableDriver#LogicalTableDriver.DATABASE_LABEL */
 
   private static final Logger log = LoggerFactory.getLogger(LogicalTableSchema.class);
 
@@ -58,7 +56,7 @@ public class LogicalTableSchema extends AbstractSchema implements Database {
 
   @Override
   public Lookup<Table> tables() {
-    return tableLookup.getOrCompute(() -> new LazyTableLookup<Table>() {
+    return tableLookup.getOrCompute(() -> new LazyTableLookup<>() {
       @Override
       protected Map<String, Table> loadAllTables() throws Exception {
         return loadTableMap();
@@ -71,8 +69,7 @@ public class LogicalTableSchema extends AbstractSchema implements Database {
         // avoiding a full list scan for single-table access.
         String expectedCrdName = K8sUtils.canonicalizeName(databaseName, name);
         try {
-          V1alpha1LogicalTable crd = new K8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList>(
-              context, K8sApiEndpoints.LOGICAL_TABLES).get(expectedCrdName);
+          V1alpha1LogicalTable crd = new K8sApi<>(context, K8sApiEndpoints.LOGICAL_TABLES).get(expectedCrdName);
           return tableFromCrd(crd);
         } catch (Exception e) {
           log.debug("LogicalTable CRD {} not found for table {}: {}", expectedCrdName, name, e.getMessage());
@@ -98,9 +95,7 @@ public class LogicalTableSchema extends AbstractSchema implements Database {
   }
 
   private Map<String, Table> loadTableMap() throws SQLException {
-    Collection<V1alpha1LogicalTable> crds =
-        new K8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList>(
-            context, K8sApiEndpoints.LOGICAL_TABLES).list();
+    Collection<V1alpha1LogicalTable> crds = new K8sApi<>(context, K8sApiEndpoints.LOGICAL_TABLES).list();
 
     Map<String, Table> result = new HashMap<>();
     for (V1alpha1LogicalTable crd : crds) {
@@ -120,7 +115,7 @@ public class LogicalTableSchema extends AbstractSchema implements Database {
       return null;
     }
     Map<String, String> labels = crd.getMetadata().getLabels();
-    String label = labels != null ? labels.get(SCHEMA_LABEL) : null;
+    String label = labels != null ? labels.get(LogicalTableDriver.DATABASE_LABEL) : null;
     if (!databaseName.equalsIgnoreCase(label)) {
       return null;
     }

@@ -10,8 +10,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
+import com.linkedin.hoptimator.util.planner.PipelineRel;
+import org.apache.calcite.rel.RelRoot;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,6 +20,8 @@ import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.Validated;
+import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
@@ -47,7 +50,7 @@ import com.linkedin.hoptimator.util.DeploymentService;
  *   <li>Creating implicit inter-tier Pipeline CRDs owned by the LogicalTable CRD.</li>
  * </ol>
  */
-public class LogicalTableDeployer implements Deployer {
+public class LogicalTableDeployer implements Deployer, Validated {
 
   private static final Logger log = LoggerFactory.getLogger(LogicalTableDeployer.class);
 
@@ -55,7 +58,7 @@ public class LogicalTableDeployer implements Deployer {
    * The set of tier names that this deployer recognises in the JDBC URL properties.
    * Only these keys are treated as tier declarations; all other properties are ignored.
    */
-  static final Set<String> SUPPORTED_TIERS = Set.of("nearline", "offline", "online");
+
 
   private final Source source;
   private final Properties tierProps;
@@ -65,55 +68,89 @@ public class LogicalTableDeployer implements Deployer {
   private final List<Deployer> tierDeployers = new ArrayList<>();
   private final List<K8sPipelineBundle> pipelineDeployers = new ArrayList<>();
 
+  // Cached state built during validate() and reused in create()/update().
+  // If validate() was not called, deployAll() builds these on demand.
+  private Map<String, String> cachedTierMap;
+  private Map<String, Connection> cachedTierConnections;
+  private Map<String, V1alpha1Database> cachedTierDatabases;
+
   LogicalTableDeployer(Source source, Properties tierProps, K8sContext context) {
     this.source = source;
     this.tierProps = tierProps;
     this.context = context;
-    this.logicalTableApi = new K8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList>(
-        context, K8sApiEndpoints.LOGICAL_TABLES);
+    this.logicalTableApi = new K8sApi<>(context, K8sApiEndpoints.LOGICAL_TABLES);
   }
 
+  /**
+   * Validates the logical table configuration and any existing tier resources.
+   * Builds and caches tier connections and deployers for reuse in create()/update().
+   *
+   * <p>Called by {@link com.linkedin.hoptimator.util.ValidationService} before deployment.
+   */
   @Override
-  public void create() throws SQLException {
-    Map<String, String> tierMap = buildTierMap();
-    Map<String, Connection> tierConnections = openTierConnections(tierMap);
+  public void validate(Validator.Issues issues) {
     try {
-      Map<String, V1alpha1Database> tierDatabases = resolveTierDatabases(tierMap);
-      deployTierResources(tierMap, tierDatabases, tierConnections, false);
-      V1OwnerReference ownerRef = createLogicalTableCrd(tierMap);
-      deployImplicitPipelines(tierMap, tierDatabases, tierConnections,
-          context.withOwner(ownerRef), false);
-    } catch (Exception e) {
-      restore();
-      throw toSqlException("Failed to create logical table " + source.table(), e);
-    } finally {
-      closeConnections(tierConnections);
+      cachedTierMap = buildTierMap();
+      cachedTierConnections = openTierConnections(cachedTierMap);
+      cachedTierDatabases = resolveTierDatabases(cachedTierMap);
+      // Validate each tier deployer (e.g. Venice checks key schema compatibility).
+      for (Map.Entry<String, String> entry : cachedTierMap.entrySet()) {
+        String databaseCrdName = entry.getValue();
+        Connection tierConn = cachedTierConnections.get(entry.getKey());
+        Source tierSource = new Source(databaseCrdName, source.path(), source.options());
+        Collection<Deployer> deployers = DeploymentService.deployers(tierSource, tierConn);
+        for (Deployer deployer : deployers) {
+          if (deployer instanceof Validated) {
+            ((Validated) deployer).validate(issues);
+          }
+        }
+      }
+    } catch (SQLException e) {
+      issues.error("Logical table '" + source.table() + "' validation failed: " + e.getMessage());
     }
   }
 
   @Override
-  public void update() throws SQLException {
-    Map<String, String> tierMap = buildTierMap();
-    Map<String, Connection> tierConnections = openTierConnections(tierMap);
-    try {
-      Map<String, V1alpha1Database> tierDatabases = resolveTierDatabases(tierMap);
-      deployTierResources(tierMap, tierDatabases, tierConnections, true);
+  public void create() throws SQLException {
+    deployAll(false);
+  }
 
-      // Re-read the existing LogicalTable CRD to get its owner reference for pipeline updates.
-      String crdName = K8sUtils.canonicalizeName(source.path());
-      V1alpha1LogicalTable existingCrd;
-      try {
-        existingCrd = logicalTableApi.get(crdName);
-      } catch (SQLException e) {
-        log.warn("LogicalTable CRD {} not found during update; falling back to create", crdName);
-        create();
-        return;
+  @Override
+  public void update() throws SQLException {
+    deployAll(true);
+  }
+
+  /**
+   * Core create/update logic. When {@code update} is false, creates new resources; when true,
+   * updates existing ones. Both paths share the same tier setup and pipeline deployment flow.
+   */
+  private void deployAll(boolean update) throws SQLException {
+    // Reuse cached state from validate() if available; build on demand otherwise.
+    Map<String, String> tierMap = cachedTierMap != null ? cachedTierMap : buildTierMap();
+    Map<String, Connection> tierConnections =
+        cachedTierConnections != null ? cachedTierConnections : openTierConnections(tierMap);
+    try {
+      Map<String, V1alpha1Database> tierDatabases = cachedTierDatabases != null ? cachedTierDatabases : resolveTierDatabases(tierMap);
+      deployTierResources(tierMap, tierConnections, update);
+
+      K8sContext ownerContext;
+      if (update) {
+        String crdName = K8sUtils.canonicalizeName(source.path());
+        V1alpha1LogicalTable existingCrd = logicalTableApi.getIfExists(
+            context.namespace(), crdName);
+        if (existingCrd == null) {
+          log.info("LogicalTable CRD {} not found during update; creating instead", crdName);
+          ownerContext = context.withOwner(createLogicalTableCrd(tierMap));
+        } else {
+          ownerContext = context.withOwner(logicalTableApi.reference(existingCrd));
+        }
+      } else {
+        ownerContext = context.withOwner(createLogicalTableCrd(tierMap));
       }
-      deployImplicitPipelines(tierMap, tierDatabases, tierConnections,
-          context.withOwner(logicalTableApi.reference(existingCrd)), true);
+      deployImplicitPipelines(tierMap, tierDatabases, tierConnections, ownerContext, update);
     } catch (Exception e) {
-      restore();
-      throw toSqlException("Failed to update logical table " + source.table(), e);
+      throw toSqlException((update ? "Failed to update" : "Failed to create")
+          + " logical table " + source.table(), e);
     } finally {
       closeConnections(tierConnections);
     }
@@ -153,18 +190,12 @@ public class LogicalTableDeployer implements Deployer {
   // ─── Private helpers ────────────────────────────────────────────────────────
 
   /** Builds the tier map from the connection properties, restricted to {@link #SUPPORTED_TIERS}. */
-  private Map<String, String> buildTierMap() throws SQLException {
+  private Map<String, String> buildTierMap() {
     Map<String, String> tierMap = new LinkedHashMap<>();
-    for (String tier : SUPPORTED_TIERS) {
-      String val = tierProps.getProperty(tier);
-      if (val != null && !val.isEmpty()) {
-        tierMap.put(tier, val);
+    for (String key : tierProps.stringPropertyNames()) {
+      if (LogicalTier.isTier(key)) {
+        tierMap.put(key, tierProps.getProperty(key));
       }
-    }
-    if (tierMap.size() < 2) {
-      throw new SQLException("A logical table must span at least 2 tiers, but only "
-          + tierMap.size() + " tier(s) were defined for table " + source.table()
-          + ". Define at least two tiers (e.g. nearline and online) in the Database CRD URL.");
     }
     return tierMap;
   }
@@ -172,8 +203,7 @@ public class LogicalTableDeployer implements Deployer {
   /** Opens a JDBC connection to each tier's Database CRD URL. */
   private Map<String, Connection> openTierConnections(Map<String, String> tierMap)
       throws SQLException {
-    K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
-        new K8sApi<V1alpha1Database, V1alpha1DatabaseList>(context, K8sApiEndpoints.DATABASES);
+    K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new K8sApi<>(context, K8sApiEndpoints.DATABASES);
     Map<String, Connection> connections = new LinkedHashMap<>();
     for (Map.Entry<String, String> entry : tierMap.entrySet()) {
       V1alpha1Database dbCrd = dbApi.get(entry.getValue());
@@ -185,8 +215,7 @@ public class LogicalTableDeployer implements Deployer {
   /** Reads all tier Database CRDs from K8s. */
   private Map<String, V1alpha1Database> resolveTierDatabases(Map<String, String> tierMap)
       throws SQLException {
-    K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
-        new K8sApi<V1alpha1Database, V1alpha1DatabaseList>(context, K8sApiEndpoints.DATABASES);
+    K8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new K8sApi<>(context, K8sApiEndpoints.DATABASES);
     Map<String, V1alpha1Database> databases = new LinkedHashMap<>();
     for (Map.Entry<String, String> entry : tierMap.entrySet()) {
       databases.put(entry.getKey(), dbApi.get(entry.getValue()));
@@ -199,7 +228,7 @@ public class LogicalTableDeployer implements Deployer {
    * Created deployers are tracked in {@link #tierDeployers} for rollback.
    */
   private void deployTierResources(Map<String, String> tierMap,
-      Map<String, V1alpha1Database> tierDatabases, Map<String, Connection> tierConnections,
+      Map<String, Connection> tierConnections,
       boolean update) throws SQLException {
     for (Map.Entry<String, String> entry : tierMap.entrySet()) {
       String tierName = entry.getKey();
@@ -223,7 +252,7 @@ public class LogicalTableDeployer implements Deployer {
   /** Creates the LogicalTable CRD and returns its owner reference. */
   private V1OwnerReference createLogicalTableCrd(Map<String, String> tierMap) throws SQLException {
     String crdName = K8sUtils.canonicalizeName(source.path());
-    String schemaLabel = source.schema() != null ? source.schema() : "LOGICAL";
+    String schemaLabel = source.database();
 
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
     for (Map.Entry<String, String> entry : tierMap.entrySet()) {
@@ -236,7 +265,7 @@ public class LogicalTableDeployer implements Deployer {
         .kind(K8sApiEndpoints.LOGICAL_TABLES.kind())
         .apiVersion(K8sApiEndpoints.LOGICAL_TABLES.apiVersion())
         .metadata(new V1ObjectMeta().name(crdName)
-            .putLabelsItem(LogicalTableSchema.SCHEMA_LABEL, schemaLabel))
+            .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, schemaLabel))
         .spec(spec);
 
     logicalTableApi.create(crd);
@@ -250,11 +279,11 @@ public class LogicalTableDeployer implements Deployer {
   private void deployImplicitPipelines(Map<String, String> tierMap,
       Map<String, V1alpha1Database> tierDatabases, Map<String, Connection> tierConnections,
       K8sContext ownerContext, boolean update) throws SQLException {
-    if (tierMap.containsKey("nearline") && tierMap.containsKey("online")) {
-      deployPipelineBundle("nearline", "online", tierMap, tierDatabases, tierConnections,
+    if (tierMap.containsKey(LogicalTier.NEARLINE.tierName()) && tierMap.containsKey(LogicalTier.ONLINE.tierName())) {
+      deployPipelineBundle(LogicalTier.NEARLINE.tierName(), LogicalTier.ONLINE.tierName(), tierMap, tierDatabases, tierConnections,
           ownerContext, update);
     }
-    if (tierMap.containsKey("nearline") && tierMap.containsKey("offline")) {
+    if (tierMap.containsKey(LogicalTier.NEARLINE.tierName()) && tierMap.containsKey(LogicalTier.OFFLINE.tierName())) {
       log.info("Kyoto integration (nearline→offline) pending; skipping pipeline for {}",
           source.table());
     }
@@ -295,13 +324,10 @@ public class LogicalTableDeployer implements Deployer {
       HoptimatorConnection hConn = context.connection();
         Properties props = hConn.connectionProperties();
         props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
-        org.apache.calcite.rel.RelRoot root =
-            HoptimatorDriver.convert(hConn, pipelineSql).root;
-        com.linkedin.hoptimator.util.planner.PipelineRel.Implementor plan =
-            DeploymentService.plan(root, hConn.materializations(), props);
+        RelRoot root = HoptimatorDriver.convert(hConn, pipelineSql).root;
+        PipelineRel.Implementor plan = DeploymentService.plan(root, hConn.materializations(), props);
         Pipeline pipeline = plan.pipeline(pipelineName, hConn);
-        Job job = pipeline.job();
-        pipelineSpecs.addAll(DeploymentService.specify(job, hConn));
+        pipelineSpecs.addAll(DeploymentService.specify(pipeline.job(), hConn));
     } catch (Exception e) {
       log.warn("Pipeline planner failed for {}->{} on table {}; proceeding without job specs: {}",
           fromTier, toTier, tableName, e.getMessage());

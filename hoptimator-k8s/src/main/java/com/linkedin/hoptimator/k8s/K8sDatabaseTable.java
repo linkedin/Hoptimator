@@ -122,6 +122,11 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
         joiner.add(key + "=" + value);
       }
     }
+    // Inject the Database CRD name so drivers can identify which CRD they are backing.
+    // This is the value returned by source.database() in deployer/provider contexts.
+    if (row.NAME != null && !row.NAME.isEmpty()) {
+      joiner.add("database=" + row.NAME);
+    }
     String joinedUrl = row.URL;
     // Handles case where there are no properties already in the URL
     if (row.URL.endsWith("//")) {

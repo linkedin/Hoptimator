@@ -21,7 +21,6 @@ import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 
@@ -43,15 +42,10 @@ public final class LogicalTable extends AbstractTable {
   @Nullable
   private final String resolvedTier;
   /** K8s context used to look up Database CRDs for row type resolution. */
-  @Nullable
   private final K8sContext context;
 
-  /** Lazily resolved row type; null until first call to getRowType(). */
-  @Nullable
-  private volatile RelDataType rowType;
-
   public LogicalTable(String name, Map<String, V1alpha1LogicalTableSpecTiers> tiers,
-      @Nullable String resolvedTier, @Nullable K8sContext context) {
+      @Nullable String resolvedTier, K8sContext context) {
     if (tiers == null || tiers.isEmpty()) {
       throw new IllegalArgumentException(
           "LogicalTable '" + name + "' must have at least one tier binding; got: " + tiers);
@@ -71,42 +65,15 @@ public final class LogicalTable extends AbstractTable {
     return name;
   }
 
-  /**
-   * Returns the tier map for this logical table.
-   * Keys are tier names (e.g. "nearline", "offline", "online");
-   * values carry the physical database CRD binding.
-   */
-  public Map<String, V1alpha1LogicalTableSpecTiers> tiers() {
-    return tiers;
-  }
 
-  /**
-   * Returns the Database CRD name of the tier this table resolves to for pipeline/connector
-   * config generation. Returns null if no tier hint was specified.
-   *
-   * <p>For example, a Flink streaming job should resolve to "nearline" (Kafka), while a batch
-   * query should resolve to "offline" (OpenHouse). The hint is set via the JDBC URL
-   * {@code tier=nearline} property on the logical Database CRD.
-   */
-  @Nullable
-  public String resolvedDatabaseCrdName() {
-    if (resolvedTier == null || !tiers.containsKey(resolvedTier)) {
-      return null;
-    }
-    V1alpha1LogicalTableSpecTiers binding = tiers.get(resolvedTier);
-    return binding != null ? binding.getDatabaseCrdName() : null;
-  }
 
   @Override
   public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+    RelDataType rowType = resolveRowType();
     if (rowType != null) {
       return rowType;
     }
-    rowType = resolveRowType();
-    if (rowType != null) {
-      return rowType;
-    }
-    return typeFactory.builder().build();
+    return typeFactory.createUnknownType();
   }
 
   /**
@@ -115,14 +82,24 @@ public final class LogicalTable extends AbstractTable {
    */
   @Nullable
   private RelDataType resolveRowType() {
-    if (context == null) {
-      return null;
+    // Validate resolvedTier first (always fail-fast on bad config, regardless of context).
+    // Priority: explicit resolvedTier hint > "nearline" default > first available tier.
+    Map.Entry<String, V1alpha1LogicalTableSpecTiers> preferredEntry;
+    if (resolvedTier != null) {
+      if (!tiers.containsKey(resolvedTier)) {
+        throw new IllegalStateException("Resolved tier '" + resolvedTier
+            + "' does not exist in logical table '" + name + "'. Available tiers: " + tiers.keySet());
+      }
+      preferredEntry = Map.entry(resolvedTier, tiers.get(resolvedTier));
+    } else if (tiers.containsKey("nearline")) {
+      preferredEntry = Map.entry("nearline", tiers.get("nearline"));
+    } else {
+      preferredEntry = tiers.entrySet().iterator().next();
     }
 
-    Map.Entry<String, V1alpha1LogicalTableSpecTiers> preferredEntry =
-        tiers.containsKey("nearline")
-            ? Map.entry("nearline", tiers.get("nearline"))
-            : tiers.entrySet().iterator().next();
+    if (context == null) {
+      return null;  // No K8s context (test-only constructor) — caller handles null as unknown type
+    }
 
     V1alpha1LogicalTableSpecTiers tierBinding = preferredEntry.getValue();
     if (tierBinding == null || tierBinding.getDatabaseCrdName() == null) {
@@ -131,8 +108,7 @@ public final class LogicalTable extends AbstractTable {
 
     String databaseCrdName = tierBinding.getDatabaseCrdName();
     try {
-      V1alpha1Database dbCrd = new K8sApi<V1alpha1Database, V1alpha1DatabaseList>(
-          context, K8sApiEndpoints.DATABASES).get(databaseCrdName);
+      V1alpha1Database dbCrd = new K8sApi<>(context, K8sApiEndpoints.DATABASES).get(databaseCrdName);
       if (dbCrd.getSpec() == null) {
         return null;
       }
