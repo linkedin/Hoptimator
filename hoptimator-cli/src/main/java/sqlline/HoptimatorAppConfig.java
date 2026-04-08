@@ -1,17 +1,15 @@
 package sqlline;
 
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
-import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.Scanner;
-
+import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.jdbc.ResolvedTable;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.schema.SchemaPlus;
@@ -22,15 +20,16 @@ import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.util.Pair;
 import org.jline.reader.Completer;
 
-import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.SqlDialect;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
-import com.linkedin.hoptimator.jdbc.ResolvedTable;
-import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
-import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
+import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.Scanner;
 
 
 public class HoptimatorAppConfig extends Application {

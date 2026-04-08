@@ -1,14 +1,14 @@
 package com.linkedin.hoptimator.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 class DelegatingStatement implements Statement {
@@ -35,12 +35,12 @@ class DelegatingStatement implements Statement {
     int i = 0;
     for (; i < parts.length - 1; i++) {
       try (Statement stmt = connection.createStatement()) {
-        logger.info("DDL: " + parts[i]);
+        logger.info("DDL: {}", parts[i]);
         stmt.execute(parts[i]);
       }
     }
     statement = connection.createStatement();
-    logger.info("SQL: " + parts[i]);
+    logger.info("SQL: {}", parts[i]);
     resultSet = statement.executeQuery(parts[i]);
     return resultSet;
   }
@@ -57,8 +57,12 @@ class DelegatingStatement implements Statement {
 
   @Override
   public void close() throws SQLException {
-    statement.close();
-    resultSet.close();
+    if (statement != null) {
+      statement.close();
+    }
+    if (resultSet != null) {
+      resultSet.close();
+    }
   }
 
 

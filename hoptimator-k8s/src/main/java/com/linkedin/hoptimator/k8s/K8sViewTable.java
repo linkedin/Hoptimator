@@ -1,18 +1,5 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
-import org.apache.calcite.rel.type.RelProtoDataType;
-import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.impl.AbstractSchema;
-import org.apache.calcite.schema.impl.ViewTable;
-
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
@@ -21,6 +8,17 @@ import com.linkedin.hoptimator.jdbc.MaterializedViewTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import org.apache.calcite.rel.type.RelProtoDataType;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.ViewTable;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 
 public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sViewTable.Row> implements Validated {

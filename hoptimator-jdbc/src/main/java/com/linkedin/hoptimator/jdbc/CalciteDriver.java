@@ -1,9 +1,5 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.Properties;
-import java.util.function.Supplier;
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteFactory;
@@ -11,6 +7,11 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.Driver;
 import org.checkerframework.checker.nullness.qual.Nullable;
+
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.Properties;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 

@@ -1,21 +1,19 @@
 package com.linkedin.hoptimator.k8s.status;
 
+import com.google.gson.JsonObject;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.K8sUtils;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.gson.JsonObject;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
-
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.k8s.K8sUtils;
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 
 
 /**

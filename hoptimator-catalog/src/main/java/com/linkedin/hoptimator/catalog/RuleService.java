@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.catalog;
 
+import org.apache.calcite.plan.RelOptRule;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
-
-import org.apache.calcite.plan.RelOptRule;
 
 
 public final class RuleService {

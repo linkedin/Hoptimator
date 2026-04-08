@@ -1,17 +1,17 @@
 package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
+import org.apache.calcite.avatica.ConnectStringParser;
+import org.apache.calcite.avatica.DriverVersion;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.schema.SchemaPlus;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.util.Properties;
-
-import org.apache.calcite.avatica.ConnectStringParser;
-import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.schema.SchemaPlus;
 
 
 /** JDBC driver for Venice stores. */

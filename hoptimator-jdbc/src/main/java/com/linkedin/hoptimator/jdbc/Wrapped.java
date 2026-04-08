@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.sql.Wrapper;
-
 import org.apache.calcite.schema.SchemaPlus;
+
+import java.sql.Wrapper;
 
 
 /** Wraps internal impls to prevent leaking them to the API. */

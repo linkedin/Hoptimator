@@ -1,14 +1,14 @@
 package com.linkedin.hoptimator.demodb;
 
-import java.util.HashMap;
-import java.util.Map;
-import javax.annotation.Nullable;
+import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.util.LazyReference;
 
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import javax.annotation.Nullable;
+import java.util.HashMap;
+import java.util.Map;
 
 
 public class ProfileSchema extends AbstractSchema {

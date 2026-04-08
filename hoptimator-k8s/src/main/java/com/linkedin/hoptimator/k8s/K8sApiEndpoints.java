@@ -1,14 +1,5 @@
 package com.linkedin.hoptimator.k8s;
 
-import io.kubernetes.client.openapi.models.V1ConfigMap;
-import io.kubernetes.client.openapi.models.V1ConfigMapList;
-import io.kubernetes.client.openapi.models.V1Job;
-import io.kubernetes.client.openapi.models.V1JobList;
-import io.kubernetes.client.openapi.models.V1Namespace;
-import io.kubernetes.client.openapi.models.V1NamespaceList;
-import io.kubernetes.client.openapi.models.V1Secret;
-import io.kubernetes.client.openapi.models.V1SecretList;
-
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Engine;
@@ -23,6 +14,14 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
+import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1ConfigMapList;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobList;
+import io.kubernetes.client.openapi.models.V1Namespace;
+import io.kubernetes.client.openapi.models.V1NamespaceList;
+import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1SecretList;
 
 
 public final class K8sApiEndpoints {

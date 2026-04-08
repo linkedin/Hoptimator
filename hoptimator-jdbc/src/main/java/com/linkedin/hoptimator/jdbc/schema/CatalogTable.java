@@ -1,10 +1,9 @@
 package com.linkedin.hoptimator.jdbc.schema;
 
-import org.apache.calcite.schema.Schema;
-
 import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.jdbc.CatalogService;
 import com.linkedin.hoptimator.util.RemoteTable;
+import org.apache.calcite.schema.Schema;
 
 
 /** A table populated with all available Catalogs. */

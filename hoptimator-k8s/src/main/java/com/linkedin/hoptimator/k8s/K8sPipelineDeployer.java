@@ -1,13 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.List;
-
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+
+import java.sql.SQLException;
+import java.util.List;
 
 
 /** Deploys a Pipeline object. */

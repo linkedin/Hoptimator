@@ -1,9 +1,8 @@
 package com.linkedin.hoptimator.kafka;
 
+import com.linkedin.hoptimator.jdbc.QuidemTestBase;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-
-import com.linkedin.hoptimator.jdbc.QuidemTestBase;
 
 
 @Tag("integration")

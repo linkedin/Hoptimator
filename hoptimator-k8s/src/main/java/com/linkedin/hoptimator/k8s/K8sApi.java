@@ -1,16 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.linkedin.hoptimator.util.Api;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
@@ -19,8 +9,16 @@ import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.options.DeleteOptions;
 import io.kubernetes.client.util.generic.options.ListOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.linkedin.hoptimator.util.Api;
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 
 public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> implements Api<T> {

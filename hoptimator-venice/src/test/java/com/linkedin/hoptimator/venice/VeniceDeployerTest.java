@@ -16,8 +16,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
@@ -40,7 +38,6 @@ import static org.mockito.Mockito.when;
  * Tests for VeniceDeployer using mocks.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 public class VeniceDeployerTest {
 
   private static final String TEST_STORE = "test_store";
@@ -308,7 +305,7 @@ public class VeniceDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues);
 
-    assertTrue(issues.valid(), "Expected no validation errors for new store. Issues: " + issues.toString());
+    assertTrue(issues.valid(), "Expected no validation errors for new store. Issues: " + issues);
   }
 
   @Test
@@ -345,7 +342,7 @@ public class VeniceDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues);
 
-    assertTrue(issues.valid(), "Expected no validation errors when key schema unchanged. Issues: " + issues.toString());
+    assertTrue(issues.valid(), "Expected no validation errors when key schema unchanged. Issues: " + issues);
   }
 
   @Test

@@ -1,17 +1,8 @@
 package com.linkedin.hoptimator.planner;
 
-import java.io.File;
-import java.io.IOException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.NoSuchElementException;
-import java.util.Properties;
-import javax.sql.DataSource;
-
+import com.google.common.io.Resources;
+import com.linkedin.hoptimator.catalog.Database;
+import com.linkedin.hoptimator.catalog.DatabaseSchema;
 import org.apache.calcite.adapter.jdbc.JdbcCatalogSchema;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -35,10 +26,17 @@ import org.apache.calcite.tools.Planner;
 import org.apache.calcite.tools.RuleSet;
 import org.apache.calcite.tools.RuleSets;
 
-import com.google.common.io.Resources;
-
-import com.linkedin.hoptimator.catalog.Database;
-import com.linkedin.hoptimator.catalog.DatabaseSchema;
+import javax.sql.DataSource;
+import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Properties;
 
 
 /** A one-shot stateful object, which creates Pipelines from SQL. */

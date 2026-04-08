@@ -1,17 +1,17 @@
 package com.linkedin.hoptimator.jdbc.schema;
 
+import com.linkedin.hoptimator.Catalog;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.lookup.Lookup;
+import org.apache.calcite.util.LazyReference;
+
+import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.sql.Wrapper;
 import java.util.Collections;
 import java.util.Map;
-import javax.annotation.Nullable;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.impl.AbstractSchema;
-
-import com.linkedin.hoptimator.Catalog;
-import org.apache.calcite.schema.lookup.Lookup;
-import org.apache.calcite.util.LazyReference;
 
 
 /** Built-in utility tables. */

@@ -1,8 +1,5 @@
 package com.linkedin.hoptimator.util;
 
-import java.util.Collection;
-import java.util.List;
-
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -26,6 +23,9 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Schemas;
 import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.AbstractTable;
+
+import java.util.Collection;
+import java.util.List;
 
 
 /** A table behind some CRUD API */

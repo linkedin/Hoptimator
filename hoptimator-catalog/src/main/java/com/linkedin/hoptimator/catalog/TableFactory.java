@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.catalog;
 
-import java.util.Collections;
-
 import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.rel.type.RelDataType;
+
+import java.util.Collections;
 
 
 /** Constructs a HopTable */

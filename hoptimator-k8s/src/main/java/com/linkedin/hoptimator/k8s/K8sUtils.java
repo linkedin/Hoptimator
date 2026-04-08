@@ -1,6 +1,13 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec.MethodsEnum;
+import io.kubernetes.client.common.KubernetesType;
+import io.kubernetes.client.openapi.ApiException;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientException;
@@ -10,14 +17,6 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import io.kubernetes.client.common.KubernetesType;
-import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-
-import com.linkedin.hoptimator.Sink;
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec.MethodsEnum;
 
 
 public final class K8sUtils {

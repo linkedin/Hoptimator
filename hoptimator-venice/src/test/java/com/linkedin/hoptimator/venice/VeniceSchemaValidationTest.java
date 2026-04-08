@@ -1,10 +1,11 @@
 package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.jdbc.JdbcTestBase;
-import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
 
 
 /**

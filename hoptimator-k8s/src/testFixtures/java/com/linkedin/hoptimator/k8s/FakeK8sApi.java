@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.Collection;
-import java.util.List;
-
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.util.Yaml;
+
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.List;
 
 
 public class FakeK8sApi<T extends KubernetesObject, U extends KubernetesListObject> extends K8sApi<T, U> {

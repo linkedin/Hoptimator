@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import java.sql.SQLException;
-
 import com.linkedin.hoptimator.Deployer;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+
+import java.sql.SQLException;
 
 
 public abstract class K8sYamlDeployer implements Deployer {
@@ -12,8 +12,16 @@ public abstract class K8sYamlDeployer implements Deployer {
   private final K8sSnapshot snapshot;
 
   public K8sYamlDeployer(K8sContext context) {
-    this.api = new K8sYamlApi(context);
-    this.snapshot = new K8sSnapshot(context);
+    this.api = createYamlApi(context);
+    this.snapshot = createSnapshot(context);
+  }
+
+  K8sYamlApi createYamlApi(K8sContext context) {
+    return new K8sYamlApi(context);
+  }
+
+  K8sSnapshot createSnapshot(K8sContext context) {
+    return new K8sSnapshot(context);
   }
 
   @Override

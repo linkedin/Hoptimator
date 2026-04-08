@@ -19,6 +19,8 @@ dependencies {
   testRuntimeOnly project(':hoptimator-demodb')
   testRuntimeOnly project(':hoptimator-mysql')
 
+  testCompileOnly libs.findbugs.annotations
+
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
   testRuntimeOnly libs.slf4j.simple
 }

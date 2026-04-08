@@ -1,14 +1,13 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.hoptimator.avro.AvroConverter;
+import com.linkedin.hoptimator.util.DataTypeUtils;
+import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.impl.AbstractTable;
-
-import com.linkedin.hoptimator.avro.AvroConverter;
-import com.linkedin.hoptimator.util.DataTypeUtils;
-import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 
 
 /** A batch of records from a Venice store. */

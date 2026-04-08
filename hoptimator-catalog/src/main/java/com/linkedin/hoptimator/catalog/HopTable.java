@@ -1,9 +1,5 @@
 package com.linkedin.hoptimator.catalog;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-
 import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -14,6 +10,10 @@ import org.apache.calcite.schema.TranslatableTable;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
 
 
 /**

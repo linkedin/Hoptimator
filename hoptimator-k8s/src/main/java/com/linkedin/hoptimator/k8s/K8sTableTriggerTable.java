@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.Optional;
-
-import org.apache.calcite.schema.Schema;
-
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
+import org.apache.calcite.schema.Schema;
+
+import java.time.OffsetDateTime;
+import java.util.Optional;
 
 
 public class K8sTableTriggerTable extends K8sTable<V1alpha1TableTrigger, V1alpha1TableTriggerList, K8sTableTriggerTable.Row> {
@@ -40,10 +40,10 @@ public class K8sTableTriggerTable extends K8sTable<V1alpha1TableTrigger, V1alpha
         obj.getSpec().getPaused(),
         Optional.ofNullable(obj.getStatus())
             .flatMap(x -> Optional.ofNullable(x.getTimestamp()))
-            .map(x -> x.toString()).orElse(null),
+            .map(OffsetDateTime::toString).orElse(null),
         Optional.ofNullable(obj.getStatus())
             .flatMap(x -> Optional.ofNullable(x.getWatermark()))
-            .map(x -> x.toString()).orElse(null));
+            .map(OffsetDateTime::toString).orElse(null));
   }
 
   @Override

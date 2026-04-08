@@ -1,8 +1,5 @@
 package com.linkedin.hoptimator.catalog;
 
-import java.util.Collections;
-import java.util.stream.Collectors;
-
 import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -11,6 +8,9 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
+
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 
 /** Common data types. Not authoritative or exhaustive. */

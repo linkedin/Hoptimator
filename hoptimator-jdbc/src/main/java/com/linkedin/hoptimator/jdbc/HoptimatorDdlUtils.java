@@ -20,15 +20,8 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Objects;
-import java.util.Map;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
@@ -52,6 +45,14 @@ import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
 
 public final class HoptimatorDdlUtils {
   private HoptimatorDdlUtils() {
@@ -72,7 +73,7 @@ public final class HoptimatorDdlUtils {
     }
     CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
     for (String p : path) {
-      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+      schema = Objects.requireNonNull(schema).subSchemas().get(p);
     }
     return Pair.of(schema, name);
   }
@@ -87,7 +88,7 @@ public final class HoptimatorDdlUtils {
     final List<String> catalogPath = Util.skipLast(id.names, 2);
     CalciteSchema schema = mutable ? context.getMutableRootSchema() : context.getRootSchema();
     for (String p : catalogPath) {
-      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+      schema = Objects.requireNonNull(schema).subSchemas().get(p);
     }
     return Pair.of(schema, String.join(".", schemaTablePath));
   }

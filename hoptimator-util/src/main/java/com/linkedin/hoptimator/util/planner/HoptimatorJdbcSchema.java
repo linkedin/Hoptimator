@@ -1,11 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.sql.Connection;
-import java.util.List;
-import java.util.Set;
-import javax.annotation.Nullable;
-import javax.sql.DataSource;
-
+import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
 import org.apache.calcite.linq4j.tree.Expression;
@@ -19,10 +15,13 @@ import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.schema.lookup.LoadingCacheLookup;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.sql.SqlDialect;
-
-import com.linkedin.hoptimator.Database;
-import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.util.LazyReference;
+
+import javax.annotation.Nullable;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.util.List;
+import java.util.Set;
 
 
 public class HoptimatorJdbcSchema extends JdbcSchema implements Database {

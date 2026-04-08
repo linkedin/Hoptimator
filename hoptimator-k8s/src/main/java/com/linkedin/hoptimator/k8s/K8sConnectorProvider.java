@@ -1,13 +1,13 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.Connector;
+import com.linkedin.hoptimator.ConnectorProvider;
+import com.linkedin.hoptimator.Source;
+
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
-import com.linkedin.hoptimator.Connector;
-import com.linkedin.hoptimator.ConnectorProvider;
-import com.linkedin.hoptimator.Source;
 
 
 public class K8sConnectorProvider implements ConnectorProvider {

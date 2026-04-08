@@ -15,6 +15,7 @@ dependencies {
   }
   implementation libs.venice.client
   compileOnly libs.findbugs
+  testCompileOnly libs.findbugs.annotations
 
   testImplementation libs.assertj
   testImplementation libs.commons.dbcp2

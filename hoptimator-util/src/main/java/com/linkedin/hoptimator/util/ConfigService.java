@@ -1,14 +1,13 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.ConfigProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.StringReader;
 import java.sql.Connection;
 import java.util.Properties;
 import java.util.ServiceLoader;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.linkedin.hoptimator.ConfigProvider;
 
 public final class ConfigService {
 

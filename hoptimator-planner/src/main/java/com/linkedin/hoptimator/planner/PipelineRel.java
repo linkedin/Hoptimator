@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.planner;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import com.linkedin.hoptimator.catalog.HopTable;
+import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -13,9 +13,8 @@ import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.util.Litmus;
 
-import com.linkedin.hoptimator.catalog.HopTable;
-import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.util.planner.ScriptImplementor;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**

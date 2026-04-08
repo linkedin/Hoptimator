@@ -1,12 +1,13 @@
 package com.linkedin.hoptimator.operator;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Properties;
-
+import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
+import com.linkedin.hoptimator.operator.trigger.TableTriggerReconciler;
+import com.linkedin.hoptimator.operator.trigger.ViewReconciler;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.ControllerManager;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -17,14 +18,11 @@ import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.ControllerManager;
-
-import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
-import com.linkedin.hoptimator.operator.trigger.TableTriggerReconciler;
-import com.linkedin.hoptimator.operator.trigger.ViewReconciler;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Properties;
 
 
 public class PipelineOperatorApp {

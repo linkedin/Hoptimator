@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.catalog;
 
+import org.apache.calcite.rel.type.RelDataType;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-
-import org.apache.calcite.rel.type.RelDataType;
 
 
 /** A set of tables with unique names */

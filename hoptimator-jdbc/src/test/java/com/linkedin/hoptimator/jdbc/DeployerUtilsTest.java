@@ -1,31 +1,28 @@
 package com.linkedin.hoptimator.jdbc;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-/**
- * Tests for DeployerUtils utility methods.
- */
+@ExtendWith(MockitoExtension.class)
 class DeployerUtilsTest {
 
+  @Mock
+  private Connection mockNonHoptimatorConnection;
+
   // --- parseIntOption tests ---
-
-  @Test
-  void testParseIntOptionReturnsDefault() {
-    Map<String, String> options = Collections.emptyMap();
-    assertEquals(10, DeployerUtils.parseIntOption(options, "partitions", 10));
-  }
-
-  @Test
-  void testParseIntOptionReturnsCustomValue() {
-    Map<String, String> options = Map.of("partitions", "32");
-    assertEquals(32, DeployerUtils.parseIntOption(options, "partitions", 10));
-  }
 
   @Test
   void testParseIntOptionReturnsDefaultForInvalidValue() {
@@ -52,12 +49,6 @@ class DeployerUtilsTest {
   void testParseLongOptionReturnsNullDefault() {
     Map<String, String> options = Collections.emptyMap();
     assertNull(DeployerUtils.parseLongOption(options, "retention", null));
-  }
-
-  @Test
-  void testParseLongOptionReturnsCustomValue() {
-    Map<String, String> options = Map.of("retention", "604800000");
-    assertEquals(604800000L, DeployerUtils.parseLongOption(options, "retention", null));
   }
 
   @Test
@@ -122,5 +113,113 @@ class DeployerUtilsTest {
   void testParseDoubleOptionWithNegativeValue() {
     Map<String, String> options = Map.of("threshold", "-3.14");
     assertEquals(-3.14, DeployerUtils.parseDoubleOption(options, "threshold", 1.5));
+  }
+
+  @Test
+  void testParseIntOptionKeyPresentEmptyValueReturnsDefault() {
+    Map<String, String> options = Map.of("key", "");
+    assertEquals(42, DeployerUtils.parseIntOption(options, "key", 42));
+  }
+
+  @Test
+  void testParseIntOptionKeyAbsentReturnsDefault42() {
+    Map<String, String> options = Collections.emptyMap();
+    assertEquals(42, DeployerUtils.parseIntOption(options, "key", 42));
+  }
+
+  @Test
+  void testParseIntOptionKeyPresentValueTenReturns10() {
+    Map<String, String> options = Map.of("key", "10");
+    assertEquals(10, DeployerUtils.parseIntOption(options, "key", 42));
+  }
+
+  @Test
+  void testParseLongOptionKeyPresentEmptyValueReturnsDefault() {
+    Map<String, String> options = Map.of("key", "");
+    assertEquals(42L, DeployerUtils.parseLongOption(options, "key", 42L));
+  }
+
+  @Test
+  void testParseLongOptionKeyAbsentReturnsDefault42L() {
+    Map<String, String> options = Collections.emptyMap();
+    assertEquals(42L, DeployerUtils.parseLongOption(options, "key", 42L));
+  }
+
+  @Test
+  void testParseLongOptionKeyPresentValueTenReturns10L() {
+    Map<String, String> options = Map.of("key", "10");
+    assertEquals(10L, DeployerUtils.parseLongOption(options, "key", 42L));
+  }
+
+  // --- extractPropertiesFromJdbcSchema tests ---
+
+  @Test
+  void testExtractPropertiesReturnsNullForNullSchemaName() {
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, null,
+        mockNonHoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+  }
+
+  @Test
+  void testExtractPropertiesReturnsNullForNonHoptimatorConnection() {
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "mySchema",
+        mockNonHoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+  }
+
+  @Test
+  void testExtractPropertiesWithHoptimatorConnectionAndMissingSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    Properties props = new Properties();
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://", props);
+
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "nonexistent-schema",
+        hoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+    hoptimatorConnection.close();
+  }
+
+  @Test
+  void testExtractPropertiesWithHoptimatorConnectionAndCatalog() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    Properties props = new Properties();
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://", props);
+
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema("nonexistent-catalog", "schema",
+        hoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+    hoptimatorConnection.close();
+  }
+
+  @Test
+  void testExtractPropertiesWithNonUnwrappableSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    Properties props = new Properties();
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", props);
+
+    // "util" schema exists but is not a HoptimatorJdbcSchema, so unwrap returns null
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "util",
+        hoptimatorConnection, "jdbc:test://", null);
+
+    assertNull(result);
+    hoptimatorConnection.close();
+  }
+
+  @Test
+  void testExtractPropertiesWithLoggerOnException() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    Properties props = new Properties();
+    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", props);
+
+    Logger testLogger = LoggerFactory.getLogger(DeployerUtilsTest.class);
+    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "util",
+        hoptimatorConnection, "jdbc:test://", testLogger);
+
+    assertNull(result);
+    hoptimatorConnection.close();
   }
 }

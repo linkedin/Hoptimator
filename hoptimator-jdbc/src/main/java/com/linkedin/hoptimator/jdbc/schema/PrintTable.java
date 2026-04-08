@@ -1,14 +1,13 @@
 package com.linkedin.hoptimator.jdbc.schema;
 
-import java.util.Collection;
-import java.util.Collections;
-
+import com.linkedin.hoptimator.util.Api;
+import com.linkedin.hoptimator.util.RemoteTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.type.SqlTypeName;
 
-import com.linkedin.hoptimator.util.Api;
-import com.linkedin.hoptimator.util.RemoteTable;
+import java.util.Collection;
+import java.util.Collections;
 
 
 /** A table prints whatever you INSERT into it. */

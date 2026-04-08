@@ -1,7 +1,5 @@
 package com.linkedin.hoptimator.jdbc;
 
-import java.util.Arrays;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +25,7 @@ public class TestBasicSql extends JdbcTestBase {
     sql("INSERT INTO T2 SELECT * FROM T1");
     assertQueriesEqual("SELECT * FROM T1", "SELECT * FROM T2");
     assertResultSetsEqual(query("SELECT * FROM T1 WHERE X = 'one'"),
-        queryUsingPreparedStatement("SELECT * FROM T1 WHERE X = ?", Arrays.asList("one")));
+        queryUsingPreparedStatement("SELECT * FROM T1 WHERE X = ?", List.of("one")));
     sql("DROP TABLE T1");
     sql("DROP TABLE T2");
   }
@@ -37,12 +35,12 @@ public class TestBasicSql extends JdbcTestBase {
     sql("CREATE TABLE T (X VARCHAR, Y VARCHAR)");
     sql("INSERT INTO T VALUES ('one', 'two')");
     assertQueriesEqual("SELECT * FROM T", "VALUES ('one', 'two')");
-    var logs = sqlReturnsLogs("CREATE VIEW V AS SELECT * FROM T");
+    List<String> logs = sqlReturnsLogs("CREATE VIEW V AS SELECT * FROM T");
     assertResultSetsEqual(query("SELECT * FROM V"), query("SELECT * FROM T"));
     sql("DROP VIEW V");
     sql("DROP TABLE T");
 
-    var expectedLogs = List.of(
+    List<String> expectedLogs = List.of(
         "[HoptimatorDdlExecutor] Validating statement: CREATE VIEW `V` AS\nSELECT *\nFROM `T`",
         "[HoptimatorDdlExecutor] Validated sql statement. The view is named V and has path [DEFAULT, V]",
         "[HoptimatorDdlExecutor] Validating deployable resources for view V",
@@ -68,9 +66,7 @@ public class TestBasicSql extends JdbcTestBase {
     sql("DROP VIEW IF EXISTS non_existing_schema.non_existing_view");
 
     // Should throw an Exception when dropping non-existent view without IF EXISTS
-    Exception ex = Assertions.assertThrows(Exception.class, () -> {
-      sql("DROP VIEW non_existing_schema.non_existing_view");
-    });
+    Exception ex = Assertions.assertThrows(Exception.class, () -> sql("DROP VIEW non_existing_schema.non_existing_view"));
     Assertions.assertTrue(
         ex.getMessage().matches("(?s).*Cannot DROP VIEW .*?: Element .*? not found\\..*"),
         "Error message should match regex, but was: " + ex.getMessage()

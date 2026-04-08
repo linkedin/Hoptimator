@@ -1,8 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
-import org.apache.calcite.schema.Schema;
-
 import com.linkedin.hoptimator.util.RemoteTable;
+import org.apache.calcite.schema.Schema;
 
 /** Provides n:m mapping between pipeline elements and their pipelines. */
 public class K8sPipelineElementMapTable

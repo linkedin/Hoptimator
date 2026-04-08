@@ -1,8 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
-import org.apache.calcite.plan.Convention;
-
 import com.linkedin.hoptimator.Engine;
+import org.apache.calcite.plan.Convention;
 
 
 public class RemoteConvention extends Convention.Impl {

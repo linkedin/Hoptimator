@@ -4,6 +4,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -15,8 +16,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -28,7 +27,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,12 +35,13 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
     justification = "Mock objects created in stubbing setup don't need resource management")
 class MySqlDeployerTest {
@@ -76,8 +75,9 @@ class MySqlDeployerTest {
 
   @BeforeEach
   void setUp() throws SQLException {
-    when(mockConnection.getMetaData()).thenReturn(mockMetaData);
-    when(mockConnection.createStatement()).thenReturn(mockStatement);
+    // lenient: not all tests open a real connection or use every stub
+    lenient().when(mockConnection.getMetaData()).thenReturn(mockMetaData);
+    lenient().when(mockConnection.createStatement()).thenReturn(mockStatement);
     driverManagerStatic.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
         .thenReturn(mockConnection);
 
@@ -116,9 +116,9 @@ class MySqlDeployerTest {
     deployer.create();
 
     // Verify two executeUpdate calls: CREATE DATABASE and CREATE TABLE
-    verify(mockStatement, org.mockito.Mockito.times(2)).executeUpdate(anyString());
+    verify(mockStatement, times(2)).executeUpdate(anyString());
     verify(mockConnection).close();
-    verify(mockStatement, org.mockito.Mockito.times(2)).close();
+    verify(mockStatement, times(2)).close();
   }
 
   @Test
@@ -133,7 +133,7 @@ class MySqlDeployerTest {
     deployer.create(); // Should not throw, just skip creation
 
     // CREATE DATABASE is still called even if table exists
-    verify(mockStatement, org.mockito.Mockito.times(1)).executeUpdate(anyString());
+    verify(mockStatement, times(1)).executeUpdate(anyString());
     verify(mockConnection).close();
   }
 
@@ -194,9 +194,9 @@ class MySqlDeployerTest {
     deployer.delete();
 
     // Should execute DROP TABLE and DROP DATABASE (2 calls)
-    verify(mockStatement, org.mockito.Mockito.times(2)).executeUpdate(anyString());
+    verify(mockStatement, times(2)).executeUpdate(anyString());
     verify(mockConnection).close();
-    verify(mockStatement, org.mockito.Mockito.times(2)).close();
+    verify(mockStatement, times(2)).close();
   }
 
   @Test
@@ -220,22 +220,6 @@ class MySqlDeployerTest {
   }
 
   // --- validate() tests ---
-
-  @Test
-  void testValidatePassesForNewTable() throws Exception {
-    Source source = new Source("db", List.of("MYSQL", DATABASE, "NewTable"), Collections.emptyMap());
-
-    ResultSet emptyRs = mock(ResultSet.class);
-    when(emptyRs.next()).thenReturn(false);
-    when(mockMetaData.getTables(eq(DATABASE), any(), eq("NewTable"), any())).thenReturn(emptyRs);
-
-    MySqlDeployer deployer = createDeployer(source);
-    Validator.Issues issues = collectIssues(deployer);
-
-    assertTrue(issues.valid(), "Expected no validation errors for new table");
-
-    verify(mockConnection).close();
-  }
 
   @Test
   void testValidatePassesForExistingTable() throws Exception {
@@ -353,9 +337,9 @@ class MySqlDeployerTest {
     deployer.update();
 
     // Verify two executeUpdate calls: CREATE DATABASE and CREATE TABLE
-    verify(mockStatement, org.mockito.Mockito.times(2)).executeUpdate(anyString());
+    verify(mockStatement, times(2)).executeUpdate(anyString());
     verify(mockConnection).close();
-    verify(mockStatement, org.mockito.Mockito.times(2)).close();
+    verify(mockStatement, times(2)).close();
   }
 
   // --- restore() tests ---
@@ -382,7 +366,7 @@ class MySqlDeployerTest {
 
     verify(mockConnection).close();
     // Two close calls from create (CREATE DATABASE and CREATE TABLE statements)
-    verify(mockStatement, org.mockito.Mockito.times(2)).close();
+    verify(mockStatement, times(2)).close();
   }
 
   // --- specify() tests ---

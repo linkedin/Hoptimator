@@ -1,16 +1,15 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.sql.Connection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.sql.SqlDialect;
 
-import com.linkedin.hoptimator.Engine;
+import java.sql.Connection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 
 public class HoptimatorJdbcConvention extends JdbcConvention {

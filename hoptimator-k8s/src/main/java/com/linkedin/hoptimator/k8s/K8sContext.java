@@ -1,6 +1,19 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import io.kubernetes.client.apimachinery.GroupVersion;
+import io.kubernetes.client.common.KubernetesListObject;
+import io.kubernetes.client.common.KubernetesObject;
+import io.kubernetes.client.informer.SharedInformerFactory;
+import io.kubernetes.client.openapi.ApiClient;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
+import io.kubernetes.client.util.ClientBuilder;
+import io.kubernetes.client.util.Config;
+import io.kubernetes.client.util.KubeConfig;
+import io.kubernetes.client.util.generic.GenericKubernetesApi;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -15,19 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-
-import io.kubernetes.client.apimachinery.GroupVersion;
-import io.kubernetes.client.common.KubernetesListObject;
-import io.kubernetes.client.common.KubernetesObject;
-import io.kubernetes.client.informer.SharedInformerFactory;
-import io.kubernetes.client.openapi.ApiClient;
-import io.kubernetes.client.openapi.models.V1OwnerReference;
-import io.kubernetes.client.util.ClientBuilder;
-import io.kubernetes.client.util.Config;
-import io.kubernetes.client.util.KubeConfig;
-import io.kubernetes.client.util.generic.GenericKubernetesApi;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 
 
 public final class K8sContext {
@@ -53,7 +53,7 @@ public final class K8sContext {
   private final Map<String, String> labels;
   private final HoptimatorConnection connection;
 
-  private K8sContext(String namespace, String watchNamespace, String clientInfo, ApiClient apiClient,
+  K8sContext(String namespace, String watchNamespace, String clientInfo, ApiClient apiClient,
       SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels,
       HoptimatorConnection connection) {
     this.namespace = namespace;

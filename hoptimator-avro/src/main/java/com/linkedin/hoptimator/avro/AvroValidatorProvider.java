@@ -1,12 +1,11 @@
 package com.linkedin.hoptimator.avro;
 
-import java.util.Collection;
-import java.util.Collections;
-
-import org.apache.calcite.schema.SchemaPlus;
-
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.ValidatorProvider;
+import org.apache.calcite.schema.SchemaPlus;
+
+import java.util.Collection;
+import java.util.Collections;
 
 
 /** Provides AvroValidator. */
