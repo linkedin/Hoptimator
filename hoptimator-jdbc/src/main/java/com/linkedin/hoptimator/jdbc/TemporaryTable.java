@@ -17,6 +17,8 @@ import com.linkedin.hoptimator.util.ArrayTable;
  * <p>During {@code CREATE TABLE} DDL execution, {@link HoptimatorDdlExecutor} registers a
  * {@code TemporaryTable} in the target schema so that deployers (e.g. VeniceDeployer) can
  * call {@link HoptimatorDriver#rowType} and find the table before it is physically created.
+ * The same mechanism is used by {@link HoptimatorDdlUtils#registerTemporaryTable} when
+ * pre-registering row type proxies in tier schemas during logical table deployment.
  *
  * <p>Extends {@link ArrayTable} (which implements {@code ModifiableTable} and
  * {@code ScannableTable}) so that the table can be queried and written to in-memory
