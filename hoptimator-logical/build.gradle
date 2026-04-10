@@ -1,0 +1,70 @@
+plugins {
+  id 'java-library'
+  id 'maven-publish'
+}
+
+dependencies {
+  implementation project(':hoptimator-api')
+  implementation project(':hoptimator-jdbc')
+  implementation project(':hoptimator-util')
+  implementation project(':hoptimator-k8s')
+  implementation libs.calcite.core
+  implementation libs.kubernetes.client  // Direct K8s API types used in deployer (V1ObjectMeta, V1OwnerReference)
+  compileOnly libs.findbugs
+  // Note: tier-specific drivers (Kafka, Venice, etc.) are NOT compile dependencies.
+  // They are discovered at runtime via the DeployerProvider SPI (ServiceLoader).
+  // Add them as testRuntimeOnly in your application build if needed for integration tests.
+
+  testImplementation libs.commons.dbcp2
+  testImplementation(testFixtures(project(':hoptimator-k8s')))
+  testImplementation(testFixtures(project(':hoptimator-jdbc')))
+  testRuntimeOnly project(':hoptimator-demodb')
+  testRuntimeOnly project(':hoptimator-mysql')
+  testRuntimeOnly project(':hoptimator-kafka')
+  testRuntimeOnly project(':hoptimator-venice')
+}
+
+publishing {
+  repositories {
+    maven {
+      name 'GitHubPackages'
+      url = 'https://maven.pkg.github.com/linkedin/Hoptimator'
+      credentials {
+        username = System.getenv('GITHUB_ACTOR')
+        password = System.getenv('GITHUB_TOKEN')
+      }
+    }
+    maven {
+      name 'LinkedInJFrog'
+      url 'https://linkedin.jfrog.io/artifactory/hoptimator'
+      credentials {
+        username = System.getenv('JFROG_USERNAME')
+        password = System.getenv('JFROG_API_KEY')
+      }
+    }
+  }
+  publications {
+    maven(MavenPublication) {
+      groupId = 'com.linkedin.hoptimator'
+      artifactId = 'hoptimator-logical'
+      version = System.getenv('VERSION')
+      from components.java
+      pom {
+        name = 'LinkedIn Hoptimator'
+        description = 'Multi-hop declarative data pipelines'
+        url = 'https://github.com/linkedin/Hoptimator'
+        licenses {
+          license {
+            name = 'BSD 2-Clause'
+            url = 'https://raw.githubusercontent.com/linkedin/Hoptimator/main/LICENSE'
+          }
+        }
+        scm {
+          connection = 'scm:git:git://github.com:linkedin/Hoptimator.git'
+          developerConnection = 'scm:git:ssh://github.com:linkedin/Hoptimator.git'
+          url = 'https://github.com/linkedin/Hoptimator'
+        }
+      }
+    }
+  }
+}
