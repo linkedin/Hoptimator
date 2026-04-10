@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.Yaml;
 
 import java.sql.SQLException;
@@ -88,5 +89,14 @@ public class FakeK8sApi<T extends KubernetesObject, U extends KubernetesListObje
   @Override
   public void updateStatus(T obj, Object status) throws SQLException {
     update(obj);
+  }
+
+  @Override
+  public V1OwnerReference reference(T obj) throws SQLException {
+    return new V1OwnerReference()
+        .apiVersion("hoptimator.linkedin.com/v1alpha1")
+        .kind(obj.getClass().getSimpleName().replace("V1alpha1", ""))
+        .name(obj.getMetadata().getName())
+        .uid(obj.getMetadata() != null ? obj.getMetadata().getUid() : null);
   }
 }

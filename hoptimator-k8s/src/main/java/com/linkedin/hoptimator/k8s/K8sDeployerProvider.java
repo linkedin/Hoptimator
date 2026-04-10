@@ -11,6 +11,7 @@ import com.linkedin.hoptimator.View;
 
 import java.sql.Connection;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Collection;
 import java.util.List;
 
@@ -18,6 +19,9 @@ public class K8sDeployerProvider implements DeployerProvider {
 
   @Override
   public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
+    if (connection == null) {
+      return Collections.emptyList();
+    }
     List<Deployer> list = new ArrayList<>();
     K8sContext context = K8sContext.create(connection);
     if (obj instanceof MaterializedView) {
