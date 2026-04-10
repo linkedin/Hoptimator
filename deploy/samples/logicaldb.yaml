@@ -1,0 +1,12 @@
+# Sample logical database configuration for local development.
+#
+# This defines a logical table consisting of: nearline (Kafka) + online (Venice).
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: logical
+spec:
+  url: jdbc:logical://nearline=kafka-database;online=venice
+  schema: LOGICAL
+  dialect: Calcite

@@ -26,7 +26,6 @@ import java.util.Properties;
 public class KafkaDeployerProvider implements DeployerProvider {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaDeployerProvider.class);
-  private static final String KAFKA_DB_PREFIX = "kafka";
 
   @Override
   public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
@@ -34,17 +33,13 @@ public class KafkaDeployerProvider implements DeployerProvider {
     if (obj instanceof Source) {
       Source source = (Source) obj;
 
-      String database = source.database();
-      if (database == null || !database.startsWith(KAFKA_DB_PREFIX)) {
-        return deployers;
-      }
-
       Properties properties = DeployerUtils.extractPropertiesFromJdbcSchema(
           source.catalog(),
           source.schema(),
           connection,
           KafkaDriver.CONNECTION_PREFIX,
           log);
+
       if (properties == null) {
         return deployers;
       }
