@@ -47,13 +47,13 @@ class K8sDeployerTest {
       K8sSnapshot snap) {
     return new K8sDeployer<>(null, null) {
       @Override
-      K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> createApi(K8sContext context,
+      protected K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> createApi(K8sContext context,
                                                                K8sApiEndpoint<V1alpha1Pipeline, V1alpha1PipelineList> endpoint) {
         return api;
       }
 
       @Override
-      K8sSnapshot createSnapshot(K8sContext context) {
+      protected K8sSnapshot createSnapshot(K8sContext context) {
         return snap;
       }
 

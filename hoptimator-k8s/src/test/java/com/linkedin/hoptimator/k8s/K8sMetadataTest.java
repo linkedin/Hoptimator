@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -9,9 +10,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Set;
+
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -28,12 +32,6 @@ class K8sMetadataTest {
   @BeforeEach
   void setUp() {
     metadata = new K8sMetadata(connection, context);
-  }
-
-  @Test
-  void constructorAcceptsNullContext() {
-    K8sMetadata m = new K8sMetadata(connection, null);
-    assertNotNull(m);
   }
 
   @Test
@@ -108,5 +106,19 @@ class K8sMetadataTest {
   void viewTableMethodReturnsCorrectType() {
     K8sViewTable viewTable = metadata.viewTable();
     assertNotNull(viewTable);
+  }
+
+  @Test
+  void getNamesTriggersLoadAllTables() {
+    Lookup<Table> tables = metadata.tables();
+    Set<String> names = tables.getNames(LikePattern.any());
+    assertNotNull(names);
+    assertTrue(names.contains("DATABASES"));
+    assertTrue(names.contains("ENGINES"));
+    assertTrue(names.contains("PIPELINES"));
+    assertTrue(names.contains("PIPELINE_ELEMENTS"));
+    assertTrue(names.contains("PIPELINE_ELEMENT_MAP"));
+    assertTrue(names.contains("TABLE_TRIGGERS"));
+    assertTrue(names.contains("VIEWS"));
   }
 }

@@ -64,7 +64,7 @@ class K8sTriggerDeployerTest {
     K8sSnapshot capturedSnapshot = snapshot;
     return new K8sTriggerDeployer(trigger, context) {
       @Override
-      K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> createApi(K8sContext ctx,
+      protected K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> createApi(K8sContext ctx,
           K8sApiEndpoint<V1alpha1TableTrigger, V1alpha1TableTriggerList> endpoint) {
         return capturedTriggerApi;
       }
@@ -80,7 +80,7 @@ class K8sTriggerDeployerTest {
       }
 
       @Override
-      K8sSnapshot createSnapshot(K8sContext ctx) {
+      protected K8sSnapshot createSnapshot(K8sContext ctx) {
         return capturedSnapshot;
       }
     };

@@ -205,4 +205,33 @@ class HoptimatorJdbcSchemaTest {
     assertTrue(names.contains("TABLE_A") || names.size() >= 1,
         "at least one table name must appear in getNames() result");
   }
+
+  @Test
+  void testTablesGetReturnsNullForMissingTableAfterLoad() throws Exception {
+    Connection dsConnection = mock(Connection.class);
+    DatabaseMetaData metaData = mock(DatabaseMetaData.class);
+    ResultSet resultSet = mock(ResultSet.class);
+
+    when(mockDataSource.getConnection()).thenReturn(dsConnection);
+    when(dsConnection.getMetaData()).thenReturn(metaData);
+    when(metaData.getTables(anyString(), anyString(), anyString(), isNull())).thenReturn(resultSet);
+    when(resultSet.next()).thenReturn(true, false);
+    when(resultSet.getString(1)).thenReturn("myCatalog");
+    when(resultSet.getString(2)).thenReturn("mySchema");
+    when(resultSet.getString(3)).thenReturn("TABLE_A");
+    when(resultSet.getString(4)).thenReturn("TABLE");
+
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+    HoptimatorJdbcSchema schema = new HoptimatorJdbcSchema(
+        "myDb", "myCatalog", "mySchema", mockDataSource,
+        AnsiSqlDialect.DEFAULT, convention, Collections.emptyList());
+
+    // Trigger loadAllTables first by asking for names
+    schema.tables().getNames(LikePattern.any());
+    // Now ask for a specific table that does not exist → exercises the null return path
+    Table missing = schema.tables().get("NONEXISTENT_TABLE");
+
+    assertNull(missing);
+  }
 }
