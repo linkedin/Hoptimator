@@ -635,6 +635,26 @@ public final class HoptimatorDdlUtils {
    * @throws SQLException for unsupported DDL (e.g. DROP, CREATE VIEW)
    */
   public static SpecifyResult specifyFromSql(String sql, HoptimatorConnection conn) throws SQLException {
+    return specifyFromSql(sql, conn, null);
+  }
+
+  /**
+   * Like {@link #specifyFromSql(String, HoptimatorConnection)} but allows the caller to supply
+   * a custom {@code pipelineName} for the {@code INSERT INTO} path.
+   *
+   * <p>When {@code pipelineName} is non-null it is used for {@code PIPELINE_OPTION} instead of
+   * the target table's qualified name, enabling callers such as {@code LogicalTableDeployer} to
+   * use a canonical inter-tier name (e.g. {@code "logical-testevent-nearline-to-online"}).
+   * {@code viewName} and {@code viewPath} are still derived from the target table as normal.
+   *
+   * <p>For {@code CREATE TABLE} / {@code CREATE MATERIALIZED VIEW} statements the
+   * {@code pipelineName} parameter is ignored.
+   *
+   * @param pipelineName custom pipeline name, or {@code null} to derive from the target table
+   * @throws SQLException for unsupported DDL (e.g. DROP, CREATE VIEW)
+   */
+  public static SpecifyResult specifyFromSql(String sql, HoptimatorConnection conn,
+      @Nullable String pipelineName) throws SQLException {
     SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
 
     if (sqlNode instanceof SqlCreateTable) {
@@ -659,13 +679,15 @@ public final class HoptimatorDdlUtils {
     List<String> viewPath;
     if (table != null) {
       List<String> qualifiedName = table.getQualifiedName();
+      // Use caller-supplied name if provided, otherwise derive from table.
       connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION,
-          String.join(".", qualifiedName));
+          pipelineName != null ? pipelineName : String.join(".", qualifiedName));
       viewName = qualifiedName.get(qualifiedName.size() - 1);
       viewPath = new ArrayList<>(qualifiedName);
     } else {
       // No INSERT INTO target — name the virtual sink "SINK" and record it as the pipeline.
-      connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, viewName);
+      connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION,
+          pipelineName != null ? pipelineName : viewName);
       viewPath = new ArrayList<>(List.of("DEFAULT", viewName));
     }
 

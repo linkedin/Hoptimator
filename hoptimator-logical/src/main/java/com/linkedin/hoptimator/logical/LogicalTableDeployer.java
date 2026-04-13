@@ -239,6 +239,18 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * Used by the {@code !specify} Quidem command to preview what a {@code CREATE TABLE}
    * would produce without actually deploying anything.
    */
+  /**
+   * Returns the YAML specs that would be created for this logical table — mirrors
+   * {@link #deployAll} but collects specs instead of deploying resources.
+   *
+   * <p>Step 1: tier resource specs via {@link DeploymentService#specify} on each
+   * {@code tierSource} (same Sources used by {@link #deployTierResources}), so the
+   * correct deployers are found via the tier's database name.
+   *
+   * <p>Step 2: pipeline job specs — plans each implicit inter-tier pipeline and
+   * collects only the job artifacts. Sources and sink are already covered in step 1,
+   * so only {@code pipeline.job()} specs are added to avoid duplicates.
+   */
   @Override
   public List<String> specify() throws SQLException {
     // Register tier temp tables so planPipeline() can resolve them via HoptimatorDriver.convert().
@@ -247,22 +259,65 @@ public class LogicalTableDeployer implements Deployer, Validated {
     Map<String, String> tierMap = buildTierMap();
     Map<String, Source> tierSources = buildTierSources();
     List<String> specs = new ArrayList<>();
-    if (tierMap.containsKey(LogicalTier.NEARLINE.tierName()) && tierMap.containsKey(LogicalTier.ONLINE.tierName())) {
-      String pipelineName = pipelineName(source.table(), LogicalTier.NEARLINE.tierName(), LogicalTier.ONLINE.tierName());
-      Source fromSource = tierSources.get(LogicalTier.NEARLINE.tierName());
-      Source toSource = tierSources.get(LogicalTier.ONLINE.tierName());
-      specs.addAll(DeploymentService.specify(fromSource, context.connection()));
-      specs.addAll(DeploymentService.specify(toSource, context.connection()));
-      try {
-        Pipeline pipeline = planPipeline(fromSource, toSource, pipelineName);
-        specs.addAll(DeploymentService.specify(pipeline.job(), context.connection()));
-      } catch (Exception e) {
-        String message = String.format("Pipeline spec generation failed for %s on table %s", pipelineName, source.table());
-        log.error(message, e);
-        throw new SQLException(message, e);
-      }
+
+    // Step 1: tier resource specs (mirrors deployTierResources)
+    for (Source tierSource : tierSources.values()) {
+      specs.addAll(DeploymentService.specify(tierSource, context.connection()));
     }
+
+    // Step 2: pipeline job specs (mirrors deployImplicitPipelines)
+    if (tierMap.containsKey(LogicalTier.NEARLINE.tierName()) && tierMap.containsKey(LogicalTier.ONLINE.tierName())) {
+      specs.addAll(specifyPipelineJob(
+          tierSources.get(LogicalTier.NEARLINE.tierName()),
+          tierSources.get(LogicalTier.ONLINE.tierName()),
+          pipelineName(source.table(), LogicalTier.NEARLINE.tierName(), LogicalTier.ONLINE.tierName())));
+    }
+    if (tierMap.containsKey(LogicalTier.NEARLINE.tierName()) && tierMap.containsKey(LogicalTier.OFFLINE.tierName())) {
+      specs.addAll(specifyPipelineJob(
+          tierSources.get(LogicalTier.NEARLINE.tierName()),
+          tierSources.get(LogicalTier.OFFLINE.tierName()),
+          pipelineName(source.table(), LogicalTier.NEARLINE.tierName(), LogicalTier.OFFLINE.tierName())));
+    }
+
     return specs;
+  }
+
+  /**
+   * Plans the inter-tier pipeline by directly constructing a {@link PipelineRel.Implementor}
+   * for the trivial {@code SELECT * FROM fromSource → INSERT INTO toSource} flow.
+   *
+   * <p>The rule-based planner ({@link DeploymentService#plan}) cannot handle
+   * {@code LogicalTableModify} (INSERT INTO) → {@code PIPELINE} conversion because no such
+   * rule exists in the pipeline rule set. We therefore bypass the planner and manually wire
+   * source, sink, and query — the same approach as the original implementation.
+   *
+   * <p>Shared by {@link #deployPipelineBundle} and {@link #specifyPipelineJob}.
+   */
+  private Pipeline planPipeline(Source fromSource, Source toSource, String pipelineName) throws Exception {
+    HoptimatorConnection conn = context.connection();
+    Properties props = conn.connectionProperties();
+    props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
+    RelRoot root = HoptimatorDriver.convert(conn, buildSelectSql(fromSource)).root;
+    PipelineRel.Implementor plan = new PipelineRel.Implementor(
+        root.fields, DeploymentService.parseHints(props));
+    plan.addSource(fromSource.database(), fromSource.path(), root.rel.getRowType(), Collections.emptyMap());
+    plan.setSink(toSource.database(), toSource.path(), root.rel.getRowType(), Collections.emptyMap());
+    plan.setQuery(root.rel);
+    return plan.pipeline(pipelineName, conn);
+  }
+
+  /** Plans the pipeline and returns only the job artifact specs (sources/sink already in step 1). */
+  private List<String> specifyPipelineJob(Source fromSource, Source toSource, String pipelineName)
+      throws SQLException {
+    try {
+      Pipeline pipeline = planPipeline(fromSource, toSource, pipelineName);
+      return DeploymentService.specify(pipeline.job(), context.connection());
+    } catch (Exception e) {
+      String message = String.format("Pipeline spec generation failed for %s on table %s",
+          pipelineName, source.table());
+      log.error(message, e);
+      throw new SQLException(message, e);
+    }
   }
 
   // ─── Private helpers ────────────────────────────────────────────────────────
@@ -348,7 +403,8 @@ public class LogicalTableDeployer implements Deployer, Validated {
           ownerContext, update);
     }
     if (tierMap.containsKey(LogicalTier.NEARLINE.tierName()) && tierMap.containsKey(LogicalTier.OFFLINE.tierName())) {
-      log.debug("nearline → offline pending; skipping pipeline for {}", source.table());
+      deployPipelineBundle(LogicalTier.NEARLINE.tierName(), LogicalTier.OFFLINE.tierName(), tierDatabases, tierSources,
+          ownerContext, update);
     }
   }
 
@@ -356,22 +412,16 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * Deploys a single implicit pipeline between two tiers using the full pipeline planner,
    * producing a proper {@link Job} with correct SQL, fieldMap, and connector configs.
    */
-  private void deployPipelineBundle(String fromTier, String toTier, Map<String, V1alpha1Database> tierDatabases,
+  void deployPipelineBundle(String fromTier, String toTier, Map<String, V1alpha1Database> tierDatabases,
       Map<String, Source> tierSources, K8sContext ownerContext, boolean update) throws SQLException {
     String tableName = source.table();
     String pipelineName = pipelineName(tableName, fromTier, toTier);
     Source fromSource = tierSources.get(fromTier);
     Source toSource = tierSources.get(toTier);
 
-    List<String> pipelineSpecs = new ArrayList<>();
-    pipelineSpecs.addAll(DeploymentService.specify(fromSource, context.connection()));
-    pipelineSpecs.addAll(DeploymentService.specify(toSource, context.connection()));
-
-    String pipelineSql;
+    Pipeline pipeline;
     try {
-      Pipeline pipeline = planPipeline(fromSource, toSource, pipelineName);
-      pipelineSql = pipeline.job().sql().apply(SqlDialect.ANSI);
-      pipelineSpecs.addAll(DeploymentService.specify(pipeline.job(), context.connection()));
+      pipeline = planPipeline(fromSource, toSource, pipelineName);
     } catch (SQLException e) {
       log.warn("Pipeline planner failed for {}->{} on table {}", fromTier, toTier, tableName, e);
       throw e;
@@ -380,6 +430,15 @@ public class LogicalTableDeployer implements Deployer, Validated {
       log.error(message, e);
       throw new SQLNonTransientException(message, e);
     }
+
+    HoptimatorConnection conn = context.connection();
+    String pipelineSql = pipeline.job().sql().apply(SqlDialect.ANSI);
+    List<String> pipelineSpecs = new ArrayList<>();
+    for (Source src : pipeline.sources()) {
+      pipelineSpecs.addAll(DeploymentService.specify(src, conn));
+    }
+    pipelineSpecs.addAll(DeploymentService.specify(pipeline.sink(), conn));
+    pipelineSpecs.addAll(DeploymentService.specify(pipeline.job(), conn));
 
     K8sPipelineBundle bundle = new K8sPipelineBundle(pipelineName, pipelineSpecs, pipelineSql, ownerContext);
     pipelineDeployers.add(bundle);
@@ -390,35 +449,29 @@ public class LogicalTableDeployer implements Deployer, Validated {
     }
   }
 
-  /**
-   * Plans the inter-tier pipeline, constructing the {@link PipelineRel.Implementor} directly
-   * (bypassing the Calcite rule-based planner) for a trivial SELECT * → INSERT flow.
-   * Shared by both {@link #deployPipelineBundle} and {@link #specify}.
-   */
-  private Pipeline planPipeline(Source fromSource, Source toSource, String pipelineName)
-      throws Exception {
-    HoptimatorConnection conn = context.connection();
-    Properties props = conn.connectionProperties();
-    props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
-    RelRoot root = HoptimatorDriver.convert(conn, buildSelectSql(fromSource)).root;
-    PipelineRel.Implementor plan = new PipelineRel.Implementor(
-        root.fields, DeploymentService.parseHints(props));
-    plan.addSource(fromSource.database(), fromSource.path(), root.rel.getRowType(), Collections.emptyMap());
-    plan.setSink(toSource.database(), toSource.path(), root.rel.getRowType(), Collections.emptyMap());
-    plan.setQuery(root.rel);
-    return plan.pipeline(pipelineName, conn);
-  }
-
   /** Returns the canonical pipeline name for an implicit inter-tier pipeline. */
   static String pipelineName(String tableName, String fromTier, String toTier) {
     return "logical-" + K8sUtils.canonicalizeName(tableName) + "-" + fromTier + "-to-" + toTier;
   }
 
-  /** Builds a {@code SELECT * FROM ...} SQL for the given source, quoting each non-null
-   *  path component individually to support 1-part (table), 2-part (schema.table), and
-   *  3-part (catalog.schema.table) addressing. */
+  /**
+   * Builds a {@code SELECT * FROM source} SQL statement used by {@link #planPipeline}.
+   * Quoting each non-null path component to support 1-, 2-, and 3-part addressing.
+   */
   static String buildSelectSql(Source source) {
-    StringBuilder sb = new StringBuilder("SELECT * FROM ");
+    return "SELECT * FROM " + qualifiedRef(source);
+  }
+
+  /**
+   * Builds an {@code INSERT INTO toSource SELECT * FROM fromSource} SQL statement,
+   * quoting each non-null path component to support 1-, 2-, and 3-part addressing.
+   */
+  static String buildInsertSql(Source toSource, Source fromSource) {
+    return "INSERT INTO " + qualifiedRef(toSource) + " SELECT * FROM " + qualifiedRef(fromSource);
+  }
+
+  private static String qualifiedRef(Source source) {
+    StringBuilder sb = new StringBuilder();
     if (source.catalog() != null) {
       sb.append("\"").append(source.catalog()).append("\".");
     }
