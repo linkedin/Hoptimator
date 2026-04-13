@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.function.Predicate;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -77,6 +78,13 @@ class SubscriptionReconcilerTest {
   private KubernetesApiResponse<V1alpha1Subscription> mockUpdateStatusResponse;
 
   private SubscriptionReconciler reconciler;
+
+  // YAML that triggers ClassCastException in snakeyaml Composer
+  private static final String CLASS_CAST_EXCEPTION_YAML = "!!java.util.Date 2021-01-01";
+  // YAML that may trigger ScannerException or parse as object with null metadata
+  private static final String SCANNER_EXCEPTION_YAML = "key: value: with: colons: everywhere:";
+  // Valid YAML with no metadata — triggers null-metadata guard in fetchAttributes
+  private static final String NO_METADATA_YAML = "apiVersion: v1\nkind: ConfigMap";
 
   private static SubscriptionReconciler createReconciler(Operator operator,
       HoptimatorPlanner.Factory plannerFactory,
@@ -862,5 +870,53 @@ class SubscriptionReconcilerTest {
     assertNotNull(sub.getStatus().getAttributes());
     assertTrue(sub.getStatus().getAttributes().containsKey("primKey"));
     assertFalse(sub.getStatus().getAttributes().containsKey("objKey"));
+  }
+
+  // --- fetchAttributes YAML error-handling tests (merged from SubscriptionReconcilerFetchAttributesTest) ---
+  // These test that malformed YAML in jobResources doesn't propagate out of reconcile().
+  // Exercises the try/catch blocks in fetchAttributes() without reflection.
+
+  private V1alpha1Subscription buildPhase3Subscription(String jobResourceYaml) {
+    V1alpha1Subscription sub = buildSubscription("ns", "my-sub", "SELECT 1");
+    V1alpha1SubscriptionStatus status = new V1alpha1SubscriptionStatus();
+    status.setSql("SELECT 1");
+    status.setHints(new HashMap<>());
+    status.setReady(false);
+    String validYaml = "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: cm1\n  namespace: ns\n";
+    status.setResources(Collections.singletonList(validYaml));
+    status.setJobResources(Collections.singletonList(jobResourceYaml));
+    status.setDownstreamResources(Collections.emptyList());
+    sub.setStatus(status);
+    return sub;
+  }
+
+  @Test
+  void fetchAttributesHandlesClassCastExceptionYaml() throws Exception {
+    V1alpha1Subscription sub = buildPhase3Subscription(CLASS_CAST_EXCEPTION_YAML);
+    when(operator.fetch(anyString(), anyString(), anyString())).thenReturn(sub);
+    when(operator.isReady(anyString())).thenReturn(false);
+    stubUpdateStatus();
+
+    assertDoesNotThrow(() -> reconciler.reconcile(new Request("ns", "my-sub")));
+  }
+
+  @Test
+  void fetchAttributesHandlesScannerExceptionYaml() throws Exception {
+    V1alpha1Subscription sub = buildPhase3Subscription(SCANNER_EXCEPTION_YAML);
+    when(operator.fetch(anyString(), anyString(), anyString())).thenReturn(sub);
+    when(operator.isReady(anyString())).thenReturn(false);
+    stubUpdateStatus();
+
+    assertDoesNotThrow(() -> reconciler.reconcile(new Request("ns", "my-sub")));
+  }
+
+  @Test
+  void fetchAttributesHandlesYamlWithNullMetadata() throws Exception {
+    V1alpha1Subscription sub = buildPhase3Subscription(NO_METADATA_YAML);
+    when(operator.fetch(anyString(), anyString(), anyString())).thenReturn(sub);
+    when(operator.isReady(anyString())).thenReturn(false);
+    stubUpdateStatus();
+
+    assertDoesNotThrow(() -> reconciler.reconcile(new Request("ns", "my-sub")));
   }
 }
