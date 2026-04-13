@@ -4,8 +4,9 @@ import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Sink;
-import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.ThrowingFunction;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -20,6 +21,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.ViewTable;
+import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
@@ -43,12 +45,17 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 
@@ -58,7 +65,29 @@ import static org.mockito.Mockito.when;
 class HoptimatorDdlUtilsTest {
 
   @Mock
-  MockedStatic<DeploymentService> mockDeploymentService;
+  private MockedStatic<DeploymentService> mockDeploymentService;
+
+  /** Stubs DeploymentService.plan() to return a spy Implementor whose pipeline() method
+   * returns the given Pipeline mock, allowing tests to exercise the full deployment path. */
+  private PipelineRel.Implementor stubPlan(Pipeline mockPipeline) throws Exception {
+    PipelineRel.Implementor spyPlan = spy(
+        new PipelineRel.Implementor(ImmutablePairList.of(), Collections.emptyMap()));
+    doReturn(mockPipeline).when(spyPlan).pipeline(anyString(), any());
+    mockDeploymentService.when(() -> DeploymentService.plan(any(), any(), any()))
+        .thenReturn(spyPlan);
+    return spyPlan;
+  }
+
+  /** Creates a minimal Pipeline mock whose job().sql() returns a no-op function. */
+  private Pipeline mockPipeline() {
+    Pipeline mockPipeline = mock(Pipeline.class);
+    Job mockJob = mock(Job.class);
+    ThrowingFunction<SqlDialect, String> sqlFn = dialect -> "SELECT 1 AS x";
+    // sql() is only invoked when building MaterializedView, not in the SELECT path
+    lenient().when(mockJob.sql()).thenAnswer(inv -> sqlFn);
+    when(mockPipeline.job()).thenReturn(mockJob);
+    return mockPipeline;
+  }
 
   @Test
   void testRenameColumnsReturnsQueryWhenColumnListNull() {
@@ -1143,6 +1172,165 @@ class HoptimatorDdlUtilsTest {
     // Non-null list (even empty) causes wrapping in a SELECT node
     assertNotNull(result);
     assertFalse(result == query, "Expected a wrapped SELECT node for non-null column list");
+  }
+
+  @Test
+  void specifyFromSqlCreateTableReturnsEmptyListWhenNoDeployersRegistered() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      conn.calciteConnection().getRootSchema()
+          .add("TEST_SPECIFY_SQL_DB", new TestDatabaseSchema("test-specify-sql-db"));
+
+      // specifyFromSql dispatches to processCreateTable in SPECIFY mode.
+      // No deployer providers are registered in the test env, so it returns an empty spec list.
+      HoptimatorDdlUtils.SpecifyResult result = HoptimatorDdlUtils.specifyFromSql(
+          "CREATE TABLE \"TEST_SPECIFY_SQL_DB\".\"t\" (\"id\" INTEGER)", conn);
+
+      assertNotNull(result.specs);
+      assertTrue(result.specs.isEmpty(), "Expected empty spec list when no deployers registered");
+    }
+  }
+
+  @Test
+  void specifyFromSqlWithPlainSelectReturnsPipelineSpecs() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // A plain SELECT is not DDL — exercises the non-DDL (SELECT/INSERT) path in specifyFromSql.
+      // sources() is called in the SELECT path, so stub it on the mock pipeline.
+      Pipeline pipeline = mockPipeline();
+      when(pipeline.sources()).thenReturn(Collections.emptyList());
+      stubPlan(pipeline);
+
+      HoptimatorDdlUtils.SpecifyResult result = HoptimatorDdlUtils.specifyFromSql("SELECT 1 AS \"x\"", conn);
+
+      assertNotNull(result.specs);
+      assertTrue(result.specs.isEmpty());
+    }
+  }
+
+  @Test
+  void processCreateMaterializedViewCreateOrReplaceReplacesExistingViewWithMaterializedView()
+      throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus replaceDbSchema = conn.calciteConnection().getRootSchema()
+          .add("TEST_REPLACE_MV_DB", new TestDatabaseSchema("test-replace-mv-db"));
+      replaceDbSchema.add("existingView", mock(ViewTable.class));
+
+      // Use a real SQL query so prepare.convert() executes normally
+      SqlCreateMaterializedView create = (SqlCreateMaterializedView) HoptimatorDriver.parseQuery(
+          conn, "CREATE OR REPLACE MATERIALIZED VIEW \"TEST_REPLACE_MV_DB\".\"existingView\""
+              + " AS SELECT 1 AS \"x\"");
+
+      stubPlan(mockPipeline());
+
+      CalcitePrepare.Context ctx = conn.createPrepareContext();
+      HoptimatorDriver.Prepare prepare = new HoptimatorDriver.Prepare(conn);
+      HoptimatorDdlUtils.processCreateMaterializedView(
+          ctx, prepare, conn, create, HoptimatorDdlUtils.DdlMode.CREATE);
+
+      // After CREATE OR REPLACE, the old ViewTable is gone and a MaterializedViewTable takes its place
+      Table table = replaceDbSchema.tables().get("existingView");
+      assertNotNull(table);
+      assertInstanceOf(MaterializedViewTable.class, table,
+          "Expected MaterializedViewTable but got: " + table.getClass().getSimpleName());
+    }
+  }
+
+  @Test
+  void processCreateMaterializedViewPartialViewNameBuildsHyphenatedPipelineName() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      conn.calciteConnection().getRootSchema()
+          .add("TEST_PARTIAL_VIEW_DB", new TestDatabaseSchema("test-partial-db"));
+
+      // A view name containing '$' exercises the partial-view pipeline-name branch
+      SqlCreateMaterializedView create = (SqlCreateMaterializedView) HoptimatorDriver.parseQuery(
+          conn, "CREATE MATERIALIZED VIEW \"TEST_PARTIAL_VIEW_DB\".\"mainView$partialSuffix\""
+              + " AS SELECT 1 AS \"x\"");
+
+      stubPlan(mockPipeline());
+
+      CalcitePrepare.Context ctx = conn.createPrepareContext();
+      HoptimatorDriver.Prepare prepare = new HoptimatorDriver.Prepare(conn);
+      HoptimatorDdlUtils.processCreateMaterializedView(
+          ctx, prepare, conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      // The pipeline option should combine the database name, sink name, and the '$' suffix
+      assertEquals("test-partial-db-mainView-partialSuffix",
+          conn.connectionProperties().getProperty(DeploymentService.PIPELINE_OPTION));
+    }
+  }
+
+  @Test
+  void processCreateTableSpecifyModeReturnsEmptySpecList() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      conn.calciteConnection().getRootSchema()
+          .add("TEST_SPECIFY_TABLE_DB", new TestDatabaseSchema("test-specify-db"));
+
+      SqlCreateTable create = (SqlCreateTable) HoptimatorDriver.parseQuery(conn,
+          "CREATE TABLE \"TEST_SPECIFY_TABLE_DB\".\"my_table\" (\"id\" INTEGER)");
+
+      CalcitePrepare.Context ctx = conn.createPrepareContext();
+      // SPECIFY mode is a dry-run: returns an empty spec list when no deployers are registered
+      HoptimatorDdlUtils.SpecifyResult result = HoptimatorDdlUtils.processCreateTable(
+          ctx, conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      assertNotNull(result.specs);
+      assertTrue(result.specs.isEmpty());
+    }
+  }
+
+  @Test
+  void processCreateTableIsNewSchemaFailsWhenCatalogIsNotHoptimatorJdbcCatalogSchema()
+      throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // Register a plain TestDatabaseSchema (NOT a HoptimatorJdbcCatalogSchema) as the catalog.
+      // A 3-level path forces the isNewSchema=true branch, after which the schema unwrap
+      // fails because TestDatabaseSchema cannot be cast to HoptimatorJdbcCatalogSchema.
+      conn.calciteConnection().getRootSchema()
+          .add("TEST_CATALOG_A", new TestDatabaseSchema("test-catalog-a"));
+
+      SqlCreateTable create = (SqlCreateTable) HoptimatorDriver.parseQuery(conn,
+          "CREATE TABLE \"TEST_CATALOG_A\".\"new_schema\".\"my_table\" (\"id\" INTEGER)");
+
+      CalcitePrepare.Context ctx = conn.createPrepareContext();
+      assertThrows(Exception.class,
+          () -> HoptimatorDdlUtils.processCreateTable(
+              ctx, conn, create, HoptimatorDdlUtils.DdlMode.CREATE));
+    }
+  }
+
+  @Test
+  void processCreateMaterializedViewSpecifyModeCoversPipelinePlanningAndExecution()
+      throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      conn.calciteConnection().getRootSchema()
+          .add("TEST_PIPELINE_DB", new TestDatabaseSchema("test-pipeline-db"));
+
+      SqlCreateMaterializedView create = (SqlCreateMaterializedView) HoptimatorDriver.parseQuery(
+          conn, "CREATE MATERIALIZED VIEW \"TEST_PIPELINE_DB\".\"myView\" AS SELECT 1 AS \"x\"");
+
+      stubPlan(mockPipeline());
+
+      CalcitePrepare.Context ctx = conn.createPrepareContext();
+      HoptimatorDriver.Prepare prepare = new HoptimatorDriver.Prepare(conn);
+      HoptimatorDdlUtils.SpecifyResult result = HoptimatorDdlUtils.processCreateMaterializedView(
+          ctx, prepare, conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      assertNotNull(result.specs);
+      assertTrue(result.specs.isEmpty());
+    }
   }
 
   static class TestDatabaseSchema extends AbstractSchema
