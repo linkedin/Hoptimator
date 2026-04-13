@@ -4,6 +4,7 @@ import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.operator.pipeline.PipelineReconciler;
+import com.linkedin.hoptimator.operator.subscription.SubscriptionReconciler;
 import com.linkedin.hoptimator.operator.trigger.TableTriggerReconciler;
 import com.linkedin.hoptimator.operator.trigger.ViewReconciler;
 import io.kubernetes.client.extended.controller.Controller;
@@ -18,6 +19,8 @@ import org.apache.commons.cli.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -59,25 +62,42 @@ public class PipelineOperatorApp {
     String watchNamespaceInput = cmd.getOptionValue("watch", "");
     Properties connectionProperties = new Properties();
     connectionProperties.put("k8s.watch.namespace", watchNamespaceInput);
-    K8sContext context = K8sContext.create(new HoptimatorConnection(null, connectionProperties));
-    new PipelineOperatorApp(context).run();
+
+    // Create a JDBC connection for SQL planning (used by SubscriptionReconciler)
+    Connection jdbcConnection = DriverManager.getConnection("jdbc:hoptimator://", connectionProperties);
+    K8sContext context = K8sContext.create(jdbcConnection);
+
+    SubscriptionReconciler.Planner planner = SubscriptionReconciler.jdbcPlanner(jdbcConnection);
+    new PipelineOperatorApp(context).run(planner);
   }
 
   public void run() {
     run(Collections.emptyList());
   }
 
+  public void run(SubscriptionReconciler.Planner planner) {
+    run(planner, Collections.emptyList());
+  }
+
   public void run(List<Controller> initialControllers) {
+    run(null, initialControllers);
+  }
+
+  public void run(SubscriptionReconciler.Planner planner, List<Controller> initialControllers) {
     // register informers
     context.registerInformer(K8sApiEndpoints.PIPELINES, Duration.ofMinutes(5));
     context.registerInformer(K8sApiEndpoints.TABLE_TRIGGERS, Duration.ofMinutes(5));
     context.registerInformer(K8sApiEndpoints.VIEWS, Duration.ofMinutes(5));
+    context.registerInformer(K8sApiEndpoints.SUBSCRIPTIONS, Duration.ofMinutes(5));
 
     List<Controller> controllers = new ArrayList<>(initialControllers);
     controllers.addAll(ControllerService.controllers(context));
     controllers.add(PipelineReconciler.controller(context));
     controllers.add(TableTriggerReconciler.controller(context));
     controllers.add(ViewReconciler.controller(context));
+    if (planner != null) {
+      controllers.add(SubscriptionReconciler.controller(context, planner));
+    }
 
     ControllerManager controllerManager =
         new ControllerManager(context.informerFactory(), controllers.toArray(new Controller[0]));
