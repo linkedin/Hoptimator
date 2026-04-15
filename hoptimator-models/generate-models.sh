@@ -6,6 +6,7 @@ docker run \
   --rm \
   --mount type=bind,src=/var/run/docker.sock,dst=/var/run/docker.sock \
   --mount type=bind,src="$(pwd)",dst="$(pwd)" \
+  -e DOCKER_API_VERSION=1.44 \
   -ti \
   --network host \
   ghcr.io/kubernetes-client/java/crd-model-gen:v1.0.6 \

@@ -11,7 +11,7 @@
  */
 
 
-package com.linkedin.hoptimator.models;
+package com.linkedin.hoptimator.k8s.models;
 
 import java.util.Objects;
 import java.util.Arrays;
@@ -20,41 +20,39 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.models.V1alpha1KafkaTopicSpecConfigMapRef;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
 
 /**
- * V1alpha1KafkaTopicSpecClientConfigs
+ * V1alpha1LogicalTableSpecTiers
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-15T19:38:00.369Z[Etc/UTC]")
-public class V1alpha1KafkaTopicSpecClientConfigs {
-  public static final String SERIALIZED_NAME_CONFIG_MAP_REF = "configMapRef";
-  @SerializedName(SERIALIZED_NAME_CONFIG_MAP_REF)
-  private V1alpha1KafkaTopicSpecConfigMapRef configMapRef;
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-15T19:35:26.411Z[Etc/UTC]")
+public class V1alpha1LogicalTableSpecTiers {
+  public static final String SERIALIZED_NAME_DATABASE_CRD_NAME = "databaseCrdName";
+  @SerializedName(SERIALIZED_NAME_DATABASE_CRD_NAME)
+  private String databaseCrdName;
 
 
-  public V1alpha1KafkaTopicSpecClientConfigs configMapRef(V1alpha1KafkaTopicSpecConfigMapRef configMapRef) {
+  public V1alpha1LogicalTableSpecTiers databaseCrdName(String databaseCrdName) {
     
-    this.configMapRef = configMapRef;
+    this.databaseCrdName = databaseCrdName;
     return this;
   }
 
    /**
-   * Get configMapRef
-   * @return configMapRef
+   * Name of the Database CRD backing this tier.
+   * @return databaseCrdName
   **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "")
+  @ApiModelProperty(required = true, value = "Name of the Database CRD backing this tier.")
 
-  public V1alpha1KafkaTopicSpecConfigMapRef getConfigMapRef() {
-    return configMapRef;
+  public String getDatabaseCrdName() {
+    return databaseCrdName;
   }
 
 
-  public void setConfigMapRef(V1alpha1KafkaTopicSpecConfigMapRef configMapRef) {
-    this.configMapRef = configMapRef;
+  public void setDatabaseCrdName(String databaseCrdName) {
+    this.databaseCrdName = databaseCrdName;
   }
 
 
@@ -66,21 +64,21 @@ public class V1alpha1KafkaTopicSpecClientConfigs {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1KafkaTopicSpecClientConfigs v1alpha1KafkaTopicSpecClientConfigs = (V1alpha1KafkaTopicSpecClientConfigs) o;
-    return Objects.equals(this.configMapRef, v1alpha1KafkaTopicSpecClientConfigs.configMapRef);
+    V1alpha1LogicalTableSpecTiers v1alpha1LogicalTableSpecTiers = (V1alpha1LogicalTableSpecTiers) o;
+    return Objects.equals(this.databaseCrdName, v1alpha1LogicalTableSpecTiers.databaseCrdName);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(configMapRef);
+    return Objects.hash(databaseCrdName);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1KafkaTopicSpecClientConfigs {\n");
-    sb.append("    configMapRef: ").append(toIndentedString(configMapRef)).append("\n");
+    sb.append("class V1alpha1LogicalTableSpecTiers {\n");
+    sb.append("    databaseCrdName: ").append(toIndentedString(databaseCrdName)).append("\n");
     sb.append("}");
     return sb.toString();
   }

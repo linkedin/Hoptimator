@@ -20,7 +20,7 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJob;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
 import io.kubernetes.client.openapi.models.V1ListMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
@@ -29,18 +29,18 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * SqlJobList is a list of SqlJob
+ * LogicalTableList is a list of LogicalTable
  */
-@ApiModel(description = "SqlJobList is a list of SqlJob")
+@ApiModel(description = "LogicalTableList is a list of LogicalTable")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-15T19:35:26.411Z[Etc/UTC]")
-public class V1alpha1SqlJobList implements io.kubernetes.client.common.KubernetesListObject {
+public class V1alpha1LogicalTableList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
 
   public static final String SERIALIZED_NAME_ITEMS = "items";
   @SerializedName(SERIALIZED_NAME_ITEMS)
-  private List<V1alpha1SqlJob> items = new ArrayList<>();
+  private List<V1alpha1LogicalTable> items = new ArrayList<>();
 
   public static final String SERIALIZED_NAME_KIND = "kind";
   @SerializedName(SERIALIZED_NAME_KIND)
@@ -51,7 +51,7 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
   private V1ListMeta metadata = null;
 
 
-  public V1alpha1SqlJobList apiVersion(String apiVersion) {
+  public V1alpha1LogicalTableList apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -74,34 +74,34 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
   }
 
 
-  public V1alpha1SqlJobList items(List<V1alpha1SqlJob> items) {
+  public V1alpha1LogicalTableList items(List<V1alpha1LogicalTable> items) {
     
     this.items = items;
     return this;
   }
 
-  public V1alpha1SqlJobList addItemsItem(V1alpha1SqlJob itemsItem) {
+  public V1alpha1LogicalTableList addItemsItem(V1alpha1LogicalTable itemsItem) {
     this.items.add(itemsItem);
     return this;
   }
 
    /**
-   * List of sqljobs. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
+   * List of logicaltables. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
    * @return items
   **/
-  @ApiModelProperty(required = true, value = "List of sqljobs. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md")
+  @ApiModelProperty(required = true, value = "List of logicaltables. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md")
 
-  public List<V1alpha1SqlJob> getItems() {
+  public List<V1alpha1LogicalTable> getItems() {
     return items;
   }
 
 
-  public void setItems(List<V1alpha1SqlJob> items) {
+  public void setItems(List<V1alpha1LogicalTable> items) {
     this.items = items;
   }
 
 
-  public V1alpha1SqlJobList kind(String kind) {
+  public V1alpha1LogicalTableList kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -124,7 +124,7 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
   }
 
 
-  public V1alpha1SqlJobList metadata(V1ListMeta metadata) {
+  public V1alpha1LogicalTableList metadata(V1ListMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -155,11 +155,11 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SqlJobList v1alpha1SqlJobList = (V1alpha1SqlJobList) o;
-    return Objects.equals(this.apiVersion, v1alpha1SqlJobList.apiVersion) &&
-        Objects.equals(this.items, v1alpha1SqlJobList.items) &&
-        Objects.equals(this.kind, v1alpha1SqlJobList.kind) &&
-        Objects.equals(this.metadata, v1alpha1SqlJobList.metadata);
+    V1alpha1LogicalTableList v1alpha1LogicalTableList = (V1alpha1LogicalTableList) o;
+    return Objects.equals(this.apiVersion, v1alpha1LogicalTableList.apiVersion) &&
+        Objects.equals(this.items, v1alpha1LogicalTableList.items) &&
+        Objects.equals(this.kind, v1alpha1LogicalTableList.kind) &&
+        Objects.equals(this.metadata, v1alpha1LogicalTableList.metadata);
   }
 
   @Override
@@ -171,7 +171,7 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SqlJobList {\n");
+    sb.append("class V1alpha1LogicalTableList {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
     sb.append("    items: ").append(toIndentedString(items)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");

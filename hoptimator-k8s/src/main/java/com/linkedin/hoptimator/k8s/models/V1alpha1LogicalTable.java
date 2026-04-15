@@ -20,27 +20,21 @@ import com.google.gson.annotations.JsonAdapter;
 import com.google.gson.annotations.SerializedName;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
-import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJob;
-import io.kubernetes.client.openapi.models.V1ListMeta;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 /**
- * SqlJobList is a list of SqlJob
+ * Logical Table spanning multiple physical storage tiers.
  */
-@ApiModel(description = "SqlJobList is a list of SqlJob")
+@ApiModel(description = "Logical Table spanning multiple physical storage tiers.")
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-15T19:35:26.411Z[Etc/UTC]")
-public class V1alpha1SqlJobList implements io.kubernetes.client.common.KubernetesListObject {
+public class V1alpha1LogicalTable implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
   private String apiVersion;
-
-  public static final String SERIALIZED_NAME_ITEMS = "items";
-  @SerializedName(SERIALIZED_NAME_ITEMS)
-  private List<V1alpha1SqlJob> items = new ArrayList<>();
 
   public static final String SERIALIZED_NAME_KIND = "kind";
   @SerializedName(SERIALIZED_NAME_KIND)
@@ -48,10 +42,18 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
 
   public static final String SERIALIZED_NAME_METADATA = "metadata";
   @SerializedName(SERIALIZED_NAME_METADATA)
-  private V1ListMeta metadata = null;
+  private V1ObjectMeta metadata = null;
+
+  public static final String SERIALIZED_NAME_SPEC = "spec";
+  @SerializedName(SERIALIZED_NAME_SPEC)
+  private V1alpha1LogicalTableSpec spec;
+
+  public static final String SERIALIZED_NAME_STATUS = "status";
+  @SerializedName(SERIALIZED_NAME_STATUS)
+  private Object status;
 
 
-  public V1alpha1SqlJobList apiVersion(String apiVersion) {
+  public V1alpha1LogicalTable apiVersion(String apiVersion) {
     
     this.apiVersion = apiVersion;
     return this;
@@ -74,34 +76,7 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
   }
 
 
-  public V1alpha1SqlJobList items(List<V1alpha1SqlJob> items) {
-    
-    this.items = items;
-    return this;
-  }
-
-  public V1alpha1SqlJobList addItemsItem(V1alpha1SqlJob itemsItem) {
-    this.items.add(itemsItem);
-    return this;
-  }
-
-   /**
-   * List of sqljobs. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
-   * @return items
-  **/
-  @ApiModelProperty(required = true, value = "List of sqljobs. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md")
-
-  public List<V1alpha1SqlJob> getItems() {
-    return items;
-  }
-
-
-  public void setItems(List<V1alpha1SqlJob> items) {
-    this.items = items;
-  }
-
-
-  public V1alpha1SqlJobList kind(String kind) {
+  public V1alpha1LogicalTable kind(String kind) {
     
     this.kind = kind;
     return this;
@@ -124,7 +99,7 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
   }
 
 
-  public V1alpha1SqlJobList metadata(V1ListMeta metadata) {
+  public V1alpha1LogicalTable metadata(V1ObjectMeta metadata) {
     
     this.metadata = metadata;
     return this;
@@ -137,13 +112,59 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
   @javax.annotation.Nullable
   @ApiModelProperty(value = "")
 
-  public V1ListMeta getMetadata() {
+  public V1ObjectMeta getMetadata() {
     return metadata;
   }
 
 
-  public void setMetadata(V1ListMeta metadata) {
+  public void setMetadata(V1ObjectMeta metadata) {
     this.metadata = metadata;
+  }
+
+
+  public V1alpha1LogicalTable spec(V1alpha1LogicalTableSpec spec) {
+    
+    this.spec = spec;
+    return this;
+  }
+
+   /**
+   * Get spec
+   * @return spec
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "")
+
+  public V1alpha1LogicalTableSpec getSpec() {
+    return spec;
+  }
+
+
+  public void setSpec(V1alpha1LogicalTableSpec spec) {
+    this.spec = spec;
+  }
+
+
+  public V1alpha1LogicalTable status(Object status) {
+    
+    this.status = status;
+    return this;
+  }
+
+   /**
+   * Current state of the logical table.
+   * @return status
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Current state of the logical table.")
+
+  public Object getStatus() {
+    return status;
+  }
+
+
+  public void setStatus(Object status) {
+    this.status = status;
   }
 
 
@@ -155,27 +176,29 @@ public class V1alpha1SqlJobList implements io.kubernetes.client.common.Kubernete
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    V1alpha1SqlJobList v1alpha1SqlJobList = (V1alpha1SqlJobList) o;
-    return Objects.equals(this.apiVersion, v1alpha1SqlJobList.apiVersion) &&
-        Objects.equals(this.items, v1alpha1SqlJobList.items) &&
-        Objects.equals(this.kind, v1alpha1SqlJobList.kind) &&
-        Objects.equals(this.metadata, v1alpha1SqlJobList.metadata);
+    V1alpha1LogicalTable v1alpha1LogicalTable = (V1alpha1LogicalTable) o;
+    return Objects.equals(this.apiVersion, v1alpha1LogicalTable.apiVersion) &&
+        Objects.equals(this.kind, v1alpha1LogicalTable.kind) &&
+        Objects.equals(this.metadata, v1alpha1LogicalTable.metadata) &&
+        Objects.equals(this.spec, v1alpha1LogicalTable.spec) &&
+        Objects.equals(this.status, v1alpha1LogicalTable.status);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(apiVersion, items, kind, metadata);
+    return Objects.hash(apiVersion, kind, metadata, spec, status);
   }
 
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class V1alpha1SqlJobList {\n");
+    sb.append("class V1alpha1LogicalTable {\n");
     sb.append("    apiVersion: ").append(toIndentedString(apiVersion)).append("\n");
-    sb.append("    items: ").append(toIndentedString(items)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
     sb.append("    metadata: ").append(toIndentedString(metadata)).append("\n");
+    sb.append("    spec: ").append(toIndentedString(spec)).append("\n");
+    sb.append("    status: ").append(toIndentedString(status)).append("\n");
     sb.append("}");
     return sb.toString();
   }
