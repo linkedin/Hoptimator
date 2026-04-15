@@ -36,11 +36,6 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.ContextSqlValidator;
 import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.schema.ColumnStrategy;
-import org.apache.calcite.sql2rel.InitializerContext;
-import org.apache.calcite.sql2rel.InitializerExpressionFactory;
-import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
@@ -48,25 +43,31 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelProtoDataType;
+import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.ViewTable;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
+import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.sql2rel.InitializerContext;
+import org.apache.calcite.sql2rel.InitializerExpressionFactory;
+import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
+import javax.annotation.Nullable;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -79,11 +80,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
-import javax.annotation.Nullable;
-
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
-
 
 public final class HoptimatorDdlUtils {
   private HoptimatorDdlUtils() {
@@ -391,6 +389,9 @@ public final class HoptimatorDdlUtils {
       List<String> specs = mode.executeDeployers(deployers, conn);
       if (mode.mutable()) {
         logger.info("Deployed materialized view {}", viewName);
+      } else {
+        // SPECIFY (dry-run): roll back any side effects made by deployers during specify().
+        DeploymentService.restore(deployers);
       }
       success = true;
       return new SpecifyResult(specs, sinkRowType, viewPath);
@@ -585,6 +586,9 @@ public final class HoptimatorDdlUtils {
       List<String> specs = mode.executeDeployers(deployers, conn);
       if (mode.mutable()) {
         logger.info("Deployed table {}", source);
+      } else {
+        // SPECIFY (dry-run): roll back any side effects made by deployers during specify()
+        DeploymentService.restore(deployers);
       }
       success = true;
       return new SpecifyResult(specs, rowType, tablePath);
@@ -661,8 +665,7 @@ public final class HoptimatorDdlUtils {
     List<String> viewPath;
     if (table != null) {
       List<String> qualifiedName = table.getQualifiedName();
-      connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION,
-          String.join(".", qualifiedName));
+      connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", qualifiedName));
       viewName = qualifiedName.get(qualifiedName.size() - 1);
       viewPath = new ArrayList<>(qualifiedName);
     } else {
@@ -751,6 +754,87 @@ public final class HoptimatorDdlUtils {
 
     static ColumnDef of(@Nullable SqlNode expr, RelDataType type, ColumnStrategy strategy) {
       return new ColumnDef(expr, type, strategy);
+    }
+  }
+
+  /**
+   * Registers a temporary table in a schema with the given row type, and returns a
+   * {@link Runnable} that restores the schema to its prior state (for rollback).
+   * The {@code databaseName} is stored on the {@link TemporaryTable} so that DROP TABLE
+   * can construct the correct {@link com.linkedin.hoptimator.Source} from it.
+   *
+   * @param schema        the schema to register the temporary table in
+   * @param tableName     the table name to register under
+   * @param rowType       the row type the temporary table should expose
+   * @param databaseName  the database name the temporary table belongs to
+   * @return a rollback {@link Runnable} that restores the schema to its prior state
+   */
+  static Runnable registerTemporaryTable(SchemaPlus schema, String tableName,
+      RelDataType rowType, String databaseName) {
+    Table existing = schema.tables().get(tableName);
+    schema.add(tableName, new TemporaryTable(rowType, databaseName));
+    if (existing == null) {
+      return () -> schema.removeTable(tableName);
+    } else {
+      return () -> schema.add(tableName, existing);
+    }
+  }
+
+  /**
+   * Registers a {@link TemporaryTable} in the correct tier schema within {@code conn},
+   * handling both the simple (2-level: SCHEMA.TABLE) and catalog (3-level: CATALOG.SCHEMA.TABLE)
+   * cases, mirroring the {@code isNewSchema} logic in {@link HoptimatorDdlExecutor}.
+   *
+   * @param conn          the main connection whose root schema to navigate
+   * @param catalog       optional catalog name; null for simple schemas
+   * @param schema        the database/schema name to register in
+   * @param tableName     the table name to register
+   * @param rowType       the row type the temporary table should expose
+   * @param databaseName  the database name the temporary table belongs to
+   * @return a rollback {@link Runnable} that restores the schema to its prior state
+   */
+  public static Runnable registerTemporaryTableInSchema(HoptimatorConnection conn,
+      @Nullable String catalog, @Nullable String schema, String tableName, RelDataType rowType,
+      String databaseName) throws SQLException {
+    SchemaPlus rootSchema = conn.calciteConnection().getRootSchema();
+
+    if (catalog != null) {
+      if (schema == null) {
+        throw new SQLException("Catalog '" + catalog + "' is present but no schema name was"
+            + " provided for table " + tableName);
+      }
+      SchemaPlus catalogSchemaPlus = rootSchema.subSchemas().get(catalog);
+      if (catalogSchemaPlus == null) {
+        throw new SQLException("Catalog '" + catalog + "' not found in main connection"
+            + " while pre-registering row type for table " + tableName);
+      }
+      SchemaPlus databaseSchema = catalogSchemaPlus.subSchemas().get(schema);
+      if (databaseSchema == null) {
+        HoptimatorJdbcCatalogSchema catalogSchema;
+        try {
+          catalogSchema = catalogSchemaPlus.unwrap(HoptimatorJdbcCatalogSchema.class);
+        } catch (ClassCastException e) {
+          catalogSchema = null;
+        }
+        if (catalogSchema == null) {
+          throw new SQLException("Catalog '" + catalog
+              + "' is not a HoptimatorJdbcCatalogSchema; cannot create database schema '"
+              + schema + "' for table " + tableName);
+        }
+        SchemaPlus newSchema = catalogSchemaPlus.add(schema, catalogSchema.createSchema(schema));
+        return registerTemporaryTable(newSchema, tableName, rowType, databaseName);
+      } else {
+        return registerTemporaryTable(databaseSchema, tableName, rowType, databaseName);
+      }
+    } else if (schema != null) {
+      SchemaPlus tierSchema = rootSchema.subSchemas().get(schema);
+      if (tierSchema == null) {
+        throw new SQLException("Schema '" + schema + "' not found in main connection"
+            + " while pre-registering row type for table " + tableName);
+      }
+      return registerTemporaryTable(tierSchema, tableName, rowType, databaseName);
+    } else {
+      return registerTemporaryTable(rootSchema, tableName, rowType, databaseName);
     }
   }
 }
