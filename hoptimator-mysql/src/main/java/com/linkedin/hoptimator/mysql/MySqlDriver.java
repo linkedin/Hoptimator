@@ -10,15 +10,15 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Properties;
 
 /**
  * JDBC driver for MySQL databases.
+ *
+ * <p>Registers a single lazy {@link MySqlCatalogSchema} at connection time. MySQL databases
+ * are discovered as sub-schemas on demand rather than enumerated upfront.
  */
 public class MySqlDriver extends CalciteDriver {
   public static final String CATALOG_NAME = "MYSQL";
@@ -57,28 +57,15 @@ public class MySqlDriver extends CalciteDriver {
       connection.setAutoCommit(true); // to prevent rollback()
       connection.setCatalog(CATALOG_NAME);
 
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
-
       String mySqlUrl = properties.getProperty("url");
       if (mySqlUrl == null) {
         throw new SQLException("Missing required parameter 'url' for MySQL connection");
       }
-      String user = properties.getProperty("user", "");
-      String password = properties.getProperty("password", "");
 
-      try (Connection conn = createMySqlConnection(mySqlUrl, user, password)) {
-        DatabaseMetaData metaData = conn.getMetaData();
-        // MySQL catalogs are the databases
-        try (ResultSet rs = metaData.getCatalogs()) {
-          while (rs.next()) {
-            String schemaName = rs.getString("TABLE_CAT");
-            TableSchema tableSchema = createTableSchema(properties, schemaName);
-            rootSchema.add(schemaName, tableSchema);
-            log.debug("Registered MySQL schema: {}", schemaName);
-          }
-        }
-      }
+      CalciteConnection calciteConnection = (CalciteConnection) connection;
+      SchemaPlus rootSchema = calciteConnection.getRootSchema();
+      rootSchema.add(CATALOG_NAME, createMySqlCatalogSchema(properties));
+      log.debug("Registered lazy MySQL catalog schema as '{}'", CATALOG_NAME);
 
       return connection;
     } catch (IOException e) {
@@ -86,12 +73,7 @@ public class MySqlDriver extends CalciteDriver {
     }
   }
 
-  protected Connection createMySqlConnection(String url, String user, String password)
-      throws SQLException {
-    return DriverManager.getConnection(url, user, password);
-  }
-
-  protected TableSchema createTableSchema(Properties properties, String schemaName) {
-    return new TableSchema(properties, schemaName);
+  protected MySqlCatalogSchema createMySqlCatalogSchema(Properties properties) {
+    return new MySqlCatalogSchema(properties);
   }
 }

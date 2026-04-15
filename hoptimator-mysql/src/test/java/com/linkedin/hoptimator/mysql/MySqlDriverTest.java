@@ -2,14 +2,12 @@ package com.linkedin.hoptimator.mysql;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.schema.Schema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -19,25 +17,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
 @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE", "DMI_EMPTY_DB_PASSWORD"},
     justification = "Mock objects do not hold real resources")
 class MySqlDriverTest {
-
-  @Mock
-  private Connection mockMySqlConnection;
-
-  @Mock
-  private DatabaseMetaData mockMetaData;
-
-  @Mock
-  private ResultSet mockResultSet;
-
-  @Mock
-  private TableSchema mockTableSchema;
 
   @Test
   void testGetConnectStringPrefix() {
@@ -60,22 +45,7 @@ class MySqlDriverTest {
 
   @Test
   void connectWithCorrectPrefixReturnsConnection() throws SQLException {
-    when(mockMySqlConnection.getMetaData()).thenReturn(mockMetaData);
-    when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
-    when(mockResultSet.next()).thenReturn(true, false);
-    when(mockResultSet.getString("TABLE_CAT")).thenReturn("testdb");
-
-    MySqlDriver driver = new MySqlDriver() {
-      @Override
-      protected Connection createMySqlConnection(String url, String user, String password) {
-        return mockMySqlConnection;
-      }
-
-      @Override
-      protected TableSchema createTableSchema(Properties properties, String schemaName) {
-        return mockTableSchema;
-      }
-    };
+    MySqlDriver driver = new MySqlDriver();
 
     Properties props = new Properties();
     props.setProperty("url", "jdbc:mysql://localhost:3306");
@@ -88,30 +58,18 @@ class MySqlDriverTest {
   }
 
   @Test
-  void connectRegistersSchemaForEachCatalog() throws SQLException {
-    when(mockMySqlConnection.getMetaData()).thenReturn(mockMetaData);
-    when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
-    when(mockResultSet.next()).thenReturn(true, true, false);
-    when(mockResultSet.getString("TABLE_CAT")).thenReturn("db1", "db2");
-
-    MySqlDriver driver = new MySqlDriver() {
-      @Override
-      protected Connection createMySqlConnection(String url, String user, String password) {
-        return mockMySqlConnection;
-      }
-
-      @Override
-      protected TableSchema createTableSchema(Properties properties, String schemaName) {
-        return mockTableSchema;
-      }
-    };
+  void connectRegistersMysqlCatalogSchemaInRootSchema() throws SQLException {
+    MySqlDriver driver = new MySqlDriver();
 
     Properties props = new Properties();
     props.setProperty("url", "jdbc:mysql://localhost:3306");
     Connection connection = driver.connect("jdbc:mysql-hoptimator://", props);
     CalciteConnection calciteConnection = (CalciteConnection) connection;
-    assertNotNull(calciteConnection.getRootSchema().subSchemas().get("db1"));
-    assertNotNull(calciteConnection.getRootSchema().subSchemas().get("db2"));
+
+    // Calcite wraps registered schemas in SchemaPlusImpl; just verify MYSQL is present.
+    // The absence of any MySQL connection mock here also proves no connection is opened eagerly.
+    Schema mysqlSchema = calciteConnection.getRootSchema().subSchemas().get("MYSQL");
+    assertNotNull(mysqlSchema);
     connection.close();
   }
 
@@ -125,56 +83,8 @@ class MySqlDriverTest {
   }
 
   @Test
-  void connectWithMySqlConnectionErrorThrowsSQLException() {
-    MySqlDriver driver = new MySqlDriver() {
-      @Override
-      protected Connection createMySqlConnection(String url, String user, String password)
-          throws SQLException {
-        throw new SQLException("Connection refused");
-      }
-    };
-
-    Properties props = new Properties();
-    props.setProperty("url", "jdbc:mysql://localhost:3306");
-    assertThrows(SQLException.class,
-        () -> driver.connect("jdbc:mysql-hoptimator://", props));
-  }
-
-  @Test
-  void createMySqlConnectionWithBadUrlThrows() {
-    MySqlDriver driver = new MySqlDriver();
-    assertThrows(SQLException.class,
-        () -> driver.createMySqlConnection("jdbc:invalid://nowhere", "", ""));
-  }
-
-  @Test
-  void createTableSchemaReturnsNonNull() {
-    MySqlDriver driver = new MySqlDriver();
-    Properties props = new Properties();
-    props.setProperty("url", "jdbc:mysql://localhost:3306");
-    TableSchema schema = driver.createTableSchema(props, "testdb");
-    assertNotNull(schema);
-  }
-
-  // --- connect() called twice succeeds ---
-
-  @Test
   void connectCalledTwiceSucceeds() throws SQLException {
-    when(mockMySqlConnection.getMetaData()).thenReturn(mockMetaData);
-    when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
-    when(mockResultSet.next()).thenReturn(false);
-
-    MySqlDriver driver = new MySqlDriver() {
-      @Override
-      protected Connection createMySqlConnection(String url, String user, String password) {
-        return mockMySqlConnection;
-      }
-
-      @Override
-      protected TableSchema createTableSchema(Properties properties, String schemaName) {
-        return mockTableSchema;
-      }
-    };
+    MySqlDriver driver = new MySqlDriver();
 
     Properties props = new Properties();
     props.setProperty("url", "jdbc:mysql://localhost:3306");
@@ -183,19 +93,23 @@ class MySqlDriverTest {
     assertNotNull(c1);
     c1.close();
 
-    // Reset the resultset mock for the second call
-    when(mockResultSet.next()).thenReturn(false);
     Connection c2 = driver.connect("jdbc:mysql-hoptimator://", props);
     assertNotNull(c2);
     c2.close();
   }
 
-  // --- connect() with null url in props: already tested via connectWithMissingUrlThrowsSQLException ---
-  // --- Additional: connect with wrong prefix returns null ---
-
   @Test
   void connectReturnsNullForNonMatchingUrl() throws SQLException {
     MySqlDriver driver = new MySqlDriver();
     assertNull(driver.connect("jdbc:other://localhost/db", new Properties()));
+  }
+
+  @Test
+  void createMySqlCatalogSchemaReturnsNonNull() {
+    MySqlDriver driver = new MySqlDriver();
+    Properties props = new Properties();
+    props.setProperty("url", "jdbc:mysql://localhost:3306");
+    MySqlCatalogSchema schema = driver.createMySqlCatalogSchema(props);
+    assertNotNull(schema);
   }
 }
