@@ -134,9 +134,6 @@ public class LogicalTableDeployer implements Deployer, Validated {
     if (!schemaRollbacks.isEmpty()) {
       return; // Already registered (e.g. validate() was called before create/update).
     }
-    if (context == null) {
-      return;
-    }
     HoptimatorConnection conn = context.connection();
     if (conn == null) {
       return;
@@ -155,9 +152,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
     if (databaseSpec.getCatalog() != null) {
       path.add(databaseSpec.getCatalog());
     }
-    if (databaseSpec.getSchema() != null) {
-      path.add(databaseSpec.getSchema());
-    }
+    path.add(databaseSpec.getSchema());
     path.add(table);
     return path;
   }
@@ -253,8 +248,9 @@ public class LogicalTableDeployer implements Deployer, Validated {
    */
   @Override
   public List<String> specify() throws SQLException {
-    // Register tier temp tables so planPipeline() can resolve them via HoptimatorDriver.convert().
-    // These are cleaned up by restore() called from the specifyCreateTable() caller.
+    // Register tier temp tables so specifyFromSql can resolve them via HoptimatorDriver.convert().
+    // These are cleaned up by DeploymentService.restore(deployers) in processCreateTable after
+    // SPECIFY completes — see HoptimatorDdlUtils.processCreateTable.
     ensureTierRowTypesRegistered();
     Map<String, String> tierMap = buildTierMap();
     Map<String, Source> tierSources = buildTierSources();

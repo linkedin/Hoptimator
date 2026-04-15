@@ -389,6 +389,9 @@ public final class HoptimatorDdlUtils {
       List<String> specs = mode.executeDeployers(deployers, conn);
       if (mode.mutable()) {
         logger.info("Deployed materialized view {}", viewName);
+      } else {
+        // SPECIFY (dry-run): roll back any side effects made by deployers during specify().
+        DeploymentService.restore(deployers);
       }
       success = true;
       return new SpecifyResult(specs, sinkRowType, viewPath);
@@ -583,6 +586,9 @@ public final class HoptimatorDdlUtils {
       List<String> specs = mode.executeDeployers(deployers, conn);
       if (mode.mutable()) {
         logger.info("Deployed table {}", source);
+      } else {
+        // SPECIFY (dry-run): roll back any side effects made by deployers during specify()
+        DeploymentService.restore(deployers);
       }
       success = true;
       return new SpecifyResult(specs, rowType, tablePath);

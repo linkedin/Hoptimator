@@ -618,7 +618,7 @@ class HoptimatorDdlUtilsTest {
     }
   }
 
-  // ── specifyFromSql() / specifyCreateTable() / options() tests ────────────────
+  // ── specifyFromSql() / options() tests ──────────────────────────────────────
 
   @Test
   void specifyFromSqlThrowsForUnsupportedDdl() throws Exception {
@@ -632,7 +632,7 @@ class HoptimatorDdlUtilsTest {
 
   @Test
   void specifyFromSqlCreateTableRunsValidateSpecifyRestoreCycle() throws Exception {
-    // specifyCreateTable() runs validate→specify→restore. In the util catalog PROFILE
+    // specifyFromSql for CREATE TABLE runs validate→specify→restore. In the util catalog PROFILE
     // schema has no deployers with required K8s properties, so source-level validation
     // propagates a proper SQLException (not an NPE or silent failure).
     HoptimatorDriver driver = new HoptimatorDriver();
