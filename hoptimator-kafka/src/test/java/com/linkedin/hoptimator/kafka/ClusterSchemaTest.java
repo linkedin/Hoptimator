@@ -162,7 +162,7 @@ class ClusterSchemaTest {
 
     ClusterSchema schema = new ClusterSchema(properties);
     RuntimeException ex = assertThrows(RuntimeException.class, () -> schema.tables().get("any-topic"));
-    // The error message from LazyTableLookup.get() includes getSchemaDescription() output
+    // The error message from LazyLookup.get() includes getSchemaDescription() output
     assertTrue(ex.getMessage().contains("localhost:9092"),
         "Schema description should include the bootstrap.servers value");
   }

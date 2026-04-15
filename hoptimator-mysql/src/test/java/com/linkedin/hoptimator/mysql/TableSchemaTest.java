@@ -159,7 +159,7 @@ class TableSchemaTest {
   }
 
   // --- getSchemaDescription() returns non-empty string ---
-  // getSchemaDescription() is used inside error messages in LazyTableLookup.
+  // getSchemaDescription() is used inside error messages in LazyLookup.
   // When loadTable() throws, the RuntimeException message contains getSchemaDescription().
   // If getSchemaDescription() returns "", the error message would be "Failed to load table 'x' from ".
   // We assert that the error message contains the database name and URL, proving it is non-empty.
