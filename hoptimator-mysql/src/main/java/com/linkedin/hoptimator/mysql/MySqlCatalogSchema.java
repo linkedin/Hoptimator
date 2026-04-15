@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.mysql;
 
-import com.linkedin.hoptimator.jdbc.schema.LazySchemaLookup;
+import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
@@ -37,10 +37,10 @@ public class MySqlCatalogSchema extends AbstractSchema {
 
   @Override
   public Lookup<Schema> subSchemas() {
-    return subSchemasRef.getOrCompute(() -> new LazySchemaLookup<Schema>() {
+    return subSchemasRef.getOrCompute(() -> new LazyLookup<Schema>() {
 
       @Override
-      protected Map<String, Schema> loadAllSchemas() throws Exception {
+      protected Map<String, Schema> loadAll() throws Exception {
         Map<String, Schema> schemas = new HashMap<>();
         String url = properties.getProperty("url");
         String user = properties.getProperty("user", "");
@@ -59,7 +59,7 @@ public class MySqlCatalogSchema extends AbstractSchema {
       }
 
       @Override
-      protected @Nullable Schema loadSchema(String name) throws Exception {
+      protected @Nullable Schema load(String name) throws Exception {
         String url = properties.getProperty("url");
         String user = properties.getProperty("user", "");
         String password = properties.getProperty("password", "");
@@ -78,7 +78,7 @@ public class MySqlCatalogSchema extends AbstractSchema {
       }
 
       @Override
-      protected String getCatalogDescription() {
+      protected String getDescription() {
         return "MySQL at " + properties.getProperty("url");
       }
     });

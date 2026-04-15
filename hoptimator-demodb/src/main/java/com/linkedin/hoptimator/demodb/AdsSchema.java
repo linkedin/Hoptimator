@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.demodb;
 
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
@@ -20,10 +20,10 @@ public class AdsSchema extends AbstractSchema {
 
   @Override
   public Lookup<Table> tables() {
-    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+    return tables.getOrCompute(() -> new LazyLookup<>() {
 
       @Override
-      protected Map<String, Table> loadAllTables() {
+      protected Map<String, Table> loadAll() {
         Map<String, Table> tableMap = new HashMap<>();
         tableMap.put("PAGE_VIEWS", new PageViewTable());
         tableMap.put("AD_CLICKS", new AdClickTable());
@@ -32,7 +32,7 @@ public class AdsSchema extends AbstractSchema {
       }
 
       @Override
-      protected @Nullable Table loadTable(String name) {
+      protected @Nullable Table load(String name) {
         switch (name) {
           case "PAGE_VIEWS":
             return new PageViewTable();
@@ -46,7 +46,7 @@ public class AdsSchema extends AbstractSchema {
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "Demo Ads Schema";
       }
     });
