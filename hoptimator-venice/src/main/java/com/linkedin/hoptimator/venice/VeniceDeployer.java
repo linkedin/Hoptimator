@@ -8,6 +8,9 @@ import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.ConnectionService;
+import com.linkedin.venice.client.schema.StoreSchemaFetcher;
+import com.linkedin.venice.client.store.ClientConfig;
+import com.linkedin.venice.client.store.ClientFactory;
 import com.linkedin.venice.controllerapi.ControllerClient;
 import com.linkedin.venice.controllerapi.ControllerClientFactory;
 import com.linkedin.venice.controllerapi.ControllerResponse;
@@ -83,27 +86,30 @@ public class VeniceDeployer implements Deployer, Validated {
       try (ControllerClient controllerClient = createControllerClient()) {
         if (checkStoreExists(controllerClient)) {
           // Validate key schema hasn't changed
-          SchemaResponse keySchemaResponse = controllerClient.getKeySchema(storeName);
-          if (!keySchemaResponse.isError() && keySchemaResponse.getSchemaStr() != null) {
-            Schema existingKeySchema = new Schema.Parser().parse(keySchemaResponse.getSchemaStr());
-            if (!existingKeySchema.equals(keySchema)) {
-              issues.error("Key schema evolution is not supported in Venice. Store " + storeName
-                  + " has existing key schema but attempted to change it.");
+          if (keySchema != null) {
+            SchemaResponse keySchemaResponse = controllerClient.getKeySchema(storeName);
+            if (!keySchemaResponse.isError() && keySchemaResponse.getSchemaStr() != null) {
+              Schema existingKeySchema = new Schema.Parser().parse(keySchemaResponse.getSchemaStr());
+              if (!existingKeySchema.equals(keySchema)) {
+                issues.error("Key schema evolution is not supported in Venice. Store " + storeName
+                    + " has existing key schema but attempted to change it.");
+              }
             }
           }
 
           // Validate value schema is backward compatible
-          SchemaResponse valueSchemaResponse = controllerClient.getValueSchema(storeName, -1); // -1 gets latest
-          if (!valueSchemaResponse.isError() && valueSchemaResponse.getSchemaStr() != null) {
-            Schema existingValueSchema = new Schema.Parser().parse(valueSchemaResponse.getSchemaStr());
+          if (valueSchema != null) {
+            try (StoreSchemaFetcher storeSchemaFetcher = createStoreSchemaFetcher(storeName)) {
+              Schema existingValueSchema = storeSchemaFetcher.getLatestValueSchema();
 
-            // Check backward compatibility (new schema as reader, old schema as writer)
-            SchemaCompatibility.SchemaPairCompatibility compatibility =
-                SchemaCompatibility.checkReaderWriterCompatibility(valueSchema, existingValueSchema);
+              // Check backward compatibility (new schema as reader, old schema as writer)
+              SchemaCompatibility.SchemaPairCompatibility compatibility =
+                  SchemaCompatibility.checkReaderWriterCompatibility(valueSchema, existingValueSchema);
 
-            if (compatibility.getType() != SchemaCompatibility.SchemaCompatibilityType.COMPATIBLE) {
-              issues.error("Value schema is not backward compatible with existing schema for store " + storeName
-                  + ": " + compatibility.getDescription());
+              if (compatibility.getType() != SchemaCompatibility.SchemaCompatibilityType.COMPATIBLE) {
+                issues.error("Value schema is not backward compatible with existing schema for store " + storeName
+                    + ": " + compatibility.getDescription());
+              }
             }
           }
         }
@@ -280,5 +286,11 @@ public class VeniceDeployer implements Deployer, Validated {
     } else {
       return ControllerClientFactory.getControllerClient(cluster, routerUrl, sslFactory);
     }
+  }
+
+  protected StoreSchemaFetcher createStoreSchemaFetcher(String storeName) {
+    return ClientFactory.createStoreSchemaFetcher(
+        ClientConfig.defaultGenericClientConfig(storeName)
+            .setVeniceURL(properties.getProperty("router.url")));
   }
 }
