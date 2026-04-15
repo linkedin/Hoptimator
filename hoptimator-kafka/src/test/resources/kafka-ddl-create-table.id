@@ -1,6 +1,23 @@
 !set outputformat mysql
 !use k8s
 
+# Verify create table plan — !specify previews the KafkaTopic YAML without executing
+create or replace table "KAFKA"."create-table-test" ("KEY" VARCHAR, "VALUE" BINARY) WITH ("kafka.partitions" '5');
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaTopic
+metadata:
+  name: kafka-database-create-table-test
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: create-table-test
+  partitions: 5
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+!specify create-table-test
+
 # Create table
 create or replace table "KAFKA"."create-table-test" ("KEY" VARCHAR, "VALUE" BINARY) WITH ("kafka.partitions" '10');
 (0 rows modified)

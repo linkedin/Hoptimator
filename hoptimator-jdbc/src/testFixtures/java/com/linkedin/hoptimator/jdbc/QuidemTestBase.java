@@ -1,23 +1,13 @@
 package com.linkedin.hoptimator.jdbc;
 
-import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
-import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
 import net.hydromatic.quidem.AbstractCommand;
 import net.hydromatic.quidem.Command;
 import net.hydromatic.quidem.CommandHandler;
 import net.hydromatic.quidem.Quidem;
-import org.apache.calcite.plan.RelOptTable;
-import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Assertions;
 
@@ -35,10 +25,8 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.stream.Collectors;
 
 
@@ -236,43 +224,7 @@ public abstract class QuidemTestBase {
               String sql = context.previousSqlCommand().sql;
               HoptimatorConnection conn = (HoptimatorConnection) connection;
 
-              String[] parts = line.split(" ", 2);
-              String viewName = parts.length == 2 ? parts[1] : "test";
-              String querySql = sql;
-              SqlCreateMaterializedView create = null;
-              SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
-              if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
-                if (sqlNode instanceof SqlCreateMaterializedView) {
-                  create = (SqlCreateMaterializedView) sqlNode;
-                  final SqlNode q = HoptimatorDdlUtils.renameColumns(create.columnList, create.query);
-                  querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
-                  viewName = HoptimatorDdlUtils.viewName(create.name);
-                } else {
-                  throw new RuntimeException("Unsupported DDL statement.");
-                }
-              }
-
-              RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
-              Properties connectionProperties = conn.connectionProperties();
-              RelOptTable table = root.rel.getTable();
-              if (table != null) {
-                connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
-              } else if (create != null) {
-                connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, create.name.toString());
-              }
-
-              PipelineRel.Implementor plan = DeploymentService.plan(root, Collections.emptyList(), connectionProperties);
-              if (create != null) {
-                HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
-                    new HoptimatorDriver.Prepare(conn), plan, create, querySql);
-              }
-              Pipeline pipeline = plan.pipeline(viewName, conn);
-              List<String> specs = new ArrayList<>();
-              for (Source source : pipeline.sources()) {
-                specs.addAll(DeploymentService.specify(source, conn));
-              }
-              specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-              specs.addAll(DeploymentService.specify(pipeline.job(), conn));
+              List<String> specs = HoptimatorDdlUtils.specifyFromSql(sql, conn).specs;
               String joined = specs.stream().sorted().collect(Collectors.joining("---\n"));
               String[] lines = joined.replaceAll(";\n", "\n").split("\n");
               context.echo(Arrays.asList(lines));
