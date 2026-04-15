@@ -47,10 +47,7 @@ class K8sMaterializedViewDeployerTest {
   private K8sContext context;
 
   @Mock
-  private K8sPipelineDeployer pipelineDeployer;
-
-  @Mock
-  private K8sYamlDeployerImpl yamlDeployer;
+  private K8sPipelineBundle pipelineBundle;
 
   @BeforeEach
   void setUp() {
@@ -69,8 +66,7 @@ class K8sMaterializedViewDeployerTest {
 
   private K8sMaterializedViewDeployer makeDeployerWithMockView(MaterializedView view) {
     K8sViewDeployer capturedViewDeployer = viewDeployer;
-    K8sPipelineDeployer capturedPipelineDeployer = pipelineDeployer;
-    K8sYamlDeployerImpl capturedYamlDeployer = yamlDeployer;
+    K8sPipelineBundle capturedBundle = pipelineBundle;
     return new K8sMaterializedViewDeployer(view, context) {
       @Override
       K8sViewDeployer createViewDeployer(MaterializedView v, K8sContext ctx) {
@@ -78,14 +74,9 @@ class K8sMaterializedViewDeployerTest {
       }
 
       @Override
-      K8sPipelineDeployer createPipelineDeployer(String name, List<String> pipelineSpecs, String sql,
+      K8sPipelineBundle createPipelineBundle(String name, List<String> pipelineSpecs, String sql,
           K8sContext viewContext) {
-        return capturedPipelineDeployer;
-      }
-
-      @Override
-      K8sYamlDeployerImpl createYamlDeployerImpl(K8sContext pipelineContext, List<String> pipelineSpecs) {
-        return capturedYamlDeployer;
+        return capturedBundle;
       }
     };
   }
@@ -220,10 +211,7 @@ class K8sMaterializedViewDeployerTest {
 
     V1OwnerReference viewRef = new V1OwnerReference().name("view-ref").uid("v-uid")
         .kind("View").apiVersion("hoptimator.linkedin.com/v1alpha1");
-    V1OwnerReference pipelineRef = new V1OwnerReference().name("pipeline-ref").uid("p-uid")
-        .kind("Pipeline").apiVersion("hoptimator.linkedin.com/v1alpha1");
     doReturn(viewRef).when(viewDeployer).createAndReference();
-    doReturn(pipelineRef).when(pipelineDeployer).createAndReference();
 
     mockedDeploymentService.when(() -> DeploymentService.specify(source, null))
         .thenReturn(Collections.emptyList());
@@ -235,8 +223,7 @@ class K8sMaterializedViewDeployerTest {
     K8sMaterializedViewDeployer deployer = makeDeployerWithMockView(view);
     deployer.create();
 
-    verify(pipelineDeployer).createAndReference();
-    verify(yamlDeployer).update();
+    verify(pipelineBundle).create();
   }
 
   @Test
@@ -250,10 +237,7 @@ class K8sMaterializedViewDeployerTest {
 
     V1OwnerReference viewRef = new V1OwnerReference().name("view-ref").uid("v-uid")
         .kind("View").apiVersion("hoptimator.linkedin.com/v1alpha1");
-    V1OwnerReference pipelineRef = new V1OwnerReference().name("pipeline-ref").uid("p-uid")
-        .kind("Pipeline").apiVersion("hoptimator.linkedin.com/v1alpha1");
     doReturn(viewRef).when(viewDeployer).updateAndReference();
-    doReturn(pipelineRef).when(pipelineDeployer).updateAndReference();
 
     mockedDeploymentService.when(() -> DeploymentService.specify(source, null))
         .thenReturn(Collections.emptyList());
@@ -265,8 +249,7 @@ class K8sMaterializedViewDeployerTest {
     K8sMaterializedViewDeployer deployer = makeDeployerWithMockView(view);
     deployer.update();
 
-    verify(pipelineDeployer).updateAndReference();
-    verify(yamlDeployer).update();
+    verify(pipelineBundle).update();
   }
 
   @Test
@@ -280,10 +263,7 @@ class K8sMaterializedViewDeployerTest {
 
     V1OwnerReference viewRef = new V1OwnerReference().name("view-ref").uid("v-uid")
         .kind("View").apiVersion("hoptimator.linkedin.com/v1alpha1");
-    V1OwnerReference pipelineRef = new V1OwnerReference().name("pipeline-ref").uid("p-uid")
-        .kind("Pipeline").apiVersion("hoptimator.linkedin.com/v1alpha1");
     doReturn(viewRef).when(viewDeployer).createAndReference();
-    doReturn(pipelineRef).when(pipelineDeployer).createAndReference();
 
     mockedDeploymentService.when(() -> DeploymentService.specify(source, null))
         .thenReturn(Collections.emptyList());
@@ -296,9 +276,8 @@ class K8sMaterializedViewDeployerTest {
     deployer.create();
     deployer.restore();
 
-    // Verify restore was called on both deployers and the viewDeployer
-    verify(pipelineDeployer).restore();
-    verify(yamlDeployer).restore();
+    // Verify restore was called on the bundle and the viewDeployer
+    verify(pipelineBundle).restore();
     verify(viewDeployer).restore();
   }
 
