@@ -3,10 +3,12 @@ package com.linkedin.hoptimator.mysql;
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.schema.impl.AbstractSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import org.apache.calcite.avatica.AvaticaConnection;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -17,8 +19,10 @@ import java.util.Properties;
 /**
  * JDBC driver for MySQL databases.
  *
- * <p>Registers a single lazy {@link MySqlCatalogSchema} at connection time. MySQL databases
- * are discovered as sub-schemas on demand rather than enumerated upfront.
+ * <p>Overrides {@link CalciteDriver#createRootSchema} to supply a {@link MySqlRootSchema}
+ * that lazily discovers MySQL databases as sub-schemas — no connection to MySQL is opened
+ * at connect time. Tables within each database are also loaded lazily via
+ * {@link com.linkedin.hoptimator.jdbc.schema.LazyLookup}.
  */
 public class MySqlDriver extends CalciteDriver {
   public static final String CATALOG_NAME = "MYSQL";
@@ -50,7 +54,7 @@ public class MySqlDriver extends CalciteDriver {
     properties.putAll(props); // in case the driver is loaded via getConnection()
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     try {
-      Connection connection = super.connect(url, props);
+      Connection connection = super.connect(url, props); // createRootSchema() called here
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
@@ -62,18 +66,29 @@ public class MySqlDriver extends CalciteDriver {
         throw new SQLException("Missing required parameter 'url' for MySQL connection");
       }
 
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      rootSchema.add(CATALOG_NAME, createMySqlCatalogSchema(properties));
-      log.debug("Registered lazy MySQL catalog schema as '{}'", CATALOG_NAME);
-
       return connection;
     } catch (IOException e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
   }
 
-  protected MySqlCatalogSchema createMySqlCatalogSchema(Properties properties) {
-    return new MySqlCatalogSchema(properties);
+  /**
+   * Skip the lattice scan that Calcite normally performs at connection init time.
+   * MySqlDriver does not define lattices or use schema model files, so the scan
+   * only causes eager MySQL schema loading with no benefit.
+   */
+  @Override
+  protected void onConnectionInit(AvaticaConnection connection) {
+    // no-op: lattice scan skipped intentionally to prevent eager loading of all schemas
+  }
+
+  @Override
+  protected CalciteSchema createRootSchema(boolean cache, Properties properties) {
+    AbstractSchema rootSchema = createMySqlRootSchema(properties);
+    return CalciteSchema.createRootSchema(false, cache, "", rootSchema);
+  }
+
+  protected AbstractSchema createMySqlRootSchema(Properties properties) {
+    return new MySqlRootSchema(properties);
   }
 }

@@ -19,25 +19,30 @@ import java.util.Properties;
 
 
 /**
- * A catalog schema for MySQL that lazily discovers databases as sub-schemas.
+ * Root schema for MySQL that lazily discovers databases as sub-schemas.
  *
- * <p>Databases are loaded on-demand when first accessed rather than all at once
- * during driver connection, following the same pattern as {@link TableSchema} for tables.
+ * <p>When used as the backing {@link Schema} for a Calcite root schema, MySQL databases
+ * appear directly at the top level (e.g., {@code testdb.mytable}) without opening a MySQL
+ * connection at connect time.
+ *
+ * <p>Databases are loaded on-demand following the same {@link LazyLookup} pattern used by
+ * {@link TableSchema} for tables: individual databases are loaded by {@code load(name)} and
+ * all databases by {@code loadAll()} (e.g., for wildcard patterns or SHOW DATABASES).
  */
-public class MySqlCatalogSchema extends AbstractSchema {
+class MySqlRootSchema extends AbstractSchema {
 
-  private static final Logger log = LoggerFactory.getLogger(MySqlCatalogSchema.class);
+  private static final Logger log = LoggerFactory.getLogger(MySqlRootSchema.class);
 
   private final Properties properties;
   private final LazyReference<Lookup<Schema>> subSchemasRef = new LazyReference<>();
 
-  public MySqlCatalogSchema(Properties properties) {
+  MySqlRootSchema(Properties properties) {
     this.properties = properties;
   }
 
   @Override
   public Lookup<Schema> subSchemas() {
-    return subSchemasRef.getOrCompute(() -> new LazyLookup<Schema>() {
+    return subSchemasRef.getOrCompute(() -> new LazyLookup<>() {
 
       @Override
       protected Map<String, Schema> loadAll() throws Exception {

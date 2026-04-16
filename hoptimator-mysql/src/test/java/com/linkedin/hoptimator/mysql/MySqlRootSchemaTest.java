@@ -19,11 +19,11 @@ import java.sql.SQLException;
 import java.util.Properties;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE", "DMI_EMPTY_DB_PASSWORD"},
     justification = "Mock objects do not hold real resources")
-class MySqlCatalogSchemaTest {
+class MySqlRootSchemaTest {
 
   @Mock
   private Connection mockConnection;
@@ -63,18 +63,25 @@ class MySqlCatalogSchemaTest {
   }
 
   @Test
+  void noConnectionOpenedOnConstruction() {
+    // Construction must not open any MySQL connection.
+    driverManagerStatic.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
+        .thenThrow(new RuntimeException("Should not connect at construction time"));
+    new MySqlRootSchema(properties); // must not throw
+  }
+
+  @Test
   void subSchemasGetReturnsTableSchemaWhenDatabaseExists() throws SQLException {
     stubConnection();
     when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
     when(mockResultSet.next()).thenReturn(true, false);
     when(mockResultSet.getString("TABLE_CAT")).thenReturn("mydb");
 
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    Lookup<Schema> subSchemas = catalog.subSchemas();
-    Schema schema = subSchemas.get("mydb");
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    Schema result = schema.subSchemas().get("mydb");
 
-    assertNotNull(schema);
-    assertInstanceOf(TableSchema.class, schema);
+    assertNotNull(result);
+    assertInstanceOf(TableSchema.class, result);
   }
 
   @Test
@@ -83,10 +90,8 @@ class MySqlCatalogSchemaTest {
     when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
     when(mockResultSet.next()).thenReturn(false);
 
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    Schema schema = catalog.subSchemas().get("missing");
-
-    assertNull(schema);
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    assertNull(schema.subSchemas().get("missing"));
   }
 
   @Test
@@ -96,11 +101,8 @@ class MySqlCatalogSchemaTest {
     when(mockResultSet.next()).thenReturn(true, false);
     when(mockResultSet.getString("TABLE_CAT")).thenReturn("MyDatabase");
 
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    Schema schema = catalog.subSchemas().get("mydatabase");
-
-    assertNotNull(schema);
-    assertInstanceOf(TableSchema.class, schema);
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    assertNotNull(schema.subSchemas().get("mydatabase"));
   }
 
   @Test
@@ -110,8 +112,8 @@ class MySqlCatalogSchemaTest {
     when(mockResultSet.next()).thenReturn(true, true, false);
     when(mockResultSet.getString("TABLE_CAT")).thenReturn("db1", "db2");
 
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    Set<String> names = catalog.subSchemas().getNames(LikePattern.any());
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    Set<String> names = schema.subSchemas().getNames(LikePattern.any());
 
     assertEquals(Set.of("db1", "db2"), names);
   }
@@ -122,17 +124,15 @@ class MySqlCatalogSchemaTest {
     when(mockMetaData.getCatalogs()).thenReturn(mockResultSet);
     when(mockResultSet.next()).thenReturn(false);
 
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    Set<String> names = catalog.subSchemas().getNames(LikePattern.any());
-
-    assertTrue(names.isEmpty());
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    assertTrue(schema.subSchemas().getNames(LikePattern.any()).isEmpty());
   }
 
   @Test
   void subSchemasReturnsSameLookupInstance() {
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    Lookup<Schema> first = catalog.subSchemas();
-    Lookup<Schema> second = catalog.subSchemas();
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    Lookup<Schema> first = schema.subSchemas();
+    Lookup<Schema> second = schema.subSchemas();
     assertEquals(first, second);
   }
 
@@ -141,8 +141,8 @@ class MySqlCatalogSchemaTest {
     driverManagerStatic.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
         .thenThrow(new RuntimeException("Connection refused"));
 
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    assertThrows(RuntimeException.class, () -> catalog.subSchemas().get("mydb"));
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    assertThrows(RuntimeException.class, () -> schema.subSchemas().get("mydb"));
   }
 
   @Test
@@ -150,12 +150,12 @@ class MySqlCatalogSchemaTest {
     driverManagerStatic.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
         .thenThrow(new RuntimeException("Connection refused"));
 
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    assertThrows(RuntimeException.class, () -> catalog.subSchemas().getNames(LikePattern.any()));
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    assertThrows(RuntimeException.class, () -> schema.subSchemas().getNames(LikePattern.any()));
   }
 
   @Test
-  void subSchemasGetUsesDefaultUserAndPassword() throws SQLException {
+  void subSchemasUsesDefaultUserAndPassword() throws SQLException {
     Properties minimal = new Properties();
     minimal.setProperty("url", "jdbc:mysql://localhost:3306");
 
@@ -166,16 +166,13 @@ class MySqlCatalogSchemaTest {
     when(mockResultSet.next()).thenReturn(true, false);
     when(mockResultSet.getString("TABLE_CAT")).thenReturn("mydb");
 
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(minimal);
-    Schema schema = catalog.subSchemas().get("mydb");
-
-    assertNotNull(schema);
+    MySqlRootSchema schema = new MySqlRootSchema(minimal);
+    assertNotNull(schema.subSchemas().get("mydb"));
   }
 
   @Test
   void createTableSchemaReturnsNonNull() {
-    MySqlCatalogSchema catalog = new MySqlCatalogSchema(properties);
-    TableSchema schema = catalog.createTableSchema("mydb");
-    assertNotNull(schema);
+    MySqlRootSchema schema = new MySqlRootSchema(properties);
+    assertNotNull(schema.createTableSchema("mydb"));
   }
 }
