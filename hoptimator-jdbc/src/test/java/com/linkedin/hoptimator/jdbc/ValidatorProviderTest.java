@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * META-INF/services/com.linkedin.hoptimator.ValidatorProvider so that
  * ServiceLoader finds it on the test classpath.
  *
- * <p>Behaviour is controlled by static flags so individual tests can configure
+ * <p>Behavior is controlled by static flags so individual tests can configure
  * it without needing to create anonymous subclasses in every test.
  */
 @SuppressFBWarnings(value = "ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD",

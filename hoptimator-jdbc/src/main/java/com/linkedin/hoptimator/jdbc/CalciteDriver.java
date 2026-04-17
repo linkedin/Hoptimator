@@ -52,7 +52,7 @@ public class CalciteDriver extends Driver {
 
       String urlSuffix = url.substring(prefix.length());
       Properties info2 = ConnectStringParser.parse(urlSuffix, info);
-      CalciteSchema rootSchema = createRootSchema(cache, info2);
+      CalciteSchema rootSchema = createRootSchema(info2);
       AvaticaConnection connection = ((CalciteFactory) this.factory)
           .newConnection(this, this.factory, url, info2, rootSchema, null);
       onConnectionInit(connection);
@@ -77,10 +77,20 @@ public class CalciteDriver extends Driver {
    * that lazily discovers sub-schemas from an external data source without opening a
    * connection at driver connect time.
    *
-   * @param cache      whether the schema should use Calcite's caching layer
    * @param properties the merged connection properties (URL params + driver props)
    */
-  protected CalciteSchema createRootSchema(boolean cache, Properties properties) {
-    return CalciteSchema.createRootSchema(true, cache);
+  protected CalciteSchema createRootSchema(Properties properties) {
+    return HoptimatorCalciteSchema.createRootSchema(null, includeMetadataSchema());
+  }
+
+  /**
+   * Whether to include the Calcite built-in {@code metadata} schema
+   * ({@code metadata.COLUMNS}, {@code metadata.TABLES}, etc.) in the root schema.
+   *
+   * <p>Returns {@code false} by default. Override in drivers that need
+   * {@code SELECT * FROM metadata.COLUMNS WHERE ...} to work.
+   */
+  protected boolean includeMetadataSchema() {
+    return true;
   }
 }

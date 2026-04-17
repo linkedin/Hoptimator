@@ -1,9 +1,11 @@
 package com.linkedin.hoptimator.mysql;
 
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
+import com.linkedin.hoptimator.jdbc.HoptimatorCalciteSchema;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,9 +85,9 @@ public class MySqlDriver extends CalciteDriver {
   }
 
   @Override
-  protected CalciteSchema createRootSchema(boolean cache, Properties properties) {
-    AbstractSchema rootSchema = createMySqlRootSchema(properties);
-    return CalciteSchema.createRootSchema(false, cache, "", rootSchema);
+  protected CalciteSchema createRootSchema(Properties properties) {
+    Schema rootSchema = createMySqlRootSchema(properties);
+    return HoptimatorCalciteSchema.createRootSchema(rootSchema, includeMetadataSchema());
   }
 
   protected AbstractSchema createMySqlRootSchema(Properties properties) {

@@ -26,6 +26,7 @@ include 'hoptimator-logical'
 
 dependencyResolutionManagement {
   repositories {
+    mavenLocal()
     mavenCentral()
     maven {
       url  "https://linkedin.jfrog.io/artifactory/open-source"

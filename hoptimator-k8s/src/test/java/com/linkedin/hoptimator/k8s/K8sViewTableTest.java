@@ -320,7 +320,7 @@ class K8sViewTableTest {
 
     SchemaPlus schema = root.subSchemas().get("MYSCH");
     assertNotNull(schema, "schema must exist");
-    Table table = schema.getTable("MY_VIEW");
+    Table table = schema.tables().get("MY_VIEW");
     assertNotNull(table, "View must be added to schema via schemaPlus.add()");
   }
 
@@ -339,7 +339,7 @@ class K8sViewTableTest {
 
     SchemaPlus schema = root.subSchemas().get("MYSCH");
     assertNotNull(schema);
-    Table table = schema.getTable("MV_VIEW");
+    Table table = schema.tables().get("MV_VIEW");
     assertNotNull(table);
     assertInstanceOf(MaterializedViewTable.class, table,
         "materialized=true must produce MaterializedViewTable, not plain ViewTable");
@@ -360,7 +360,7 @@ class K8sViewTableTest {
 
     SchemaPlus schema = root.subSchemas().get("MYSCH");
     assertNotNull(schema);
-    Table table = schema.getTable("VT_VIEW");
+    Table table = schema.tables().get("VT_VIEW");
     assertNotNull(table);
     assertInstanceOf(ViewTable.class, table,
         "materialized=false must produce ViewTable");

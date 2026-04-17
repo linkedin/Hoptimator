@@ -65,21 +65,11 @@ class MySqlRootSchema extends AbstractSchema {
 
       @Override
       protected @Nullable Schema load(String name) throws Exception {
-        String url = properties.getProperty("url");
-        String user = properties.getProperty("user", "");
-        String password = properties.getProperty("password", "");
-        try (Connection conn = DriverManager.getConnection(url, user, password)) {
-          DatabaseMetaData metaData = conn.getMetaData();
-          try (ResultSet rs = metaData.getCatalogs()) {
-            while (rs.next()) {
-              String database = rs.getString("TABLE_CAT");
-              if (database.equalsIgnoreCase(name)) {
-                return createTableSchema(database);
-              }
-            }
-          }
-        }
-        return null;
+        // The MySQL JDBC driver does not allow you to fetch a single database by name.
+        // So we have to fetch all databases and then find the one we want, if it exists.
+        // Leverage LazyLookup ability to force the loading and caching of all schemas
+        // as an optimization for future calls.
+        return cacheAll().get(name);
       }
 
       @Override

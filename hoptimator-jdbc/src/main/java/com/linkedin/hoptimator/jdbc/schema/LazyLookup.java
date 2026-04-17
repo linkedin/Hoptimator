@@ -33,9 +33,9 @@ public abstract class LazyLookup<T> extends IgnoreCaseLookup<T> {
   private static final Logger log = LoggerFactory.getLogger(LazyLookup.class);
 
   // TODO: consider replacing with an eviction cache via LoadingCache as LoadingCacheLookup does
-  private final ConcurrentHashMap<String, T> tableCache = new ConcurrentHashMap<>();
-  private volatile Map<String, T> allTablesCache = null;
-  private final Object allTablesLock = new Object();
+  private final ConcurrentHashMap<String, T> cache = new ConcurrentHashMap<>();
+  private volatile Map<String, T> allCache = null;
+  private final Object allLock = new Object();
 
   /**
    * Load all entries from the underlying data source.
@@ -67,18 +67,18 @@ public abstract class LazyLookup<T> extends IgnoreCaseLookup<T> {
   @Override
   public @Nullable T get(String name) {
     // Check if we already have this entry cached
-    T cached = tableCache.get(name);
+    T cached = cache.get(name);
     if (cached != null) {
       return cached;
     }
 
     // Check if we've already loaded all entries
-    if (allTablesCache != null) {
-      return allTablesCache.get(name);
+    if (allCache != null) {
+      return allCache.get(name);
     }
 
     // Load this specific entry with proper synchronization to avoid duplicate loads
-    return tableCache.computeIfAbsent(name, key -> {
+    return cache.computeIfAbsent(name, key -> {
       try {
         log.debug("Loading '{}' from {}", key, getDescription());
         return load(key);
@@ -101,22 +101,27 @@ public abstract class LazyLookup<T> extends IgnoreCaseLookup<T> {
           : Collections.emptySet();
     }
 
-    // Load all entries only when required. This could likely be optimized more depending on the type
-    // of regex used
+    allCache = cacheAll();
+    return allCache.keySet()
+        .stream()
+        .filter(entryName -> pattern.matcher().apply(entryName))
+        .collect(Collectors.toSet());
+  }
+
+  // Load all entries only when required. This could likely be optimized more depending on the type
+  // of regex used
+  protected Map<String, T> cacheAll() {
     try {
-      if (allTablesCache == null) {
-        synchronized (allTablesLock) {
-          if (allTablesCache == null) {
+      if (allCache == null) {
+        synchronized (allLock) {
+          if (allCache == null) {
             log.info("Loading all entries from {}", getDescription());
-            allTablesCache = loadAll();
-            log.info("Loaded {} entries.", allTablesCache.size());
+            allCache = loadAll();
+            log.info("Loaded {} entries.", allCache.size());
           }
         }
       }
-      return allTablesCache.keySet()
-          .stream()
-          .filter(entryName -> pattern.matcher().apply(entryName))
-          .collect(Collectors.toSet());
+      return allCache;
     } catch (Exception e) {
       String errorMessage = String.format("Failed to load entries from %s", getDescription());
       log.error(errorMessage, e);

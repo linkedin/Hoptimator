@@ -102,7 +102,7 @@ class MySqlRootSchemaTest {
     when(mockResultSet.getString("TABLE_CAT")).thenReturn("MyDatabase");
 
     MySqlRootSchema schema = new MySqlRootSchema(properties);
-    assertNotNull(schema.subSchemas().get("mydatabase"));
+    assertNotNull(schema.subSchemas().getIgnoreCase("mydatabase"));
   }
 
   @Test

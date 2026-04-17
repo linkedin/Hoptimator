@@ -10,16 +10,15 @@ import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
 import javax.sql.DataSource;
+import java.util.Objects;
 import java.sql.Connection;
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.StringJoiner;
@@ -60,14 +59,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
         Schema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
                 ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
             dialect(row), engines.forDatabase(row.NAME), connection);
-
-        // Need to explicitly register the sub schemas within the catalog schema otherwise there are unintended side
-        // effects related to Calcite mutable vs non-mutable schema handling as it relates to explicit and implicit
-        // schema resolution
-        SchemaPlus schema = parentSchema.add(row.CATALOG.toUpperCase(Locale.ROOT), catalogSchema);
-        for (String subSchemaName : catalogSchema.subSchemas().getNames(LikePattern.any())) {
-            schema.add(subSchemaName, Objects.requireNonNull(catalogSchema.subSchemas().get(subSchemaName)));
-        }
+        parentSchema.add(row.CATALOG.toUpperCase(Locale.ROOT), catalogSchema);
       } else {
         Schema schema = HoptimatorJdbcSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
                 ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
