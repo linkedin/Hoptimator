@@ -229,12 +229,6 @@ public class LogicalTableDeployer implements Deployer, Validated {
   }
 
   /**
-   * Returns the YAML specs that would be created for this logical table — tier source
-   * resources (e.g. KafkaTopic) plus pipeline job elements (e.g. FlinkSessionJob).
-   * Used by the {@code !specify} Quidem command to preview what a {@code CREATE TABLE}
-   * would produce without actually deploying anything.
-   */
-  /**
    * Returns the YAML specs that would be created for this logical table — mirrors
    * {@link #deployAll} but collects specs instead of deploying resources.
    *
