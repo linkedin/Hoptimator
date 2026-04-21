@@ -26,17 +26,13 @@ public class VeniceDeployerProvider implements DeployerProvider {
     if (obj instanceof Source && connection instanceof HoptimatorConnection) {
       Source source = (Source) obj;
 
-      String database = source.database();
-      if (database == null || !database.equalsIgnoreCase(VeniceDriver.CATALOG_NAME)) {
-        return deployers;
-      }
-
       Properties properties = DeployerUtils.extractPropertiesFromJdbcSchema(
           source.catalog(),
           source.schema(),
           connection,
           VeniceDriver.CONNECTION_PREFIX,
           log);
+
       if (properties == null) {
         return deployers;
       }

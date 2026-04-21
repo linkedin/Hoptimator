@@ -139,11 +139,14 @@ public final class AvroConverter {
         payloadBuilder.add(field);
       }
     }
+    RelDataType payload = payloadBuilder.build();
+    Schema payloadSchema = payload.getFieldCount() == 0 ? null : avro(namespace, payloadSchemaName, payload);
     if (primitiveKeySchema != null) {
-      return new Pair<>(primitiveKeySchema, avro(namespace, payloadSchemaName, payloadBuilder.build()));
+      return new Pair<>(primitiveKeySchema, payloadSchema);
     }
-    return new Pair<>(avro(namespace, keySchemaName, keyBuilder.build()),
-        avro(namespace, payloadSchemaName, payloadBuilder.build()));
+    RelDataType key = keyBuilder.build();
+    Schema keySchema = key.getFieldCount() == 0 ? null : avro(namespace, keySchemaName, key);
+    return new Pair<>(keySchema, payloadSchema);
   }
 
   private static Schema createAvroSchemaWithNullability(Schema schema, boolean nullable) {

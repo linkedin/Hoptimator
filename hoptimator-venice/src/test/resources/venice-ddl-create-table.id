@@ -37,7 +37,7 @@ create or replace table "VENICE"."integration-test-store" ("KEY_id" int, "i" int
 !describe "VENICE"."integration-test-store"
 
 # Create table with composite primary key
-create or replace table "VENICE"."orders-store" ("KEY_user_id" int, "KEY_order_id" int, "total" DOUBLE, "status" VARCHAR);
+create or replace table "VENICE"."integration-test-store-composite" ("KEY_user_id" int, "KEY_order_id" int, "total" DOUBLE, "status" VARCHAR);
 (0 rows modified)
 
 !update
@@ -52,7 +52,34 @@ create or replace table "VENICE"."orders-store" ("KEY_user_id" int, "KEY_order_i
 +--------------+----------+------------+------------+
 (4 rows)
 
-!describe "VENICE"."orders-store"
+!describe "VENICE"."integration-test-store-composite"
+
+# Create table with primitive KEY
+create or replace table "VENICE"."integration-test-store-primitive" ("KEY" int, "i" int, "s" VARCHAR);
+(0 rows modified)
+
+!update
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | INTEGER  | 10         | YES        |
+| i          | INTEGER  | 10         | YES        |
+| s          | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(3 rows)
+
+!describe "VENICE"."integration-test-store-primitive"
+
+# Creating a table with no KEY should fail validation
+create or replace table "VENICE"."no-key-store" ("i" int, "s" VARCHAR);
+Failed to generate key schema for Venice store no-key-store
+!error
+
+# Creating a table with no value fields should fail validation
+create or replace table "VENICE"."no-value-store" ("KEY" int);
+Failed to generate value schema for Venice store no-value-store
+!error
 
 # Attempt to change KEY fields should fail validation
 create or replace table "VENICE"."integration-test-store" ("KEY_user_id" int, "i" int, "s" VARCHAR, "new_field" DOUBLE);
@@ -62,6 +89,11 @@ Key schema evolution is not supported in Venice. Store integration-test-store ha
 # Attempt to modify KEY field type should fail validation
 create or replace table "VENICE"."integration-test-store" ("KEY_id" VARCHAR, "i" int, "s" VARCHAR, "new_field" DOUBLE);
 Key schema evolution is not supported in Venice. Store integration-test-store has existing key schema but attempted to change it.
+!error
+
+# Changing field nullability should fail validation
+create or replace table "VENICE"."integration-test-store" ("KEY_id" int, "i" int, "s" VARCHAR, "new_field" DOUBLE NOT NULL);
+Value schema is not backward compatible with existing schema for store integration-test-store
 !error
 
 # Test insert operation with existing store
@@ -92,7 +124,12 @@ drop table "VENICE"."integration-test-store";
 
 !update
 
-drop table "VENICE"."orders-store";
+drop table "VENICE"."integration-test-store-composite";
+(0 rows modified)
+
+!update
+
+drop table "VENICE"."integration-test-store-primitive";
 (0 rows modified)
 
 !update

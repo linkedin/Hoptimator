@@ -159,6 +159,10 @@ public final class DeployerUtils {
 
       String jdbcUrl = ((BasicDataSource) schema.getDataSource()).getUrl();
 
+      if (!jdbcUrl.startsWith(connectionPrefix)) {
+        return null;
+      }
+
       Properties properties = new Properties();
       properties.putAll(ConnectStringParser.parse(jdbcUrl.substring(connectionPrefix.length())));
       return properties;

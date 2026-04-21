@@ -22,6 +22,7 @@ include 'hoptimator-operator-integration'
 include 'hoptimator-planner'          // <-- marked for deletion
 include 'hoptimator-util'
 include 'hoptimator-venice'
+include 'hoptimator-logical'
 
 dependencyResolutionManagement {
   repositories {

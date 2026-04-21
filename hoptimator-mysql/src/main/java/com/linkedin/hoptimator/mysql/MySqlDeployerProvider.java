@@ -31,17 +31,13 @@ public class MySqlDeployerProvider implements DeployerProvider {
     if (obj instanceof Source) {
       Source source = (Source) obj;
 
-      String catalog = source.catalog();
-      if (catalog == null || !catalog.equalsIgnoreCase(MySqlDriver.CATALOG_NAME)) {
-        return deployers;
-      }
-
       Properties properties = DeployerUtils.extractPropertiesFromJdbcSchema(
           source.catalog(),
           source.schema(),
           connection,
           MySqlDriver.CONNECTION_PREFIX,
           log);
+
       if (properties == null) {
         return deployers;
       }

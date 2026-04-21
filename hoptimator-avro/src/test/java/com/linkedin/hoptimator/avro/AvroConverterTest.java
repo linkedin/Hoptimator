@@ -412,6 +412,57 @@ public class AvroConverterTest {
   }
 
   @Test
+  public void avroKeyPayloadSchemaAllFieldsAreKeysReturnsNullPayload() {
+    // Every field matches a key name → payloadBuilder stays empty → payloadSchema == null
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
+        List.of("KEY_field1", "KEY_field2"));
+
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
+        "ns", "keySchema", "payloadSchema", dataType,
+        Map.of("key.fields", "KEY_field1;KEY_field2", "key.fields-prefix", "KEY_"));
+
+    assertNotNull(result.getKey());
+    assertEquals(2, result.getKey().getFields().size());
+    assertNull(result.getValue(), "empty payload should produce null payload schema");
+  }
+
+  @Test
+  public void avroKeyPayloadSchemaKeyNamesMatchNoFieldsReturnsNullKey() {
+    // key.fields names don't match any field in the type → keyBuilder stays empty → keySchema == null
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
+        List.of("field1", "field2"));
+
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
+        "ns", "keySchema", "payloadSchema", dataType,
+        Map.of("key.fields", "KEY_nonexistent", "key.fields-prefix", "KEY_"));
+
+    assertNull(result.getKey(), "no matching key fields should produce null key schema");
+    assertNotNull(result.getValue());
+    assertEquals(2, result.getValue().getFields().size());
+  }
+
+  @Test
+  public void avroKeyPayloadSchemaPrimitiveKeyWithNoPayloadReturnsNullPayload() {
+    // Primitive key takes the only field → payloadBuilder stays empty → payloadSchema == null
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType dataType = typeFactory.createStructType(
+        List.of(typeFactory.createSqlType(SqlTypeName.INTEGER)),
+        List.of("KEY"));
+
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
+        "ns", "keySchema", "payloadSchema", dataType,
+        Map.of("key.fields", "KEY"));
+
+    assertNotNull(result.getKey());
+    assertEquals(Schema.Type.INT, result.getKey().getType());
+    assertNull(result.getValue(), "primitive key with no remaining fields should produce null payload schema");
+  }
+
+  @Test
   public void avroFieldDocumentationIsNonEmpty() {
     // describe() returns "fieldName TYPE_STRING" — verify it flows into schema field doc
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);

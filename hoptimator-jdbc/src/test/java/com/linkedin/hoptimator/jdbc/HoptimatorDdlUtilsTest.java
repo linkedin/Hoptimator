@@ -13,6 +13,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.schema.ColumnStrategy;
@@ -483,7 +484,170 @@ class HoptimatorDdlUtilsTest {
     }
   }
 
-  // ── specifyFromSql() / specifyCreateTable() / options() tests ────────────────
+  // ---- registerTemporaryTable tests ----
+
+  @Test
+  void registerTemporaryTableAddsTableWhenNoExistingTable() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+
+      Runnable rollback = HoptimatorDdlUtils.registerTemporaryTable(rootSchema, "TEMP_TABLE_NEW", rowType, "test-db");
+
+      assertNotNull(rootSchema.tables().get("TEMP_TABLE_NEW"), "Expected table to be registered");
+      assertNotNull(rollback);
+      rollback.run();
+      assertNull(rootSchema.tables().get("TEMP_TABLE_NEW"), "Expected table to be removed after rollback");
+    }
+  }
+
+  @Test
+  void registerTemporaryTableRestoresExistingTableOnRollback() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+      TemporaryTable originalTable = new TemporaryTable(rowType, "original-db");
+      rootSchema.add("EXISTING_TABLE", originalTable);
+
+      Runnable rollback = HoptimatorDdlUtils.registerTemporaryTable(rootSchema, "EXISTING_TABLE", rowType, "new-db");
+
+      assertNotNull(rootSchema.tables().get("EXISTING_TABLE"), "Expected new table to be registered");
+      rollback.run();
+      // After rollback, the original table should be restored
+      assertNotNull(rootSchema.tables().get("EXISTING_TABLE"), "Expected original table to be restored after rollback");
+    }
+  }
+
+  // ---- registerTemporaryTableInSchema tests ----
+
+  @Test
+  void registerTemporaryTableInSchemaNullCatalogNullSchemaRegistersInRoot() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+
+      Runnable rollback = HoptimatorDdlUtils.registerTemporaryTableInSchema(
+          connection, null, null, "ROOT_TEMP_TABLE", rowType, "test-db");
+
+      assertNotNull(rollback);
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      assertNotNull(rootSchema.tables().get("ROOT_TEMP_TABLE"), "Expected table in root schema");
+    }
+  }
+
+  @Test
+  void registerTemporaryTableInSchemaNullCatalogWithSchemaRegistersInTierSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+      // Add a subschema that registerTemporaryTableInSchema can find
+      rootSchema.add("MY_SCHEMA", new AbstractSchema());
+
+      Runnable rollback = HoptimatorDdlUtils.registerTemporaryTableInSchema(
+          connection, null, "MY_SCHEMA", "TIER_TEMP_TABLE", rowType, "test-db");
+
+      assertNotNull(rollback);
+      SchemaPlus tierSchema = rootSchema.subSchemas().get("MY_SCHEMA");
+      assertNotNull(tierSchema, "Expected MY_SCHEMA to exist");
+      assertNotNull(tierSchema.tables().get("TIER_TEMP_TABLE"), "Expected table in tier schema");
+    }
+  }
+
+  @Test
+  void registerTemporaryTableInSchemaNullCatalogWithMissingSchemaThrows() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+
+      assertThrows(SQLException.class, () ->
+          HoptimatorDdlUtils.registerTemporaryTableInSchema(
+              connection, null, "NONEXISTENT_SCHEMA", "TABLE", rowType, "db"));
+    }
+  }
+
+  @Test
+  void registerTemporaryTableInSchemaWithCatalogAndSchemaRegistersInDatabaseSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+      // Add a catalog subschema, and within it a database subschema
+      SchemaPlus catalogSchema = rootSchema.add("MY_CATALOG", new AbstractSchema());
+      catalogSchema.add("MY_DB_SCHEMA", new AbstractSchema());
+
+      Runnable rollback = HoptimatorDdlUtils.registerTemporaryTableInSchema(
+          connection, "MY_CATALOG", "MY_DB_SCHEMA", "CATALOG_TEMP_TABLE", rowType, "test-db");
+
+      assertNotNull(rollback);
+      SchemaPlus dbSchema = catalogSchema.subSchemas().get("MY_DB_SCHEMA");
+      assertNotNull(dbSchema, "Expected MY_DB_SCHEMA to exist");
+      assertNotNull(dbSchema.tables().get("CATALOG_TEMP_TABLE"), "Expected table in database schema");
+    }
+  }
+
+  @Test
+  void registerTemporaryTableInSchemaWithCatalogNullSchemaThrows() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+      rootSchema.add("SOME_CATALOG", new AbstractSchema());
+
+      assertThrows(SQLException.class, () ->
+          HoptimatorDdlUtils.registerTemporaryTableInSchema(
+              connection, "SOME_CATALOG", null, "TABLE", rowType, "db"));
+    }
+  }
+
+  @Test
+  void registerTemporaryTableInSchemaWithMissingCatalogThrows() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+
+      assertThrows(SQLException.class, () ->
+          HoptimatorDdlUtils.registerTemporaryTableInSchema(
+              connection, "MISSING_CATALOG", "MY_SCHEMA", "TABLE", rowType, "db"));
+    }
+  }
+
+  @Test
+  void registerTemporaryTableInSchemaWithCatalogAndMissingSchemaNotHoptimatorSchemaThrows() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+      // Add a plain AbstractSchema as catalog — it's NOT a HoptimatorJdbcCatalogSchema
+      rootSchema.add("PLAIN_CATALOG", new AbstractSchema());
+
+      assertThrows(SQLException.class, () ->
+          HoptimatorDdlUtils.registerTemporaryTableInSchema(
+              connection, "PLAIN_CATALOG", "MISSING_DB_SCHEMA", "TABLE", rowType, "db"));
+    }
+  }
+
+  // ── specifyFromSql() / options() tests ──────────────────────────────────────
 
   @Test
   void specifyFromSqlThrowsForUnsupportedDdl() throws Exception {
@@ -497,7 +661,7 @@ class HoptimatorDdlUtilsTest {
 
   @Test
   void specifyFromSqlCreateTableRunsValidateSpecifyRestoreCycle() throws Exception {
-    // specifyCreateTable() runs validate→specify→restore. In the util catalog PROFILE
+    // specifyFromSql for CREATE TABLE runs validate→specify→restore. In the util catalog PROFILE
     // schema has no deployers with required K8s properties, so source-level validation
     // propagates a proper SQLException (not an NPE or silent failure).
     HoptimatorDriver driver = new HoptimatorDriver();
