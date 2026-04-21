@@ -589,8 +589,8 @@ public class AvroConverterTest {
 
   @Test
   void testAvroFromUnsupportedTypeThrows() {
-    RelDataType dateType = typeFactory.createSqlType(SqlTypeName.DATE);
-    assertThrows(UnsupportedOperationException.class, () -> AvroConverter.avro("ns", "n", dateType));
+    RelDataType anyType = typeFactory.createSqlType(SqlTypeName.ANY);
+    assertThrows(UnsupportedOperationException.class, () -> AvroConverter.avro("ns", "n", anyType));
   }
 
   static Stream<Arguments> avroToRelPrimitiveCases() {
@@ -674,5 +674,51 @@ public class AvroConverterTest {
     Schema result = AvroConverter.avro("ns", "test", AvroConverter.proto(avroSchema));
 
     assertEquals(Schema.Type.STRING, result.getType());
+  }
+
+  @Test
+  void testAvroFromDateUsesLogicalType() {
+    RelDataType dateType = typeFactory.createTypeWithNullability(
+        typeFactory.createSqlType(SqlTypeName.DATE), true);
+    RelDataType rel = typeFactory.createStructType(
+        List.of(dateType), List.of("dateField"));
+
+    Schema avroSchema = AvroConverter.avro("NS", "R", rel);
+    assertNotNull(avroSchema);
+    assertEquals(1, avroSchema.getFields().size());
+
+    Schema fieldSchema = avroSchema.getFields().get(0).schema();
+    assertTrue(fieldSchema.isUnion());
+    Schema innerSchema = fieldSchema.getTypes().get(1);
+    assertEquals(Schema.Type.INT, innerSchema.getType());
+    assertNotNull(innerSchema.getLogicalType());
+    assertEquals("date", innerSchema.getLogicalType().getName());
+
+    RelDataType relDataTypeAgain = AvroConverter.rel(avroSchema);
+    assertEquals(SqlTypeName.DATE,
+        Objects.requireNonNull(relDataTypeAgain.getField("dateField", false, false)).getType().getSqlTypeName());
+  }
+
+  @Test
+  void testAvroFromTimestampUsesLogicalType() {
+    RelDataType timestampType = typeFactory.createTypeWithNullability(
+        typeFactory.createSqlType(SqlTypeName.TIMESTAMP), true);
+    RelDataType rel = typeFactory.createStructType(
+        List.of(timestampType), List.of("timestampField"));
+
+    Schema avroSchema = AvroConverter.avro("NS", "R", rel);
+    assertNotNull(avroSchema);
+    assertEquals(1, avroSchema.getFields().size());
+
+    Schema fieldSchema = avroSchema.getFields().get(0).schema();
+    assertTrue(fieldSchema.isUnion());
+    Schema innerSchema = fieldSchema.getTypes().get(1);
+    assertEquals(Schema.Type.LONG, innerSchema.getType());
+    assertNotNull(innerSchema.getLogicalType());
+    assertEquals("timestamp-millis", innerSchema.getLogicalType().getName());
+
+    RelDataType relDataTypeAgain = AvroConverter.rel(avroSchema);
+    assertEquals(SqlTypeName.TIMESTAMP,
+        Objects.requireNonNull(relDataTypeAgain.getField("timestampField", false, false)).getType().getSqlTypeName());
   }
 }
