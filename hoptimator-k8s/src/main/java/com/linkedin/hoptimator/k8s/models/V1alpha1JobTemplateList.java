@@ -32,7 +32,7 @@ import java.util.List;
  * JobTemplateList is a list of JobTemplate
  */
 @ApiModel(description = "JobTemplateList is a list of JobTemplate")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-15T19:35:26.411Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-21T19:10:45.166Z[Etc/UTC]")
 public class V1alpha1JobTemplateList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

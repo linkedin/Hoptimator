@@ -27,32 +27,32 @@ import java.io.IOException;
 /**
  * V1alpha1LogicalTableSpecTiers
  */
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-15T19:35:26.411Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-21T19:10:45.166Z[Etc/UTC]")
 public class V1alpha1LogicalTableSpecTiers {
-  public static final String SERIALIZED_NAME_DATABASE_CRD_NAME = "databaseCrdName";
-  @SerializedName(SERIALIZED_NAME_DATABASE_CRD_NAME)
-  private String databaseCrdName;
+  public static final String SERIALIZED_NAME_DATABASE = "database";
+  @SerializedName(SERIALIZED_NAME_DATABASE)
+  private String database;
 
 
-  public V1alpha1LogicalTableSpecTiers databaseCrdName(String databaseCrdName) {
+  public V1alpha1LogicalTableSpecTiers database(String database) {
     
-    this.databaseCrdName = databaseCrdName;
+    this.database = database;
     return this;
   }
 
    /**
    * Name of the Database CRD backing this tier.
-   * @return databaseCrdName
+   * @return database
   **/
   @ApiModelProperty(required = true, value = "Name of the Database CRD backing this tier.")
 
-  public String getDatabaseCrdName() {
-    return databaseCrdName;
+  public String getDatabase() {
+    return database;
   }
 
 
-  public void setDatabaseCrdName(String databaseCrdName) {
-    this.databaseCrdName = databaseCrdName;
+  public void setDatabase(String database) {
+    this.database = database;
   }
 
 
@@ -65,12 +65,12 @@ public class V1alpha1LogicalTableSpecTiers {
       return false;
     }
     V1alpha1LogicalTableSpecTiers v1alpha1LogicalTableSpecTiers = (V1alpha1LogicalTableSpecTiers) o;
-    return Objects.equals(this.databaseCrdName, v1alpha1LogicalTableSpecTiers.databaseCrdName);
+    return Objects.equals(this.database, v1alpha1LogicalTableSpecTiers.database);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(databaseCrdName);
+    return Objects.hash(database);
   }
 
 
@@ -78,7 +78,7 @@ public class V1alpha1LogicalTableSpecTiers {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1LogicalTableSpecTiers {\n");
-    sb.append("    databaseCrdName: ").append(toIndentedString(databaseCrdName)).append("\n");
+    sb.append("    database: ").append(toIndentedString(database)).append("\n");
     sb.append("}");
     return sb.toString();
   }

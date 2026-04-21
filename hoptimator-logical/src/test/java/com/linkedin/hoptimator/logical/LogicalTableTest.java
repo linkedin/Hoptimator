@@ -43,8 +43,8 @@ public class LogicalTableTest {
 
   private static Map<String, V1alpha1LogicalTableSpecTiers> sampleTiers() {
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
-    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("kafka-database"));
-    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice"));
+    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().database("kafka-database"));
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().database("venice"));
     return tiers;
   }
 
@@ -108,8 +108,8 @@ public class LogicalTableTest {
     // sampleTiers() has "online" but not "nearline", so first-available tier is used.
     // Wait — sampleTiers() actually has both; use a map with just "online".
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
-    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
-    tiers.put("offline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("openhouse-db"));
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
+    tiers.put("offline", new V1alpha1LogicalTableSpecTiers().database("openhouse-db"));
     LogicalTable table = new LogicalTable("myTable", tiers, null, mockContext);
     // No nearline tier → falls back to first available; K8s call fails → unknown type.
     RelDataType result = table.getRowType(TYPE_FACTORY);
@@ -117,11 +117,11 @@ public class LogicalTableTest {
   }
 
   @Test
-  public void unknownTypeReturnedWhenTierBindingHasNullDatabaseCrdName() {
-    // tierBinding.getDatabaseCrdName() == null → resolveRowType returns null → unknown type
+  public void unknownTypeReturnedWhenTierBindingHasNullDatabaseName() {
+    // tierBinding.getDatabase() == null → resolveRowType returns null → unknown type
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
-    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers()); // no databaseCrdName set
-    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
+    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers()); // no database set
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     LogicalTable table = new LogicalTable("myTable", tiers, null, mockContext);
     RelDataType result = table.getRowType(TYPE_FACTORY);
     assertNotNull(result);
@@ -138,8 +138,8 @@ public class LogicalTableTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> fakeDbApi = new FakeK8sApi<>(databases);
 
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
-    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("nearline-db"));
-    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
+    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().database("nearline-db"));
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     LogicalTable table = new LogicalTable("MEMBERS", tiers, null, fakeDbApi);
     RelDataType result = table.getRowType(TYPE_FACTORY);
     assertNotNull(result);
@@ -160,8 +160,8 @@ public class LogicalTableTest {
         new FakeK8sApi<>(databases);
 
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
-    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("nearline-db"));
-    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
+    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().database("nearline-db"));
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     LogicalTable table = new LogicalTable("MEMBERS", tiers, null, fakeDbApi);
     RelDataType result = table.getRowType(TYPE_FACTORY);
     assertNotNull(result);
@@ -181,8 +181,8 @@ public class LogicalTableTest {
         new FakeK8sApi<>(databases);
 
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
-    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("nearline-db"));
-    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
+    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().database("nearline-db"));
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     LogicalTable table = new LogicalTable("MEMBERS", tiers, null, fakeDbApi);
     // schema "NONEXISTENT_SCHEMA" not present → returns null → unknown type
     RelDataType result = table.getRowType(TYPE_FACTORY);
@@ -203,8 +203,8 @@ public class LogicalTableTest {
         new FakeK8sApi<>(databases);
 
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
-    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("nearline-db"));
-    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
+    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().database("nearline-db"));
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     // Table "NONEXISTENT_TABLE" is not in the demodb PROFILE schema
     LogicalTable table = new LogicalTable("NONEXISTENT_TABLE", tiers, null, fakeDbApi);
     RelDataType result = table.getRowType(TYPE_FACTORY);
@@ -225,8 +225,8 @@ public class LogicalTableTest {
         new FakeK8sApi<>(databases);
 
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
-    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("nearline-db"));
-    tiers.put("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
+    tiers.put("nearline", new V1alpha1LogicalTableSpecTiers().database("nearline-db"));
+    tiers.put("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     // "MEMBERS" is a known table in the demodb PROFILE schema
     LogicalTable table = new LogicalTable("MEMBERS", tiers, null, fakeDbApi);
     RelDataType result = table.getRowType(TYPE_FACTORY);

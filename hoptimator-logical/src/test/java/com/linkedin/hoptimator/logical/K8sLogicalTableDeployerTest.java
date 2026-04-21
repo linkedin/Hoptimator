@@ -64,8 +64,8 @@ class K8sLogicalTableDeployerTest {
     V1alpha1LogicalTable crd = deployer.toK8sObject();
 
     assertEquals(2, crd.getSpec().getTiers().size());
-    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabaseCrdName());
-    assertEquals("openhouse-db", crd.getSpec().getTiers().get("offline").getDatabaseCrdName());
+    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabase());
+    assertEquals("openhouse-db", crd.getSpec().getTiers().get("offline").getDatabase());
   }
 
   @Test
@@ -81,7 +81,7 @@ class K8sLogicalTableDeployerTest {
         crd.getMetadata().getLabels().get(LogicalTableDriver.DATABASE_LABEL));
     assertEquals("testevent", crd.getSpec().getTableName());
     assertEquals(2, crd.getSpec().getTiers().size());
-    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabaseCrdName());
+    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabase());
   }
 
   @Test
@@ -96,7 +96,7 @@ class K8sLogicalTableDeployerTest {
     assertEquals("mydb", crd.getMetadata().getLabels().get(LogicalTableDriver.DATABASE_LABEL));
     assertEquals("orders", crd.getSpec().getTableName());
     assertEquals(1, crd.getSpec().getTiers().size());
-    assertEquals("venice-db", crd.getSpec().getTiers().get("online").getDatabaseCrdName());
+    assertEquals("venice-db", crd.getSpec().getTiers().get("online").getDatabase());
   }
 
   @Test
@@ -111,8 +111,8 @@ class K8sLogicalTableDeployerTest {
     V1alpha1LogicalTable crd = deployer.toK8sObject();
 
     assertEquals(3, crd.getSpec().getTiers().size());
-    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabaseCrdName());
-    assertEquals("openhouse-db", crd.getSpec().getTiers().get("offline").getDatabaseCrdName());
-    assertEquals("venice-db", crd.getSpec().getTiers().get("online").getDatabaseCrdName());
+    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabase());
+    assertEquals("openhouse-db", crd.getSpec().getTiers().get("offline").getDatabase());
+    assertEquals("venice-db", crd.getSpec().getTiers().get("online").getDatabase());
   }
 }

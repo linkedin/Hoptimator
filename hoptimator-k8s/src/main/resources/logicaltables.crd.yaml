@@ -41,11 +41,11 @@ spec:
                   additionalProperties:
                     type: object
                     properties:
-                      databaseCrdName:
+                      database:
                         description: Name of the Database CRD backing this tier.
                         type: string
                     required:
-                    - databaseCrdName
+                    - database
             status:
               description: Current state of the logical table.
               type: object

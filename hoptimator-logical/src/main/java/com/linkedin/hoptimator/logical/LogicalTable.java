@@ -99,13 +99,13 @@ public final class LogicalTable extends AbstractTable {
     }
 
     V1alpha1LogicalTableSpecTiers tierBinding = preferredEntry.getValue();
-    if (tierBinding == null || tierBinding.getDatabaseCrdName() == null) {
+    if (tierBinding == null || tierBinding.getDatabase() == null) {
       return null;
     }
 
-    String databaseCrdName = tierBinding.getDatabaseCrdName();
+    String databaseName = tierBinding.getDatabase();
     try {
-      V1alpha1Database dbCrd = databaseApi.get(databaseCrdName);
+      V1alpha1Database dbCrd = databaseApi.get(databaseName);
       if (dbCrd.getSpec() == null) {
         return null;
       }
@@ -117,20 +117,20 @@ public final class LogicalTable extends AbstractTable {
         SchemaPlus rootSchema = calciteConn.getRootSchema();
         SchemaPlus schema = rootSchema.subSchemas().get(tierSchema);
         if (schema == null) {
-          log.warn("Schema {} not found in tier {} for table {}", tierSchema, databaseCrdName, name);
+          log.warn("Schema {} not found in tier {} for table {}", tierSchema, databaseName, name);
           return null;
         }
         RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
         Table tierTable = schema.tables().get(name);
         if (tierTable == null) {
-          log.debug("Table {} not yet present in tier {} schema {}", name, databaseCrdName, tierSchema);
+          log.debug("Table {} not yet present in tier {} schema {}", name, databaseName, tierSchema);
           return null;
         }
         return tierTable.getRowType(factory);
       }
     } catch (Exception e) {
       log.warn("Could not resolve row type for table {} from tier {}: {}",
-          name, databaseCrdName, e.getMessage());
+          name, databaseName, e.getMessage());
       return null;
     }
   }

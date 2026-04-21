@@ -41,7 +41,7 @@ class K8sLogicalTableDeployer extends K8sDeployer<V1alpha1LogicalTable, V1alpha1
     spec.tableName(tableName);
     for (Map.Entry<String, String> entry : tierMap.entrySet()) {
       spec.putTiersItem(entry.getKey(),
-          new V1alpha1LogicalTableSpecTiers().databaseCrdName(entry.getValue()));
+          new V1alpha1LogicalTableSpecTiers().database(entry.getValue()));
     }
     return new V1alpha1LogicalTable()
         .kind(K8sApiEndpoints.LOGICAL_TABLES.kind())

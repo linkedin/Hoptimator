@@ -32,7 +32,7 @@ import java.util.List;
  * AclList is a list of Acl
  */
 @ApiModel(description = "AclList is a list of Acl")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-15T19:38:00.369Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-21T19:13:17.972Z[Etc/UTC]")
 public class V1alpha1AclList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

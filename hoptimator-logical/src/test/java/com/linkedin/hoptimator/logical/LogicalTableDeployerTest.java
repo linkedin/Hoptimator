@@ -238,12 +238,12 @@ class LogicalTableDeployerTest {
   @Test
   void logicalTableSpecTierBindings() {
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
-    spec.putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("xinfra-tracking"));
-    spec.putTiersItem("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice"));
+    spec.putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().database("xinfra-tracking"));
+    spec.putTiersItem("online", new V1alpha1LogicalTableSpecTiers().database("venice"));
 
     assertEquals(2, spec.getTiers().size());
-    assertEquals("xinfra-tracking", spec.getTiers().get("nearline").getDatabaseCrdName());
-    assertEquals("venice", spec.getTiers().get("online").getDatabaseCrdName());
+    assertEquals("xinfra-tracking", spec.getTiers().get("nearline").getDatabase());
+    assertEquals("venice", spec.getTiers().get("online").getDatabase());
   }
 
   @Test
@@ -514,7 +514,7 @@ class LogicalTableDeployerTest {
   }
 
   @Test
-  void validateReportsIssueWhenDatabaseCrdNotFound() throws Exception {
+  void validateReportsIssueWhenDatabaseNotFound() throws Exception {
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
         testSource(), twoTierProps("missing-db", "also-missing"),

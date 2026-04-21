@@ -294,8 +294,8 @@ public class LogicalTableSchemaTest {
   public void tableFromCrdFallsBackToMetadataNameWhenTableNameNull() {
     // spec.tableName is null → use metadata.name
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec()
-        .putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("kafka-db"))
-        .putTiersItem("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
+        .putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().database("kafka-db"))
+        .putTiersItem("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     // tableName is not set, so spec.getTableName() returns null
     V1alpha1LogicalTable crd = new V1alpha1LogicalTable()
         .metadata(new V1ObjectMeta().name("logical-testevent")
@@ -332,8 +332,8 @@ public class LogicalTableSchemaTest {
       String metadataName, String tableName, String databaseLabel) {
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec()
         .tableName(tableName)
-        .putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("kafka-db"))
-        .putTiersItem("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice-db"));
+        .putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().database("kafka-db"))
+        .putTiersItem("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     return new V1alpha1LogicalTable()
         .metadata(new V1ObjectMeta().name(metadataName)
             .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, databaseLabel))
@@ -349,7 +349,7 @@ public class LogicalTableSchemaTest {
 
   private V1alpha1LogicalTableSpec buildSpecWithOneTier() {
     return new V1alpha1LogicalTableSpec()
-        .putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("kafka-db"));
+        .putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().database("kafka-db"));
   }
 
   private V1alpha1LogicalTable makeCrd(String name, String schemaLabel) {
@@ -360,8 +360,8 @@ public class LogicalTableSchemaTest {
     }
     crd.setMetadata(meta);
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
-    spec.putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().databaseCrdName("kafka-database"));
-    spec.putTiersItem("online", new V1alpha1LogicalTableSpecTiers().databaseCrdName("venice"));
+    spec.putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().database("kafka-database"));
+    spec.putTiersItem("online", new V1alpha1LogicalTableSpecTiers().database("venice"));
     crd.setSpec(spec);
     return crd;
   }
