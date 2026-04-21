@@ -17,7 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.linkedin.hoptimator.Database;
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
@@ -63,15 +63,15 @@ public class LogicalTableSchema extends AbstractSchema implements Database {
 
   @Override
   public Lookup<Table> tables() {
-    return tableLookup.getOrCompute(() -> new LazyTableLookup<>() {
+    return tableLookup.getOrCompute(() -> new LazyLookup<>() {
       @Override
-      protected Map<String, Table> loadAllTables() throws Exception {
+      protected Map<String, Table> loadAll() throws Exception {
         return loadTableMap();
       }
 
       @Override
       @Nullable
-      protected Table loadTable(String name) throws Exception {
+      protected Table load(String name) throws Exception {
         // Direct CRD lookup by name avoids a full list scan for single-table access.
         // getIfExists() returns null on 404 (table not found) and throws SQLException
         // for any other K8s error (auth, network, server error), which propagates here.
@@ -81,7 +81,7 @@ public class LogicalTableSchema extends AbstractSchema implements Database {
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "LogicalTableSchema(" + databaseName + ")";
       }
     });
