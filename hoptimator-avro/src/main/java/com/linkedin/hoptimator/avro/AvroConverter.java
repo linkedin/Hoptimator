@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.avro;
 
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -70,6 +71,12 @@ public final class AvroConverter {
           }
         case DOUBLE:
           return createAvroTypeWithNullability(Schema.Type.DOUBLE, dataType.isNullable());
+        case DATE:
+          return createAvroSchemaWithNullability(
+              LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT)), dataType.isNullable());
+        case TIMESTAMP:
+          return createAvroSchemaWithNullability(
+              LogicalTypes.timestampMillis().addToSchema(Schema.create(Schema.Type.LONG)), dataType.isNullable());
         case BOOLEAN:
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:
@@ -180,8 +187,20 @@ public final class AvroConverter {
             .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
             .collect(Collectors.toList())), nullable);
       case INT:
+        if (schema.getLogicalType() != null) {
+          String logicalName = schema.getLogicalType().getName();
+          if ("date".equals(logicalName)) {
+            return createRelType(typeFactory, SqlTypeName.DATE, nullable);
+          }
+        }
         return createRelType(typeFactory, SqlTypeName.INTEGER, nullable);
       case LONG:
+        if (schema.getLogicalType() != null) {
+          String logicalName = schema.getLogicalType().getName();
+          if ("timestamp-millis".equals(logicalName) || "timestamp-micros".equals(logicalName)) {
+            return createRelType(typeFactory, SqlTypeName.TIMESTAMP, nullable);
+          }
+        }
         return createRelType(typeFactory, SqlTypeName.BIGINT, nullable);
       case ENUM:
       case STRING:
