@@ -4,6 +4,8 @@ import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
+import com.linkedin.hoptimator.avro.AvroSchemaProvider;
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.hoptimator.util.DelegatingConnection;
 import org.apache.avro.Schema;
@@ -12,6 +14,8 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 import org.apache.calcite.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,17 +51,20 @@ public class HoptimatorConnection extends DelegatingConnection {
 
   public ResolvedTable resolve(List<String> tablePath, Map<String, String> hints) throws SQLException {
     try {
-      String tableSql = "SELECT * FROM " + tablePath.stream()
-          .map(x -> "\"" + x + "\"")
-          .collect(Collectors.joining("."));
-      RelNode tableRel = HoptimatorDriver.convert(this, tableSql).root.rel;
-      String namespace = "com.linkedin."
+      Schema avroSchema = providerSchema(tablePath);
+      if (avroSchema == null) {
+        String tableSql = "SELECT * FROM " + tablePath.stream()
+            .map(x -> "\"" + x + "\"")
+            .collect(Collectors.joining("."));
+        RelNode tableRel = HoptimatorDriver.convert(this, tableSql).root.rel;
+        String namespace = "com.linkedin."
             + tablePath.stream()
             .map(x -> x.toLowerCase(Locale.ROOT))
             .limit(tablePath.size() - 1)
             .collect(Collectors.joining("."));
-      String schemaName = tablePath.get(tablePath.size() - 1).toLowerCase(Locale.ROOT);
-      Schema avroSchema = AvroConverter.avro(namespace, schemaName, tableRel.getRowType());
+        String schemaName = tablePath.get(tablePath.size() - 1).toLowerCase(Locale.ROOT);
+        avroSchema = AvroConverter.avro(namespace, schemaName, tableRel.getRowType());
+      }
       String database = databaseName(this.createPrepareContext(), tablePath);
       Source source = new Source(database, tablePath, hints);
       Sink sink = new Sink(database, tablePath, hints);
@@ -66,6 +73,37 @@ public class HoptimatorConnection extends DelegatingConnection {
     } catch (Exception e) {
       throw new SQLException("Failed to resolve " + String.join(".", tablePath) + ": " + e.getMessage(), e);
     }
+  }
+
+  /**
+   * Returns the upstream provider's merged Avro schema (value + prefixed key fields where
+   * applicable) when the resolved table at {@code tablePath} implements
+   * {@link AvroSchemaProvider}, or {@code null} when no provider is available and the caller
+   * should fall back to RelDataType synthesis.
+   *
+   * <p>{@code resolve()} merges key+value because its consumers (the SQL/query layer, the Flink
+   * catalog, the {@code !resolve} CLI command) expect keys to appear as columns in the table's
+   * logical schema. Connector deployers, which render connector payload options, call
+   * {@link AvroSchemaProvider#valueSchema()} directly instead.
+   */
+  private Schema providerSchema(List<String> tablePath) {
+    return providerSchemaAt(connection.getRootSchema(), tablePath);
+  }
+
+  static Schema providerSchemaAt(SchemaPlus root, List<String> tablePath) {
+    SchemaPlus schema = root;
+    for (String part : Util.skipLast(tablePath)) {
+      if (schema == null) {
+        return null;
+      }
+      schema = schema.subSchemas().get(part);
+    }
+    if (schema == null) {
+      return null;
+    }
+    Table table = schema.tables().get(tablePath.get(tablePath.size() - 1));
+    return table instanceof AvroSchemaProvider
+        ? AvroSchemas.mergedAvroSchemaFor((AvroSchemaProvider) table) : null;
   }
 
   @Override

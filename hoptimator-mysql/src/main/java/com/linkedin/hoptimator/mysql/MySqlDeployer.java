@@ -4,6 +4,7 @@ import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import org.apache.calcite.rel.type.RelDataType;
@@ -37,8 +38,6 @@ public class MySqlDeployer implements Deployer, Validated {
 
   private static final Logger log = LoggerFactory.getLogger(MySqlDeployer.class);
 
-  private static final String KEY_PREFIX = "KEY_";
-
   private final Source source;
   private final Properties properties;
   private final HoptimatorConnection hoptimatorConnection;
@@ -57,8 +56,8 @@ public class MySqlDeployer implements Deployer, Validated {
   private List<String> parseKeyFields(RelDataType rowType) {
     List<String> keyFields = new ArrayList<>();
     for (RelDataTypeField field : rowType.getFieldList()) {
-      if (field.getName().startsWith(KEY_PREFIX)) {
-        String keyName = field.getName().substring(KEY_PREFIX.length());
+      if (field.getName().startsWith(AvroSchemas.KEY_PREFIX)) {
+        String keyName = field.getName().substring(AvroSchemas.KEY_PREFIX.length());
         keyFields.add(keyName);
       }
     }
@@ -133,8 +132,8 @@ public class MySqlDeployer implements Deployer, Validated {
       // Validate all column names
       for (RelDataTypeField field : newRowType.getFieldList()) {
         String fieldName = field.getName();
-        String columnName = fieldName.startsWith(KEY_PREFIX)
-            ? fieldName.substring(KEY_PREFIX.length())
+        String columnName = fieldName.startsWith(AvroSchemas.KEY_PREFIX)
+            ? fieldName.substring(AvroSchemas.KEY_PREFIX.length())
             : fieldName;
         if (!isValidIdentifier(columnName)) {
           issues.error("Invalid column name: " + columnName);
@@ -166,8 +165,8 @@ public class MySqlDeployer implements Deployer, Validated {
             // Find the new type for this key field
             for (RelDataTypeField field : newRowType.getFieldList()) {
               String fieldName = field.getName();
-              if (fieldName.startsWith(KEY_PREFIX)) {
-                String columnName = fieldName.substring(KEY_PREFIX.length());
+              if (fieldName.startsWith(AvroSchemas.KEY_PREFIX)) {
+                String columnName = fieldName.substring(AvroSchemas.KEY_PREFIX.length());
                 if (columnName.equals(keyField)) {
                   String newType = toMySqlType(field);
                   String existingType = existingCol.type;
@@ -508,8 +507,8 @@ public class MySqlDeployer implements Deployer, Validated {
       String columnName;
       boolean isKey;
 
-      if (fieldName.startsWith(KEY_PREFIX)) {
-        columnName = fieldName.substring(KEY_PREFIX.length());
+      if (fieldName.startsWith(AvroSchemas.KEY_PREFIX)) {
+        columnName = fieldName.substring(AvroSchemas.KEY_PREFIX.length());
         isKey = true;
       } else {
         columnName = fieldName;
@@ -558,9 +557,9 @@ public class MySqlDeployer implements Deployer, Validated {
       String fieldName = field.getName();
       String columnName;
 
-      if (fieldName.startsWith(KEY_PREFIX)) {
+      if (fieldName.startsWith(AvroSchemas.KEY_PREFIX)) {
         // This is a key field - strip prefix and add to columns
-        columnName = fieldName.substring(KEY_PREFIX.length());
+        columnName = fieldName.substring(AvroSchemas.KEY_PREFIX.length());
       } else {
         // Regular column
         columnName = fieldName;

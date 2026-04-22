@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.kafka;
 
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.impl.AbstractTable;
@@ -22,7 +23,7 @@ public class KafkaTopic extends AbstractTable {
   @Override
   public RelDataType getRowType(RelDataTypeFactory typeFactory) {
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
-    return builder.add("KEY", SqlTypeName.VARCHAR)
+    return builder.add(AvroSchemas.PRIMITIVE_KEY_NAME, SqlTypeName.VARCHAR)
         .nullable(true)
         .add("VALUE", SqlTypeName.BINARY)
         .nullable(true)
