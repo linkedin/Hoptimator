@@ -59,6 +59,26 @@ import java.util.Set;
  * to the previous one. Schemas should be stable for the lifetime of a connection;
  * explicit mutations (CREATE / DROP) already call {@code add()} or
  * {@link #removeTable} to evolve schema state as needed.
+ *
+ * <h2>Concurrency</h2>
+ *
+ * <p>All writes to {@code subSchemaMap} in this class — both the explicit {@link #add}
+ * and the lazy {@link #createSubSchema} — are synchronized on {@code subSchemaMap}.
+ * This prevents racing writers from corrupting the backing {@link java.util.TreeMap}
+ * and gives {@code createSubSchema} double-checked-lock semantics so concurrent lookups
+ * of the same name return the same instance rather than creating duplicates.
+ *
+ * <p>Reads through the inherited {@code subSchemas()} {@link org.apache.calcite.schema.lookup.Lookup}
+ * API (used by JDBC metadata calls and query planning) go through
+ * {@code NameMapLookup}, which reads the underlying {@code TreeMap} without
+ * synchronization. A read that precisely coincides with a first-access write from
+ * {@code createSubSchema} could observe a transiently-inconsistent tree. In practice
+ * this is rare: explicit additions happen at connection init on a single thread, and
+ * each implicit name triggers only one write (its first lookup). Fully serializing
+ * reads would require replacing Calcite's {@code NameMap} backing, which is a larger
+ * refactor. This class matches stock {@code SimpleCalciteSchema}'s thread-safety
+ * posture — concurrent {@code add()} and {@code getSubSchemaMap()} have always been
+ * racey in Calcite — and adds synchronization only where a new hazard was introduced.
  */
 public class HoptimatorCalciteSchema extends CalciteSchema {
 
@@ -134,31 +154,29 @@ public class HoptimatorCalciteSchema extends CalciteSchema {
   @Override
   public CalciteSchema add(String name, Schema schema) {
     final CalciteSchema calciteSchema = new HoptimatorCalciteSchema(this, schema, name);
-    subSchemaMap.put(name, calciteSchema);
+    synchronized (subSchemaMap) {
+      subSchemaMap.put(name, calciteSchema);
+    }
     return calciteSchema;
   }
 
   /**
-   * Creates an implicit sub-schema and immediately pins it into {@link #subSchemaMap}.
-   *
-   * <p>Pinning ensures the schema survives for the lifetime of the connection.
-   * {@code ConcatLookup} checks {@code NameMapLookup(subSchemaMap)} before the implicit
-   * lookup, so once a schema is pinned, subsequent calls return it directly without
-   * re-invoking this method.
-   *
-   * <p>If a schema with this name already exists in {@code subSchemaMap} (due to a prior
-   * {@code add()} call or a previous invocation of this method), the existing entry is
-   * returned so that any tables already registered to it remain visible.
+   * Creates an implicit sub-schema and pins it into {@link #subSchemaMap} so subsequent
+   * lookups resolve via {@code NameMapLookup} without re-entering this method. If an
+   * entry already exists (from a prior {@link #add} or a racing lazy lookup), returns
+   * it so any tables registered to it remain visible.
    */
   @Override
   protected CalciteSchema createSubSchema(Schema schema, String name) {
-    NavigableMap<String, CalciteSchema> existing = subSchemaMap.range(name, false);
-    if (!existing.isEmpty()) {
-      return existing.firstEntry().getValue();
+    synchronized (subSchemaMap) {
+      NavigableMap<String, CalciteSchema> existing = subSchemaMap.range(name, false);
+      if (!existing.isEmpty()) {
+        return existing.firstEntry().getValue();
+      }
+      HoptimatorCalciteSchema child = new HoptimatorCalciteSchema(this, schema, name);
+      subSchemaMap.put(name, child);
+      return child;
     }
-    HoptimatorCalciteSchema child = new HoptimatorCalciteSchema(this, schema, name);
-    subSchemaMap.put(name, child);
-    return child;
   }
 
   @Override
@@ -234,11 +252,13 @@ public class HoptimatorCalciteSchema extends CalciteSchema {
         parent, schema.snapshot(version), name, null,
         tableMap, latticeMap, typeMap,
         functionMap, functionNames, nullaryFunctionMap, getPath());
-    for (CalciteSchema subSchema : subSchemaMap.map().values()) {
-      CalciteSchema subSchemaSnapshot = subSchema instanceof HoptimatorCalciteSchema
-          ? ((HoptimatorCalciteSchema) subSchema).snapshot(snapshot, version)
-          : subSchema;
-      snapshot.subSchemaMap.put(subSchema.name, subSchemaSnapshot);
+    synchronized (subSchemaMap) {
+      for (CalciteSchema subSchema : subSchemaMap.map().values()) {
+        CalciteSchema subSchemaSnapshot = subSchema instanceof HoptimatorCalciteSchema
+            ? ((HoptimatorCalciteSchema) subSchema).snapshot(snapshot, version)
+            : subSchema;
+        snapshot.subSchemaMap.put(subSchema.name, subSchemaSnapshot);
+      }
     }
     return snapshot;
   }
