@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
@@ -34,10 +34,10 @@ public class K8sMetadata extends AbstractSchema {
 
   @Override
   public Lookup<Table> tables() {
-    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+    return tables.getOrCompute(() -> new LazyLookup<>() {
 
       @Override
-      protected Map<String, Table> loadAllTables() {
+      protected Map<String, Table> loadAll() {
         Map<String, Table> tableMap = new HashMap<>();
         K8sPipelineElementApi pipelineElementApi = new K8sPipelineElementApi(context);
         K8sPipelineElementMapApi pipelineElementMapApi = new K8sPipelineElementMapApi(pipelineElementApi);
@@ -54,7 +54,7 @@ public class K8sMetadata extends AbstractSchema {
       }
 
       @Override
-      protected @Nullable Table loadTable(String name) {
+      protected @Nullable Table load(String name) {
         switch (name) {
           case "DATABASES":
             K8sEngineTable engineTable = new K8sEngineTable(context);
@@ -80,7 +80,7 @@ public class K8sMetadata extends AbstractSchema {
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "K8s Metadata Schema";
       }
     });

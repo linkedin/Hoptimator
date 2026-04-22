@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.kafka;
 
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
@@ -36,10 +36,10 @@ public class ClusterSchema extends AbstractSchema {
 
   @Override
   public Lookup<Table> tables() {
-    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+    return tables.getOrCompute(() -> new LazyLookup<>() {
 
       @Override
-      protected Map<String, Table> loadAllTables() throws Exception {
+      protected Map<String, Table> loadAll() throws Exception {
         try (AdminClient adminClient = AdminClient.create(properties)) {
           Set<String> topicNames = adminClient.listTopics().names().get();
           Map<String, Table> tables = new HashMap<>();
@@ -51,7 +51,7 @@ public class ClusterSchema extends AbstractSchema {
       }
 
       @Override
-      protected @Nullable Table loadTable(String name) throws Exception {
+      protected @Nullable Table load(String name) throws Exception {
         try (AdminClient adminClient = AdminClient.create(properties)) {
           // Attempt to get the topic description, which will throw an exception if it doesn't exist
           adminClient.describeTopics(Collections.singleton(name)).topicNameValues().get(name).get();
@@ -66,7 +66,7 @@ public class ClusterSchema extends AbstractSchema {
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "Kafka at " + properties.getProperty("bootstrap.servers");
       }
     });

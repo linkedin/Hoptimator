@@ -85,7 +85,7 @@ class UtilityCatalogTest {
   @Test
   void testGetSchemaDescriptionReturnsNonEmptyString() {
     Lookup<Table> tables = catalog.tables();
-    // The LazyTableLookup inside UtilityCatalog must return a non-empty schema description.
+    // The LazyLookup inside UtilityCatalog must return a non-empty schema description.
     // We verify this indirectly by checking that loading a non-existent table triggers no error
     // but more directly by inspecting the error message from a load failure.
     // The cleanest way: verify loadTable for a non-PRINT name returns null, which means the

@@ -1,24 +1,30 @@
 package com.linkedin.hoptimator.mysql;
 
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
+import com.linkedin.hoptimator.jdbc.HoptimatorCalciteSchema;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.impl.AbstractSchema;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.calcite.avatica.AvaticaConnection;
+
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Properties;
 
 /**
  * JDBC driver for MySQL databases.
+ *
+ * <p>Overrides {@link CalciteDriver#createRootSchema} to supply a {@link MySqlRootSchema}
+ * that lazily discovers MySQL databases as sub-schemas — no connection to MySQL is opened
+ * at connect time. Tables within each database are also loaded lazily via
+ * {@link com.linkedin.hoptimator.jdbc.schema.LazyLookup}.
  */
 public class MySqlDriver extends CalciteDriver {
   public static final String CATALOG_NAME = "MYSQL";
@@ -50,34 +56,16 @@ public class MySqlDriver extends CalciteDriver {
     properties.putAll(props); // in case the driver is loaded via getConnection()
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
     try {
-      Connection connection = super.connect(url, props);
+      Connection connection = super.connect(url, props); // createRootSchema() called here
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
       connection.setAutoCommit(true); // to prevent rollback()
       connection.setCatalog(CATALOG_NAME);
 
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
-
       String mySqlUrl = properties.getProperty("url");
       if (mySqlUrl == null) {
         throw new SQLException("Missing required parameter 'url' for MySQL connection");
-      }
-      String user = properties.getProperty("user", "");
-      String password = properties.getProperty("password", "");
-
-      try (Connection conn = createMySqlConnection(mySqlUrl, user, password)) {
-        DatabaseMetaData metaData = conn.getMetaData();
-        // MySQL catalogs are the databases
-        try (ResultSet rs = metaData.getCatalogs()) {
-          while (rs.next()) {
-            String schemaName = rs.getString("TABLE_CAT");
-            TableSchema tableSchema = createTableSchema(properties, schemaName);
-            rootSchema.add(schemaName, tableSchema);
-            log.debug("Registered MySQL schema: {}", schemaName);
-          }
-        }
       }
 
       return connection;
@@ -86,12 +74,23 @@ public class MySqlDriver extends CalciteDriver {
     }
   }
 
-  protected Connection createMySqlConnection(String url, String user, String password)
-      throws SQLException {
-    return DriverManager.getConnection(url, user, password);
+  /**
+   * Skip the lattice scan that Calcite normally performs at connection init time.
+   * MySqlDriver does not define lattices or use schema model files, so the scan
+   * only causes eager MySQL schema loading with no benefit.
+   */
+  @Override
+  protected void onConnectionInit(AvaticaConnection connection) {
+    // no-op: lattice scan skipped intentionally to prevent eager loading of all schemas
   }
 
-  protected TableSchema createTableSchema(Properties properties, String schemaName) {
-    return new TableSchema(properties, schemaName);
+  @Override
+  protected CalciteSchema createRootSchema(Properties properties) {
+    Schema rootSchema = createMySqlRootSchema(properties);
+    return HoptimatorCalciteSchema.createRootSchema(rootSchema, includeMetadataSchema());
+  }
+
+  protected AbstractSchema createMySqlRootSchema(Properties properties) {
+    return new MySqlRootSchema(properties);
   }
 }

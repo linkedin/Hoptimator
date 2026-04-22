@@ -10,8 +10,6 @@ import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.lookup.LikePattern;
-import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
@@ -299,12 +297,7 @@ class K8sDatabaseTableTest {
     K8sDatabaseTable table = spy(new K8sDatabaseTable(mockContext, mockEngineTable));
     doReturn(databases.stream().map(table::toRow).collect(Collectors.toList())).when(table).rows();
 
-    // Mock the catalog schema to return sub-schemas without hitting JDBC
     HoptimatorJdbcCatalogSchema mockCatalogSchema = mock(HoptimatorJdbcCatalogSchema.class);
-    Lookup<Schema> mockSubSchemas = mock(Lookup.class);
-    doReturn(mockSubSchemas).when(mockCatalogSchema).subSchemas();
-    doReturn(Collections.emptySet()).when(mockSubSchemas).getNames(any(LikePattern.class));
-
     mockedCatalogSchema.when(() -> HoptimatorJdbcCatalogSchema.create(
         anyString(), anyString(), anyString(), any(DataSource.class), any(SchemaPlus.class),
         any(), anyList(), any())).thenReturn(mockCatalogSchema);

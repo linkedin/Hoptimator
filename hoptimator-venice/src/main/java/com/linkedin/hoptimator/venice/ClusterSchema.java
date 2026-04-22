@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.venice;
 
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import com.linkedin.venice.client.store.ClientConfig;
 import com.linkedin.venice.client.store.ClientFactory;
@@ -73,10 +73,10 @@ public class ClusterSchema extends AbstractSchema {
 
   @Override
   public Lookup<Table> tables() {
-    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+    return tables.getOrCompute(() -> new LazyLookup<>() {
 
       @Override
-      protected Map<String, Table> loadAllTables() throws Exception {
+      protected Map<String, Table> loadAll() throws Exception {
         Map<String, Table> tableMap = new HashMap<>();
         String clusterStr = properties.getProperty("clusters");
         String[] clusters = clusterStr.split(",");
@@ -94,7 +94,7 @@ public class ClusterSchema extends AbstractSchema {
       }
 
       @Override
-      protected @Nullable Table loadTable(String name) throws Exception {
+      protected @Nullable Table load(String name) throws Exception {
         String clusterStr = properties.getProperty("clusters");
         String[] clusters = clusterStr.split(",");
 
@@ -121,7 +121,7 @@ public class ClusterSchema extends AbstractSchema {
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "Venice clusters " + properties.getProperty("clusters");
       }
 

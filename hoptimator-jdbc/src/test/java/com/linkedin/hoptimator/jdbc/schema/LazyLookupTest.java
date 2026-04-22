@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
-public class LazyTableLookupTest {
+public class LazyLookupTest {
 
   /**
    * Simple mock table for testing.
@@ -50,12 +50,12 @@ public class LazyTableLookupTest {
   /**
    * Simple test implementation that tracks load calls.
    */
-  private static class SimpleLazyTableLookup extends LazyTableLookup<MockTable> {
+  private static class SimpleLazyLookup extends LazyLookup<MockTable> {
     private final Map<String, MockTable> tables;
-    final AtomicInteger loadAllTablesCallCount = new AtomicInteger(0);
-    final AtomicInteger loadTableCallCount = new AtomicInteger(0);
+    final AtomicInteger loadAllCallCount = new AtomicInteger(0);
+    final AtomicInteger loadCallCount = new AtomicInteger(0);
 
-    SimpleLazyTableLookup(String... tableNames) {
+    SimpleLazyLookup(String... tableNames) {
       this.tables = new HashMap<>();
       for (String name : tableNames) {
         tables.put(name, new MockTable(name));
@@ -63,19 +63,19 @@ public class LazyTableLookupTest {
     }
 
     @Override
-    protected Map<String, MockTable> loadAllTables() {
-      loadAllTablesCallCount.incrementAndGet();
+    protected Map<String, MockTable> loadAll() {
+      loadAllCallCount.incrementAndGet();
       return new HashMap<>(tables);
     }
 
     @Override
-    protected @Nullable MockTable loadTable(String name) {
-      loadTableCallCount.incrementAndGet();
+    protected @Nullable MockTable load(String name) {
+      loadCallCount.incrementAndGet();
       return tables.get(name);
     }
 
     @Override
-    protected String getSchemaDescription() {
+    protected String getDescription() {
       return "Test Schema";
     }
   }
@@ -84,229 +84,228 @@ public class LazyTableLookupTest {
 
   @Test
   void testGetNull() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test", "foo");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test", "foo");
     assertNull(lookup.get("unknown"));
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 
   @Test
   void testGet() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test", "foo");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test", "foo");
     MockTable table = lookup.get("test");
     assertNotNull(table);
     assertEquals("test", table.getName());
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 
   @Test
   void testGetCached() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test");
     MockTable table1 = lookup.get("test");
     MockTable table2 = lookup.get("test");
     assertSame(table1, table2);
-    assertEquals(1, lookup.loadTableCallCount.get()); // Only loaded once
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get()); // Only loaded once
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 
   // getIgnoreCase() tests
 
   @Test
   void testGetIgnoreCase() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test", "foo");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test", "foo");
     Named<MockTable> result = lookup.getIgnoreCase("TEST");
     assertNotNull(result);
     assertEquals("test", result.name());
     assertEquals("test", result.entity().getName());
     // getIgnoreCase() calls getNames() to build the name map, then calls get() which will already be in cache
-    assertEquals(1, lookup.loadAllTablesCallCount.get());
-    assertEquals(0, lookup.loadTableCallCount.get());
+    assertEquals(1, lookup.loadAllCallCount.get());
+    assertEquals(0, lookup.loadCallCount.get());
   }
 
   // getNames() tests
 
   @Test
   void testGetNamesAny() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test", "foo", "bar");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test", "foo", "bar");
     Set<String> names = lookup.getNames(LikePattern.any());
     assertEquals(3, names.size());
     assertTrue(names.contains("test"));
     assertTrue(names.contains("foo"));
     assertTrue(names.contains("bar"));
-    assertEquals(1, lookup.loadAllTablesCallCount.get());
-    assertEquals(0, lookup.loadTableCallCount.get());
+    assertEquals(1, lookup.loadAllCallCount.get());
+    assertEquals(0, lookup.loadCallCount.get());
   }
 
   @Test
   void testGetNamesAlphanumeric() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test", "foo");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test", "foo");
     Set<String> names = lookup.getNames(new LikePattern("test"));
     assertEquals(1, names.size());
     assertTrue(names.contains("test"));
     // Alphanumeric pattern uses get() optimization
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 
   @Test
   void testGetNamesAlphanumericNotFound() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test");
     Set<String> names = lookup.getNames(new LikePattern("unknown"));
     assertEquals(0, names.size());
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 
   @Test
   void testGetNamesWithWildcard() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test_one", "test_two", "other");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test_one", "test_two", "other");
     Set<String> names = lookup.getNames(new LikePattern("test%"));
     assertEquals(2, names.size());
     assertTrue(names.contains("test_one"));
     assertTrue(names.contains("test_two"));
-    // Wildcard pattern loads all tables
-    assertEquals(1, lookup.loadAllTablesCallCount.get());
-    assertEquals(0, lookup.loadTableCallCount.get());
+    // Wildcard pattern loads all entries
+    assertEquals(1, lookup.loadAllCallCount.get());
+    assertEquals(0, lookup.loadCallCount.get());
   }
 
   // Mixed access patterns
 
   @Test
   void testGetThenGetNames() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test", "foo");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test", "foo");
 
-    // First get a specific table
+    // First get a specific entry
     MockTable table = lookup.get("test");
     assertNotNull(table);
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
 
     // Then get all names
     Set<String> names = lookup.getNames(LikePattern.any());
     assertEquals(2, names.size());
-    assertEquals(1, lookup.loadTableCallCount.get()); // Not called again, used allTablesCache
-    assertEquals(1, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get()); // Not called again, used allTablesCache
+    assertEquals(1, lookup.loadAllCallCount.get());
   }
 
   @Test
   void testGetNamesThenGet() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test", "foo");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test", "foo");
 
     // First get all names
     Set<String> names = lookup.getNames(LikePattern.any());
     assertEquals(2, names.size());
-    assertEquals(1, lookup.loadAllTablesCallCount.get());
-    assertEquals(0, lookup.loadTableCallCount.get());
+    assertEquals(1, lookup.loadAllCallCount.get());
+    assertEquals(0, lookup.loadCallCount.get());
 
-    // Then get specific table - should come from allTablesCache
+    // Then get specific entry - should come from allTablesCache
     MockTable table = lookup.get("test");
     assertNotNull(table);
-    assertEquals(0, lookup.loadTableCallCount.get()); // Not called, used allTablesCache
-    assertEquals(1, lookup.loadAllTablesCallCount.get());
+    assertEquals(0, lookup.loadCallCount.get()); // Not called, used allTablesCache
+    assertEquals(1, lookup.loadAllCallCount.get());
   }
 
   // Error handling
 
   @Test
-  void testLoadTableException() {
-    LazyTableLookup<MockTable> lookup = new LazyTableLookup<>() {
+  void testLoadException() {
+    LazyLookup<MockTable> lookup = new LazyLookup<>() {
       @Override
-      protected Map<String, MockTable> loadAllTables() {
+      protected Map<String, MockTable> loadAll() {
         return new HashMap<>();
       }
 
       @Override
-      protected @Nullable MockTable loadTable(String name) throws Exception {
+      protected @Nullable MockTable load(String name) throws Exception {
         throw new RuntimeException("Simulated failure");
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "Test Schema";
       }
     };
 
     RuntimeException exception = assertThrows(RuntimeException.class, () -> lookup.get("test"));
-    // The exception message should contain our error or be the simulated failure
     String message = exception.getMessage();
-    assertTrue(message.contains("Failed to load table 'test' from Test Schema"),
+    assertTrue(message.contains("Failed to load 'test' from Test Schema"),
         "Expected error message but got: " + message);
   }
 
   @Test
-  void testLoadAllTablesException() {
-    LazyTableLookup<MockTable> lookup = new LazyTableLookup<>() {
+  void testLoadAllException() {
+    LazyLookup<MockTable> lookup = new LazyLookup<>() {
       @Override
-      protected Map<String, MockTable> loadAllTables() throws Exception {
+      protected Map<String, MockTable> loadAll() throws Exception {
         throw new RuntimeException("Simulated failure");
       }
 
       @Override
-      protected @Nullable MockTable loadTable(String name) {
+      protected @Nullable MockTable load(String name) {
         return null;
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "Test Schema";
       }
     };
 
     RuntimeException exception = assertThrows(RuntimeException.class,
         () -> lookup.getNames(LikePattern.any()));
-    assertTrue(exception.getMessage().contains("Failed to load tables from Test Schema"));
+    assertTrue(exception.getMessage().contains("Failed to load entries from Test Schema"));
   }
 
   @Test
-  void testGetNonExistentTableReturnsNull() {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("table1", "table2");
+  void testGetNonExistentEntryReturnsNull() {
+    SimpleLazyLookup lookup = new SimpleLazyLookup("table1", "table2");
     MockTable result = lookup.get("nonExistentTable");
     // Must be null, not a non-null placeholder
     assertNull(result);
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 
   @Test
   void testGetNamesSimpleAlphanumericPatternUsesGetNotLoadAll() {
     // Ensures alphanumeric fast-path
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("PRINT", "OTHER");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("PRINT", "OTHER");
     Set<String> names = lookup.getNames(new LikePattern("PRINT"));
     assertEquals(1, names.size());
     assertTrue(names.contains("PRINT"));
-    // Fast path must call get(), NOT loadAllTables
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    // Fast path must call load(), NOT loadAll()
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 
   @Test
   void testGetNamesWildcardPatternCallsLoadAll() {
     // Contrasts with simple pattern — ensures the branch is actually taken differently
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("PRINT", "OTHER");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("PRINT", "OTHER");
     Set<String> names = lookup.getNames(new LikePattern("%"));
     assertEquals(2, names.size());
-    // Wildcard pattern must call loadAllTables, NOT get()
-    assertEquals(1, lookup.loadAllTablesCallCount.get());
-    assertEquals(0, lookup.loadTableCallCount.get());
+    // Wildcard pattern must call loadAll(), NOT load()
+    assertEquals(1, lookup.loadAllCallCount.get());
+    assertEquals(0, lookup.loadCallCount.get());
   }
 
   @Test
-  void testGetNamesSimplePatternForMissingTableReturnsEmpty() {
-    // If alphanumeric fast-path is removed, missing table would trigger loadAll
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("PRINT");
+  void testGetNamesSimplePatternForMissingEntryReturnsEmpty() {
+    // If alphanumeric fast-path is removed, missing entry would trigger loadAll
+    SimpleLazyLookup lookup = new SimpleLazyLookup("PRINT");
     Set<String> names = lookup.getNames(new LikePattern("MISSING"));
     assertTrue(names.isEmpty());
-    // Must use get() (fast path), not loadAllTables
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    // Must use load() (fast path), not loadAll()
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 
   // Concurrent access
 
   @Test
   void testConcurrentGet() throws InterruptedException {
-    SimpleLazyTableLookup lookup = new SimpleLazyTableLookup("test");
+    SimpleLazyLookup lookup = new SimpleLazyLookup("test");
 
     int threadCount = 10;
     Set<MockTable> results = Collections.newSetFromMap(new ConcurrentHashMap<>());
@@ -322,7 +321,7 @@ public class LazyTableLookupTest {
     assertTrue(latch.await(5, TimeUnit.SECONDS));
     assertEquals(1, results.size()); // All threads got the same instance
     // With computeIfAbsent, should only load once
-    assertEquals(1, lookup.loadTableCallCount.get());
-    assertEquals(0, lookup.loadAllTablesCallCount.get());
+    assertEquals(1, lookup.loadCallCount.get());
+    assertEquals(0, lookup.loadAllCallCount.get());
   }
 }

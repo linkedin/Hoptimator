@@ -95,7 +95,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
         }
         schema = next;
       }
-      Objects.requireNonNull(schema).add(row.viewName(), makeView(schema, row));
+      Objects.requireNonNull(schema).add(row.viewName(), makeView(row));
     }
   }
 
@@ -122,7 +122,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     }
   }
 
-  private Table makeView(SchemaPlus parentSchema, Row row) {
+  private Table makeView(Row row) {
     // We want to defer resolution of types until they are actually used,
     // since otherwise the view may depend on other views that haven't
     // been loaded yet.

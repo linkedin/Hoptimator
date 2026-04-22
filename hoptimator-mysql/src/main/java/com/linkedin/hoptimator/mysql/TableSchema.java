@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.mysql;
 
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
@@ -36,10 +36,10 @@ public class TableSchema extends AbstractSchema {
 
   @Override
   public Lookup<Table> tables() {
-    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+    return tables.getOrCompute(() -> new LazyLookup<>() {
 
       @Override
-      protected Map<String, Table> loadAllTables() throws Exception {
+      protected Map<String, Table> loadAll() throws Exception {
         Map<String, Table> tableMap = new HashMap<>();
         String url = properties.getProperty("url");
         String user = properties.getProperty("user", "");
@@ -61,7 +61,7 @@ public class TableSchema extends AbstractSchema {
       }
 
       @Override
-      protected @Nullable Table loadTable(String name) throws Exception {
+      protected @Nullable Table load(String name) throws Exception {
         String url = properties.getProperty("url");
         String user = properties.getProperty("user", "");
         String password = properties.getProperty("password", "");
@@ -78,7 +78,7 @@ public class TableSchema extends AbstractSchema {
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "MySQL database '" + database + "' at " + properties.getProperty("url");
       }
     });

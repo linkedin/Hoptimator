@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.catalog;
 
-import com.linkedin.hoptimator.jdbc.schema.LazyTableLookup;
+import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
@@ -26,15 +26,15 @@ public class DatabaseSchema extends AbstractSchema {
 
   @Override
   public Lookup<Table> tables() {
-    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+    return tables.getOrCompute(() -> new LazyLookup<>() {
 
       @Override
-      protected Map<String, Table> loadAllTables() throws Exception {
+      protected Map<String, Table> loadAll() throws Exception {
         return database.tables().stream().collect(Collectors.toMap(x -> x, x -> new ProtoTable(x, database)));
       }
 
       @Override
-      protected @Nullable Table loadTable(String name) throws Exception {
+      protected @Nullable Table load(String name) throws Exception {
         if (database.tables().contains(name)) {
           return new ProtoTable(name, database);
         }
@@ -42,7 +42,7 @@ public class DatabaseSchema extends AbstractSchema {
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "Database: " + database.toString();
       }
     });

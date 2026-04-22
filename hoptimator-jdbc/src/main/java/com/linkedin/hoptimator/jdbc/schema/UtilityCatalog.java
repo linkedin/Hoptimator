@@ -39,15 +39,15 @@ public class UtilityCatalog extends AbstractSchema implements Catalog {
 
   @Override
   public Lookup<Table> tables() {
-    return tables.getOrCompute(() -> new LazyTableLookup<>() {
+    return tables.getOrCompute(() -> new LazyLookup<>() {
 
       @Override
-      protected Map<String, Table> loadAllTables() {
+      protected Map<String, Table> loadAll() {
         return Collections.singletonMap("PRINT", new PrintTable());
       }
 
       @Override
-      protected @Nullable Table loadTable(String name) {
+      protected @Nullable Table load(String name) {
         if ("PRINT".equals(name)) {
           return new PrintTable();
         }
@@ -55,7 +55,7 @@ public class UtilityCatalog extends AbstractSchema implements Catalog {
       }
 
       @Override
-      protected String getSchemaDescription() {
+      protected String getDescription() {
         return "Utility Catalog";
       }
     });
