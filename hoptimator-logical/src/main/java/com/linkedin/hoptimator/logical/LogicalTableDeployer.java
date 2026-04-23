@@ -6,6 +6,7 @@ import java.sql.SQLNonTransientException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,6 +14,10 @@ import java.util.Properties;
 
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
@@ -22,6 +27,8 @@ import org.slf4j.LoggerFactory;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.Trigger;
+import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.Job;
@@ -31,6 +38,7 @@ import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.K8sPipelineBundle;
+import com.linkedin.hoptimator.k8s.K8sTriggerDeployer;
 import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
@@ -53,6 +61,7 @@ import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 public class LogicalTableDeployer implements Deployer, Validated {
 
   private static final Logger log = LoggerFactory.getLogger(LogicalTableDeployer.class);
+  private static final String LOGICAL_TRIGGER_NAME = "logical-%s-offline-trigger";
 
   private final Source source;
   private final Properties tierProps;
@@ -61,6 +70,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   private final List<Deployer> tierDeployers = new ArrayList<>();
   private final List<K8sPipelineBundle> pipelineDeployers = new ArrayList<>();
+  private final List<Deployer> triggerDeployers = new ArrayList<>();
   private final List<Runnable> schemaRollbacks = new ArrayList<>();
 
   // Created lazily in deployAll(). Null until then, so restore() is a no-op for the CRD if
@@ -186,6 +196,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
           : logicalTableDeployer.createAndReference();
       K8sContext ownerContext = context.withOwner(ownerRef);
       deployImplicitPipelines(tierMap, tierDatabases, tierSources, ownerContext, update);
+      deployImplicitTrigger(tierMap, tierSources, ownerContext);
     } catch (Exception e) {
       if (e instanceof SQLException) {
         throw e;
@@ -208,7 +219,11 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   @Override
   public void restore() {
-    // Restore pipeline deployers first (they reference the LogicalTable CRD via ownerRef)
+    // Restore trigger deployers first (they reference the LogicalTable CRD via ownerRef)
+    for (int i = triggerDeployers.size() - 1; i >= 0; i--) {
+      triggerDeployers.get(i).restore();
+    }
+    // Restore pipeline deployers next (they also reference the LogicalTable CRD via ownerRef)
     for (int i = pipelineDeployers.size() - 1; i >= 0; i--) {
       pipelineDeployers.get(i).restore();
     }
@@ -442,6 +457,80 @@ public class LogicalTableDeployer implements Deployer, Validated {
   /** Returns the canonical pipeline name for an implicit inter-tier pipeline. */
   static String pipelineName(String tableName, String fromTier, String toTier) {
     return "logical-" + K8sUtils.canonicalizeName(tableName) + "-" + fromTier + "-to-" + toTier;
+  }
+
+  /**
+   * Creates or updates a {@link V1alpha1TableTrigger} for the offline tier, owned by the
+   * LogicalTable CRD.
+   */
+  private void deployImplicitTrigger(Map<String, String> tierMap, Map<String, Source> tierSources, K8sContext ownerContext)
+      throws SQLException {
+    if (!tierMap.containsKey(LogicalTier.OFFLINE.tierName())) {
+      return;
+    }
+    Source offlineSource = tierSources.get(LogicalTier.OFFLINE.tierName());
+    String offlineDatabase = offlineSource.database();
+
+    V1alpha1JobTemplate jobTemplate = findMatchingJobTemplate(ownerContext, offlineDatabase);
+    if (jobTemplate == null) {
+      return;
+    }
+
+    String triggerName = String.format(LOGICAL_TRIGGER_NAME, K8sUtils.canonicalizeName(source.table()));
+
+    V1alpha1TableTrigger existing = null;
+    try {
+      existing = createTableTriggerApi(ownerContext).getIfExists(ownerContext.namespace(), triggerName);
+    } catch (Exception e) {
+      log.warn("Existence check for implicit trigger {} failed; assuming first deployment: {}",
+          triggerName, e.toString());
+    }
+
+    Map<String, String> triggerOptions = new HashMap<>(source.options());
+    if (existing == null) {
+      triggerOptions.put(Trigger.PAUSED_OPTION, "true");
+    }
+    UserJob userJob = new UserJob(ownerContext.namespace(), jobTemplate.getMetadata().getName());
+    Trigger trigger = new Trigger(triggerName, userJob, offlineSource.path(), null, triggerOptions);
+
+    K8sTriggerDeployer triggerDeployer = createTriggerDeployer(trigger, ownerContext);
+    triggerDeployers.add(triggerDeployer);
+    if (existing == null) {
+      triggerDeployer.create();
+    } else {
+      triggerDeployer.update();
+    }
+    log.info("Deployed offline-tier trigger {} for logical table {} using JobTemplate {}",
+        triggerName, source.table(), jobTemplate.getMetadata().getName());
+  }
+
+  private V1alpha1JobTemplate findMatchingJobTemplate(K8sContext ownerContext, String offlineDatabase) {
+    Collection<V1alpha1JobTemplate> jobTemplates;
+    try {
+      jobTemplates = createJobTemplateApi(ownerContext).list();
+    } catch (Exception e) {
+      log.error("Error listing JobTemplates in namespace {}; skipping implicit trigger creation for offline database {}: {}",
+          ownerContext.namespace(), offlineDatabase, e.toString());
+      return null;
+    }
+
+    return jobTemplates.stream()
+        .filter(template -> template.getSpec() != null
+            && template.getSpec().getDatabases() != null
+            && template.getSpec().getDatabases().contains(offlineDatabase))
+        .findFirst().orElse(null);
+  }
+
+  K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> createJobTemplateApi(K8sContext ctx) {
+    return new K8sApi<>(ctx, K8sApiEndpoints.JOB_TEMPLATES);
+  }
+
+  K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> createTableTriggerApi(K8sContext ctx) {
+    return new K8sApi<>(ctx, K8sApiEndpoints.TABLE_TRIGGERS);
+  }
+
+  K8sTriggerDeployer createTriggerDeployer(Trigger trigger, K8sContext ctx) {
+    return new K8sTriggerDeployer(trigger, ctx);
   }
 
   /**
