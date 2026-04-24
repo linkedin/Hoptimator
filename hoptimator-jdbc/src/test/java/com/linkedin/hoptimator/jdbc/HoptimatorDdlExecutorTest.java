@@ -801,7 +801,7 @@ class HoptimatorDdlExecutorTest {
 
   @Test
   void testDropTriggerIfExistsNonMatchingErrorRethrows() {
-    mockDeploymentService.when(() -> DeploymentService.delete(any()))
+    mockDeploymentService.when(() -> DeploymentService.delete(any(), any()))
         .thenThrow(new RuntimeException("some other error without TableTrigger"));
 
     HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
@@ -920,7 +920,7 @@ class HoptimatorDdlExecutorTest {
 
   @Test
   void testDropTriggerDeployFailure() {
-    mockDeploymentService.when(() -> DeploymentService.delete(any()))
+    mockDeploymentService.when(() -> DeploymentService.delete(any(), any()))
         .thenThrow(new RuntimeException("delete failed"));
 
     HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
@@ -936,7 +936,7 @@ class HoptimatorDdlExecutorTest {
 
   @Test
   void testDropTriggerIfExistsWithTableTriggerError() {
-    mockDeploymentService.when(() -> DeploymentService.delete(any()))
+    mockDeploymentService.when(() -> DeploymentService.delete(any(), any()))
         .thenThrow(new RuntimeException("Error getting TableTrigger for trigger"));
 
     HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
@@ -987,7 +987,7 @@ class HoptimatorDdlExecutorTest {
 
     addViewTableToDefaultSchema(context, "viewToFailDrop", "SELECT 1 AS \"col1\"");
 
-    mockDeploymentService.when(() -> DeploymentService.delete(any()))
+    mockDeploymentService.when(() -> DeploymentService.delete(any(), any()))
         .thenThrow(new RuntimeException("drop view failed"));
 
     SqlNode dropNode = HoptimatorDriver.parseQuery(connection, "DROP VIEW \"viewToFailDrop\"");
@@ -1006,7 +1006,7 @@ class HoptimatorDdlExecutorTest {
 
     addMaterializedViewToDefaultSchema(context, "mvToFailDrop", "SELECT 1 AS \"col1\"");
 
-    mockDeploymentService.when(() -> DeploymentService.delete(any()))
+    mockDeploymentService.when(() -> DeploymentService.delete(any(), any()))
         .thenThrow(new RuntimeException("drop mv failed"));
 
     SqlNode dropNode = HoptimatorDriver.parseQuery(connection,
