@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -1508,6 +1509,98 @@ class HoptimatorDdlUtilsTest {
     @Override
     public String databaseName() {
       return name;
+    }
+  }
+
+  // ---- removeTableFromSchema tests ----
+
+  @Test
+  void removeTableFromSchemaToleratesNullConnection() {
+    // Must not NPE — this overload is called from code paths that may lack a connection.
+    assertDoesNotThrow(() -> HoptimatorDdlUtils.removeTableFromSchema(null, null, null, "ANY"));
+  }
+
+  @Test
+  void removeTableFromSchemaRemovesFromRootWhenNoSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+      HoptimatorDdlUtils.registerTemporaryTableInSchema(
+          connection, null, null, "ROOT_TMP", rowType, "db");
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      assertNotNull(rootSchema.tables().get("ROOT_TMP"));
+
+      HoptimatorDdlUtils.removeTableFromSchema(connection, null, null, "ROOT_TMP");
+
+      assertEquals(null, rootSchema.tables().get("ROOT_TMP"));
+    }
+  }
+
+  @Test
+  void removeTableFromSchemaRemovesFromTierSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      rootSchema.add("KAFKA", new AbstractSchema());
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+      HoptimatorDdlUtils.registerTemporaryTableInSchema(
+          connection, null, "KAFKA", "my_topic", rowType, "kafka-db");
+      SchemaPlus tierSchema = rootSchema.subSchemas().get("KAFKA");
+      assertNotNull(tierSchema);
+      assertNotNull(tierSchema.tables().get("my_topic"));
+
+      HoptimatorDdlUtils.removeTableFromSchema(connection, null, "KAFKA", "my_topic");
+
+      assertEquals(null, tierSchema.tables().get("my_topic"));
+    }
+  }
+
+  @Test
+  void removeTableFromSchemaRemovesFromCatalogAndSchema() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+      SchemaPlus catalogSchema = rootSchema.add("CAT", new AbstractSchema());
+      SchemaPlus dbSchema = catalogSchema.add("DB", new AbstractSchema());
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
+      HoptimatorDdlUtils.registerTemporaryTableInSchema(
+          connection, "CAT", "DB", "t", rowType, "mysql-db");
+      assertNotNull(dbSchema.tables().get("t"));
+
+      HoptimatorDdlUtils.removeTableFromSchema(connection, "CAT", "DB", "t");
+
+      assertEquals(null, dbSchema.tables().get("t"));
+    }
+  }
+
+  @Test
+  void removeTableFromSchemaIsNoOpWhenEntriesMissing() throws SQLException {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // Missing catalog, missing schema, missing table — each path must be silent.
+      SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
+
+      assertDoesNotThrow(() ->
+          HoptimatorDdlUtils.removeTableFromSchema(connection, "MISSING_CATALOG", "S", "t"));
+      assertDoesNotThrow(() ->
+          HoptimatorDdlUtils.removeTableFromSchema(connection, null, "MISSING_SCHEMA", "t"));
+      assertDoesNotThrow(() ->
+          HoptimatorDdlUtils.removeTableFromSchema(connection, null, null, "MISSING_TABLE"));
+
+      // None of those calls should have accidentally created the missing catalog / schema.
+      assertNull(rootSchema.subSchemas().get("MISSING_CATALOG"),
+          "missing-catalog call must not create the catalog");
+      assertNull(rootSchema.subSchemas().get("MISSING_SCHEMA"),
+          "missing-schema call must not create the schema");
+      assertNull(rootSchema.tables().get("MISSING_TABLE"),
+          "missing-table call must not create the table");
     }
   }
 }
