@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.kafka;
 
+import com.linkedin.hoptimator.DependencyGuarded;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validated;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -32,10 +34,13 @@ import java.util.concurrent.ExecutionException;
 /**
  * Deployer for Kafka topics. Creates topics in the synchronous DDL hot path.
  *
- * <p>Implements {@link Validated} to pre-check partition constraints
- * before any deployment side effects.
+ * <p>Implements {@link Validated} to pre-check partition constraints before any deployment
+ * side effects. Implements {@link DependencyGuarded} purely declaratively — the framework
+ * (via {@code DeploymentService.delete} + a {@code DependencyChecker} SPI implementation) is
+ * responsible for the actual check. That keeps this module backend-agnostic: no compile
+ * dependency on Kubernetes-specific code.
  */
-public class KafkaDeployer implements Deployer, Validated {
+public class KafkaDeployer implements Deployer, Validated, DependencyGuarded {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaDeployer.class);
 
@@ -50,6 +55,11 @@ public class KafkaDeployer implements Deployer, Validated {
   public KafkaDeployer(Source source, Properties properties) {
     this.source = source;
     this.properties = properties;
+  }
+
+  @Override
+  public Collection<Source> guardedResources() {
+    return Collections.singletonList(source);
   }
 
   @Override

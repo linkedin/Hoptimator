@@ -35,6 +35,7 @@ import java.util.concurrent.ExecutionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,6 +65,28 @@ class KafkaDeployerTest {
 
   private KafkaDeployer createDeployer(Source source) {
     return new KafkaDeployer(source, PROPERTIES);
+  }
+
+  // --- DependencyGuarded tests ---
+
+  @Test
+  void guardedResourcesReturnsSingleSource() {
+    Source source = new Source("kdb", List.of("KAFKA", "my-topic"), Collections.emptyMap());
+    KafkaDeployer deployer = createDeployer(source);
+
+    Collection<Source> guarded = deployer.guardedResources();
+
+    assertEquals(1, guarded.size());
+    assertEquals(source, guarded.iterator().next());
+  }
+
+  @Test
+  void selfOwnerUidDefaultsToNull() throws SQLException {
+    // KafkaDeployer does not own any pipelines itself — the default null behaviour from the
+    // interface means any dependent pipeline blocks the delete.
+    KafkaDeployer deployer = createDeployer(
+        new Source("kdb", List.of("KAFKA", "t"), Collections.emptyMap()));
+    assertNull(deployer.selfOwnerUid());
   }
 
   // --- create()/update() tests ---
