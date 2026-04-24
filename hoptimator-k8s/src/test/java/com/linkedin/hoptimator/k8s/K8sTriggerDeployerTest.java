@@ -101,7 +101,7 @@ class K8sTriggerDeployerTest {
     Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
         Arrays.asList("schema", "table"), "0 * * * *", options);
 
-    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
     deployer.update();
 
@@ -120,7 +120,7 @@ class K8sTriggerDeployerTest {
     Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
         Arrays.asList("schema", "table"), "0 * * * *", options);
 
-    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
     deployer.update();
 
@@ -139,7 +139,7 @@ class K8sTriggerDeployerTest {
     Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
         Arrays.asList("schema", "table"), "0 * * * *", options);
 
-    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
     deployer.update();
 
@@ -154,7 +154,7 @@ class K8sTriggerDeployerTest {
     Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
         Arrays.asList("schema", "table"), "0 * * * *", options);
 
-    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
     assertThrows(SQLException.class, deployer::update);
   }
@@ -169,7 +169,7 @@ class K8sTriggerDeployerTest {
     Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
         Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
 
-    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
     deployer.delete();
 
@@ -181,7 +181,7 @@ class K8sTriggerDeployerTest {
     Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
         Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
 
-    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
     assertThrows(SQLException.class, deployer::delete);
   }
@@ -308,7 +308,7 @@ class K8sTriggerDeployerTest {
     Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
         Arrays.asList("schema", "table"), "0 * * * *", options);
 
-    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
 
     // FakeK8sApi.update() removes and re-adds. Verify the object is still present.
@@ -342,10 +342,138 @@ class K8sTriggerDeployerTest {
     Trigger trigger = new Trigger("NONEXISTENT", new UserJob(null, "myjob"),
         Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
 
-    K8sTriggerDeployer deployer = makeDeployer(trigger, null);
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
     // FakeK8sApi.get() throws SQLException(404) for unknown names
     assertThrows(SQLException.class, deployer::delete,
         "delete() on a non-existing trigger must throw");
+  }
+
+  // ───────── update() paused-state-preservation tests ─────────
+
+  @Test
+  void updatePreservesPausedWhenOptionsHaveNoPausedOption() throws SQLException {
+    // Scenario: CREATE OR REPLACE TABLE with no explicit pause/resume — an existing paused
+    // CRD must remain paused even though the caller passes no PAUSED_OPTION.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().paused(true));
+    triggers.add(existing);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"),
+        Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    deployer.update();
+
+    assertTrue(triggers.get(0).getSpec().getPaused(),
+        "Existing paused=true must be preserved when options omit PAUSED_OPTION");
+  }
+
+  @Test
+  void updatePreservesUnpausedWhenOptionsHaveNoPausedOption() throws SQLException {
+    // Scenario: existing CRD is unpaused and the caller passes no PAUSED_OPTION — stays unpaused.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().paused(false));
+    triggers.add(existing);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"),
+        Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    deployer.update();
+
+    assertFalse(triggers.get(0).getSpec().getPaused(),
+        "Existing paused=false must be preserved (short-circuit path sets false)");
+  }
+
+  @Test
+  void updateWithPausedOptionFalseUnpausesAlreadyPausedTrigger() throws SQLException {
+    // Scenario: RESUME TRIGGER DDL — PAUSED_OPTION="false" must unpause the existing trigger
+    // even though it was paused. Regression check for a bug where currentlyPaused forced true.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().paused(true));
+    triggers.add(existing);
+
+    Map<String, String> options = new HashMap<>();
+    options.put(Trigger.PAUSED_OPTION, "false");
+    Trigger trigger = new Trigger("MY_TRIGGER", null, new ArrayList<>(), null, options);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    deployer.update();
+
+    assertFalse(triggers.get(0).getSpec().getPaused(),
+        "Explicit PAUSED_OPTION=false must override a currently-paused CRD");
+  }
+
+  @Test
+  void updateFallsThroughToSuperUpdateWhenNoExistingAndNoPausedOption() throws SQLException {
+    // Scenario: first-time CREATE OR REPLACE TABLE — no existing trigger, no PAUSED_OPTION.
+    // Must go through super.update() so api.update() upserts (creates) instead of throwing
+    // "Trigger not found".
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
+        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    deployer.update();
+
+    assertEquals(1, triggers.size(),
+        "super.update() must upsert the trigger when none exists");
+  }
+
+  @Test
+  void updateFallsThroughToSuperUpdateWhenExistingHasNullPaused() throws SQLException {
+    // Scenario: existing CRD has spec.paused=null — neither the explicit-option nor the
+    // preserve-existing path fires, so super.update() re-renders (which calls toK8sObject,
+    // which needs a JobTemplate).
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec()); // paused not set → null
+    triggers.add(existing);
+
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
+        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    deployer.update();
+
+    // If super.update() ran, toK8sObject() populated spec.table on the re-rendered CRD.
+    // The short-circuit would instead leave spec.table untouched (null on the existing).
+    assertTrue(triggers.stream().anyMatch(t -> "TABLE".equals(t.getSpec().getTable())),
+        "super.update() must have run toK8sObject() — expected a CRD with spec.table='TABLE'");
+  }
+
+  // ───────── toK8sObject() paused rendering test ─────────
+
+  @Test
+  void toK8sObjectSetsSpecPausedWhenPausedOptionTrue() throws SQLException {
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    Map<String, String> options = new HashMap<>();
+    options.put(Trigger.PAUSED_OPTION, "true");
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
+        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", options);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    assertTrue(specs.get(0).contains("paused: true"),
+        "spec.paused=true must be present in rendered YAML when PAUSED_OPTION=true — got: " + specs.get(0));
   }
 }

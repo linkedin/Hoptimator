@@ -24,18 +24,26 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.DeployerUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
+import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.K8sTriggerDeployer;
 import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.util.DeploymentService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -666,5 +674,273 @@ class LogicalTableDeployerTest {
         "INSERT target should be the online sink: " + sql);
     assertTrue(sql.contains("SELECT * FROM \"KAFKA\".\"events\""),
         "SELECT source should be the nearline source: " + sql);
+  }
+
+  // ───────── deployImplicitTrigger() tests ─────────
+
+  /** Spy-deployer that captures the Trigger passed to createTriggerDeployer and whether
+   * create()/update() was called, while stubbing the actual K8sTriggerDeployer to avoid
+   * real K8s calls. */
+  private static final class TriggerCapture {
+    Trigger trigger;
+    boolean createCalled;
+    boolean updateCalled;
+  }
+
+  /**
+   * Builds a LogicalTableDeployer that mocks the CRD deployer, suppresses pipeline deployment,
+   * and captures the implicit trigger via overrides on the package-private factory methods.
+   *
+   * <p>Pass {@code preExistingTriggers} to seed the trigger API with CRDs that already exist —
+   * controls whether {@code deployImplicitTrigger} takes the first-deploy (create) or the
+   * re-deploy (update) path.
+   */
+  private LogicalTableDeployer deployerWithJobTemplates(
+      Source src, Properties props, K8sContext ctx,
+      FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi,
+      List<V1alpha1JobTemplate> jobTemplates,
+      List<V1alpha1TableTrigger> preExistingTriggers,
+      TriggerCapture capture) {
+    FakeK8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> jobTemplateApi =
+        new FakeK8sApi<>(jobTemplates);
+    FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> triggerApi =
+        new FakeK8sApi<>(preExistingTriggers);
+    return new LogicalTableDeployer(src, props, ctx, dbApi) {
+      @Override
+      K8sLogicalTableDeployer createLogicalTableDeployer(
+          String crdName, String databaseLabel, Map<String, String> tierMap) {
+        return mockCrdDeployer;
+      }
+
+      @Override
+      void deployPipelineBundle(String fromTier, String toTier,
+          Map<String, V1alpha1Database> tierDatabases,
+          Map<String, Source> tierSources,
+          K8sContext ownerContext, boolean update) {
+        // No-op in trigger-focused tests.
+      }
+
+      @Override
+      K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> createJobTemplateApi(K8sContext c) {
+        return jobTemplateApi;
+      }
+
+      @Override
+      K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> createTableTriggerApi(K8sContext c) {
+        return triggerApi;
+      }
+
+      @Override
+      K8sTriggerDeployer createTriggerDeployer(Trigger trigger, K8sContext c) {
+        capture.trigger = trigger;
+        return new K8sTriggerDeployer(trigger, c) {
+          @Override
+          public void create() {
+            capture.createCalled = true;
+          }
+
+          @Override
+          public void update() {
+            capture.updateCalled = true;
+          }
+        };
+      }
+    };
+  }
+
+  /** Convenience overload for tests that don't pre-seed any triggers. */
+  private LogicalTableDeployer deployerWithJobTemplates(
+      Source src, Properties props, K8sContext ctx,
+      FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi,
+      List<V1alpha1JobTemplate> jobTemplates,
+      TriggerCapture capture) {
+    return deployerWithJobTemplates(src, props, ctx, dbApi, jobTemplates,
+        new ArrayList<>(), capture);
+  }
+
+  private static V1alpha1JobTemplate makeJobTemplate(String name, String... databases) {
+    return new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name(name).namespace("default"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}")
+            .databases(Arrays.asList(databases)));
+  }
+
+  @Test
+  void implicitTriggerCreatedOnCreatePathWhenOfflineTierAndMatchingJobTemplateExist()
+      throws Exception {
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
+        mockContext(), dbApi, jobTemplates, capture).create();
+
+    assertNotNull(capture.trigger, "implicit trigger must be created");
+    assertTrue(capture.createCalled, "create() must be invoked on the trigger deployer");
+    assertFalse(capture.updateCalled, "update() must not be invoked on create path");
+  }
+
+  @Test
+  void implicitTriggerSkippedWhenNoOfflineTier() throws Exception {
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("online-db", "ONLINE")));
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+    Properties props = new Properties();
+    props.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
+    props.setProperty(LogicalTier.ONLINE.tierName(), "online-db");
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(testSource(), props, mockContext(), dbApi, jobTemplates, capture)
+        .create();
+
+    assertEquals(null, capture.trigger,
+        "No offline tier → implicit trigger must not be created");
+  }
+
+  @Test
+  void implicitTriggerSkippedWhenNoMatchingJobTemplate() throws Exception {
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    // JobTemplate exists but declares a different database.
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("other-template", "some-other-db")));
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
+        mockContext(), dbApi, jobTemplates, capture).create();
+
+    assertEquals(null, capture.trigger,
+        "No JobTemplate declares the offline DB → implicit trigger must be skipped");
+  }
+
+  @Test
+  void implicitTriggerPathUsesOfflineTierPhysicalPath() throws Exception {
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
+        mockContext(), dbApi, jobTemplates, capture).create();
+
+    // testSource() has path [logical, testevent]; offline tier's Database has schema=OFFLINE.
+    // Expect the trigger to target the offline physical schema, not the logical one.
+    assertEquals("OFFLINE", capture.trigger.schema(),
+        "Trigger schema must point at the offline tier's physical schema");
+    assertEquals("testevent", capture.trigger.table(),
+        "Trigger table must be the logical table name");
+  }
+
+  @Test
+  void implicitTriggerCreatePathHasPausedOptionSet() throws Exception {
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
+        mockContext(), dbApi, jobTemplates, capture).create();
+
+    assertEquals("true", capture.trigger.options().get(Trigger.PAUSED_OPTION),
+        "create path must set PAUSED_OPTION=true so the CRD is created paused");
+  }
+
+  @Test
+  void implicitTriggerUpdateOnExistingCrdOmitsPausedOptionAndCallsUpdate() throws Exception {
+    // Scenario: existing trigger CRD present — re-deploy must NOT set PAUSED_OPTION (paused
+    // state is preserved inside K8sTriggerDeployer.update()) and must call update(), not create().
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+
+    // Seed a pre-existing trigger CRD matching the canonical implicit trigger name.
+    List<V1alpha1TableTrigger> existing = new ArrayList<>(Arrays.asList(
+        new V1alpha1TableTrigger()
+            .metadata(new V1ObjectMeta().name("logical-testevent-offline-trigger"))));
+
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).updateAndReference();
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
+        mockContext(), dbApi, jobTemplates, existing, capture).update();
+
+    assertFalse(capture.trigger.options().containsKey(Trigger.PAUSED_OPTION),
+        "re-deploy of existing trigger must not set PAUSED_OPTION — paused state is preserved "
+        + "inside K8sTriggerDeployer.update()");
+    assertTrue(capture.updateCalled, "update() must be invoked when the CRD already exists");
+    assertFalse(capture.createCalled, "create() must not be invoked when the CRD already exists");
+  }
+
+  @Test
+  void implicitTriggerFirstCreateOrReplaceStartsPausedAndCallsCreate() throws Exception {
+    // Scenario: CREATE OR REPLACE TABLE on a not-yet-deployed logical table (no existing trigger
+    // CRD). The implicit trigger must still be created PAUSED even though the DDL routes via
+    // LogicalTableDeployer.update(). Existence check gates the decision, not the DDL verb.
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).updateAndReference();
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
+        mockContext(), dbApi, jobTemplates, capture).update();  // CREATE OR REPLACE → update()
+
+    assertEquals("true", capture.trigger.options().get(Trigger.PAUSED_OPTION),
+        "first CREATE OR REPLACE with no existing CRD must still set PAUSED_OPTION=true");
+    assertTrue(capture.createCalled,
+        "first-time deploy must call create() regardless of the DDL's update flag");
+    assertFalse(capture.updateCalled, "update() must not be invoked when no CRD exists yet");
+  }
+
+  @Test
+  void implicitTriggerForwardsSourceOptionsToTriggerOptions() throws Exception {
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+
+    // CREATE TABLE WITH ("ab.cd" "customValue", "job.properties.online.name" "testevent-online")
+    Map<String, String> sourceOptions = new java.util.HashMap<>();
+    sourceOptions.put("ab.cd", "customValue");
+    sourceOptions.put("job.properties.online.name", "testevent-online");
+    Source src = new Source("logical", Arrays.asList("logical", "testevent"), sourceOptions);
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(src, twoTierProps("nearline-db", "offline-db"),
+        mockContext(), dbApi, jobTemplates, capture).create();
+
+    assertEquals("customValue", capture.trigger.options().get("ab.cd"),
+        "Arbitrary WITH option must flow through to trigger options (as {{ab.cd}} in template)");
+    assertEquals("testevent-online", capture.trigger.options().get("job.properties.online.name"),
+        "job.properties.* WITH option must flow through for jobProperties + template rendering");
+  }
+
+  @Test
+  void implicitTriggerNameFollowsLogicalOfflineConvention() throws Exception {
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
+        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+
+    TriggerCapture capture = new TriggerCapture();
+    deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
+        mockContext(), dbApi, jobTemplates, capture).create();
+
+    assertEquals("logical-testevent-offline-trigger", capture.trigger.name());
   }
 }

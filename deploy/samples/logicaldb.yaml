@@ -10,3 +10,16 @@ spec:
   url: jdbc:logical://nearline=kafka-database;online=venice
   schema: LOGICAL
   dialect: Calcite
+
+---
+
+# This defines a logical table consisting of: nearline + offline (both are demo db).
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: logical-offline
+spec:
+  url: jdbc:logical://nearline=ads-database;offline=profile-database
+  schema: LOGICAL_OFFLINE
+  dialect: Calcite

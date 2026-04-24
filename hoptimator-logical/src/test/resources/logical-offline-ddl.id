@@ -1,0 +1,79 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 1: CREATE TABLE on a logical table with an offline tier auto-creates
+# a paused TableTrigger via LogicalTableDeployer.deployImplicitTrigger().
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "LOGICAL_OFFLINE"."MEMBERS" ("ID" bigint, "NAME" varchar);
+(0 rows modified)
+
+!update
+
+# The trigger CRD must exist with the canonical "logical-<table>-offline-trigger" name,
+# pointing at the offline tier's physical schema (PROFILE), and must start paused=true.
+select name, schema, "TABLE", paused from "k8s".table_triggers where name = 'logical-members-offline-trigger';
++---------------------------------+---------+---------+--------+
+| NAME                            | SCHEMA  | TABLE   | PAUSED |
++---------------------------------+---------+---------+--------+
+| logical-members-offline-trigger | PROFILE | MEMBERS | true   |
++---------------------------------+---------+---------+--------+
+(1 row)
+
+!ok
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 2: RESUME TRIGGER unpauses the implicit trigger.
+# ─────────────────────────────────────────────────────────────────────────────
+resume trigger "logical-members-offline-trigger";
+(0 rows modified)
+
+!update
+
+select paused from "k8s".table_triggers where name = 'logical-members-offline-trigger';
++--------+
+| PAUSED |
++--------+
+| false  |
++--------+
+(1 row)
+
+!ok
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 3: Subsequent CREATE OR REPLACE TABLE preserves the user's unpaused state.
+# (K8sTriggerDeployer.update() resolves paused from the existing CRD when the
+# caller doesn't set PAUSED_OPTION.)
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "LOGICAL_OFFLINE"."MEMBERS" ("ID" bigint, "NAME" varchar, "EXTRA" varchar);
+(0 rows modified)
+
+!update
+
+select paused from "k8s".table_triggers where name = 'logical-members-offline-trigger';
++--------+
+| PAUSED |
++--------+
+| false  |
++--------+
+(1 row)
+
+!ok
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 4: PAUSE TRIGGER re-pauses it.
+# ─────────────────────────────────────────────────────────────────────────────
+pause trigger "logical-members-offline-trigger";
+(0 rows modified)
+
+!update
+
+select paused from "k8s".table_triggers where name = 'logical-members-offline-trigger';
++--------+
+| PAUSED |
++--------+
+| true   |
++--------+
+(1 row)
+
+!ok
