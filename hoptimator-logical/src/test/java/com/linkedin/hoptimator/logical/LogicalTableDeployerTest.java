@@ -15,8 +15,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
@@ -62,6 +60,7 @@ import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -75,7 +74,6 @@ import org.mockito.InOrder;
  * Unit tests for {@link LogicalTableDeployer}.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class LogicalTableDeployerTest {
 
   @Mock
@@ -118,9 +116,11 @@ class LogicalTableDeployerTest {
 
   private static K8sContext mockContext() {
     K8sContext ctx = mock(K8sContext.class);
-    when(ctx.namespace()).thenReturn("default");
-    when(ctx.withOwner(any())).thenReturn(ctx);
-    when(ctx.withLabel(anyString(), anyString())).thenReturn(ctx);
+    // Each stub is used by some tests but not all — mark lenient individually so the class
+    // doesn't need @MockitoSettings(strictness = Strictness.LENIENT).
+    lenient().when(ctx.namespace()).thenReturn("default");
+    lenient().when(ctx.withOwner(any())).thenReturn(ctx);
+    lenient().when(ctx.withLabel(anyString(), anyString())).thenReturn(ctx);
     return ctx;
   }
 
