@@ -1,9 +1,12 @@
 package com.linkedin.hoptimator.util;
 
 import com.google.common.base.Splitter;
+import com.linkedin.hoptimator.DependencyChecker;
+import com.linkedin.hoptimator.DependencyGuarded;
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import com.linkedin.hoptimator.util.planner.PipelineRules;
 import org.apache.calcite.plan.RelOptMaterialization;
@@ -47,11 +50,48 @@ public final class DeploymentService {
     }
   }
 
+  /**
+   * Backwards-compatible delete — runs no dependency guard. Callers that have a JDBC
+   * {@link Connection} should prefer {@link #delete(Collection, Connection)} so that
+   * {@link DependencyGuarded} deployers are verified against external dependents before any
+   * state changes.
+   */
   public static void delete(Collection<Deployer> deployers)
       throws SQLException {
+    delete(deployers, null);
+  }
+
+  /**
+   * Deletes the given deployers. For each {@link DependencyGuarded} deployer, checks every
+   * guarded resource via a {@link DependencyChecker} loaded from the classpath (ServiceLoader)
+   * before invoking any {@code delete()}. Fail-fast: if a single resource is still depended on,
+   * no deployer's delete runs.
+   *
+   * <p>If no {@code DependencyChecker} SPI implementation is registered, guards are a logged
+   * no-op and deletes proceed. Tests and CLI scenarios that don't have the backend available
+   * can still use this overload.
+   */
+  public static void delete(Collection<Deployer> deployers, Connection connection)
+      throws SQLException {
+    DependencyChecker checker = loadDependencyChecker();
+    if (checker != null && connection != null) {
+      for (Deployer deployer : deployers) {
+        if (deployer instanceof DependencyGuarded) {
+          DependencyGuarded guarded = (DependencyGuarded) deployer;
+          String selfUid = guarded.selfOwnerUid();
+          for (Source src : guarded.guardedResources()) {
+            checker.assertNoExternalDependents(connection, src, selfUid);
+          }
+        }
+      }
+    }
     for (Deployer deployer : deployers) {
       deployer.delete();
     }
+  }
+
+  private static DependencyChecker loadDependencyChecker() {
+    return ServiceLoader.load(DependencyChecker.class).findFirst().orElse(null);
   }
 
   public static void update(Collection<Deployer> deployers)

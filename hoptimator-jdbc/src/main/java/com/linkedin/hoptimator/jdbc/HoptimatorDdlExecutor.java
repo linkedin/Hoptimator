@@ -298,7 +298,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       logger.info("Deleting trigger {}", name);
       deployers = DeploymentService.deployers(trigger, connection);
-      DeploymentService.delete(deployers);
+      DeploymentService.delete(deployers, connection);
       logger.info("Deleted trigger {}", name);
       logger.info("DROP TRIGGER {} completed", name);
     } catch (Exception e) {
@@ -392,7 +392,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         View view = new View(tablePath, materializedViewTable.viewSql());
         deployers = DeploymentService.deployers(view, connection);
         logger.info("Deleting materialized view {}", tableName);
-        DeploymentService.delete(deployers);
+        DeploymentService.delete(deployers, connection);
         schemaPlus.removeTable(tableName);
         logger.info("Removed materialized table {} from schema {}", tableName, schemaPlus.getName());
       } else if (table instanceof ViewTable) {
@@ -404,7 +404,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         View view = new View(tablePath, viewTable.getViewSql());
         deployers = DeploymentService.deployers(view, connection);
         logger.info("Deleting view {}", tableName);
-        DeploymentService.delete(deployers);
+        DeploymentService.delete(deployers, connection);
         schemaPlus.removeTable(tableName);
         logger.info("Removed view {} from schema {}", tableName, schemaPlus.getName());
       } else if (table instanceof HoptimatorJdbcTable || table instanceof TemporaryTable) {
@@ -423,7 +423,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         }
         deployers = DeploymentService.deployers(source, connection);
         logger.info("Deleting table {}", tableName);
-        DeploymentService.delete(deployers);
+        DeploymentService.delete(deployers, connection);
         schemaPlus.removeTable(tableName);
         logger.info("Removed table {} from schema {}", tableName, schemaPlus.getName());
       } else {

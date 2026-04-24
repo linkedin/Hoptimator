@@ -1,8 +1,13 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.DependencyChecker;
+import com.linkedin.hoptimator.DependencyGuarded;
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
+import com.linkedin.hoptimator.Source;
+
+import java.util.ServiceLoader;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
@@ -23,6 +28,8 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -42,6 +49,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -175,6 +186,31 @@ class DeploymentServiceTest {
   @Mock
   private Deployer mockDeployer2;
 
+  /**
+   * Executes {@code body} with {@code ServiceLoader.load(DependencyChecker.class)} stubbed to
+   * return {@code checker} (or empty when null).
+   *
+   * <p>Uses try-with-resources rather than the project-standard {@code @Mock MockedStatic}
+   * field because {@code ServiceLoader.load(...)} is also invoked for {@code DeployerProvider}
+   * by sibling tests in this class — a class-level static mock would intercept those calls and
+   * break them. Scoping the mock to the test body is the smallest workaround.
+   */
+  private void withDependencyChecker(DependencyChecker checker, ThrowingRunnable body) throws SQLException {
+    ServiceLoader<DependencyChecker> loader = mock(ServiceLoader.class);
+    Optional<DependencyChecker> opt = checker == null ? Optional.empty() : Optional.of(checker);
+    doReturn(opt).when(loader).findFirst();
+    try (MockedStatic<ServiceLoader> slMock = mockStatic(ServiceLoader.class,
+        Answers.CALLS_REAL_METHODS)) {
+      slMock.when(() -> ServiceLoader.load(DependencyChecker.class)).thenReturn(loader);
+      body.run();
+    }
+  }
+
+  @FunctionalInterface
+  private interface ThrowingRunnable {
+    void run() throws SQLException;
+  }
+
   @Test
   void testCreateCallsCreateOnAllDeployers() throws SQLException {
     List<Deployer> deployers = Arrays.asList(mockDeployer1, mockDeployer2);
@@ -193,6 +229,167 @@ class DeploymentServiceTest {
 
     verify(mockDeployer1).delete();
     verify(mockDeployer2).delete();
+  }
+
+  @Test
+  void testDeleteRunsGuardThroughDependencyCheckerSpi() throws SQLException {
+    Source source = new Source("db", Arrays.asList("s", "t"), Collections.emptyMap());
+    GuardedDeployer guarded = new GuardedDeployer(source, null);
+    RecordingChecker checker = new RecordingChecker(false);
+
+    withDependencyChecker(checker, () ->
+        DeploymentService.delete(Collections.singletonList(guarded), mockConnection));
+
+    assertTrue(checker.called, "the SPI checker must be invoked");
+    assertEquals(source, checker.lastSource);
+    assertTrue(guarded.deleteCalled, "delete must run when the guard passes");
+  }
+
+  @Test
+  void testDeleteFailsFastWhenCheckerBlocks() throws SQLException {
+    Source source = new Source("db", Arrays.asList("s", "t"), Collections.emptyMap());
+    GuardedDeployer blocking = new GuardedDeployer(source, null);
+    RecordingChecker checker = new RecordingChecker(true);
+
+    withDependencyChecker(checker, () ->
+        assertThrows(SQLException.class,
+            () -> DeploymentService.delete(Arrays.asList(blocking, mockDeployer1), mockConnection)));
+
+    assertTrue(checker.called);
+    assertFalse(blocking.deleteCalled, "delete must not run when the checker throws");
+    verify(mockDeployer1, never()).delete();
+  }
+
+  @Test
+  void testDeleteRunsAllGuardsBeforeAnyDelete() throws SQLException {
+    Source s1 = new Source("db1", Arrays.asList("s", "t1"), Collections.emptyMap());
+    Source s2 = new Source("db2", Arrays.asList("s", "t2"), Collections.emptyMap());
+    GuardedDeployer first = new GuardedDeployer(s1, null);
+    GuardedDeployer second = new GuardedDeployer(s2, null);
+    // Checker fails only on s2 — verifies all guards run before any delete.
+    DependencyChecker selective = (conn, src, uid) -> {
+      if (src.equals(s2)) {
+        throw new SQLException("blocked on db2");
+      }
+    };
+
+    withDependencyChecker(selective, () ->
+        assertThrows(SQLException.class,
+            () -> DeploymentService.delete(Arrays.asList(first, second), mockConnection)));
+
+    assertFalse(first.deleteCalled, "first.delete must not run when a later guard throws");
+    assertFalse(second.deleteCalled);
+  }
+
+  @Test
+  void testDeleteIgnoresGuardForNonDependencyGuardedDeployer() throws SQLException {
+    // mockDeployer1/2 do not implement DependencyGuarded — delete() must still run.
+    DeploymentService.delete(Arrays.asList(mockDeployer1, mockDeployer2), mockConnection);
+
+    verify(mockDeployer1).delete();
+    verify(mockDeployer2).delete();
+  }
+
+  @Test
+  void testDeleteSkipsGuardWhenNoCheckerIsRegistered() throws SQLException {
+    // When no DependencyChecker SPI is found, guards are skipped and delete still runs.
+    Source source = new Source("db", Arrays.asList("s", "t"), Collections.emptyMap());
+    GuardedDeployer guarded = new GuardedDeployer(source, null);
+
+    withDependencyChecker(null, () ->
+        DeploymentService.delete(Collections.singletonList(guarded), mockConnection));
+
+    assertTrue(guarded.deleteCalled);
+  }
+
+  @Test
+  void testDeleteSkipsGuardWhenConnectionIsNull() throws SQLException {
+    // The back-compat overload passes null Connection; no checker can run without one.
+    Source source = new Source("db", Arrays.asList("s", "t"), Collections.emptyMap());
+    GuardedDeployer guarded = new GuardedDeployer(source, null);
+    RecordingChecker checker = new RecordingChecker(false);
+
+    withDependencyChecker(checker, () ->
+        DeploymentService.delete(Collections.singletonList(guarded)));   // no connection
+
+    assertFalse(checker.called, "no checker call expected without a connection");
+    assertTrue(guarded.deleteCalled);
+  }
+
+  @Test
+  void testDeletePassesSelfOwnerUidToChecker() throws SQLException {
+    Source source = new Source("db", Arrays.asList("s", "t"), Collections.emptyMap());
+    GuardedDeployer guarded = new GuardedDeployer(source, "self-uid-99");
+    RecordingChecker checker = new RecordingChecker(false);
+
+    withDependencyChecker(checker, () ->
+        DeploymentService.delete(Collections.singletonList(guarded), mockConnection));
+
+    assertEquals("self-uid-99", checker.lastSelfOwnerUid);
+  }
+
+  /** DependencyChecker that records invocations and optionally throws. */
+  private static class RecordingChecker implements DependencyChecker {
+    private final boolean block;
+    boolean called;
+    Source lastSource;
+    String lastSelfOwnerUid;
+
+    RecordingChecker(boolean block) {
+      this.block = block;
+    }
+
+    @Override
+    public void assertNoExternalDependents(java.sql.Connection conn, Source source, String selfOwnerUid)
+        throws SQLException {
+      called = true;
+      lastSource = source;
+      lastSelfOwnerUid = selfOwnerUid;
+      if (block) {
+        throw new SQLException("blocked");
+      }
+    }
+  }
+
+  /** Minimal Deployer + DependencyGuarded that declares a single guarded resource. */
+  private static class GuardedDeployer implements Deployer, DependencyGuarded {
+    private final Source source;
+    private final String selfOwnerUid;
+    boolean deleteCalled;
+
+    GuardedDeployer(Source source, String selfOwnerUid) {
+      this.source = source;
+      this.selfOwnerUid = selfOwnerUid;
+    }
+
+    @Override
+    public Collection<Source> guardedResources() {
+      return Collections.singletonList(source);
+    }
+
+    @Override
+    public String selfOwnerUid() {
+      return selfOwnerUid;
+    }
+
+    @Override
+    public void create() { }
+
+    @Override
+    public void update() { }
+
+    @Override
+    public void delete() {
+      deleteCalled = true;
+    }
+
+    @Override
+    public List<String> specify() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public void restore() { }
   }
 
   @Test
