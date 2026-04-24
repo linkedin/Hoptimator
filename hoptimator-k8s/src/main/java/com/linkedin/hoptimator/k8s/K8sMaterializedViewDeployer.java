@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.DeploymentService;
@@ -9,6 +10,7 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 
@@ -34,8 +36,8 @@ class K8sMaterializedViewDeployer implements Deployer {
   }
 
   K8sPipelineBundle createPipelineBundle(String name, List<String> pipelineSpecs, String sql,
-      K8sContext viewContext) {
-    return new K8sPipelineBundle(name, pipelineSpecs, sql, viewContext);
+      Collection<Source> sources, Sink sink, K8sContext viewContext) {
+    return new K8sPipelineBundle(name, pipelineSpecs, sql, sources, sink, viewContext);
   }
 
   @Override
@@ -45,7 +47,8 @@ class K8sMaterializedViewDeployer implements Deployer {
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.createAndReference();
       K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(), viewContext);
+      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(),
+          view.pipeline().sources(), view.pipeline().sink(), viewContext);
       deployers.add(bundle);
       bundle.create();
     }
@@ -58,7 +61,8 @@ class K8sMaterializedViewDeployer implements Deployer {
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.updateAndReference();
       K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(), viewContext);
+      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(),
+          view.pipeline().sources(), view.pipeline().sink(), viewContext);
       deployers.add(bundle);
       bundle.update();
     }
