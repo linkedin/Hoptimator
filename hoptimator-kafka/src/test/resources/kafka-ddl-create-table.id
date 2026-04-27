@@ -89,3 +89,41 @@ drop table KAFKA."create-table-test";
 (0 rows modified)
 
 !update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Cross-driver dependency guard: a Kafka topic referenced by an MV's pipeline
+# cannot be dropped until the dependent MV is removed. Exercises the
+# DependencyGuarded SPI across deployer types — the same label-based check
+# that protects logical-table tier resources also blocks Kafka topic drops
+# that would orphan an active downstream pipeline.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Source topic.
+create or replace table KAFKA."guard-source" ("KEY" VARCHAR, "VALUE" BINARY) WITH ("kafka.partitions" '1');
+(0 rows modified)
+
+!update
+
+# Downstream MV reads from the source topic and materializes into a new topic.
+# Its pipeline gets a depends-on-* label pointing at KAFKA/guard-source.
+create or replace materialized view KAFKA."guard-derived" as select * from KAFKA."guard-source";
+(0 rows modified)
+
+!update
+
+# Drop is blocked — guard-source is referenced by guard-derived's pipeline.
+drop table KAFKA."guard-source";
+active pipeline(s) depend on it
+!error
+
+# Drop the dependent MV first, releasing the label that pinned guard-source.
+drop materialized view KAFKA."guard-derived";
+(0 rows modified)
+
+!update
+
+# Now the source topic drops cleanly.
+drop table KAFKA."guard-source";
+(0 rows modified)
+
+!update
