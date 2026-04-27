@@ -19,7 +19,7 @@ the documentation will read more naturally.
 | **TableTemplate**   | Declarative recipe for materializing a source/sink in a particular database.                     |
 | **JobTemplate**     | Declarative recipe for materializing a job on a particular engine.                               |
 | **TableTrigger**    | Fires a Kubernetes job when an upstream table changes (or on a schedule).                        |
-| **LogicalTable**    | A single logical entity that spans multiple physical storage tiers (nearline, online, offline).  |
+| **LogicalTable**    | An abstraction model: one named entity that physically lives in many backends (nearline / online / offline). Auto-syncs and auto-backfills its tiers. |
 | **Subscription**    | YAML-native way to declare a materialized view; equivalent to `CREATE MATERIALIZED VIEW ... AS`. |
 | **Hint**            | Key/value passed at runtime that templates and connectors can pick up.                           |
 
@@ -220,10 +220,30 @@ imperative side effects, and the two compose at the table level.
 
 ## Logical tables
 
-A **LogicalTable** is one logical entity that physically lives in several
-storage tiers — for example a feature surfaced both nearline (Kafka) and online
-(Venice). Hoptimator models the tiers explicitly so a single SQL `INSERT` into
-the logical table can fan out into multiple pipelines that each maintain a tier.
+A **LogicalTable** is the answer to a question every team running data
+infrastructure eventually has to answer: "what is the *real* thing here, and
+where does it physically live?" In a typical stack, "the user audience
+table" is actually three or four things — a Kafka topic, a Venice store, an
+HDFS dataset — wired together by hand-built sync jobs and named differently
+in each place. A LogicalTable collapses that mess into a single named entity
+that knows where its physical copies live.
+
+You declare the entity once. Hoptimator handles the rest — the physical
+tier resources, the inter-tier pipelines that keep them in sync, the
+backfill triggers, the schema reconciliation. Your SQL refers to one name;
+the abstraction handles the fan-out.
+
+### The tier model
+
+Hoptimator recognizes three tier roles:
+
+| Tier         | Typical backend         | Used for                                                              |
+| ------------ | ----------------------- | --------------------------------------------------------------------- |
+| **nearline** | Kafka, Pulsar, Brooklin | Streaming reads/writes; the "source of truth" for schema.             |
+| **online**   | Venice, Redis, Pinot    | Low-latency point lookups for serving (sub-millisecond, key-based).   |
+| **offline**  | HDFS, Iceberg, S3       | Batch analytics, training data, historical queries.                   |
+
+A LogicalTable can bind any subset of these to physical Databases:
 
 ```yaml
 apiVersion: hoptimator.linkedin.com/v1alpha1
@@ -231,10 +251,81 @@ kind: Database
 metadata:
   name: logical
 spec:
-  url: jdbc:logical://nearline=kafka-database;online=venice
+  url: jdbc:logical://nearline=kafka-database;online=venice;offline=hdfs-database
   schema: LOGICAL
   dialect: Calcite
 ```
+
+Every table that shows up under the `LOGICAL` schema with this configuration
+inherits the three-tier topology automatically.
+
+### What you get for free
+
+Declaring a LogicalTable with two or more tiers is *not* just a schema
+alias. The `LogicalTableDeployer` runs at deploy time and produces real
+infrastructure for each binding:
+
+- **Physical tier resources.** Each tier's backing Database goes through
+  the normal Deployer SPI to create whatever the storage system needs (a
+  Kafka topic, a Venice store, an HDFS dataset).
+- **Implicit inter-tier pipelines.** Hoptimator auto-deploys
+  `nearline → online` and `nearline → offline` Pipeline CRDs to keep the
+  tiers consistent. You don't write the Kafka-to-Venice job; it appears
+  because the LogicalTable says it should.
+- **Auto-backfill triggers.** When an offline tier is present, a
+  `TableTrigger` is created so the offline mirror can be backfilled and
+  refreshed without an external orchestrator. (See
+  [TableTriggers](#tabletriggers) for what this enables.)
+- **One schema, one source of truth.** The row type is resolved from the
+  nearline tier (or the first available one) and reused everywhere. You
+  declare columns once, in the place where they're naturally streamed.
+
+### Why this matters as an abstraction
+
+Multi-tier datasets are usually built imperatively: pick a name for the
+Kafka topic, pick a different name for the Venice store, pick a third for
+the HDFS dataset, write a sync job, write a backfill job, hope nobody ever
+forgets to update one of them when the schema changes. LogicalTables turn
+that into a declarative model with three concrete benefits:
+
+- **Application code is tier-agnostic by default.** Reading from
+  `LOGICAL.audience` Just Works; the application doesn't have to know that
+  the *online* read goes to Venice. Switching tier backends is a CRD edit,
+  not a code change.
+- **The "right" topology is the cheap path.** Standing up a multi-tier
+  feature is one declaration instead of N hand-rolled pieces. The
+  hard-to-skip parts (sync jobs, backfill triggers) come along
+  automatically, so they don't get skipped.
+- **Materialized views compose with it cleanly.**
+  `CREATE MATERIALIZED VIEW LOGICAL."audience$members" AS …` writes to the
+  logical table and the inter-tier syncing fans the data out across all
+  bound tiers. Many writers can use the
+  [partial-view](../user-guide/ddl-reference.md#partial-views-multiple-pipelines-into-one-sink)
+  pattern to share the same logical sink.
+
+### The classic use case: feature stores and lambda architecture
+
+The pattern this most directly enables is the
+[Lambda / Kappa architecture](https://en.wikipedia.org/wiki/Lambda_architecture)
+that feature stores are built on:
+
+- A *streaming* path keeps the freshest values flowing through nearline.
+- A *serving* path exposes the same data to online queries with low latency.
+- A *batch* path lets analytics and ML training jobs read historical
+  snapshots from offline.
+
+Today this typically means three different systems with three different
+names and three different sync mechanisms. With a LogicalTable, it's one
+name, and the sync mechanisms are themselves declared infrastructure.
+
+### Implementation note
+
+Mechanically, LogicalTables are exposed via a JDBC driver
+(`jdbc:logical://…`) so they show up in the catalog like any other
+Database, but conceptually the logical table is an *abstraction model* over
+the physical stores — most of the value is realized by the deployer when
+you create one, not by the driver at query time. Read it as "one logical
+entity backed by N physical stores," not "another connector."
 
 ## Subscriptions
 
