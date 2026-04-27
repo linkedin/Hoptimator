@@ -103,11 +103,10 @@ behavior:
 
 | Form                                  | Meaning                                                                |
 | ------------------------------------- | ---------------------------------------------------------------------- |
-| `{{var}}`                             | Substitute the value of `var`. Errors if missing.                      |
+| `{{var}}`                             | Substitute the value of `var`. Skips the template if missing.          |
 | `{{var:default}}`                     | Substitute `var`, falling back to `default` if missing.                |
-| `{{var==value}}…{{end}}`              | Conditional render: only emit the block if `var` equals `value`.       |
-| `{{var!=value}}…{{end}}`              | Conditional render: only emit the block if `var` does *not* equal `value`. |
-| `{{var toName}}`                      | Canonicalize as a valid Kubernetes object name (lowercase, dashes).    |
+| `{{var==value}}`                      | **Template-level guard**: render this template only if `var` equals `value`; otherwise skip the whole template. The marker itself is erased from the output. |
+| `{{var!=value}}`                      | **Template-level guard**: render this template only if `var` does *not* equal `value`; otherwise skip the whole template. |
 | `{{var toUpperCase}}`                 | Render in upper case.                                                  |
 | `{{var toLowerCase}}`                 | Render in lower case.                                                  |
 | `{{var concat}}`                      | Concatenate a multi-line value into one line.                          |
@@ -174,22 +173,63 @@ overrides:
 The template can then reference `{{kafka.partitions}}` and
 `{{flink.parallelism}}`. Hints take precedence over the configmap.
 
-## Conditional rendering example
+## Conditional templates: `{{var==value}}` / `{{var!=value}}`
 
-The bundled `flink-template` uses a conditional to add an extra line only
-when the application is a SQL job (rather than a Beam job):
+The `==` / `!=` markers are **template-level guards**, not inline
+conditionals. They control whether the template is used at all. When the
+condition fails, the renderer returns nothing for the template and the
+deployer moves on to the next matching template; when it succeeds, the
+marker itself is erased from the output and the rest of the template
+renders normally.
+
+This is the mechanism for "use *this* template when X, *that* template
+when Y" — you ship two templates with mirroring guards, and only one fires
+for a given pipeline:
 
 ```yaml
-yaml: |
-  apiVersion: flink.apache.org/v1beta1
-  kind: FlinkSessionJob
-  ...
-  {{flink.app.type==SQL}}
+# Template A: applies when the Flink app is a SQL job.
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: JobTemplate
+metadata:
+  name: flink-sql-template
+spec:
+  yaml: |
+    {{flink.app.type==SQL}}
+    apiVersion: flink.apache.org/v1beta1
+    kind: FlinkSessionJob
+    metadata:
+      name: {{name}}
+    spec:
+      job:
+        entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+        args: [ {{flinksql}} ]
+        jarURI: file:///opt/hoptimator-flink-runner.jar
+---
+# Template B: applies when the Flink app is a Beam job.
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: JobTemplate
+metadata:
+  name: flink-beam-template
+spec:
+  yaml: |
+    {{flink.app.type==Beam}}
+    apiVersion: flink.apache.org/v1beta1
+    kind: FlinkSessionJob
+    metadata:
+      name: {{name}}
+    spec:
+      job:
+        entryClass: com.linkedin.hoptimator.beam.runner.BeamRunner
+        args: [ {{flinksql}} ]
+        jarURI: file:///opt/hoptimator-flink-beam-runner.jar
 ```
 
-When `flink.app.type` equals `SQL`, the marker line is left in (and any
-content following the marker on its line is preserved). Otherwise the
-entire line is dropped.
+Whichever template's guard matches the current value of `flink.app.type`
+is the one that produces YAML; the other returns nothing.
+
+The guard can sit anywhere in the template — the renderer just needs to
+encounter it once. By convention, putting it on the first line makes
+intent obvious.
 
 ## Authoring patterns
 
