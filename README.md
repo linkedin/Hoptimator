@@ -113,8 +113,8 @@ The full docs live in [`docs/`](docs/index.md):
   architecture.
 - **[User guide](docs/user-guide/index.md)** — SQL CLI, JDBC driver, MCP
   server, DDL reference, hints.
-- **Kubernetes guide** *(coming soon)* — CRD reference, operator,
-  configuration.
+- **[Kubernetes guide](docs/kubernetes/index.md)** — operator, CRD
+  reference, templates, triggers, configuration.
 - **Extending Hoptimator** *(coming soon)* — writing deployers, connectors,
   validators, templates.
 - **[Learn more](docs/resources/learn-more.md)** — engineering blog posts and

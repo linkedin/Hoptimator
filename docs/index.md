@@ -36,13 +36,22 @@ See the **[User guide](user-guide/index.md)**:
 
 ## I'm operating Hoptimator on Kubernetes
 
-The Kubernetes guide (coming in a later docs phase) will cover:
+See the **[Kubernetes guide](kubernetes/index.md)**:
 
-- The CRDs Hoptimator installs (`Database`, `View`, `Pipeline`,
-  `TableTemplate`, `JobTemplate`, `TableTrigger`, `Subscription`,
-  `LogicalTable`, `Engine`, `SqlJob`).
-- The operator and its reconcile loop.
-- Configuration — `hoptimator-configmap`, system properties, RBAC.
+- [Operator](kubernetes/operator.md) — what `hoptimator-operator` does,
+  how to deploy it, RBAC, namespace scoping, the controllers it runs.
+- [CRD reference](kubernetes/crd-reference.md) — field-by-field for every
+  CRD Hoptimator installs (`Database`, `View`, `Pipeline`, `TableTemplate`,
+  `JobTemplate`, `TableTrigger`, `Subscription`, `LogicalTable`, `Engine`,
+  `SqlJob`).
+- [Templates](kubernetes/templates.md) — authoring TableTemplates and
+  JobTemplates, placeholder syntax, default placeholders, common patterns.
+- [Triggers](kubernetes/triggers.md) — operational guide for
+  `TableTrigger`: cron vs status-driven firing, pause/resume, common
+  patterns.
+- [Configuration](kubernetes/configuration.md) — `hoptimator-configmap`,
+  the `ConfigProvider` SPI, where each value is read from, precedence
+  between sources.
 
 ## I want to extend Hoptimator
 
