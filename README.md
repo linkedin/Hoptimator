@@ -115,8 +115,8 @@ The full docs live in [`docs/`](docs/index.md):
   server, DDL reference, hints.
 - **[Kubernetes guide](docs/kubernetes/index.md)** — operator, CRD
   reference, templates, triggers, configuration.
-- **Extending Hoptimator** *(coming soon)* — writing deployers, connectors,
-  validators, templates.
+- **[Extending Hoptimator](docs/extending/index.md)** — adding data
+  sources, writing deployers, validators, config providers.
 - **[Learn more](docs/resources/learn-more.md)** — engineering blog posts and
   case studies.
 

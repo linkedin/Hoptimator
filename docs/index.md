@@ -55,12 +55,18 @@ See the **[Kubernetes guide](kubernetes/index.md)**:
 
 ## I want to extend Hoptimator
 
-The extension guide (coming in a later docs phase) will cover:
+See **[Extending Hoptimator](extending/index.md)**:
 
-- Writing a Deployer (`hoptimator-api`) for a new deployment target.
-- Adding a new Database / connector.
-- Writing a ConfigProvider, ValidatorProvider.
-- TableTemplate / JobTemplate authoring.
+- [Adding a new data source](extending/data-sources.md) — JDBC adapter,
+  `Database` CRD, `TableTemplate` authoring.
+- [Deployers](extending/deployers.md) — implementing `Deployer` for a new
+  deployment target, `DeployerProvider` registration, lifecycle.
+- [Validators](extending/validators.md) — pre-deploy policy enforcement
+  via `Validator` and `ValidatorProvider`.
+- [Config providers](extending/config-providers.md) — custom
+  `ConfigProvider` SPI.
+- [Templates](kubernetes/templates.md) — authoring `TableTemplate` and
+  `JobTemplate` (lives in the Kubernetes guide).
 
 ## I'm contributing to Hoptimator
 
