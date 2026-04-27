@@ -139,8 +139,7 @@ SELECT name, ready, failed, message FROM "k8s".pipeline_elements WHERE name = 'm
 ## Depending on the driver
 
 Pre-release artifacts are published to LinkedIn's
-[JFrog Artifactory](https://linkedin.jfrog.io/artifactory/hoptimator) and to
-[GitHub Packages](https://github.com/linkedin/Hoptimator/packages). The
+[JFrog Artifactory](https://linkedin.jfrog.io/artifactory/hoptimator). The
 project is **alpha** — APIs and the driver's behavior may change between
 versions, so pin deliberately.
 

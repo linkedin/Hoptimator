@@ -29,11 +29,21 @@ For bugs, please include:
    Integration tests (which spin up a real Kubernetes-backed dev environment)
    live behind `make integration-tests` — please run them when changing
    anything that touches deployment or planning.
-3. **Match the existing style.** The project runs Checkstyle and SpotBugs as
+3. **Cover your changes.** New code needs tests; don't ship behavior that
+   isn't exercised by either a unit or an integration test. Generate a
+   coverage report with:
+   ```bash
+   make coverage
+   # report at build/reports/jacoco/aggregate/index.html
+   ```
+   We aim for **80%** line coverage on changed code. The CI workflow
+   currently enforces a softer 60% on changed files and 40% overall, but
+   targeting 80% locally keeps the trend in the right direction.
+4. **Match the existing style.** The project runs Checkstyle and SpotBugs as
    part of the build; CI will fail if either complains.
-4. **Keep commits focused.** One logical change per commit, with a descriptive
+5. **Keep commits focused.** One logical change per commit, with a descriptive
    message. Reference the issue number if there is one.
-5. **Open the PR.** Describe what changed and why. Link any relevant issues.
+6. **Open the PR.** Describe what changed and why. Link any relevant issues.
 
 ## Contribution agreement
 

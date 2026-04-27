@@ -85,7 +85,7 @@ Now do the interesting thing — declare a view that joins the two demo
 databases:
 
 ```sql
-CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
   SELECT FIRST_NAME, LAST_NAME
   FROM ADS.PAGE_VIEWS
   NATURAL JOIN PROFILE.MEMBERS;
@@ -94,18 +94,23 @@ CREATE MATERIALIZED VIEW MY.AUDIENCE AS
 Hoptimator plans the join, picks the connectors, and asks the deployer to
 materialize the resulting pipeline.
 
+While you're iterating, use `CREATE OR REPLACE MATERIALIZED VIEW ...` to
+update the same view in place. Without `OR REPLACE`, re-running a `CREATE`
+for an existing name fails. Most of the development loop is faster if you
+treat the view as mutable.
+
 ## 5. See what happened
 
 In another terminal:
 
 ```bash
 kubectl get views
-# NAME          SCHEMA  VIEW       SQL
-# my-audience   MY      AUDIENCE   SELECT FIRST_NAME, LAST_NAME ...
+# NAME          CATALOG   SCHEMA   VIEW       SQL
+# ads-audience            ADS      AUDIENCE   SELECT FIRST_NAME, LAST_NAME ...
 
 kubectl get pipelines
 # NAME          SQL                                STATUS
-# my-audience   INSERT INTO ... SELECT ...         Ready.
+# ads-audience   CREATE DATABASE IF NOT EXISTS `ADS` WITH ();...   Ready.
 ```
 
 Each `Pipeline` is a complete, standalone Kubernetes resource. You can describe
@@ -116,15 +121,15 @@ If you want to see what Hoptimator *would have* deployed without actually
 deploying it, the CLI has a dry-run mode for that:
 
 ```sql
-!specify CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+!specify CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
   SELECT FIRST_NAME, LAST_NAME
-  FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
+  FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS
 ```
 
 ## 6. Clean up
 
 ```sql
-DROP MATERIALIZED VIEW MY.AUDIENCE;
+DROP MATERIALIZED VIEW ADS.AUDIENCE;
 ```
 
 Or tear down the whole demo:

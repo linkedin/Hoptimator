@@ -13,8 +13,8 @@ the documentation will read more naturally.
 | **View**            | A named SQL query, evaluated lazily.                                                             |
 | **Materialized view** | A view backed by a running data pipeline that continuously writes results to a sink.           |
 | **Pipeline**        | The set of sources, sink, and job that together implement a materialized view.                   |
-| **Engine**          | An execution runtime for a job (today: Flink).                                                   |
-| **Connector**       | The configuration glue that lets an engine read from or write to a database.                     |
+| **Engine**          | A runtime Hoptimator can submit *queries* to (e.g. a Flink SQL gateway). Optional. Pipeline materialization does *not* require one. |
+| **Connector**       | Configuration that tells a runtime how to read from or write to a database. Used by the planner and embedded in template output. |
 | **Deployer**        | The component that turns a planned pipeline element into real infrastructure.                    |
 | **TableTemplate**   | Declarative recipe for materializing a source/sink in a particular database.                     |
 | **JobTemplate**     | Declarative recipe for materializing a job on a particular engine.                               |
@@ -84,31 +84,48 @@ my-foo    INSERT INTO ... SELECT ...  Ready.
 Pipelines are also visible in SQL via the built-in `k8s` schema, which lets
 clients (and the MCP server) query their own deployment state.
 
-## Engines and connectors
+## Connectors
 
-An **Engine** is an execution runtime — Flink today, with the design intended
-to allow others. Each engine is registered in Kubernetes as an `Engine`
-resource that records the JDBC URL Hoptimator uses to talk to it.
+A **Connector** is the configuration that lets a runtime read from or write
+to a particular database — for example, a Flink Kafka connector with the
+right bootstrap servers and topic name. Connectors are produced by the
+catalog adapter for each database, embedded in the YAML that
+[TableTemplates](#tabletemplates-and-jobtemplates) and
+[JobTemplates](#tabletemplates-and-jobtemplates) emit, and can be customized
+via [hints](#hints).
 
-A **Connector** is the configuration that lets an engine read from or write to
-a particular database — for example, a Flink Kafka connector with the right
-bootstrap servers and topic name. Connectors are produced by the catalog adapter
-for each database, and can be customized via [TableTemplates](#tabletemplates-and-jobtemplates)
-and [hints](#hints).
+Connectors do not require an `Engine` to function. The typical flow is:
+Hoptimator generates a `FlinkSessionJob` (or similar) with the connector
+config baked in, and an existing operator — like the Apache Flink Kubernetes
+Operator — picks it up and runs the job. Hoptimator is not in the data path.
+
+## Engines (optional)
+
+An **Engine** CRD registers a runtime Hoptimator can submit **queries** to —
+typically a Flink SQL gateway behind a JDBC URL. This is the path used when
+Hoptimator needs to *execute* SQL itself, e.g. for interactive `SELECT`
+against tables that aren't in-process.
+
+Engines are unrelated to pipeline materialization. You do not need to
+register an Engine for `CREATE MATERIALIZED VIEW` to work — the resulting
+pipeline runs on whatever runtime the JobTemplate produces (a Flink session
+job, a Beam job, a custom operator, etc.). The Engine surface is mainly used
+by interactive query paths and is partially developed today.
 
 ## Deployers
 
-A **Deployer** turns a planned pipeline element into real infrastructure. The
-default deployer is Kubernetes-based:
+A **Deployer** turns a planned pipeline element into real infrastructure.
+Deployers are the actual extension point that decides where pipelines land —
+**Kubernetes is the default, not a hard requirement**. The bundled deployers
+in `hoptimator-k8s` target Kubernetes:
 
 - The **source/sink deployer** materializes table templates as Kubernetes
   resources (e.g. a `KafkaTopic` for a Strimzi cluster).
 - The **job deployer** materializes job templates (e.g. a `FlinkSessionJob`
   for the Apache Flink Kubernetes operator).
 
-Deployers are pluggable. Anything implementing `Deployer` from `hoptimator-api`
-can take the place of the defaults. See [Extending Hoptimator](../extending/index.md)
-when those docs land.
+Anything implementing `Deployer` from `hoptimator-api` can take their place.
+See [Extending Hoptimator](../extending/index.md) when those docs land.
 
 ## TableTemplates and JobTemplates
 
@@ -234,13 +251,15 @@ Hints come in two flavors:
 Hints are advisory: if the planner picks a different physical pipeline, hints
 that no longer apply are dropped.
 
-## Engines today
+## Bundled adapters and runtimes
 
-Hoptimator currently ships with one execution engine, **Apache Flink**, plus
-support for Kafka, Venice, MySQL, a logical-table adapter, and a `demodb`
-adapter for local development. The engine and connector model is designed so
-new ones can be added without changing the planner or the operator. See the
-connector pages (when available) for a per-system breakdown.
+Hoptimator ships with adapters for **Kafka**, **Venice**, **MySQL**, the
+**logical-table** tier model, and a `demodb` source for local development.
+Pipeline jobs target **Apache Flink** by default through the bundled
+JobTemplates. The planner, the catalog, and the deployer model are all
+designed so new sources, sinks, and runtimes can be added without changing
+core code. See the connector pages (when available) for a per-system
+breakdown.
 
 ## Where to next
 

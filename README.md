@@ -2,7 +2,7 @@
   <h1>Hoptimator</h1>
   <h3>A Kubernetes-native control plane for multi-hop data pipelines</h3>
   <p>
-    <a href="https://github.com/linkedin/Hoptimator/actions"><img src="https://img.shields.io/github/actions/workflow/status/linkedin/Hoptimator/integration-tests.yml?branch=main" alt="CI"></a>
+    <a href="https://github.com/linkedin/Hoptimator/actions"><img src="https://img.shields.io/github/actions/workflow/status/linkedin/Hoptimator/integration-tests.yml?branch=main&label=CI" alt="CI"></a>
     <a href="https://github.com/linkedin/Hoptimator/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-BSD--2--Clause-blue" alt="License"></a>
     <img src="https://img.shields.io/badge/status-alpha-orange" alt="Status: alpha">
   </p>
@@ -10,22 +10,28 @@
 
 Hoptimator turns a single SQL statement into a running, multi-system data
 pipeline. You declare what you want — a materialized view from one system into
-another — and Hoptimator plans the topology, provisions the topics and jobs,
-deploys them to Kubernetes, and reconciles them.
+another — and Hoptimator plans the topology, generates the specs, deploys
+them, and reconciles them.
 
 ```sql
-CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
   SELECT FIRST_NAME, LAST_NAME
   FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
 ```
 
-That one statement becomes:
+What that statement *becomes* depends on the templates and databases
+registered in your environment. With a typical Kafka + Flink setup, it
+expands into:
 
-- a `View` and a `Pipeline` Kubernetes resource,
+- a `View` and a `Pipeline` resource,
 - a connector configuration on each side,
 - a Flink SQL job that maintains the result,
-- and any intermediate hops (e.g. CDC topics) that the planner determined were
-  necessary to get the data from sources to sink.
+- and any intermediate hops (e.g. CDC topics) the planner determined were
+  needed to get from sources to sink.
+
+Swap in different templates and the same SQL can target a different stack.
+The deployment target is pluggable — the bundled deployers target Kubernetes,
+but `hoptimator-api` is the actual extension point.
 
 ## Why Hoptimator?
 
@@ -33,10 +39,13 @@ That one statement becomes:
   pluggable for the rest. The catalog is unified; joins span systems.
 - **Multi-hop, declarative.** You don't write Flink jobs and you don't request
   topics. The planner figures out the topology from a query.
-- **Kubernetes-native.** Pipelines are first-class CRDs. `kubectl apply`,
-  `kubectl get`, `kubectl describe` — all work the way you'd expect.
+- **Kubernetes out of the box, not as a hard requirement.** The bundled
+  deployers target Kubernetes, so pipelines show up as first-class CRDs and
+  `kubectl get pipelines` Just Works. The `Deployer` interface is the actual
+  extension point — anything that knows how to materialize a spec can take
+  the place of the defaults.
 - **Inspectable before it deploys.** `!specify` (CLI) and `plan` (MCP) emit the
-  exact YAML Hoptimator would apply. No "magic" deploys.
+  exact specs Hoptimator would apply. No "magic" deploys.
 - **Pluggable.** New sources, sinks, engines, deployers, and validators are all
   extension points on `hoptimator-api`.
 
@@ -55,7 +64,7 @@ make deploy-demo       # install CRDs and a couple of demo databases
 Inside the CLI, declare a materialized view:
 
 ```sql
-CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
   SELECT FIRST_NAME, LAST_NAME
   FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
 ```
@@ -120,11 +129,9 @@ source perspective; if you adopt it today, expect to follow `main` and pin to
 specific versions deliberately.
 
 That said, Hoptimator is not a research toy: LinkedIn runs production
-pipelines on it internally, including
-[Apache Pinot ingestion](https://www.linkedin.com/blog/engineering/infrastructure/powering-apache-pinot-ingestion-with-hoptimator).
-Pre-release artifacts for the modules in this repo are published to
-[GitHub Packages](https://github.com/linkedin/Hoptimator/packages) and to
-LinkedIn's [JFrog Artifactory](https://linkedin.jfrog.io/artifactory/hoptimator).
+pipelines on it internally. Pre-release artifacts for the modules in this
+repo are published to LinkedIn's
+[JFrog Artifactory](https://linkedin.jfrog.io/artifactory/hoptimator).
 
 ## Contributing
 

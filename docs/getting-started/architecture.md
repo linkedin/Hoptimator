@@ -116,15 +116,19 @@ placeholders filled in by:
 
 ## Step 4 — Deploy
 
-Deployers apply the specs to Kubernetes. The defaults you get out of the box
-are `K8sSourceDeployer` and `K8sJobDeployer` from the `hoptimator-k8s` module.
-Both implement the `Deployer` interface from `hoptimator-api`, so you can swap
-them for anything else that knows how to materialize a `Source`, `Sink`, or
-`Job`.
+Deployers apply the specs to a target system. The defaults you get out of
+the box — `K8sSourceDeployer` and `K8sJobDeployer` from the
+`hoptimator-k8s` module — apply to Kubernetes, which is why every page in
+this guide assumes a cluster. Both implement the `Deployer` interface from
+`hoptimator-api`, so they can be replaced by anything else that knows how to
+materialize a `Source`, `Sink`, or `Job`. Kubernetes is the path of least
+resistance, not a hard requirement.
 
-The result, in the cluster, is a `Pipeline` resource plus whatever
-implementation resources its templates produced — a `KafkaTopic`, a
-`FlinkSessionJob`, a Venice store, etc.
+With the default deployers, the result is a `Pipeline` resource in the
+cluster plus whatever implementation resources its templates produced — a
+`KafkaTopic`, a `FlinkSessionJob`, a Venice store, etc. None of those are
+"Hoptimator's" — Hoptimator just generated the spec; the relevant operator
+(Strimzi, Flink Kubernetes Operator, etc.) runs the workload.
 
 ## Step 5 — Reconcile
 
@@ -168,12 +172,18 @@ contributions should not target them.
 
 - **A new data source**: usually a new Database adapter (a JDBC URL handler)
   plus a `TableTemplate` for how to deploy it. Often no Java is needed.
-- **A new engine**: implement `Engine`, `Connector`, and a Deployer that knows
-  how to launch jobs on it. Add a `JobTemplate`.
+- **A new pipeline runtime**: write a `JobTemplate` that produces the YAML
+  the runtime's operator already understands (e.g. a Beam `FlinkSessionJob`,
+  a Spark Operator `SparkApplication`). Hoptimator generates the spec; the
+  target operator runs the job. No `Engine` registration is required for
+  this path — the `Engine` CRD is only needed if Hoptimator should submit
+  *queries* (not pipelines) directly to the runtime.
 - **A new deployment target**: implement `Deployer` and register it via
-  `DeployerProvider`. The default Kubernetes deployers are themselves examples.
-- **Different cluster configuration**: usually a `ConfigProvider` change rather
-  than code.
+  `DeployerProvider`. Kubernetes is the default but not a hard requirement;
+  the bundled `K8sSourceDeployer` and `K8sJobDeployer` are themselves
+  examples. Anything that knows how to materialize a spec will do.
+- **Different cluster configuration**: usually a `ConfigProvider` change
+  rather than code.
 
 The [Extending Hoptimator](../extending/index.md) section will cover each in
 detail when it lands.
