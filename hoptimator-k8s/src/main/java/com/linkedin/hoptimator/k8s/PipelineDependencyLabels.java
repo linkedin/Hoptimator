@@ -63,33 +63,31 @@ public final class PipelineDependencyLabels {
   }
 
   /**
-   * Labels to stamp on a Pipeline CRD — one entry per source/sink. Keys are the same as
-   * {@link #labelKey}. Values are the readable identifier, truncated to 63 chars if necessary
-   * (the annotation preserves the untruncated form).
+   * Labels to stamp on a Pipeline CRD — one entry per source. Sinks are deliberately excluded:
+   * the guard's job is to find pipelines that <em>read from</em> a resource being deleted, not
+   * pipelines that write to it. Including sinks would break partial-view scenarios where two
+   * pipelines share a sink (dropping one would be blocked by the other's sink-label).
+   *
+   * <p>Keys are the same as {@link #labelKey}. Values are the readable identifier, truncated
+   * to 63 chars if necessary (the annotation preserves the untruncated form).
    */
   public static Map<String, String> labelsFor(Collection<Source> sources, Sink sink) {
     Map<String, String> labels = new LinkedHashMap<>();
     for (Source src : sources) {
       labels.put(labelKey(src.database(), src.path()), truncate(identifier(src.database(), src.path())));
     }
-    if (sink != null) {
-      labels.put(labelKey(sink.database(), sink.path()), truncate(identifier(sink.database(), sink.path())));
-    }
     return labels;
   }
 
   /**
-   * Collision-guard annotation value — comma-separated list of full identifiers, deduplicated.
-   * The delete-time check cross-references this annotation after the label selector narrows the
-   * candidate set.
+   * Collision-guard annotation value — comma-separated list of full source identifiers,
+   * deduplicated. The delete-time check cross-references this annotation after the label
+   * selector narrows the candidate set.
    */
   public static String annotationFor(Collection<Source> sources, Sink sink) {
     Set<String> ids = new LinkedHashSet<>();
     for (Source src : sources) {
       ids.add(identifier(src.database(), src.path()));
-    }
-    if (sink != null) {
-      ids.add(identifier(sink.database(), sink.path()));
     }
     return String.join(",", ids);
   }

@@ -19,6 +19,7 @@
  */
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
@@ -138,7 +139,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     List<String> viewPath = new ArrayList<>(schemaPath);
     viewPath.add(viewName);
     ViewTable viewTable = HoptimatorDdlUtils.viewTable(context, sql, new HoptimatorDriver.Prepare(connection), schemaPath, viewPath);
-    View view = new View(viewPath, sql);
+    String database = pair.left.schema instanceof Database
+        ? ((Database) pair.left.schema).databaseName() : null;
+    View view = new View(database, viewPath, sql);
     logger.info("Validated sql statement. The view is named {} and has path {}",
         viewName, viewPath);
 
@@ -394,6 +397,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final List<String> schemaPath = pair.left.path(null);
     List<String> tablePath = new ArrayList<>(schemaPath);
     tablePath.add(tableName);
+    String database = pair.left.schema instanceof Database
+        ? ((Database) pair.left.schema).databaseName() : null;
 
     Collection<Deployer> deployers = null;
     try {
@@ -403,7 +408,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
               "Element " + tableName + " is a materialized view and does not correspond to " + drop.getOperator());
         }
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
-        View view = new View(tablePath, materializedViewTable.viewSql());
+        View view = new View(database, tablePath, materializedViewTable.viewSql());
         deployers = DeploymentService.deployers(view, connection);
         logger.info("Deleting materialized view {}", tableName);
         DeploymentService.delete(deployers, connection);
@@ -415,7 +420,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
               "Element " + tableName + " is a view and does not correspond to " + drop.getOperator());
         }
         ViewTable viewTable = (ViewTable) table;
-        View view = new View(tablePath, viewTable.getViewSql());
+        View view = new View(database, tablePath, viewTable.getViewSql());
         deployers = DeploymentService.deployers(view, connection);
         logger.info("Deleting view {}", tableName);
         DeploymentService.delete(deployers, connection);

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,7 +66,7 @@ class K8sPipelineDeployerTest {
   }
 
   @Test
-  void stampsDependencyLabelsForSourcesAndSink() throws SQLException {
+  void stampsDependencyLabelsForSourcesOnly() throws SQLException {
     K8sPipelineDeployer deployer = new K8sPipelineDeployer(
         "p1", List.of("spec"), "SELECT 1",
         Arrays.asList(src("kafka1", "topic-a"), src("kafka2", "topic-b")),
@@ -74,12 +75,13 @@ class K8sPipelineDeployerTest {
     V1alpha1Pipeline pipeline = deployer.toK8sObject();
     Map<String, String> labels = pipeline.getMetadata().getLabels();
 
-    assertEquals(3, labels.size(), "should have one label per source + one per sink");
+    // Sinks are excluded — guard tracks readers, not writers.
+    assertEquals(2, labels.size(), "should have one label per source, no sink labels");
     assertTrue(labels.containsKey(
         PipelineDependencyLabels.labelKey("kafka1", Collections.singletonList("topic-a"))));
     assertTrue(labels.containsKey(
         PipelineDependencyLabels.labelKey("kafka2", Collections.singletonList("topic-b"))));
-    assertTrue(labels.containsKey(
+    assertFalse(labels.containsKey(
         PipelineDependencyLabels.labelKey("mysql", Collections.singletonList("outbox"))));
   }
 
@@ -96,6 +98,7 @@ class K8sPipelineDeployerTest {
     String annotation = annotations.get(PipelineDependencyLabels.ANNOTATION_KEY);
     assertNotNull(annotation);
     assertTrue(annotation.contains("kafka_topic"));
-    assertTrue(annotation.contains("mysql_outbox"));
+    // Sink is excluded from the annotation just like the labels.
+    assertFalse(annotation.contains("mysql_outbox"));
   }
 }

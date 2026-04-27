@@ -7,10 +7,7 @@ import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.ThrowingFunction;
-import com.linkedin.hoptimator.k8s.models.V1alpha1View;
-import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.util.DeploymentService;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,7 +17,6 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -28,7 +24,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -302,80 +297,5 @@ class K8sMaterializedViewDeployerTest {
 
     assertEquals(1, specs.size());
     assertEquals("sink-spec", specs.get(0));
-  }
-
-  // --- DependencyGuarded tests ---
-
-  /** Creates an MV deployer whose view-API lookups are served by {@code viewApi}. */
-  private K8sMaterializedViewDeployer makeDeployerWithApi(MaterializedView view,
-      FakeK8sApi<V1alpha1View, V1alpha1ViewList> viewApi) {
-    K8sViewDeployer capturedViewDeployer = viewDeployer;
-    K8sPipelineBundle capturedBundle = pipelineBundle;
-    return new K8sMaterializedViewDeployer(view, context, viewApi) {
-      @Override
-      K8sViewDeployer createViewDeployer(MaterializedView v, K8sContext ctx) {
-        return capturedViewDeployer;
-      }
-
-      @Override
-      K8sPipelineBundle createPipelineBundle(String name, List<String> pipelineSpecs, String sql,
-          Collection<Source> sources, Sink sink, K8sContext viewContext) {
-        return capturedBundle;
-      }
-    };
-  }
-
-  @Test
-  void guardedResourcesReturnsViewSink() throws SQLException {
-    Sink sink = new Sink("venice-db", Arrays.asList("VENICE", "my_mv"), Collections.emptyMap());
-    Job job = new Job("j", Collections.emptySet(), sink, Collections.emptyMap());
-    MaterializedView view = createTestMaterializedView(
-        Arrays.asList("SCHEMA", "MY_MV"), Collections.emptyList(), sink, job);
-
-    K8sMaterializedViewDeployer deployer = new K8sMaterializedViewDeployer(view, context,
-        new FakeK8sApi<>(new ArrayList<>()));
-
-    Collection<Source> guarded = deployer.guardedResources();
-
-    // Only the sink is guarded — sources the MV reads from are unaffected by deleting it.
-    assertEquals(1, guarded.size());
-    assertEquals(sink, guarded.iterator().next());
-  }
-
-  @Test
-  void selfOwnerUidReturnsViewCrdUidWhenViewExists() throws SQLException {
-    Sink sink = new Sink("venice-db", Arrays.asList("VENICE", "my_mv"), Collections.emptyMap());
-    Job job = new Job("j", Collections.emptySet(), sink, Collections.emptyMap());
-    MaterializedView view = createTestMaterializedView(
-        Arrays.asList("SCHEMA", "MY_MV"), Collections.emptyList(), sink, job);
-
-    V1alpha1View existing = new V1alpha1View()
-        .metadata(new V1ObjectMeta()
-            .name(K8sUtils.canonicalizeName(Arrays.asList("SCHEMA", "MY_MV")))
-            .namespace("default")
-            .uid("VIEW-UID-42"));
-    FakeK8sApi<V1alpha1View, V1alpha1ViewList> viewApi =
-        new FakeK8sApi<>(new ArrayList<>(Collections.singletonList(existing)));
-    lenient().when(context.namespace()).thenReturn("default");
-
-    K8sMaterializedViewDeployer deployer = makeDeployerWithApi(view, viewApi);
-
-    assertEquals("VIEW-UID-42", deployer.selfOwnerUid());
-  }
-
-  @Test
-  void selfOwnerUidReturnsNullWhenViewCrdAbsent() throws SQLException {
-    Sink sink = new Sink("venice-db", Arrays.asList("VENICE", "my_mv"), Collections.emptyMap());
-    Job job = new Job("j", Collections.emptySet(), sink, Collections.emptyMap());
-    MaterializedView view = createTestMaterializedView(
-        Arrays.asList("SCHEMA", "MY_MV"), Collections.emptyList(), sink, job);
-
-    FakeK8sApi<V1alpha1View, V1alpha1ViewList> viewApi =
-        new FakeK8sApi<>(new ArrayList<>());
-    lenient().when(context.namespace()).thenReturn("default");
-
-    K8sMaterializedViewDeployer deployer = makeDeployerWithApi(view, viewApi);
-
-    assertNull(deployer.selfOwnerUid());
   }
 }

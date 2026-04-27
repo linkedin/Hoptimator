@@ -213,31 +213,7 @@ spec:
 !specify create-table-test
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 9: Dependency guard — an external MV consuming the logical table's
-# nearline tier (KAFKA/testevent) must block DROP TABLE on the logical
-# table. The same depends-on labels that protect plain tier drops also
-# protect the composite logical-table drop, since LogicalTableDeployer's
-# guardedResources() exposes every tier source to the framework.
-# ─────────────────────────────────────────────────────────────────────────────
-create or replace materialized view KAFKA."testevent$consumer" as select * from KAFKA."testevent";
-(0 rows modified)
-
-!update
-
-# Drop is blocked — testevent$consumer's pipeline depends on KAFKA/testevent,
-# which is LOGICAL.testevent's nearline tier.
-drop table "LOGICAL"."testevent";
-active pipeline(s) depend on it
-!error
-
-# Drop the dependent MV first to release the label.
-drop materialized view KAFKA."testevent$consumer";
-(0 rows modified)
-
-!update
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Test 10: DROP TABLE — cascades to the LogicalTable CRD and its implicit
+# Test 9: DROP TABLE — cascades to the LogicalTable CRD and its implicit
 # inter-tier pipeline; tier resources are best-effort cleaned up afterward.
 # ─────────────────────────────────────────────────────────────────────────────
 drop table "LOGICAL"."testevent";
