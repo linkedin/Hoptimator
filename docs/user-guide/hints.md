@@ -23,56 +23,23 @@ Format: comma-separated `KEY=VALUE` pairs. URL-encode values that contain
 
 ## Two flavors
 
-There are two distinct kinds of hint, distinguished only by their key.
+A hint's *key* determines what it does:
 
-### Template hints
+- **Template hints** (e.g. `kafka.partitions=4`, `flink.parallelism=2`)
+  fill `{{kafka.partitions}}`-style placeholders in `TableTemplate` and
+  `JobTemplate` YAML. The available keys are whatever the templates
+  installed in your namespace reference — if the template doesn't have
+  `{{kafka.partitions}}`, setting that hint is a no-op.
+- **Connector hints** (e.g. `kafka.source.properties.group.id=my-group`)
+  pass through to the engine, scoped by connector + direction. Format:
+  `<connector>.<source|sink>.<config-name>`.
 
-Override `{{ }}` placeholders in `TableTemplate` and `JobTemplate` definitions.
+For the full template-authoring story — including the placeholder syntax,
+matching rules, and the precedence between hints, configmap, and system
+properties — see
+[Templates and configuration](../kubernetes/configuration.md).
 
-For example, `kafka-template` includes `partitions: {{kafka.partitions:1}}`
-and `parallelism: {{flink.parallelism:1}}`. To pin partitions to 4 and
-parallelism to 2 for the next pipeline you create:
-
-```bash
-./hoptimator -u "jdbc:hoptimator://hints=kafka.partitions=4,flink.parallelism=2"
-```
-
-The keys you can set this way are determined by the templates installed in
-your namespace — there's no fixed list. If the template doesn't reference
-`{{ kafka.partitions }}`, setting that hint is a no-op.
-
-### Connector hints
-
-Pass configuration straight through to the engine, scoped by connector and
-direction (source vs. sink).
-
-Format: `<connector>.<source|sink>.<config-name>`.
-
-Examples:
-
-```bash
-# Set the Kafka consumer group when Kafka is a source
-./hoptimator -u "jdbc:hoptimator://hints=kafka.source.properties.group.id=my-group"
-
-# Set Flink sink parallelism for Kafka sinks
-./hoptimator -u "jdbc:hoptimator://hints=kafka.sink.sink.parallelism=2"
-
-# Combine multiple
-./hoptimator -u "jdbc:hoptimator://hints=kafka.source.properties.group.id=my-group,kafka.sink.sink.parallelism=2"
-```
-
-The middle segment selects which side the hint applies to:
-
-| Segment   | Applies when the connector is the …          |
-| --------- | -------------------------------------------- |
-| `source`  | input side of a pipeline                     |
-| `sink`    | output side of a pipeline                    |
-
-Each engine's own connector docs are the source of truth for which configs
-make sense — see, e.g., the
-[Flink Kafka connector docs](https://nightlies.apache.org/flink/flink-docs-release-1.18/docs/connectors/table/kafka/).
-
-## Reading what hints were applied
+## Reading what was applied
 
 After deployment, the `Pipeline` (and `Subscription`) `status` records the
 hints that survived the plan. Useful when something didn't take effect:
@@ -81,15 +48,13 @@ hints that survived the plan. Useful when something didn't take effect:
 kubectl get pipeline my-audience -o yaml | yq '.status.hints'
 ```
 
-## When to use a hint vs. a template change
+## Hint vs. template change
 
 Rule of thumb:
 
 - **One-off tuning for a single pipeline** → hint.
-- **Every pipeline in a namespace should pick up the same value** → put it in
-  `hoptimator-configmap` and reference it from the template directly.
-- **The template itself should change** → edit the `TableTemplate` /
-  `JobTemplate` resource.
+- **Every pipeline in a namespace should pick up the same value** → template
+  with a default value.
 
 Hints are the lowest-friction lever; they're also the easiest to lose track
 of. For anything you'd want repeatable, prefer one of the durable options.

@@ -194,16 +194,6 @@ supported today.
 - String literals use single quotes (`'value'`).
 - Nested struct access uses bracket syntax: `"profile"['first_name']`.
 
-## `WITH` options syntax
-
-`WITH (...)` clauses on Hoptimator DDL use Calcite's
-*`'key' 'value'`* form, with whitespace separating the two strings.
-Pairs are comma-separated:
-
-```sql
-WITH ('kafka.partitions' '8', 'kafka.retention.ms' '7200000')
-```
-
 ## Function library
 
 Hoptimator's CLI launches with `fun=mysql` so MySQL-style functions

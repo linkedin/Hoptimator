@@ -27,7 +27,7 @@ deploy the operator standalone and feed it Subscriptions from CI.
 ## Life of a SQL statement
 
 ```
-                CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+                CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
                   SELECT FIRST_NAME, LAST_NAME
                   FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
                                   │

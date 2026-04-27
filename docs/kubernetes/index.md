@@ -12,16 +12,14 @@ operator reconciles them.
   Hoptimator installs: `Database`, `View`, `Pipeline`, `TableTemplate`,
   `JobTemplate`, `TableTrigger`, `Subscription`, `LogicalTable`, `Engine`,
   `SqlJob`.
-- **[Templates](templates.md)** — authoring `TableTemplate` and
-  `JobTemplate`. Matching rules, placeholder syntax (`{{var}}`,
-  `{{var:default}}`, conditionals, transforms), default placeholders
-  available to deployers.
+- **[Templates and configuration](configuration.md)** — authoring
+  `TableTemplate` and `JobTemplate` (matching rules, placeholder syntax,
+  conditional templates, common patterns), and where placeholder values
+  come from (`hoptimator-configmap`, JDBC connection properties, JVM
+  system properties, the `ConfigProvider` SPI, precedence).
 - **[Triggers](triggers.md)** — operational guidance for `TableTrigger`:
   cron vs status-driven firing, the pause/resume lifecycle, common
   patterns (backfills, rETL, downstream notifications).
-- **[Configuration](configuration.md)** — `hoptimator-configmap`, the
-  `ConfigProvider` SPI, where each value is read from, precedence between
-  configmap and JDBC connection properties.
 
 ## Related
 

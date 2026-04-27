@@ -91,7 +91,7 @@ public class HoptimatorExample {
 
       // Deploy a pipeline
       stmt.execute("""
-          CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+          CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
             SELECT FIRST_NAME, LAST_NAME
             FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS
           """);

@@ -44,14 +44,13 @@ See the **[Kubernetes guide](kubernetes/index.md)**:
   CRD Hoptimator installs (`Database`, `View`, `Pipeline`, `TableTemplate`,
   `JobTemplate`, `TableTrigger`, `Subscription`, `LogicalTable`, `Engine`,
   `SqlJob`).
-- [Templates](kubernetes/templates.md) — authoring TableTemplates and
-  JobTemplates, placeholder syntax, default placeholders, common patterns.
+- [Templates and configuration](kubernetes/configuration.md) — authoring
+  TableTemplates and JobTemplates, placeholder syntax, where placeholder
+  values come from (`hoptimator-configmap`, JDBC properties, system
+  properties), `ConfigProvider` SPI.
 - [Triggers](kubernetes/triggers.md) — operational guide for
   `TableTrigger`: cron vs status-driven firing, pause/resume, common
   patterns.
-- [Configuration](kubernetes/configuration.md) — `hoptimator-configmap`,
-  the `ConfigProvider` SPI, where each value is read from, precedence
-  between sources.
 
 ## I want to extend Hoptimator
 
@@ -65,8 +64,8 @@ See **[Extending Hoptimator](extending/index.md)**:
   via `Validator` and `ValidatorProvider`.
 - [Config providers](extending/config-providers.md) — custom
   `ConfigProvider` SPI.
-- [Templates](kubernetes/templates.md) — authoring `TableTemplate` and
-  `JobTemplate` (lives in the Kubernetes guide).
+- [Templates and configuration](kubernetes/configuration.md) — authoring
+  `TableTemplate` and `JobTemplate` (lives in the Kubernetes guide).
 
 ## I'm contributing to Hoptimator
 

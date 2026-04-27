@@ -12,7 +12,7 @@ both — pick the layer that matches what you're doing.
 | Send Hoptimator-generated specs somewhere other than Kubernetes.                              | A `Deployer` + `DeployerProvider`. See [Deployers](deployers.md).   |
 | Reject SQL or YAML that's invalid in your environment before it deploys.                      | A `Validator` + `ValidatorProvider`. See [Validators](validators.md). |
 | Pull configuration values from somewhere other than `hoptimator-configmap`.                   | A `ConfigProvider`. See [Config providers](config-providers.md).    |
-| Customize what gets deployed for an existing system.                                          | Just a `TableTemplate` or `JobTemplate` — no Java needed. See [Templates](../kubernetes/templates.md). |
+| Customize what gets deployed for an existing system.                                          | Just a `TableTemplate` or `JobTemplate` — no Java needed. See [Templates and configuration](../kubernetes/configuration.md). |
 
 ## How extensions are loaded
 
@@ -53,7 +53,7 @@ that connection. See [Data sources → Adapter](data-sources.md#the-jdbc-adapter
 After the adapter, ship a `TableTemplate` (or `JobTemplate`) that emits the
 YAML for your storage system's CRD or operator. Templates are a CRD, so
 this is YAML-only — no Java needed. See
-[Templates](../kubernetes/templates.md).
+[Templates and configuration](../kubernetes/configuration.md).
 
 If your storage system needs **imperative provisioning** (calling an admin
 API to create a topic, store, table), you need a `Deployer` instead of —
