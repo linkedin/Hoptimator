@@ -62,7 +62,6 @@ DROP TABLE [IF EXISTS] <name>
 DROP VIEW [IF EXISTS] <name>
 DROP MATERIALIZED VIEW [IF EXISTS] <name>
 DROP TRIGGER [IF EXISTS] <name>
-DROP FUNCTION [IF EXISTS] <name>
 ```
 
 Each form removes the corresponding Kubernetes resource and (where
@@ -99,25 +98,6 @@ PAUSE TRIGGER refresh_audience;
 RESUME TRIGGER refresh_audience;
 ```
 
-`PAUSE` / `RESUME` also work for materialized views:
-
-```sql
-PAUSE MATERIALIZED VIEW MY.AUDIENCE;
-RESUME MATERIALIZED VIEW MY.AUDIENCE;
-```
-
-## CREATE FUNCTION
-
-```
-CREATE [OR REPLACE] FUNCTION [IF NOT EXISTS] <name>
-  AS '<yaml-template>'
-  [IN '<namespace>']
-  [WITH (<key> = <value>, ...)]
-```
-
-Registers a user-defined job template that pipelines can invoke. Less
-commonly used than `CREATE TRIGGER`; included for completeness.
-
 ## CREATE TABLE
 
 ```
@@ -133,19 +113,25 @@ Defines a table in the database identified by `<name>`'s schema. Whether the
 underlying database supports `CREATE TABLE` depends on its adapter — for
 read-only sources it will fail.
 
-## REFRESH / FIRE
+## Reserved syntax (parses but not yet executed)
 
-```
-REFRESH MATERIALIZED VIEW <name>;
-FIRE TABLE <name>;
-FIRE TRIGGER <name>;
-FIRE VIEW <name>;
-FIRE MATERIALIZED VIEW <name>;
-```
+The grammar accepts a handful of statements whose executors are not yet
+wired up. They parse cleanly but are no-ops today; treat them as reserved
+syntax that future versions may activate.
 
-`REFRESH` re-runs the materialization for batch-style materialized views.
-`FIRE` manually triggers a side-effect attached to a table, view, or trigger
-(e.g. for testing without waiting for the schedule).
+- `REFRESH MATERIALIZED VIEW <name>` — intended to re-run a batch-style
+  materialization on demand. Not implemented.
+- `FIRE TABLE | TRIGGER | VIEW | MATERIALIZED VIEW <name>` — intended to
+  manually fire a side effect (e.g. for testing without waiting for a
+  schedule). Not implemented.
+- `PAUSE MATERIALIZED VIEW <name>` / `RESUME MATERIALIZED VIEW <name>` —
+  parser support exists; executor does not. (`PAUSE TRIGGER` /
+  `RESUME TRIGGER`, above, are fully implemented.)
+- `CREATE [OR REPLACE] FUNCTION ...` — parser support exists for
+  registering user-defined job templates; executor does not.
+
+If you depend on any of these, file an issue rather than relying on the
+parse alone.
 
 ## Identifiers and case sensitivity
 

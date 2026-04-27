@@ -88,20 +88,38 @@ mutation), and **execution** (actually mutate state).
 statements. It does not mutate state; use it to preview a change before
 calling `modify`.
 
-### Execution (mutating)
+### Execution
 
-| Tool     | Arguments         | Returns                                                                       |
-| -------- | ----------------- | ----------------------------------------------------------------------------- |
-| `query`  | `sql` (required)  | Rows from a `SELECT`. Restricted to a small set of safe schemas (see below).  |
-| `modify` | `sql` (required)  | Result of a `CREATE MATERIALIZED VIEW` / `DROP`. Actually deploys.            |
-
-`query` is intentionally limited to schemas the server considers safe to
-execute against (today: `ADS`, `PROFILE`, `METADATA`, `K8S`). It will refuse
-queries that touch other schemas — those should be inspected via
-`describe_table` instead.
+| Tool     | Arguments         | Returns                                                              |
+| -------- | ----------------- | -------------------------------------------------------------------- |
+| `query`  | `sql` (required)  | Rows from a `SELECT`. Currently a proof-of-concept — see below.      |
+| `modify` | `sql` (required)  | Result of a `CREATE MATERIALIZED VIEW` / `DROP`. Actually deploys.   |
 
 `modify` only accepts `CREATE [OR REPLACE] MATERIALIZED VIEW` and `DROP`
 statements. Other DDL is rejected.
+
+#### About `query`
+
+`query` is a **proof-of-concept**. It is hardcoded to accept reads only from
+the `ADS`, `PROFILE`, `METADATA`, and `K8S` schemas, and will refuse anything
+else. The reason isn't safety — it's that those four are the only schemas
+where Hoptimator can answer the query *itself*:
+
+- `ADS`, `PROFILE`, `METADATA` are in-memory `demodb` databases used by the
+  quickstart. Their data exists in the JVM and Calcite can compute results
+  directly.
+- `K8S` is the system schema that exposes Hoptimator's own state.
+
+Querying any other schema (Kafka, Venice, MySQL, Flink-managed tables, etc.)
+requires an **engine** — typically a Flink session job — to actually run the
+SQL. Hoptimator does not yet ship engine definitions for most adapters, so
+those queries can't be executed end-to-end. (An earlier proof-of-concept
+explored notebook-style execution via Zeppelin; it's incomplete.)
+
+For now, treat `query` as a way to introspect the demo schemas and
+Hoptimator's own state. To inspect the *shape* of a real source, use
+`describe_table`. To deliver data continuously to a destination you can
+query, use `modify` to create a materialized view.
 
 ## Recommended agent workflow
 
@@ -130,5 +148,7 @@ come from the host agent.
 - The connection is established at server start; namespace and credentials
   cannot be changed mid-session. Restart with a different JDBC URL to switch
   contexts.
-- The `query` allowlist is hard-coded today. If you need to widen it for an
-  agent use case, the change lives in `HoptimatorMcpServer.isQueryableSource`.
+- `query` is proof-of-concept and is restricted to the in-memory demo
+  schemas plus the `K8S` system schema (see [About `query`](#about-query)).
+  Production-style querying will require an engine to be configured and is
+  not yet supported.
