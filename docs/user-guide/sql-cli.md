@@ -65,15 +65,17 @@ producing the connector config you expect.
 ### `!pipeline <sql>`
 
 ```sql
-0: Hoptimator> !pipeline CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+0: Hoptimator> !pipeline CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
                           SELECT FIRST_NAME, LAST_NAME
-                          FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
+                          FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS
 
-CREATE TABLE `ADS-PAGE_VIEWS` (...) WITH (...);
-CREATE TABLE `PROFILE-MEMBERS` (...) WITH (...);
-CREATE TABLE `MY-AUDIENCE` (...) WITH (...);
-INSERT INTO `MY-AUDIENCE`
-  SELECT ... FROM `ADS-PAGE_VIEWS` JOIN `PROFILE-MEMBERS` ...
+CREATE DATABASE IF NOT EXISTS `ADS` WITH ();
+CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10');
+CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ();
+CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10');
+CREATE DATABASE IF NOT EXISTS `ADS` WITH ();
+CREATE TABLE IF NOT EXISTS `ADS`.`AUDIENCE` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR) WITH ('connector'='blackhole');
+INSERT INTO `ADS`.`AUDIENCE` (`FIRST_NAME`, `LAST_NAME`) SELECT `MEMBERS`.`FIRST_NAME`, `MEMBERS`.`LAST_NAME` FROM `ADS`.`PAGE_VIEWS`     INNER JOIN `PROFILE`.`MEMBERS` ON `PAGE_VIEWS`.`MEMBER_URN` = `MEMBERS`.`MEMBER_URN`;
 ```
 
 This is the literal SQL the engine (Flink, today) will run.
@@ -81,24 +83,29 @@ This is the literal SQL the engine (Flink, today) will run.
 ### `!specify <sql>`
 
 ```sql
-0: Hoptimator> !specify CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+0: Hoptimator> !specify CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
                          SELECT FIRST_NAME, LAST_NAME
                          FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
-
-apiVersion: hoptimator.linkedin.com/v1alpha1
-kind: View
-metadata:
-  name: my-audience
-...
-
----
-
 apiVersion: flink.apache.org/v1beta1
 kind: FlinkSessionJob
 metadata:
-  name: my-audience
+  name: ads-database-audience
 spec:
-  ...
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ();
+    - CREATE TABLE IF NOT EXISTS `ADS`.`PAGE_VIEWS` (`PAGE_URN` VARCHAR, `MEMBER_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10');
+    - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ();
+    - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10');
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ();
+    - CREATE TABLE IF NOT EXISTS `ADS`.`AUDIENCE` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR) WITH ('connector'='blackhole');
+    - INSERT INTO `ADS`.`AUDIENCE` (`FIRST_NAME`, `LAST_NAME`) SELECT `MEMBERS`.`FIRST_NAME`, `MEMBERS`.`LAST_NAME` FROM `ADS`.`PAGE_VIEWS`     INNER JOIN `PROFILE`.`MEMBERS` ON `PAGE_VIEWS`.`MEMBER_URN` = `MEMBERS`.`MEMBER_URN`;
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
 ```
 
 If you'd `kubectl apply` the output, you'd get the same result as actually
@@ -115,17 +122,17 @@ Hoptimator supports the SQL surface described in
 SELECT * FROM ADS.PAGE_VIEWS LIMIT 5;
 
 -- Define a reusable view (no pipeline)
-CREATE VIEW MY.AUDIENCE AS
+CREATE VIEW ADS.AUDIENCE AS
   SELECT * FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
 
 -- Define a materialized view (creates a pipeline)
-CREATE MATERIALIZED VIEW MY.AUDIENCE AS
+CREATE MATERIALIZED VIEW ADS.AUDIENCE AS
   SELECT FIRST_NAME, LAST_NAME
   FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
 
 -- Drop either
-DROP VIEW MY.AUDIENCE;
-DROP MATERIALIZED VIEW MY.AUDIENCE;
+DROP VIEW ADS.AUDIENCE;
+DROP MATERIALIZED VIEW ADS.AUDIENCE;
 ```
 
 Identifiers are case-sensitive when quoted with double quotes

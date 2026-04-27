@@ -18,7 +18,7 @@ Defines a logical view. The query is rewritten when referenced; nothing is
 deployed.
 
 ```sql
-CREATE OR REPLACE VIEW MY.AUDIENCE AS
+CREATE OR REPLACE VIEW ADS.AUDIENCE AS
   SELECT FIRST_NAME, LAST_NAME
   FROM ADS.PAGE_VIEWS NATURAL JOIN PROFILE.MEMBERS;
 ```
@@ -38,7 +38,9 @@ AS <query>
 Defines a view *and* deploys a running pipeline that maintains its sink.
 
 - The unqualified leaf of `<name>` is the sink table; the schema of `<name>`
-  selects the database the sink lives in.
+  selects the database the sink lives in. The leaf may use the
+  [partial-view syntax](#partial-views-multiple-pipelines-into-one-sink) to
+  share a sink across many materialized views.
 - `REFRESHED '<cron>'` is reserved for batch refreshes; today it is honored by
   job templates that opt in to it.
 - `WITH (...)` accepts arbitrary key/value options that flow through to the
@@ -54,6 +56,40 @@ The result is a `View` *and* a `Pipeline` resource, plus all of the engine and
 connector resources their templates produce. To preview before deploying, use
 `!specify` ([CLI](sql-cli.md#specify-sql)) or the `plan` MCP tool
 ([MCP](mcp-server.md#planning-read-only-but-expensive)).
+
+### Partial views (multiple pipelines into one sink)
+
+The view name accepts an optional `$<suffix>` segment. When present, the part
+before the `$` is the **sink table** and the part after is just a unique
+suffix for the pipeline. Multiple materialized views can share the same
+sink — use the suffix to give each one a distinct name.
+
+```sql
+-- Both write into the same VENICE.AUDIENCE sink,
+-- but they are separate pipelines.
+CREATE MATERIALIZED VIEW VENICE."AUDIENCE$members" AS
+  SELECT m.id AS "KEY", m.first_name FROM PROFILE.MEMBERS m;
+
+CREATE MATERIALIZED VIEW VENICE."AUDIENCE$articles" AS
+  SELECT a.id AS "KEY", a.title FROM CONTENT.ARTICLES a;
+```
+
+The pipeline name becomes `<database>-<sink>-<suffix>` so the deployed
+resources don't collide. The sink itself only gets created once; subsequent
+`CREATE`s use the existing row type.
+
+This pattern is the **recommended default** for most production cases:
+
+- Many real sinks (Venice stores, Kafka topics, Pinot tables) are populated
+  by several distinct pipelines that each contribute different rows or
+  fields. A partial view is the natural way to express that.
+- Without `$`, two `CREATE MATERIALIZED VIEW` statements targeting the same
+  schema/table would conflict at deploy time.
+- The partial-view name shows up in `kubectl get pipelines` so you can keep
+  many writers to the same sink visible and individually manageable.
+
+Use a non-partial name (`VENICE.AUDIENCE`) only when you genuinely have one
+pipeline owning one sink end-to-end.
 
 ## DROP
 
@@ -80,7 +116,12 @@ CREATE [OR REPLACE] TRIGGER [IF NOT EXISTS] <name>
 ```
 
 Equivalent to a `TableTrigger` CRD: runs the embedded YAML (typically a Job
-or CronJob) when the named table changes or on a cron schedule.
+or CronJob) when the named table changes or on a cron schedule. The job spec
+is arbitrary, so triggers are how you wire up backfills, rETL refreshes,
+downstream notifications, and operational hooks without embedding that
+logic in the pipeline itself. See
+[TableTriggers in concepts](../getting-started/concepts.md#tabletriggers)
+for the bigger picture.
 
 ```sql
 CREATE TRIGGER refresh_audience
@@ -102,16 +143,50 @@ RESUME TRIGGER refresh_audience;
 
 ```
 CREATE [OR REPLACE] TABLE [IF NOT EXISTS] <name>
-  [(<element>, ...)]
+  (<column> <type>, ...)
   [WITH (<key> = <value>, ...)]
-  [AS <query>]
 
 CREATE [OR REPLACE] TABLE [IF NOT EXISTS] <name> LIKE <source>
 ```
 
-Defines a table in the database identified by `<name>`'s schema. Whether the
-underlying database supports `CREATE TABLE` depends on its adapter — for
-read-only sources it will fail.
+Provisions a real table in the database identified by `<name>`'s schema.
+Unlike vanilla SQL, this isn't just a metadata operation: the planner runs
+the resulting `Source` through the same **Deployer SPI** that backs
+materialized-view sources and sinks, so the underlying infrastructure is
+created on demand.
+
+For example, against a Kafka adapter, `CREATE TABLE KAFKA.my_topic (...)`
+asks the Kafka deployer to create the topic itself — no separate Strimzi
+manifest, no operator round-trip. Against the Venice adapter it asks for a
+new store. Against `demodb` it's a no-op because the source is in-memory.
+
+The columns and `WITH (...)` options flow into the same TableTemplate
+machinery the planner uses, so you can lean on existing templates to set
+partition counts, retention, replication, and so on:
+
+```sql
+CREATE TABLE KAFKA.audience (
+  key VARCHAR,
+  first_name VARCHAR,
+  last_name VARCHAR
+) WITH ('kafka.partitions' = '8');
+```
+
+Once the table exists, materialized views can write to it via
+[partial views](#partial-views-multiple-pipelines-into-one-sink):
+
+```sql
+CREATE MATERIALIZED VIEW KAFKA."audience$members" AS
+  SELECT m.id AS key, m.first_name, m.last_name FROM PROFILE.MEMBERS m;
+```
+
+Whether `CREATE TABLE` succeeds depends on the adapter's templates. Adapters
+without a `Modify`-method TableTemplate cannot create tables. Read-only
+demo sources fail intentionally; production adapters that ship a `Modify`
+template (Kafka, Venice, etc.) succeed.
+
+Populating a new table from a query (`CREATE TABLE ... AS <query>`) is not
+supported today.
 
 ## Reserved syntax (parses but not yet executed)
 
@@ -155,7 +230,7 @@ introspecting deployed pipelines without leaving SQL:
 ```sql
 SELECT * FROM "k8s".pipelines;
 SELECT name, ready, failed, message FROM "k8s".pipeline_elements;
-SELECT * FROM "k8s".views WHERE schema = 'MY';
+SELECT * FROM "k8s".views WHERE schema = 'ADS';
 ```
 
 These tables are queryable; they are not writable.

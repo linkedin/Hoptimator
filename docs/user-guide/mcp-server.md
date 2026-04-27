@@ -148,6 +148,11 @@ come from the host agent.
 - The connection is established at server start; namespace and credentials
   cannot be changed mid-session. Restart with a different JDBC URL to switch
   contexts.
+- `modify` does not yet expose the full Hoptimator DDL surface — only
+  `CREATE [OR REPLACE] MATERIALIZED VIEW` and `DROP` are accepted today.
+  Triggers, plain views, tables, and the inspection-only DDL
+  ([reference](ddl-reference.md)) need to be driven through the JDBC driver
+  or the SQL CLI for now.
 - `query` is proof-of-concept and is restricted to the in-memory demo
   schemas plus the `K8S` system schema (see [About `query`](#about-query)).
   Production-style querying will require an engine to be configured and is

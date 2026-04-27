@@ -170,10 +170,35 @@ than code.
 
 ## TableTriggers
 
-A **TableTrigger** runs a Kubernetes job in response to changes on a table — or
-on a cron schedule. Triggers are how Hoptimator drives event-driven side
-effects (refreshing offline tables, kicking off downstream batch work) without
-embedding that logic in the pipeline itself.
+A **TableTrigger** runs a Kubernetes job when an upstream table changes — or
+on a cron schedule. The job spec is arbitrary YAML. That combination is more
+powerful than it looks at first glance, and it's where a lot of Hoptimator's
+operational flexibility comes from.
+
+A trigger lets you express things that would otherwise require either a
+purpose-built pipeline or a separate orchestrator:
+
+- **Backfills** that fire when a new offline partition arrives, populating
+  the offline tier of a [LogicalTable](#logical-tables) without coupling
+  that work to the streaming pipeline.
+- **rETL refreshes** on cron, exporting a Kafka topic to a downstream system
+  on schedule.
+- **Downstream notifications** — a job that calls an API, sends a Slack
+  message, or kicks off a CI workflow whenever a table changes.
+- **Operational hooks** — invalidating caches, rotating credentials, running
+  ad-hoc validation, all driven by the same data events that pipelines react
+  to.
+
+The status field on a `TableTrigger` is what *fires* the job — typically
+patched by the producer of the upstream table (or by Hoptimator itself when
+data arrives). That separation — declarative trigger spec, imperative
+status patch — makes triggers cleanly composable with whatever already owns
+the upstream system.
+
+Triggers can also be auto-generated from a `TableTemplate`, so adapters can
+ship sensible defaults (e.g. "every Kafka source automatically gets a
+backfill trigger pointing at its offline mirror") instead of asking users
+to declare them by hand.
 
 ```yaml
 apiVersion: hoptimator.linkedin.com/v1alpha1
@@ -189,6 +214,9 @@ spec:
     kind: Job
     ...
 ```
+
+The pattern: pipelines stay pure data-flow expressions, triggers carry the
+imperative side effects, and the two compose at the table level.
 
 ## Logical tables
 
