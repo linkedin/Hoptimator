@@ -91,12 +91,6 @@ public class LogicalTableDeployer implements Deployer, Validated, DependencyGuar
         new K8sApi<>(context, K8sApiEndpoints.LOGICAL_TABLES));
   }
 
-  /** Package-private convenience constructor for tests that don't exercise delete/guard paths. */
-  LogicalTableDeployer(Source source, Properties tierProps, K8sContext context,
-      K8sApi<V1alpha1Database, V1alpha1DatabaseList> databasesApi) {
-    this(source, tierProps, context, databasesApi, null);
-  }
-
   /** Package-private constructor for testing — accepts injectable K8s APIs. */
   LogicalTableDeployer(Source source, Properties tierProps, K8sContext context,
       K8sApi<V1alpha1Database, V1alpha1DatabaseList> databasesApi,

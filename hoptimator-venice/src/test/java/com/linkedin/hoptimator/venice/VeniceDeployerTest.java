@@ -10,7 +10,6 @@ import com.linkedin.venice.controllerapi.NewStoreResponse;
 import com.linkedin.venice.controllerapi.SchemaResponse;
 import com.linkedin.venice.controllerapi.StoreResponse;
 import com.linkedin.venice.meta.StoreInfo;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.avro.Schema;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,11 +20,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -40,8 +42,6 @@ import static org.mockito.Mockito.when;
  * Tests for VeniceDeployer using mocks.
  */
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 class VeniceDeployerTest {
 
   private static final String TEST_STORE = "test_store";
@@ -441,5 +441,27 @@ class VeniceDeployerTest {
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Failed to generate key schema"));
     assertTrue(issues.toString().contains("Failed to generate value schema"));
+  }
+
+  // --- DependencyGuarded tests ---
+
+  @Test
+  public void testGuardedResourcesReturnsManagedSource() {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    VeniceDeployer deployer = new VeniceDeployer(source, properties, mockConnection);
+
+    Collection<Source> guarded = deployer.guardedResources();
+
+    assertEquals(1, guarded.size());
+    assertEquals(source, guarded.iterator().next());
+  }
+
+  @Test
+  public void testSelfOwnerUidDefaultsToNull() throws SQLException {
+    // Venice store is leaf storage — no owned pipelines to exempt.
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    VeniceDeployer deployer = new VeniceDeployer(source, properties, mockConnection);
+
+    assertNull(deployer.selfOwnerUid());
   }
 }

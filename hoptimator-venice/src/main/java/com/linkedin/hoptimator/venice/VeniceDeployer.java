@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.hoptimator.DependencyGuarded;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validated;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -38,9 +40,10 @@ import java.util.Properties;
  * Handles creation, update, and deletion of Venice stores based on Hoptimator schema.
  *
  * <p>Implements {@link Validated} to pre-check Venice configuration and schema constraints
- * before any deployment side effects.
+ * before any deployment side effects. Implements {@link DependencyGuarded} so the framework
+ * blocks store deletion when an active Pipeline still depends on it.
  */
-public class VeniceDeployer implements Deployer, Validated {
+public class VeniceDeployer implements Deployer, Validated, DependencyGuarded {
 
   private static final Logger log = LoggerFactory.getLogger(VeniceDeployer.class);
 
@@ -52,6 +55,11 @@ public class VeniceDeployer implements Deployer, Validated {
     this.source = source;
     this.properties = properties;
     this.connection = connection;
+  }
+
+  @Override
+  public Collection<Source> guardedResources() {
+    return Collections.singletonList(source);
   }
 
   @Override

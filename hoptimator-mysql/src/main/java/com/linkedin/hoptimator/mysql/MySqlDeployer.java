@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.mysql;
 
+import com.linkedin.hoptimator.DependencyGuarded;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validated;
@@ -18,6 +19,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -30,10 +32,11 @@ import java.util.stream.Collectors;
 /**
  * Deployer for MySQL tables. Creates tables in the synchronous DDL hot path.
  *
- * <p>Implements {@link Validated} to pre-check table constraints
- * before any deployment side effects.
+ * <p>Implements {@link Validated} to pre-check table constraints before any deployment side
+ * effects. Implements {@link DependencyGuarded} so the framework blocks table deletion when
+ * an active Pipeline still depends on it.
  */
-public class MySqlDeployer implements Deployer, Validated {
+public class MySqlDeployer implements Deployer, Validated, DependencyGuarded {
 
   private static final Logger log = LoggerFactory.getLogger(MySqlDeployer.class);
 
@@ -48,6 +51,11 @@ public class MySqlDeployer implements Deployer, Validated {
     this.source = source;
     this.properties = properties;
     this.hoptimatorConnection = connection;
+  }
+
+  @Override
+  public Collection<Source> guardedResources() {
+    return Collections.singletonList(source);
   }
 
   /**

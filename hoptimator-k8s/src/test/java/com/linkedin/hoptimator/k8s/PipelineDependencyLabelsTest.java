@@ -25,7 +25,7 @@ class PipelineDependencyLabelsTest {
     return new Source(db, Arrays.asList(path), Collections.emptyMap());
   }
 
-  private static Sink snk(String db, String... path) {
+  private static Sink sink(String db, String... path) {
     return new Sink(db, Arrays.asList(path), Collections.emptyMap());
   }
 
@@ -71,7 +71,7 @@ class PipelineDependencyLabelsTest {
   void labelsForIncludesSourcesAndSink() {
     Source s1 = src("kafka1", "events");
     Source s2 = src("venice1", "store");
-    Sink sink = snk("mysql1", "outbox");
+    Sink sink = sink("mysql1", "outbox");
     Map<String, String> labels = PipelineDependencyLabels.labelsFor(Arrays.asList(s1, s2), sink);
 
     assertEquals(3, labels.size());
@@ -91,7 +91,7 @@ class PipelineDependencyLabelsTest {
   void labelsForDeduplicatesWhenSourceAndSinkCoincide() {
     // Self-loop pipeline (rare but possible in test fixtures).
     Source s = src("db", "t");
-    Sink k = snk("db", "t");
+    Sink k = sink("db", "t");
     Map<String, String> labels = PipelineDependencyLabels.labelsFor(Collections.singletonList(s), k);
     assertEquals(1, labels.size());
   }
@@ -109,7 +109,7 @@ class PipelineDependencyLabelsTest {
   void annotationForListsAllIdentifiers() {
     String annotation = PipelineDependencyLabels.annotationFor(
         Arrays.asList(src("kafka", "a"), src("venice", "b")),
-        snk("mysql", "c"));
+        sink("mysql", "c"));
     assertTrue(annotation.contains("kafka/a"));
     assertTrue(annotation.contains("venice/b"));
     assertTrue(annotation.contains("mysql/c"));
@@ -125,7 +125,7 @@ class PipelineDependencyLabelsTest {
   @Test
   void parseAnnotationRoundtrip() {
     String annotation = PipelineDependencyLabels.annotationFor(
-        Arrays.asList(src("a", "1"), src("b", "2")), snk("c", "3"));
+        Arrays.asList(src("a", "1"), src("b", "2")), sink("c", "3"));
     Set<String> parsed = PipelineDependencyLabels.parseAnnotation(annotation);
     assertEquals(3, parsed.size());
     assertTrue(parsed.contains("a/1"));
