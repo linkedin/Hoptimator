@@ -20,15 +20,19 @@ Start with **[Getting started](getting-started/index.md)**:
 
 ## I want to use Hoptimator from my application or shell
 
-The user guide (coming in the next docs phase) will cover:
+See the **[User guide](user-guide/index.md)**:
 
-- The SQL CLI — sqlline-based interactive shell with `!pipeline`, `!specify`,
-  `!resolve` for inspecting plans before they deploy.
-- The JDBC driver — `jdbc:hoptimator://` for Java apps.
-- The MCP server — Model Context Protocol server for AI agents and IDEs.
-- DDL reference — what's supported in `CREATE VIEW`, `CREATE MATERIALIZED
-  VIEW`, `DROP`, etc.
-- Hints — runtime configuration for templates and connectors.
+- [SQL CLI](user-guide/sql-cli.md) — sqlline-based interactive shell with
+  `!pipeline`, `!specify`, `!resolve` for inspecting plans before they deploy.
+- [JDBC driver](user-guide/jdbc.md) — `jdbc:hoptimator://` for Java apps,
+  with full connection-property reference.
+- [MCP server](user-guide/mcp-server.md) — Model Context Protocol server
+  for AI agents and IDEs.
+- [DDL reference](user-guide/ddl-reference.md) — `CREATE VIEW`,
+  `CREATE MATERIALIZED VIEW`, `DROP`, `PAUSE`/`RESUME`, triggers, and the
+  built-in `k8s` system schema.
+- [Hints](user-guide/hints.md) — runtime overrides for templates and
+  connectors.
 
 ## I'm operating Hoptimator on Kubernetes
 

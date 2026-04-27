@@ -102,8 +102,8 @@ The full docs live in [`docs/`](docs/index.md):
 
 - **[Getting started](docs/getting-started/index.md)** — quickstart, concepts,
   architecture.
-- **User guide** *(coming soon)* — SQL CLI, JDBC driver, MCP server, DDL
-  reference, hints.
+- **[User guide](docs/user-guide/index.md)** — SQL CLI, JDBC driver, MCP
+  server, DDL reference, hints.
 - **Kubernetes guide** *(coming soon)* — CRD reference, operator,
   configuration.
 - **Extending Hoptimator** *(coming soon)* — writing deployers, connectors,
