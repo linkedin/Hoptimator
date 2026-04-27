@@ -123,22 +123,31 @@ For typical use, prefer top-level scalar keys — they Just Work.
 
 ## Connection properties reference
 
-The Kubernetes-side ones the operator and CLI care about:
+These are the properties the bundled Kubernetes deployer recognizes. They
+can be set on the JDBC URL (`jdbc:hoptimator://k8s.namespace=my-team`),
+passed in a `Properties` object to `DriverManager.getConnection`, or, in
+the operator deployment, baked into the Calcite model file.
 
-| Property                         | Description                                                           |
-| -------------------------------- | --------------------------------------------------------------------- |
-| `k8s.namespace`                  | Namespace Hoptimator reads from / writes to.                          |
-| `k8s.watch.namespace`            | Namespace the operator watches (empty = all).                         |
-| `k8s.kubeconfig`                 | Path to a kubeconfig file. Defaults to `~/.kube/config`.              |
-| `k8s.server`                     | API server URL. Required with `k8s.token` or `k8s.user`/`password`.   |
-| `k8s.token`                      | Bearer token authentication.                                          |
-| `k8s.user` + `k8s.password`      | Basic-auth credentials.                                               |
-| `k8s.impersonate.user`           | Impersonate this user.                                                |
-| `k8s.impersonate.group(s)`       | Impersonate these groups.                                             |
-| `k8s.ssl.truststore.location`    | Truststore for the API server certificate.                            |
+| Property                          | Default                          | Description                                                                              |
+| --------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------- |
+| `k8s.namespace`                   | the active namespace             | Namespace Hoptimator reads CRDs from and writes deployed resources to.                   |
+| `k8s.watch.namespace`             | same as `k8s.namespace`          | Namespace the operator watches for reconciliation. Empty string means all namespaces.   |
+| `k8s.kubeconfig`                  | `$KUBECONFIG` / `~/.kube/config` | Path to a kubeconfig file.                                                               |
+| `k8s.server`                      | from kubeconfig                  | API server URL. Required with `k8s.token` or `k8s.user`+`k8s.password`.                  |
+| `k8s.user` / `k8s.password`       | *(none)*                         | Basic-auth credentials. Requires `k8s.server`.                                           |
+| `k8s.token`                       | *(none)*                         | Bearer token. Requires `k8s.server`.                                                     |
+| `k8s.impersonate.user`            | *(none)*                         | Impersonate this user when calling the API.                                              |
+| `k8s.impersonate.group`           | *(none)*                         | Single impersonation group.                                                              |
+| `k8s.impersonate.groups`          | *(none)*                         | Comma-separated impersonation groups.                                                    |
+| `k8s.ssl.truststore.location`     | *(none)*                         | Path to a PEM/JKS truststore for the API server certificate.                             |
 
-See [JDBC driver](../user-guide/jdbc.md) for the rest of the URL and
-property surface.
+If none of the above are set, the driver behaves like `kubectl` would: it
+reads `~/.kube/config` and uses the active context.
+
+These are deployer-specific. The driver-level connection properties
+(`catalogs`, `hints`, `fun`) are documented on the
+[JDBC driver](../user-guide/jdbc.md#connection-properties) page. Different
+deployers would expose their own `<deployer>.*` properties.
 
 ## Pod-namespace detection
 

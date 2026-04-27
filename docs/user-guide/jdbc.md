@@ -41,26 +41,15 @@ Properties set in the URL (after `://`) and properties passed via a
 | -------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `hints`  | *(none)* | Comma-separated `key=value` pairs passed to templates and connectors. URL-encode values that contain commas or `=`. See [hints](hints.md). |
 
-### Kubernetes context
+### Deployer-specific properties
 
-The default deployer talks to a Kubernetes cluster. These properties control
-which one and how:
-
-| Property                          | Default                          | Description                                                                              |
-| --------------------------------- | -------------------------------- | ---------------------------------------------------------------------------------------- |
-| `k8s.namespace`                   | the active namespace             | Namespace where Hoptimator reads CRDs and writes deployed resources.                     |
-| `k8s.watch.namespace`             | same as `k8s.namespace`          | Namespace the operator watches for reconciliation.                                       |
-| `k8s.kubeconfig`                  | `$KUBECONFIG` / `~/.kube/config` | Path to a kubeconfig file.                                                               |
-| `k8s.server`                      | from kubeconfig                  | API server URL. Required when using `k8s.user`+`k8s.password` or `k8s.token`.            |
-| `k8s.user` / `k8s.password`       | *(none)*                         | Basic-auth credentials. Requires `k8s.server`.                                           |
-| `k8s.token`                       | *(none)*                         | Bearer token. Requires `k8s.server`.                                                     |
-| `k8s.impersonate.user`            | *(none)*                         | Impersonate this user when calling the API.                                              |
-| `k8s.impersonate.group`           | *(none)*                         | Single impersonation group.                                                              |
-| `k8s.impersonate.groups`          | *(none)*                         | Comma-separated impersonation groups.                                                    |
-| `k8s.ssl.truststore.location`     | *(none)*                         | Path to a PEM/JKS truststore for the API server certificate.                             |
-
-If none of the above are set, the driver behaves like `kubectl` would: it
-reads `~/.kube/config` and uses the active context.
+If you're using the bundled Kubernetes deployer (the default), additional
+`k8s.*` properties select the cluster, namespace, and credentials. Those
+are deployer-specific rather than driver-specific, so the full reference
+lives with the rest of the Kubernetes documentation —
+see [Kubernetes → Configuration](../kubernetes/configuration.md#connection-properties-reference).
+A different deployer would expose its own properties in the same
+namespace.
 
 ### SQL function dialect
 
