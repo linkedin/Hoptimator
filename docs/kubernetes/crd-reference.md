@@ -8,6 +8,18 @@ The CRD YAMLs live in
 [`hoptimator-k8s/src/main/resources/`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-k8s/src/main/resources)
 and are applied by `make deploy` along with the operator.
 
+> **If you're modifying a CRD**, regenerate the Java model classes after
+> your change:
+>
+> ```bash
+> make generate-models
+> ```
+>
+> The script invokes the upstream Kubernetes Java client's
+> [`crd-model-gen`](https://github.com/kubernetes-client/java/tree/master/crd-model-gen)
+> Docker image to produce the typed `V1alpha1*` classes the operator and
+> deployers consume. Commit the regenerated files with your CRD change.
+
 ## At a glance
 
 | Kind            | Plural          | Short names    | What it is                                                                                  |

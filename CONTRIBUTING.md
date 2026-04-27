@@ -39,11 +39,22 @@ For bugs, please include:
    We aim for **80%** line coverage on changed code. The CI workflow
    currently enforces a softer 60% on changed files and 40% overall, but
    targeting 80% locally keeps the trend in the right direction.
-4. **Match the existing style.** The project runs Checkstyle and SpotBugs as
+4. **Regenerate Java models if you touched a CRD.** The Java classes
+   under `hoptimator-k8s/src/main/.../models/` are auto-generated from
+   the CRD YAMLs in `hoptimator-k8s/src/main/resources/`. After adding,
+   removing, or modifying a CRD field, run:
+   ```bash
+   make generate-models
+   ```
+   The script uses the upstream Kubernetes Java client's
+   [`crd-model-gen`](https://github.com/kubernetes-client/java/tree/master/crd-model-gen)
+   Docker image, so Docker must be running. Commit the regenerated
+   files alongside your CRD change.
+5. **Match the existing style.** The project runs Checkstyle and SpotBugs as
    part of the build; CI will fail if either complains.
-5. **Keep commits focused.** One logical change per commit, with a descriptive
+6. **Keep commits focused.** One logical change per commit, with a descriptive
    message. Reference the issue number if there is one.
-6. **Open the PR.** Describe what changed and why. Link any relevant issues.
+7. **Open the PR.** Describe what changed and why. Link any relevant issues.
 
 ## Contribution agreement
 
