@@ -21,7 +21,7 @@ and are applied by `make deploy` along with the operator.
 | `Subscription`  | `subscriptions` | `sub`, `subs`  | YAML-native equivalent of `CREATE MATERIALIZED VIEW`.                                       |
 | `LogicalTable`  | `logicaltables` | `lt`           | One named entity bound to multiple physical tier backends.                                  |
 | `Engine`        | `engines`       | `eng`          | Registers a query-execution runtime (optional; partially developed).                        |
-| `SqlJob`        | `sqljobs`       | `sql`, `sj`    | Generic SQL job (Flink, Beam, streaming or batch).                                          |
+| `SqlJob`        | `sqljobs`       | `sql`, `sj`    | Primitive consumed by an `SqlJob` operator to deploy Flink or Flink-Beam SQL jobs.          |
 
 ---
 
@@ -398,10 +398,10 @@ spec:
 
 ## SqlJob
 
-A generic SQL job that runs on a configured execution backend. Used to
-ship hand-authored Flink/Beam SQL through the same deployer machinery as
-materialized views — useful when a job doesn't fit the
-`CREATE MATERIALIZED VIEW` shape but you still want it managed via CRDs.
+A declarative spec for a SQL job — Flink or Flink-Beam, streaming or
+batch — that an `SqlJob` operator picks up and deploys. Hoptimator itself
+doesn't reconcile `SqlJob` resources; an external operator paired with this
+CRD does.
 
 ```yaml
 apiVersion: hoptimator.linkedin.com/v1alpha1

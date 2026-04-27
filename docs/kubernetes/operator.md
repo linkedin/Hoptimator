@@ -126,8 +126,7 @@ Useful things to grep:
 - `Deployed` / `Failed to deploy` — terminal outcomes for an element
 - `Restored` — a deployer rolled back after a failure mid-deploy
 
-The operator does not yet emit Kubernetes events, so logs are the primary
-debugging surface today.
+Logs are the primary debugging surface today.
 
 ## Lifecycle of a pipeline
 
