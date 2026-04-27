@@ -220,13 +220,13 @@ imperative side effects, and the two compose at the table level.
 
 ## Logical tables
 
-A **LogicalTable** is the answer to a question every team running data
-infrastructure eventually has to answer: "what is the *real* thing here, and
-where does it physically live?" In a typical stack, "the user audience
-table" is actually three or four things — a Kafka topic, a Venice store, an
-HDFS dataset — wired together by hand-built sync jobs and named differently
-in each place. A LogicalTable collapses that mess into a single named entity
-that knows where its physical copies live.
+A **LogicalTable** is an abstraction model over physical stores: one named
+dataset that simultaneously lives in several backends. The same audience
+table might exist as a Kafka topic for streaming consumers, a Venice store
+for online lookups, and an HDFS dataset for batch analytics — typically
+named differently in each place and tied together by hand-rolled sync jobs.
+A LogicalTable replaces that arrangement with a single declaration that
+binds each backend to a named tier role.
 
 You declare the entity once. Hoptimator handles the rest — the physical
 tier resources, the inter-tier pipelines that keep them in sync, the
