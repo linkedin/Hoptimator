@@ -31,7 +31,8 @@ class PipelineDependencyLabelsTest {
 
   @Test
   void identifierJoinsDatabaseAndPath() {
-    assertEquals("mydb/a.b.c", PipelineDependencyLabels.identifier("mydb", Arrays.asList("a", "b", "c")));
+    // Separator is "_" so the identifier is also a valid K8s label value out of the box.
+    assertEquals("mydb_a.b.c", PipelineDependencyLabels.identifier("mydb", Arrays.asList("a", "b", "c")));
   }
 
   @Test
@@ -106,20 +107,35 @@ class PipelineDependencyLabelsTest {
   }
 
   @Test
+  void labelValueIsKubernetesLabelValueCompliant() {
+    // K8s label values must match (([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?
+    // — the identifier separator is "_" precisely so this holds out of the box for typical
+    // (database, path) shapes seen in production.
+    Map<String, String> labels = PipelineDependencyLabels.labelsFor(
+        Collections.singletonList(src("ads-database", "ADS", "PAGE_VIEWS")), null);
+    String value = labels.values().iterator().next();
+
+    assertTrue(value.length() <= 63);
+    assertTrue(value.matches("(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?"),
+        "value must satisfy K8s label-value regex, got: " + value);
+    assertFalse(value.contains("/"), "no '/' separator should leak into the label value");
+  }
+
+  @Test
   void annotationForListsAllIdentifiers() {
     String annotation = PipelineDependencyLabels.annotationFor(
         Arrays.asList(src("kafka", "a"), src("venice", "b")),
         sink("mysql", "c"));
-    assertTrue(annotation.contains("kafka/a"));
-    assertTrue(annotation.contains("venice/b"));
-    assertTrue(annotation.contains("mysql/c"));
+    assertTrue(annotation.contains("kafka_a"));
+    assertTrue(annotation.contains("venice_b"));
+    assertTrue(annotation.contains("mysql_c"));
   }
 
   @Test
   void annotationForDeduplicatesAndOmitsNullSink() {
     String annotation = PipelineDependencyLabels.annotationFor(
         Arrays.asList(src("db", "t"), src("db", "t")), null);
-    assertEquals("db/t", annotation);
+    assertEquals("db_t", annotation);
   }
 
   @Test
@@ -128,9 +144,9 @@ class PipelineDependencyLabelsTest {
         Arrays.asList(src("a", "1"), src("b", "2")), sink("c", "3"));
     Set<String> parsed = PipelineDependencyLabels.parseAnnotation(annotation);
     assertEquals(3, parsed.size());
-    assertTrue(parsed.contains("a/1"));
-    assertTrue(parsed.contains("b/2"));
-    assertTrue(parsed.contains("c/3"));
+    assertTrue(parsed.contains("a_1"));
+    assertTrue(parsed.contains("b_2"));
+    assertTrue(parsed.contains("c_3"));
   }
 
   @Test

@@ -32,7 +32,7 @@ class PipelineDependencyCheckerTest {
 
   private static final String DB = "kafka1";
   private static final List<String> PATH = Collections.singletonList("my-topic");
-  private static final String IDENTIFIER = "kafka1/my-topic";
+  private static final String IDENTIFIER = "kafka1_my-topic";
 
   private static V1alpha1Pipeline pipeline(String name, String ownerUid, String annotationValue) {
     V1ObjectMeta meta = new V1ObjectMeta().name(name);

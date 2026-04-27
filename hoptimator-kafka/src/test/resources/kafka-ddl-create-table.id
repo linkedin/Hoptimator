@@ -106,7 +106,7 @@ create or replace table KAFKA."guard-source" ("KEY" VARCHAR, "VALUE" BINARY) WIT
 
 # Downstream MV reads from the source topic and materializes into a new topic.
 # Its pipeline gets a depends-on-* label pointing at KAFKA/guard-source.
-create or replace materialized view KAFKA."guard-derived" as select * from KAFKA."guard-source";
+create or replace materialized view KAFKA."guard-derived$view" as select * from KAFKA."guard-source";
 (0 rows modified)
 
 !update
@@ -117,7 +117,7 @@ active pipeline(s) depend on it
 !error
 
 # Drop the dependent MV first, releasing the label that pinned guard-source.
-drop materialized view KAFKA."guard-derived";
+drop materialized view KAFKA."guard-derived$view";
 (0 rows modified)
 
 !update
