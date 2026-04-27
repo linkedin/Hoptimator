@@ -48,8 +48,8 @@ Defines a view *and* deploys a running pipeline that maintains its sink.
 
 ```sql
 CREATE MATERIALIZED VIEW VENICE."AUDIENCE$members" AS
-  SELECT m.id AS "KEY", m.first_name
-  FROM PROFILE.MEMBERS m;
+  SELECT MEMBER_URN AS "KEY", FIRST_NAME
+  FROM PROFILE.MEMBERS;
 ```
 
 The result is a `View` *and* a `Pipeline` resource, plus all of the engine and
@@ -68,10 +68,10 @@ sink — use the suffix to give each one a distinct name.
 -- Both write into the same VENICE.AUDIENCE sink,
 -- but they are separate pipelines.
 CREATE MATERIALIZED VIEW VENICE."AUDIENCE$members" AS
-  SELECT m.id AS "KEY", m.first_name FROM PROFILE.MEMBERS m;
+  SELECT MEMBER_URN AS "KEY", first_name FROM PROFILE.MEMBERS;
 
 CREATE MATERIALIZED VIEW VENICE."AUDIENCE$articles" AS
-  SELECT a.id AS "KEY", a.title FROM CONTENT.ARTICLES a;
+  SELECT id AS "KEY", title FROM CONTENT.ARTICLES;
 ```
 
 The pipeline name becomes `<database>-<sink>-<suffix>` so the deployed
@@ -159,16 +159,13 @@ For example, against a Kafka adapter, `CREATE TABLE KAFKA.my_topic (...)`
 asks the Kafka deployer to create the topic itself — no separate Strimzi
 manifest, no operator round-trip. Against the Venice adapter it asks for a
 new store. Against `demodb` it's a no-op because the source is in-memory.
-
-The columns and `WITH (...)` options flow into the same TableTemplate
-machinery the planner uses, so you can lean on existing templates to set
-partition counts, retention, replication, and so on:
+Each Deployer contains its own set of configuration options.
 
 ```sql
 CREATE TABLE KAFKA.audience (
-  key VARCHAR,
-  first_name VARCHAR,
-  last_name VARCHAR
+  KEY VARCHAR,
+  FIRST_NAME VARCHAR,
+  LAST_NAME VARCHAR
 ) WITH ('kafka.partitions' '8');
 ```
 
@@ -177,13 +174,8 @@ Once the table exists, materialized views can write to it via
 
 ```sql
 CREATE MATERIALIZED VIEW KAFKA."audience$members" AS
-  SELECT m.id AS key, m.first_name, m.last_name FROM PROFILE.MEMBERS m;
+  SELECT MEMBER_URN AS KEY, FIRST_NAME, LAST_NAME FROM PROFILE.MEMBERS;
 ```
-
-Whether `CREATE TABLE` succeeds depends on the adapter's templates. Adapters
-without a `Modify`-method TableTemplate cannot create tables. Read-only
-demo sources fail intentionally; production adapters that ship a `Modify`
-template (Kafka, Venice, etc.) succeed.
 
 Populating a new table from a query (`CREATE TABLE ... AS <query>`) is not
 supported today.
@@ -218,17 +210,12 @@ parse alone.
 ## `WITH` options syntax
 
 `WITH (...)` clauses on Hoptimator DDL use Calcite's
-*`'key' 'value'`* form, with whitespace separating the two strings — **no
-`=` sign**. Pairs are comma-separated:
+*`'key' 'value'`* form, with whitespace separating the two strings.
+Pairs are comma-separated:
 
 ```sql
 WITH ('kafka.partitions' '8', 'kafka.retention.ms' '7200000')
 ```
-
-If you've used Flink SQL, the `'key' = 'value'` form looks familiar — that
-syntax is Flink's, and it shows up in the *output* of `!pipeline` and
-`!specify` because that's what the engine consumes. Hoptimator's parser
-rejects `=` here.
 
 ## Function library
 
