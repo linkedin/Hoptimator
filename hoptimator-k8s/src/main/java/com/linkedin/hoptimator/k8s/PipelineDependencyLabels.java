@@ -37,9 +37,14 @@ public final class PipelineDependencyLabels {
   private PipelineDependencyLabels() {
   }
 
-  /** Canonical logical identifier for a resource: {@code <database>/<dot-joined-path>}. */
+  /**
+   * Canonical logical identifier for a resource: {@code <database>_<dot-joined-path>}.
+   *
+   * <p>The separator is {@code _} (not {@code /}) so the result is also a valid Kubernetes
+   * label value out of the box — K8s allows {@code [A-Za-z0-9_.-]} but not {@code /}.
+   */
   public static String identifier(String database, Iterable<String> path) {
-    return database + "/" + String.join(".", path);
+    return database + "_" + String.join(".", path);
   }
 
   /** Hex slug derived from the full identifier; same identifier always produces the same slug. */

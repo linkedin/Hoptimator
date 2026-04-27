@@ -95,7 +95,7 @@ class K8sPipelineDeployerTest {
 
     String annotation = annotations.get(PipelineDependencyLabels.ANNOTATION_KEY);
     assertNotNull(annotation);
-    assertTrue(annotation.contains("kafka/topic"));
-    assertTrue(annotation.contains("mysql/outbox"));
+    assertTrue(annotation.contains("kafka_topic"));
+    assertTrue(annotation.contains("mysql_outbox"));
   }
 }
