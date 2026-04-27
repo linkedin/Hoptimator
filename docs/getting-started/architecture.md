@@ -116,19 +116,16 @@ placeholders filled in by:
 
 ## Step 4 — Deploy
 
-Deployers apply the specs to a target system. The defaults you get out of
-the box — `K8sSourceDeployer` and `K8sJobDeployer` from the
-`hoptimator-k8s` module — apply to Kubernetes, which is why every page in
-this guide assumes a cluster. Both implement the `Deployer` interface from
-`hoptimator-api`, so they can be replaced by anything else that knows how to
-materialize a `Source`, `Sink`, or `Job`. Kubernetes is the path of least
-resistance, not a hard requirement.
+Deployers apply the specs. The bundled `K8sSourceDeployer` and
+`K8sJobDeployer` (in `hoptimator-k8s`) target Kubernetes — which is why
+every page in this guide assumes a cluster — but the `Deployer` SPI is
+the swap point.
 
-With the default deployers, the result is a `Pipeline` resource in the
-cluster plus whatever implementation resources its templates produced — a
-`KafkaTopic`, a `FlinkSessionJob`, a Venice store, etc. None of those are
-"Hoptimator's" — Hoptimator just generated the spec; the relevant operator
-(Strimzi, Flink Kubernetes Operator, etc.) runs the workload.
+With the default deployers, the result is a `Pipeline` resource plus
+whatever implementation resources its templates produced — a `KafkaTopic`,
+a `FlinkSessionJob`, a Venice store. None of those are "Hoptimator's";
+Hoptimator generated the spec, and the relevant operator (Strimzi, Flink
+Kubernetes Operator, etc.) runs the workload.
 
 ## Step 5 — Reconcile
 

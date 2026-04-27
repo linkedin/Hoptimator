@@ -186,25 +186,6 @@ CREATE MATERIALIZED VIEW KAFKA."audience$members" AS
 Populating a new table from a query (`CREATE TABLE ... AS <query>`) is not
 supported today.
 
-## Reserved syntax (parses but not yet executed)
-
-The grammar accepts a handful of statements whose executors are not yet
-wired up. They parse cleanly but are no-ops today; treat them as reserved
-syntax that future versions may activate.
-
-- `REFRESH MATERIALIZED VIEW <name>` — intended to re-run a batch-style
-  materialization on demand. Not implemented.
-- `FIRE TABLE | TRIGGER | VIEW | MATERIALIZED VIEW <name>` — intended to
-  manually fire a side effect (e.g. for testing without waiting for a
-  schedule). Not implemented.
-- `PAUSE MATERIALIZED VIEW <name>` / `RESUME MATERIALIZED VIEW <name>` —
-  parser support exists; executor does not. (`PAUSE TRIGGER` /
-  `RESUME TRIGGER`, above, are fully implemented.)
-- `CREATE [OR REPLACE] FUNCTION ...` — parser support exists for
-  registering user-defined job templates; executor does not.
-
-If you depend on any of these, file an issue rather than relying on the
-parse alone.
 
 ## Identifiers and case sensitivity
 
@@ -243,12 +224,32 @@ SELECT * FROM "k8s".views WHERE schema = 'ADS';
 
 These tables are queryable; they are not writable.
 
-## What is *not* supported
+## What's not supported
 
-- `INSERT` / `UPDATE` / `DELETE` against arbitrary tables — these are reserved
-  for what the planner emits internally.
-- `ALTER TABLE` — drop and recreate, or rely on the deployer's update path
-  (`CREATE OR REPLACE`).
+Two flavors: **categorically out of scope** and **reserved syntax that
+parses but is a no-op today**. The latter may be activated in a future
+version; if you depend on any of it, file an issue rather than relying on
+the parse alone.
+
+**Out of scope:**
+
+- `INSERT` / `UPDATE` / `DELETE` against arbitrary tables — these are
+  reserved for what the planner emits internally.
+- `ALTER TABLE` — drop and recreate, or rely on the deployer's update
+  path (`CREATE OR REPLACE`).
 - Transactions. Each statement is auto-committed; rollbacks are not
   supported.
 - Stored procedures.
+
+**Parses but not yet executed:**
+
+- `REFRESH MATERIALIZED VIEW <name>` — intended to re-run a batch-style
+  materialization on demand.
+- `FIRE TABLE | TRIGGER | VIEW | MATERIALIZED VIEW <name>` — intended to
+  manually fire a side effect (e.g. for testing without waiting for a
+  schedule).
+- `PAUSE MATERIALIZED VIEW <name>` / `RESUME MATERIALIZED VIEW <name>` —
+  parser support exists; executor does not. (`PAUSE TRIGGER` /
+  `RESUME TRIGGER` above are fully implemented.)
+- `CREATE [OR REPLACE] FUNCTION ...` — parser support exists for
+  registering user-defined job templates; executor does not.

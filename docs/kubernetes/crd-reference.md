@@ -32,7 +32,7 @@ and are applied by `make deploy` along with the operator.
 | `TableTrigger`  | `tabletriggers` | —              | Fires a Job when an upstream table changes or on a cron schedule.                           |
 | `Subscription`  | `subscriptions` | `sub`, `subs`  | YAML-native equivalent of `CREATE MATERIALIZED VIEW`.                                       |
 | `LogicalTable`  | `logicaltables` | `lt`           | One named entity bound to multiple physical tier backends.                                  |
-| `Engine`        | `engines`       | `eng`          | Registers a query-execution runtime (optional; partially developed).                        |
+| `Engine`        | `engines`       | `eng`          | Registers a query-execution runtime. Optional; see [concepts](../getting-started/concepts.md#engines-optional). |
 | `SqlJob`        | `sqljobs`       | `sql`, `sj`    | Primitive consumed by an `SqlJob` operator to deploy Flink or Flink-Beam SQL jobs.          |
 
 ---
@@ -379,9 +379,10 @@ backfill trigger when an offline tier is bound.
 
 ## Engine (optional)
 
-Registers a query-execution runtime. **The Engine path is partially
-developed today** — pipeline materialization does not require an Engine
-resource. The Engine surface is mainly used by interactive query paths.
+Registers a query-execution runtime. See
+[Engines in concepts](../getting-started/concepts.md#engines-optional)
+for what this surface is and isn't — short version: pipeline
+materialization does *not* require an `Engine` resource.
 
 ```yaml
 apiVersion: hoptimator.linkedin.com/v1alpha1
