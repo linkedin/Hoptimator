@@ -1,10 +1,10 @@
 package com.linkedin.hoptimator.mysql;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -27,13 +27,16 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -49,8 +52,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
+@SuppressFBWarnings(
+    value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
+    justification = "Tests stub Connection.createStatement() / DriverManager.getConnection() on "
+        + "mocks. SpotBugs sees the AutoCloseable return types (Connection, Statement) as "
+        + "obligations, but the values are mocks that the deployer under test consumes; "
+        + "verification calls inherently re-invoke those methods on the mock.")
 class MySqlDeployerTest {
 
   private static final String DATABASE = "test_db";
@@ -1307,5 +1314,27 @@ class MySqlDeployerTest {
         "Expected IF NOT EXISTS in CREATE DATABASE SQL, got: " + createDbSql);
     assertTrue(createDbSql.contains("`test_db`"),
         "Expected backtick-escaped db name in CREATE DATABASE SQL, got: " + createDbSql);
+  }
+
+  // --- DependencyGuarded tests ---
+
+  @Test
+  void testGuardedResourcesReturnsManagedSource() {
+    Source source = new Source("db", List.of("MYSQL", DATABASE, "MyTable"), Collections.emptyMap());
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+
+    Collection<Source> guarded = deployer.guardedResources();
+
+    assertEquals(1, guarded.size());
+    assertEquals(source, guarded.iterator().next());
+  }
+
+  @Test
+  void testSelfOwnerUidDefaultsToNull() throws SQLException {
+    // MySQL table is leaf storage — no owned pipelines to exempt.
+    Source source = new Source("db", List.of("MYSQL", DATABASE, "MyTable"), Collections.emptyMap());
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+
+    assertNull(deployer.selfOwnerUid());
   }
 }

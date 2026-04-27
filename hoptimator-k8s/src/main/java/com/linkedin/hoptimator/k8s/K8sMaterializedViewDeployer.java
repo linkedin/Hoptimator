@@ -1,34 +1,72 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DependencyGuarded;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.k8s.models.V1alpha1View;
+import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.util.DeploymentService;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 
-/** Deploys View and Pipeline objects, along with all the pipeline elements. */
-class K8sMaterializedViewDeployer implements Deployer {
+/**
+ * Deploys View and Pipeline objects, along with all the pipeline elements.
+ *
+ * <p>Implements {@link DependencyGuarded} so the framework blocks materialized-view deletion
+ * when an external pipeline still consumes the MV's sink. The MV's own internal pipeline
+ * (which writes to the sink) is owned by the View CRD and exempted via {@link #selfOwnerUid}.
+ */
+class K8sMaterializedViewDeployer implements Deployer, DependencyGuarded {
 
   private final MaterializedView view;
   private final K8sContext context;
   private final K8sViewDeployer viewDeployer;
+  private final K8sApi<V1alpha1View, V1alpha1ViewList> viewApi;
   private final List<Deployer> deployers;
 
   private final Object crudLock = new Object();
 
   K8sMaterializedViewDeployer(MaterializedView view, K8sContext context) {
+    this(view, context, new K8sApi<>(context, K8sApiEndpoints.VIEWS));
+  }
+
+  /** Package-private constructor for testing — accepts an injectable view API. */
+  K8sMaterializedViewDeployer(MaterializedView view, K8sContext context,
+      K8sApi<V1alpha1View, V1alpha1ViewList> viewApi) {
     this.view = view;
     this.context = context;
     this.viewDeployer = createViewDeployer(view, context);
+    this.viewApi = viewApi;
     this.deployers = new ArrayList<>();
+  }
+
+  @Override
+  public Collection<Source> guardedResources() {
+    // The MV's sink is what other pipelines may read. Sources the MV reads from are not
+    // affected by deleting this MV.
+    return Collections.singletonList(view.pipeline().sink());
+  }
+
+  @Override
+  public String selfOwnerUid() throws SQLException {
+    // The View CRD owns the inter-tier Pipeline; that pipeline's depends-on label points at
+    // the sink (because it writes to the sink), so without this exemption the MV's own
+    // pipeline would block its own delete. Returning the View CRD's UID excludes it.
+    String name = K8sUtils.canonicalizeName(view.path());
+    V1alpha1View existing = viewApi.getIfExists(context.namespace(), name);
+    if (existing == null || existing.getMetadata() == null) {
+      return null;
+    }
+    return existing.getMetadata().getUid();
   }
 
   K8sViewDeployer createViewDeployer(MaterializedView view, K8sContext context) {

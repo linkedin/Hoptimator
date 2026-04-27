@@ -168,33 +168,14 @@ Failed to generate key schema for Venice store testevent
 !describe "VENICE"."testevent"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 7: DROP TABLE — cascades to the LogicalTable CRD and its implicit
-# inter-tier pipeline; tier resources are best-effort cleaned up afterward.
-# ─────────────────────────────────────────────────────────────────────────────
-drop table "LOGICAL"."testevent";
-(0 rows modified)
-
-!update
-
-# The owner-ref cascade removes the implicit nearline→online pipeline.
-select name from "k8s".pipelines where name = 'logical-testevent-nearline-to-online';
-+------+
-| NAME |
-+------+
-+------+
-(0 rows)
-
-!ok
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Test 8: CREATE TABLE against non-existent schema is rejected
+# Test 7: CREATE TABLE against non-existent schema is rejected
 # ─────────────────────────────────────────────────────────────────────────────
 create table "LOGICAL-NONEXISTENT"."testevent" ("KEY" varchar, "id" bigint);
 Schema for LOGICAL-NONEXISTENT.testevent not found.
 !error
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 9: Test dry run to verify resources
+# Test 8: Test dry run to verify resources
 # ─────────────────────────────────────────────────────────────────────────────
 create or replace table "LOGICAL"."create-table-test" ("KEY" varchar, "memberId" bigint, "pageKey" varchar) WITH ("kafka.partitions" '5');
 apiVersion: flink.apache.org/v1beta1
@@ -232,8 +213,24 @@ spec:
 !specify create-table-test
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 10: Clean up — drop succeeds for the remaining logical tables.
+# Test 9: DROP TABLE — cascades to the LogicalTable CRD and its implicit
+# inter-tier pipeline; tier resources are best-effort cleaned up afterward.
 # ─────────────────────────────────────────────────────────────────────────────
+drop table "LOGICAL"."testevent";
+(0 rows modified)
+
+!update
+
+# The owner-ref cascade removes the implicit nearline→online pipeline.
+select name from "k8s".pipelines where name = 'logical-testevent-nearline-to-online';
++------+
+| NAME |
++------+
++------+
+(0 rows)
+
+!ok
+
 drop table "LOGICAL"."pageview";
 (0 rows modified)
 

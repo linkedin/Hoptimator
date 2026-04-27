@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.mysql;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -25,8 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE", "DMI_EMPTY_DB_PASSWORD"},
-    justification = "Mock objects do not hold real resources")
 class MySqlDriverTest {
 
   /** Returns a driver whose {@code createMySqlRootSchema()} yields a no-op schema. */
