@@ -22,7 +22,7 @@ connection over your URL scheme (`jdbc:my-system://...`). The driver's job
 is to expose the system's tables to Calcite — once Calcite can see them,
 the planner can route queries through them.
 
-Read the bundled adapters rather than rely on a snippet here:
+Bundled adapters:
 
 - [`hoptimator-demodb`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-demodb)
   — the smallest end-to-end example. `DemoDriver` extends `CalciteDriver`,

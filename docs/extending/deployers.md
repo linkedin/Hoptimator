@@ -100,8 +100,7 @@ com.example.hoptimator.mysystem.MySystemDeployerProvider
 
 ## A concrete example: the Kafka deployer
 
-The bundled Kafka path is a good shape to copy. Read the source rather
-than rely on a snippet here:
+The bundled Kafka path is a good shape to copy:
 
 - [`KafkaDeployerProvider`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-kafka/src/main/java/com/linkedin/hoptimator/kafka/KafkaDeployerProvider.java)
   — type-checks the `Deployable`, extracts per-schema connection

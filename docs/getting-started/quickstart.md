@@ -61,17 +61,9 @@ kubectl get jobtemplates
 ```
 
 This launches a [sqlline](https://github.com/julianhyde/sqlline) shell connected
-to `jdbc:hoptimator://`. Type `!intro` at the prompt for a tour. The most useful
-commands to know up front:
-
-| Command                          | What it does                                          |
-| -------------------------------- | ----------------------------------------------------- |
-| `!tables`                        | List every table in the catalog                       |
-| `!schemas`                       | List every schema                                     |
-| `!resolve ADS.PAGE_VIEWS`        | Show the schema and connector config for a table      |
-| `!pipeline <sql>`                | Show the auto-generated pipeline SQL for a statement  |
-| `!specify <sql>`                 | Show every Kubernetes spec that statement would emit  |
-| `!quit`                          | Exit                                                  |
+to `jdbc:hoptimator://`. Type `!intro` at the prompt for a tour, or `!quit`
+to leave. For the full set of Hoptimator-specific commands (`!resolve`,
+`!pipeline`, `!specify`, …) see [SQL CLI](../user-guide/sql-cli.md).
 
 Try a quick query:
 

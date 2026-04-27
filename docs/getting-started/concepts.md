@@ -164,7 +164,7 @@ Adding a Database to the catalog tells Hoptimator how to *read* from a system.
 
 Templates use `{{ }}` placeholders. Some placeholders are filled in by the
 deployer (`{{name}}`, `{{table}}`, `{{flinksql}}`); others come from
-[ConfigProviders](#configuration-and-hints) or [hints](#hints).
+ConfigProviders or [hints](#configuration-and-hints).
 
 ```yaml
 apiVersion: hoptimator.linkedin.com/v1alpha1
@@ -194,53 +194,16 @@ than code.
 
 ## TableTriggers
 
-A **TableTrigger** runs a Kubernetes job when an upstream table changes — or
-on a cron schedule. The job spec is arbitrary YAML. That combination is more
-powerful than it looks at first glance, and it's where a lot of Hoptimator's
-operational flexibility comes from.
+A **TableTrigger** runs a Kubernetes job when an upstream table changes —
+or on a cron schedule. The job spec is arbitrary YAML, so triggers are
+where Hoptimator carries the imperative side effects (backfills, rETL
+refreshes, downstream notifications, operational hooks) that don't belong
+inside the pipeline itself.
 
-A trigger lets you express things that would otherwise require either a
-purpose-built pipeline or a separate orchestrator:
-
-- **Backfills** that fire when a new offline partition arrives, populating
-  the offline tier of a [LogicalTable](#logical-tables) without coupling
-  that work to the streaming pipeline.
-- **rETL refreshes** on cron, exporting a Kafka topic to a downstream system
-  on schedule.
-- **Downstream notifications** — a job that calls an API, sends a Slack
-  message, or kicks off a CI workflow whenever a table changes.
-- **Operational hooks** — invalidating caches, rotating credentials, running
-  ad-hoc validation, all driven by the same data events that pipelines react
-  to.
-
-The status field on a `TableTrigger` is what *fires* the job — typically
-patched by the producer of the upstream table (or by Hoptimator itself when
-data arrives). That separation — declarative trigger spec, imperative
-status patch — makes triggers cleanly composable with whatever already owns
-the upstream system.
-
-Triggers can also be auto-generated from a `TableTemplate`, so adapters can
-ship sensible defaults (e.g. "every Kafka source automatically gets a
-backfill trigger pointing at its offline mirror") instead of asking users
-to declare them by hand.
-
-```yaml
-apiVersion: hoptimator.linkedin.com/v1alpha1
-kind: TableTrigger
-metadata:
-  name: test-table-trigger
-spec:
-  schema: KAFKA
-  table: existing-topic-1
-  schedule: "@hourly"
-  yaml: |
-    apiVersion: batch/v1
-    kind: Job
-    ...
-```
-
-The pattern: pipelines stay pure data-flow expressions, triggers carry the
-imperative side effects, and the two compose at the table level.
+The pattern: pipelines stay pure data-flow expressions, triggers carry
+the imperative side effects, and the two compose at the table level. For
+operational guidance — cron vs. status-driven firing, common patterns, the
+pause/resume lifecycle — see [Triggers](../kubernetes/triggers.md).
 
 ## Logical tables
 
@@ -304,52 +267,18 @@ infrastructure for each binding:
   nearline tier (or the first available one) and reused everywhere. You
   declare columns once, in the place where they're naturally streamed.
 
-### Why this matters as an abstraction
-
-Multi-tier datasets are usually built imperatively: pick a name for the
-Kafka topic, pick a different name for the Venice store, pick a third for
-the HDFS dataset, write a sync job, write a backfill job, hope nobody ever
-forgets to update one of them when the schema changes. LogicalTables turn
-that into a declarative model with three concrete benefits:
-
-- **Application code is tier-agnostic by default.** Reading from
-  `LOGICAL.audience` Just Works; the application doesn't have to know that
-  the *online* read goes to Venice. Switching tier backends is a CRD edit,
-  not a code change.
-- **The "right" topology is the cheap path.** Standing up a multi-tier
-  feature is one declaration instead of N hand-rolled pieces. The
-  hard-to-skip parts (sync jobs, backfill triggers) come along
-  automatically, so they don't get skipped.
-- **Materialized views compose with it cleanly.**
-  `CREATE MATERIALIZED VIEW LOGICAL."audience$members" AS …` writes to the
-  logical table and the inter-tier syncing fans the data out across all
-  bound tiers. Many writers can use the
-  [partial-view](../user-guide/ddl-reference.md#partial-views-multiple-pipelines-into-one-sink)
-  pattern to share the same logical sink.
-
 ### The classic use case: feature stores and lambda architecture
 
 The pattern this most directly enables is the
 [Lambda / Kappa architecture](https://en.wikipedia.org/wiki/Lambda_architecture)
-that feature stores are built on:
-
-- A *streaming* path keeps the freshest values flowing through nearline.
-- A *serving* path exposes the same data to online queries with low latency.
-- A *batch* path lets analytics and ML training jobs read historical
-  snapshots from offline.
-
-Today this typically means three different systems with three different
-names and three different sync mechanisms. With a LogicalTable, it's one
-name, and the sync mechanisms are themselves declared infrastructure.
-
-### Implementation note
+feature stores are built on: a streaming path through nearline, a
+low-latency serving path through online, and a batch path through offline
+— all sharing one name. Hoptimator turns the sync mechanisms between them
+into declared infrastructure rather than hand-rolled jobs.
 
 Mechanically, LogicalTables are exposed via a JDBC driver
-(`jdbc:logical://…`) so they show up in the catalog like any other
-Database, but conceptually the logical table is an *abstraction model* over
-the physical stores — most of the value is realized by the deployer when
-you create one, not by the driver at query time. Read it as "one logical
-entity backed by N physical stores," not "another connector."
+(`jdbc:logical://…`), but most of the value is realized by the deployer at
+create time, not by the driver at query time.
 
 ## Subscriptions
 
@@ -371,28 +300,15 @@ spec:
 
 ## Configuration and hints
 
-Hoptimator has two mechanisms for getting values into templates beyond the
-deployer's built-in placeholders.
+Values reach templates through two paths:
 
-- **ConfigProvider** — supplies static, namespace-wide values. The default
-  `K8sConfigProvider` reads them from a `hoptimator-configmap` ConfigMap. Use
-  this for things like cluster endpoints that are the same for every pipeline
-  in the namespace.
-- **Hints** — key/value pairs supplied at connection time, either as JDBC
-  properties or as fields on a Subscription. Use these for per-pipeline
-  overrides like Kafka partition count or Flink parallelism.
+- **`ConfigProvider`** for static, namespace-wide defaults — the bundled
+  one reads them from a `hoptimator-configmap` ConfigMap.
+- **Hints** for per-pipeline overrides, set as JDBC properties or as
+  fields on a Subscription.
 
-Hints come in two flavors:
-
-- **Template hints** override `{{ }}` placeholders directly
-  (`kafka.partitions=4`, `flink.parallelism=2`).
-- **Connector hints** are passed straight to the engine, scoped by connector and
-  source/sink role. They are formatted
-  `<connector>.<source|sink>.<config-name>` — e.g.
-  `kafka.source.properties.group.id=my-group`.
-
-Hints are advisory: if the planner picks a different physical pipeline, hints
-that no longer apply are dropped.
+For the full mechanics, see [Hints](../user-guide/hints.md) and
+[Configuration](../kubernetes/configuration.md).
 
 ## Bundled adapters and runtimes
 
