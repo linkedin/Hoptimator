@@ -50,3 +50,36 @@ List of column aliases must have same degree as table; table has 1 columns ('FIR
 create or replace materialized view ads."PAGE_VIEWS$myview" (page_urn) as select first_name, last_name from profile.members;
 List of column aliases must have same degree as table; table has 2 columns ('FIRST_NAME', 'LAST_NAME'), whereas alias list has 1 columns
 !error
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependency guard: drop is blocked when an active pipeline still depends on
+# the resource being dropped. Recreate audience as an MV (dropped above), then
+# build a downstream MV that materializes from audience — its pipeline gets a
+# depends-on-* label pointing at audience's sink.
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace materialized view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+create or replace materialized view ads."AUDIENCE$derived" as select * from ads.audience;
+(0 rows modified)
+
+!update
+
+# Drop is blocked because AUDIENCE$derived's pipeline labels audience as a
+# dependency. The error message names the active pipeline(s) holding it open.
+drop materialized view ads.audience;
+active pipeline(s) depend on it
+!error
+
+# Drop the dependent first → audience can now be dropped cleanly.
+drop materialized view ads."AUDIENCE$derived";
+(0 rows modified)
+
+!update
+
+drop materialized view ads.audience;
+(0 rows modified)
+
+!update
