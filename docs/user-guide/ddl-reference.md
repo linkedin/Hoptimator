@@ -31,7 +31,7 @@ Each `CREATE VIEW` produces a `View` Kubernetes resource.
 CREATE [OR REPLACE] MATERIALIZED VIEW [IF NOT EXISTS] <name>
   [(<column>, ...)]
   [REFRESHED '<cron>']
-  [WITH (<key> = <value>, ...)]
+  [WITH ('<key>' '<value>', ...)]
 AS <query>
 ```
 
@@ -112,7 +112,7 @@ CREATE [OR REPLACE] TRIGGER [IF NOT EXISTS] <name>
   AS '<yaml-template>'
   [IN '<namespace>']
   [SCHEDULED '<cron>']
-  [WITH (<key> = <value>, ...)]
+  [WITH ('<key>' '<value>', ...)]
 ```
 
 Equivalent to a `TableTrigger` CRD: runs the embedded YAML (typically a Job
@@ -144,7 +144,7 @@ RESUME TRIGGER refresh_audience;
 ```
 CREATE [OR REPLACE] TABLE [IF NOT EXISTS] <name>
   (<column> <type>, ...)
-  [WITH (<key> = <value>, ...)]
+  [WITH ('<key>' '<value>', ...)]
 
 CREATE [OR REPLACE] TABLE [IF NOT EXISTS] <name> LIKE <source>
 ```
@@ -169,7 +169,7 @@ CREATE TABLE KAFKA.audience (
   key VARCHAR,
   first_name VARCHAR,
   last_name VARCHAR
-) WITH ('kafka.partitions' = '8');
+) WITH ('kafka.partitions' '8');
 ```
 
 Once the table exists, materialized views can write to it via
@@ -214,6 +214,21 @@ parse alone.
 - Use double quotes for case-sensitive names (`"PageViewEvent"`).
 - String literals use single quotes (`'value'`).
 - Nested struct access uses bracket syntax: `"profile"['first_name']`.
+
+## `WITH` options syntax
+
+`WITH (...)` clauses on Hoptimator DDL use Calcite's
+*`'key' 'value'`* form, with whitespace separating the two strings — **no
+`=` sign**. Pairs are comma-separated:
+
+```sql
+WITH ('kafka.partitions' '8', 'kafka.retention.ms' '7200000')
+```
+
+If you've used Flink SQL, the `'key' = 'value'` form looks familiar — that
+syntax is Flink's, and it shows up in the *output* of `!pipeline` and
+`!specify` because that's what the engine consumes. Hoptimator's parser
+rejects `=` here.
 
 ## Function library
 
