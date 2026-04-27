@@ -1,6 +1,6 @@
 <div align="center">
   <h1>Hoptimator</h1>
-  <h3>A Kubernetes-native control plane for multi-hop data pipelines</h3>
+  <h3>A SQL control plane for multi-system data pipelines</h3>
   <p>
     <a href="https://github.com/linkedin/Hoptimator/actions"><img src="https://img.shields.io/github/actions/workflow/status/linkedin/Hoptimator/integration-tests.yml?branch=main&label=CI" alt="CI"></a>
     <a href="https://github.com/linkedin/Hoptimator/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-BSD--2--Clause-blue" alt="License"></a>
@@ -8,10 +8,10 @@
   </p>
 </div>
 
-Hoptimator turns a single SQL statement into a running, multi-system data
-pipeline. You declare what you want — a materialized view from one system into
-another — and Hoptimator plans the topology, generates the specs, deploys
-them, and reconciles them.
+Hoptimator turns SQL into running, multi-hop data pipelines that span
+Kafka, Flink, Venice, and anything else you plug in. You declare what you
+want — a materialized view from one system into another — and Hoptimator
+plans the topology, generates the specs, deploys them, and reconciles them.
 
 ```sql
 CREATE MATERIALIZED VIEW ADS.AUDIENCE AS

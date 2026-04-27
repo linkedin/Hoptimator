@@ -1,8 +1,8 @@
 # Hoptimator documentation
 
-Hoptimator is a Kubernetes-native control plane for multi-hop data pipelines.
-You write SQL; it figures out the topology, provisions the topics and jobs,
-deploys them, and reconciles them.
+Hoptimator is a SQL control plane for multi-system data pipelines. You write
+SQL; it figures out the topology across Kafka, Flink, Venice, and whatever
+else you plug in, generates the specs, deploys them, and reconciles them.
 
 This documentation is organized by what you're trying to do. Follow the path
 that matches you.
