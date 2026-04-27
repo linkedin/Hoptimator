@@ -32,11 +32,14 @@ See [JDBC driver](jdbc.md) for the full URL syntax.
 
 ## Built-in commands
 
-Standard sqlline commands all work — `!help`, `!tables`, `!schemas`, `!quit`,
-`!run`, `!record`, etc. On top of those, Hoptimator adds:
+Standard sqlline commands all work (`!help`, `!quit`, `!run`, `!record`,
+…) along with the catalog-introspection ones below. Hoptimator adds the
+last four for inspecting plans and pipelines.
 
 | Command       | What it does                                                                  |
 | ------------- | ----------------------------------------------------------------------------- |
+| `!schemas`    | List every schema in the catalog.                                             |
+| `!tables`     | List every table in the catalog.                                              |
 | `!intro`      | One-screen tour. Run this first.                                              |
 | `!resolve`    | Print the schema and source/sink connector configs Hoptimator would use for a table. |
 | `!pipeline`   | Print the auto-generated pipeline SQL for a SELECT or CREATE MATERIALIZED VIEW statement. |
