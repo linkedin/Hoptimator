@@ -16,7 +16,7 @@ You'll need a deployer when:
   plane.
 
 If your storage system has an operator that already accepts YAML, prefer a
-`TableTemplate` ([Templates and configuration](../kubernetes/configuration.md)) — the bundled
+`TableTemplate` ([Templates and configuration](../kubernetes/templates.md)) — the bundled
 deployers handle the apply for you.
 
 ## The interface

@@ -185,7 +185,7 @@ spec:
 
 | Field        | Type   | Description                                                                                       |
 | ------------ | ------ | ------------------------------------------------------------------------------------------------- |
-| `yaml`       | string | YAML template used to generate K8s specs. Placeholders are `{{var}}` ([syntax](configuration.md#placeholder-syntax)).    |
+| `yaml`       | string | YAML template used to generate K8s specs. Placeholders are `{{var}}` ([syntax](templates.md#placeholder-syntax)).    |
 | `connector`  | string | Java-properties-style template used to generate the engine's connector config.                    |
 | `databases`  | array  | Database names this template matches. If null/empty, matches every database.                      |
 | `methods`    | array  | Access methods to match: `Scan` (read), `Modify` (write). If null/empty, matches all.             |
@@ -195,7 +195,7 @@ provides only `connector` is useful for adapters that don't need to deploy
 new infrastructure (the upstream resource already exists) but still need to
 declare how to read or write it.
 
-See [Templates and configuration](configuration.md) for placeholder syntax and full examples.
+See [Templates and configuration](templates.md) for placeholder syntax and full examples.
 
 ---
 
@@ -229,7 +229,7 @@ spec:
 
 | Field       | Type   | Description                                                                          |
 | ----------- | ------ | ------------------------------------------------------------------------------------ |
-| `yaml`      | string | YAML template. Has access to `{{flinksql}}`, `{{flinkconfigs}}`, plus everything in [TableTemplate's environment](configuration.md#default-placeholders-deployer-injected). |
+| `yaml`      | string | YAML template. Has access to `{{flinksql}}`, `{{flinkconfigs}}`, plus everything in [TableTemplate's environment](templates.md#default-placeholders-deployer-injected). |
 | `databases` | array  | Database names this template matches. If null/empty, matches every database.         |
 
 ---

@@ -108,7 +108,7 @@ spec:
 
 No Java. The bundled Kafka deployment uses this pattern — Hoptimator emits
 a `KafkaTopic` CRD; Strimzi creates the topic. See
-[Templates and configuration](../kubernetes/configuration.md) for the placeholder syntax and
+[Templates and configuration](../kubernetes/templates.md) for the placeholder syntax and
 matching rules.
 
 ### Path B: imperative, via a custom Deployer

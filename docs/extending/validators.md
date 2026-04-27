@@ -138,8 +138,7 @@ The bundled providers are small enough to read end-to-end:
 - `CompatibilityValidatorProvider` (`hoptimator-jdbc`) — runs cross-system
   compatibility checks, e.g. type conversion sanity between source and sink.
 - `AvroValidatorProvider` (`hoptimator-avro`) — validates that the
-  generated row types can be expressed in Avro, since most LinkedIn-style
-  pipelines round-trip through Avro on the wire.
+  generated row types can be expressed in Avro.
 
 Reading them is the fastest way to see how a new provider should look.
 

@@ -37,7 +37,7 @@ A hint's *key* determines what it does:
 For the full template-authoring story — including the placeholder syntax,
 matching rules, and the precedence between hints, configmap, and system
 properties — see
-[Templates and configuration](../kubernetes/configuration.md).
+[Templates and configuration](../kubernetes/templates.md).
 
 ## Reading what was applied
 

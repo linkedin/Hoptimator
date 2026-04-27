@@ -308,7 +308,7 @@ Values reach templates through two paths:
   fields on a Subscription.
 
 For the full mechanics, see [Hints](../user-guide/hints.md) and
-[Configuration](../kubernetes/configuration.md).
+[Configuration](../kubernetes/templates.md).
 
 ## Bundled adapters and runtimes
 

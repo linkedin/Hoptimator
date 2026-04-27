@@ -47,7 +47,7 @@ If you're using the bundled Kubernetes deployer (the default), additional
 `k8s.*` properties select the cluster, namespace, and credentials. Those
 are deployer-specific rather than driver-specific, so the full reference
 lives with the rest of the Kubernetes documentation —
-see [Kubernetes → Configuration](../kubernetes/configuration.md#connection-properties-reference).
+see [Kubernetes → Configuration](../kubernetes/templates.md#connection-properties-reference).
 A different deployer would expose its own properties in the same
 namespace.
 

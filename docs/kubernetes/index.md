@@ -12,7 +12,7 @@ operator reconciles them.
   Hoptimator installs: `Database`, `View`, `Pipeline`, `TableTemplate`,
   `JobTemplate`, `TableTrigger`, `Subscription`, `LogicalTable`, `Engine`,
   `SqlJob`.
-- **[Templates and configuration](configuration.md)** — authoring
+- **[Templates and configuration](templates.md)** — authoring
   `TableTemplate` and `JobTemplate` (matching rules, placeholder syntax,
   conditional templates, common patterns), and where placeholder values
   come from (`hoptimator-configmap`, JDBC connection properties, JVM

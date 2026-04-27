@@ -6,7 +6,7 @@ JVM system properties; you'd write your own when those aren't where your
 configuration lives.
 
 For the conceptual picture — three sources, precedence, file-like keys,
-hint interaction — see [Kubernetes → Configuration](../kubernetes/configuration.md).
+hint interaction — see [Kubernetes → Configuration](../kubernetes/templates.md).
 This page covers just the SPI mechanics.
 
 ## When you'd write one
