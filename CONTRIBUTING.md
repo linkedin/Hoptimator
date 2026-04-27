@@ -29,6 +29,16 @@ For bugs, please include:
    Integration tests (which spin up a real Kubernetes-backed dev environment)
    live behind `make integration-tests` — please run them when changing
    anything that touches deployment or planning.
+
+   SQL-level test cases live in `*.id` files under each module's
+   `src/test/resources/` and are driven by
+   [Quidem](https://github.com/julianhyde/quidem) — a script of `.id` lines
+   like `create table foo ...;` followed by the expected output. Quidem
+   runs them through a real JDBC connection and compares output line by
+   line. Add or extend a `.id` file when you change DDL parsing, planning,
+   or any user-facing SQL behavior; running `make test` regenerates the
+   diff. The `QuidemTestBase` class in `hoptimator-jdbc` is the shared
+   harness.
 3. **Cover your changes.** New code needs tests; don't ship behavior that
    isn't exercised by either a unit or an integration test. Generate a
    coverage report with:

@@ -22,56 +22,34 @@ connection over your URL scheme (`jdbc:my-system://...`). The driver's job
 is to expose the system's tables to Calcite — once Calcite can see them,
 the planner can route queries through them.
 
-The bundled `demodb` adapter is the smallest end-to-end example
-([`hoptimator-demodb/.../DemoDriver.java`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-demodb/src/main/java/com/linkedin/hoptimator/demodb/DemoDriver.java)).
-The structure:
+Read the bundled adapters rather than rely on a snippet here:
 
-```java
-public class MySystemDriver extends CalciteDriver {
+- [`hoptimator-demodb`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-demodb)
+  — the smallest end-to-end example. `DemoDriver` extends `CalciteDriver`,
+  parses the URL, and registers in-memory schemas (`AdsSchema`,
+  `ProfileSchema`) with hard-coded tables. Read this first.
+- [`hoptimator-kafka`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-kafka),
+  [`hoptimator-venice`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-venice),
+  [`hoptimator-mysql`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-mysql)
+  — progressively richer versions of the same pattern, each backing onto
+  a real cluster API for table discovery.
 
-  static {
-    new MySystemDriver().register();
-  }
+The shape every adapter has in common:
 
-  @Override
-  protected String getConnectStringPrefix() {
-    return "jdbc:my-system://";
-  }
-
-  @Override
-  public Connection connect(String url, Properties props) throws SQLException {
-    if (!url.startsWith(getConnectStringPrefix())) {
-      return null;
-    }
-    Properties properties = new Properties();
-    properties.putAll(props);
-    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
-
-    Connection connection = super.connect(url, properties);
-    CalciteConnection calciteConnection = (CalciteConnection) connection;
-    SchemaPlus rootSchema = calciteConnection.getRootSchema();
-
-    // Register one or more schemas with the tables your system exposes.
-    rootSchema.add("MY_SCHEMA", new MySystemSchema(properties));
-
-    return connection;
-  }
-}
-```
+- Extends `CalciteDriver` (from `hoptimator-jdbc`).
+- Declares a URL prefix via `getConnectStringPrefix()`.
+- In `connect()`, parses the URL parameters and calls `super.connect()`
+  to get a `CalciteConnection`, then registers one or more `Schema`
+  instances on its root.
+- Schemas implement Calcite's `Schema` (typically extending
+  `AbstractSchema`); their `getTables()` returns the tables you want
+  exposed, each with a row type and any metadata the templates will need.
 
 Register the driver via `META-INF/services/java.sql.Driver`:
 
 ```
 com.example.hoptimator.mysystem.MySystemDriver
 ```
-
-`MySystemSchema` is a Calcite `Schema` (or `AbstractSchema`) whose
-`getTables()` returns the tables you want exposed. Each table is a Calcite
-`Table` with a row type and (typically) some metadata used by templates
-later — partition keys, retention, anything else the system can advertise.
-
-The Kafka, Venice, and MySQL adapters in this repo are progressively richer
-versions of the same pattern.
 
 ## Registering with the catalog
 

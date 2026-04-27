@@ -8,6 +8,12 @@ This page documents the DDL Hoptimator adds on top.
 > All DDL listed here also has a YAML equivalent: a `View`, `Pipeline`,
 > `TableTrigger`, etc. CRD. Use whichever is more ergonomic for your workflow.
 
+> Test cases for the DDL parser and executor live as
+> [Quidem](https://github.com/julianhyde/quidem) `.id` scripts under each
+> module's `src/test/resources/` (e.g. `basic-ddl.id`, `k8s-ddl.id`).
+> Reading them is a fast way to see currently-passing examples of every
+> DDL form.
+
 ## CREATE VIEW
 
 ```

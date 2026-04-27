@@ -65,11 +65,6 @@ make it; on `restore`, walk the list in reverse and undo each. The bundled
 deployers keep an explicit list of rollback closures in a field; this is a
 good pattern to copy.
 
-`restore` is also what `specify` calls in dry-run mode — if your `specify`
-implementation registers temporary tables in the Calcite schema (as the
-table deployer does), those registrations need to be reverted via
-`restore`.
-
 ## The provider
 
 A `Deployer` doesn't get loaded directly. Instead, you ship a
@@ -103,46 +98,26 @@ line; `#`-prefixed lines are ignored.
 com.example.hoptimator.mysystem.MySystemDeployerProvider
 ```
 
-## A concrete example: the Kafka deployer provider
+## A concrete example: the Kafka deployer
 
-The bundled Kafka path
-([`KafkaDeployerProvider`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-kafka/src/main/java/com/linkedin/hoptimator/kafka/KafkaDeployerProvider.java))
-is a good shape to copy. Trimmed:
+The bundled Kafka path is a good shape to copy. Read the source rather
+than rely on a snippet here:
 
-```java
-public class KafkaDeployerProvider implements DeployerProvider {
+- [`KafkaDeployerProvider`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-kafka/src/main/java/com/linkedin/hoptimator/kafka/KafkaDeployerProvider.java)
+  — type-checks the `Deployable`, extracts per-schema connection
+  properties from the Calcite schema (i.e. the JDBC URL the `Database`
+  CRD points at), and constructs the deployer.
+- [`KafkaDeployer`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-kafka/src/main/java/com/linkedin/hoptimator/kafka/KafkaDeployer.java)
+  — `create()` calls Kafka's AdminClient API to create the topic;
+  `restore()` walks back and deletes any topic the current operation
+  created; `specify()` returns the equivalent declarative spec.
 
-  @Override
-  public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
-    List<Deployer> deployers = new ArrayList<>();
-    if (obj instanceof Source) {
-      Source source = (Source) obj;
-      Properties properties = DeployerUtils.extractPropertiesFromJdbcSchema(
-          source.catalog(), source.schema(), connection,
-          KafkaDriver.CONNECTION_PREFIX, log);
-      if (properties == null) {
-        return deployers; // not our schema
-      }
-      deployers.add(new KafkaDeployer(source, properties));
-    }
-    return deployers;
-  }
+The shape any provider should follow:
 
-  @Override
-  public int priority() { return 2; }
-}
-```
-
-The shape:
-
-- Type-check the `Deployable` and skip if it's not what you handle.
-- Extract the per-schema configuration from the connection (the JDBC URL
-  the `Database` CRD pointed at).
+- Type-check the `Deployable` and return an empty collection if it's not
+  what you handle.
+- Extract any per-schema configuration from the connection.
 - Construct one or more deployer instances and return them.
-
-The actual `KafkaDeployer.create()` calls into the AdminClient API to
-create the topic. `restore()` walks back and deletes any topic the current
-operation created. `specify()` returns the equivalent declarative spec.
 
 ## Validation
 

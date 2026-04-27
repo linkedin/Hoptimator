@@ -4,6 +4,12 @@ Hoptimator's vocabulary is mostly familiar from SQL and Kubernetes, with a few
 additions specific to multi-hop pipelines. Skim this page once and the rest of
 the documentation will read more naturally.
 
+> Hoptimator's parser, planner, and JDBC layer are built on
+> [Apache Calcite](https://calcite.apache.org/). Calcite's
+> [reference](https://calcite.apache.org/docs/reference.html) is the source
+> of truth for SELECT syntax and built-in functions; this page covers what
+> Hoptimator adds on top.
+
 ## At a glance
 
 | Concept             | What it is                                                                                       |
@@ -16,6 +22,7 @@ the documentation will read more naturally.
 | **Engine**          | A runtime Hoptimator can submit *queries* to (e.g. a Flink SQL gateway). Optional. Pipeline materialization does *not* require one. |
 | **Connector**       | Configuration that tells a runtime how to read from or write to a database. Used by the planner and embedded in template output. |
 | **Deployer**        | The component that turns a planned pipeline element into real infrastructure.                    |
+| **Validator**       | Pre-deploy check that rejects SQL, CRDs, or planned pipelines that violate environment policy.    |
 | **TableTemplate**   | Declarative recipe for materializing a source/sink in a particular database.                     |
 | **JobTemplate**     | Declarative recipe for materializing a job on a particular engine.                               |
 | **TableTrigger**    | Fires a Kubernetes job when an upstream table changes (or on a schedule).                        |
@@ -126,6 +133,23 @@ in `hoptimator-k8s` target Kubernetes:
 
 Anything implementing `Deployer` from `hoptimator-api` can take their place.
 See [Extending Hoptimator](../extending/index.md) when those docs land.
+
+## Validators
+
+A **Validator** inspects a SQL statement, a CRD, or a planned pipeline
+element *before* it deploys and rejects it if it doesn't meet your
+constraints. Where `Deployer` is "make this real," `Validator` is "check
+this is allowed."
+
+Validators run at three points in the DDL path: on the parsed SQL, on the
+resolved view/source/sink after planning, and on the deployer collection
+before any side effects. If any validator emits an error, the whole
+operation aborts.
+
+The bundled validators handle table-naming and SQL/Avro compatibility
+checks. Custom validators are typically used for environment-specific
+policy — naming conventions, ACL enforcement, schema-evolution rules.
+See [Validators](../extending/validators.md) for authoring.
 
 ## TableTemplates and JobTemplates
 
