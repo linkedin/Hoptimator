@@ -334,6 +334,20 @@ SqlCreate SqlCreateTrigger(Span s, boolean replace) :
     }
 }
 
+SqlCreate SqlCreateDatabase(Span s, boolean replace) :
+{
+    final boolean ifNotExists;
+    final SqlIdentifier id;
+    SqlNodeList optionList = null;
+}
+{
+    <DATABASE> ifNotExists = IfNotExistsOpt() id = CompoundIdentifier()
+    [ optionList = Options() ]
+    {
+        return new SqlCreateDatabase(s.end(this), replace, ifNotExists, id, optionList);
+    }
+}
+
 SqlCreate SqlCreateFunction(Span s, boolean replace) :
 {
     final boolean ifNotExists;
