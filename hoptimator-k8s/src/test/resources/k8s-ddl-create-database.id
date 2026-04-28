@@ -7,7 +7,7 @@ kind: Database
 metadata:
   name: mydb
 spec:
-  dialect: MySQL
+  dialect: MYSQL
   driver: com.mysql.cj.jdbc.Driver
   schema: myschema
   url: jdbc:mysql://localhost:3306/mydb
