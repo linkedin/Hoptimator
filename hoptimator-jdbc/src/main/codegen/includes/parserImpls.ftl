@@ -344,24 +344,15 @@ SqlCreate SqlCreateJob(Span s, boolean replace) :
     SqlNodeList optionList = null;
 }
 {
-    // Parse optional FLINK keyword
-    [ LOOKAHEAD({ getToken(1).image.equalsIgnoreCase("FLINK") })
-      <IDENTIFIER> { dialect = "Flink"; }
-    ]
-    // Parse optional STREAMING|BATCH keyword
-    [ LOOKAHEAD({ getToken(1).image.equalsIgnoreCase("STREAMING") || getToken(1).image.equalsIgnoreCase("BATCH") })
-      <IDENTIFIER> {
-          String modeStr = token.image;
-          executionMode = modeStr.substring(0, 1).toUpperCase() + modeStr.substring(1).toLowerCase();
-      }
-    ]
-    // JOB keyword (as identifier since it's not a parser token)
-    <IDENTIFIER> {
-        if (!token.image.equalsIgnoreCase("JOB")) {
-            throw new ParseException("Expected JOB but found " + token.image);
-        }
-    }
-    ifNotExists = IfNotExistsOpt()
+    [ <FLINK> { dialect = "Flink"; } ]
+    (
+        <STREAMING> { executionMode = "Streaming"; }
+    |
+        <BATCH> { executionMode = "Batch"; }
+    |
+        { }
+    )
+    <JOB> ifNotExists = IfNotExistsOpt()
     id = CompoundIdentifier()
     <AS>
     sqlBody = StringLiteral()

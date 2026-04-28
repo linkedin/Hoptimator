@@ -101,6 +101,7 @@ data: {
     # Each must accept arguments "(SqlParserPos pos, boolean replace)".
     # Example: "SqlCreateForeignSchema".
     createStatementParserMethods: [
+      "SqlCreateJob"
       "SqlCreateDatabase"
       "SqlCreateMaterializedView"
       "SqlCreateTrigger"
