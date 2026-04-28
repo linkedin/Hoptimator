@@ -8,6 +8,7 @@ import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.TreeMap;
 
 
 /** Deploys a Database object. */
@@ -23,7 +24,9 @@ class K8sDatabaseDeployer extends K8sDeployer<V1alpha1Database, V1alpha1Database
   @Override
   protected V1alpha1Database toK8sObject() throws SQLException {
     String name = K8sUtils.canonicalizeName(database.name());
-    Map<String, String> options = database.options();
+    // SQL parser uppercases unquoted identifiers, so use case-insensitive lookup
+    Map<String, String> options = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    options.putAll(database.options());
     String url = options.get("url");
     if (url == null) {
       throw new SQLException("Database " + database.name() + " requires a 'url' option.");
