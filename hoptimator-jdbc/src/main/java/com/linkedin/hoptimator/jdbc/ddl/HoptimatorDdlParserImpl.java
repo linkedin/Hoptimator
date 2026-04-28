@@ -9,6 +9,7 @@ import org.apache.calcite.sql.ddl.SqlCreateTableLike;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateJob;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
@@ -6746,6 +6747,50 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
       ;
     }
         {if (true) return new SqlCreateDatabase(s.end(this), replace, ifNotExists, id, optionList);}
+    throw new Error("Missing return statement in function");
+  }
+
+  /**
+   * Parses: CREATE [OR REPLACE] [FLINK] [STREAMING|BATCH] JOB name AS 'sql' [WITH (...)]
+   * Since JOB, FLINK, STREAMING, BATCH are not parser tokens, we consume IDENTIFIERs
+   * and check their text.
+   */
+  final public SqlCreate SqlCreateJob(Span s, boolean replace) throws ParseException {
+    String dialect = null;
+    String executionMode = null;
+    // Parse optional dialect and execution mode keywords (as identifiers)
+    Token t = getToken(1);
+    if (t.kind == IDENTIFIER && t.image.equalsIgnoreCase("FLINK")) {
+      jj_consume_token(IDENTIFIER);
+      dialect = "Flink";
+      t = getToken(1);
+    }
+    if (t.kind == IDENTIFIER && (t.image.equalsIgnoreCase("STREAMING")
+        || t.image.equalsIgnoreCase("BATCH"))) {
+      jj_consume_token(IDENTIFIER);
+      executionMode = t.image.substring(0, 1).toUpperCase() + t.image.substring(1).toLowerCase();
+      t = getToken(1);
+    }
+    // Must have JOB keyword
+    if (t.kind != IDENTIFIER || !t.image.equalsIgnoreCase("JOB")) {
+      jj_consume_token(-1);
+      throw new ParseException();
+    }
+    jj_consume_token(IDENTIFIER);
+    boolean ifNotExists = IfNotExistsOpt();
+    SqlIdentifier id = CompoundIdentifier();
+    jj_consume_token(AS);
+    SqlNode sqlBody = StringLiteral();
+    SqlNodeList optionList = null;
+    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case WITH:
+      optionList = Options();
+      break;
+    default:
+      ;
+    }
+        {if (true) return new SqlCreateJob(s.end(this), replace, ifNotExists, id, sqlBody,
+            dialect, executionMode, optionList);}
     throw new Error("Missing return statement in function");
   }
 
@@ -24497,8 +24542,7 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
       } else if (jj_2_77(2)) {
         create = SqlCreateFunction(s, replace);
       } else {
-        jj_consume_token(-1);
-        throw new ParseException();
+        create = SqlCreateJob(s, replace);
       }
     }
         {if (true) return create;}

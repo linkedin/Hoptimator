@@ -14,6 +14,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJob;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SqlJobList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import io.kubernetes.client.openapi.models.V1ConfigMap;
@@ -65,6 +67,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1LogicalTable, V1alpha1LogicalTableList> LOGICAL_TABLES =
       new K8sApiEndpoint<>("LogicalTable", "hoptimator.linkedin.com", "v1alpha1", "logicaltables", false,
           V1alpha1LogicalTable.class, V1alpha1LogicalTableList.class);
+  public static final K8sApiEndpoint<V1alpha1SqlJob, V1alpha1SqlJobList> SQL_JOBS =
+      new K8sApiEndpoint<>("SqlJob", "hoptimator.linkedin.com", "v1alpha1", "sqljobs", false,
+          V1alpha1SqlJob.class, V1alpha1SqlJobList.class);
 
   private K8sApiEndpoints() {
   }

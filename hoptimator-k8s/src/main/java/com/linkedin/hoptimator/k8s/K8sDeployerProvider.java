@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.DatabaseDeployable;
 import com.linkedin.hoptimator.Deployable;
+import com.linkedin.hoptimator.SqlJobDeployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
 import com.linkedin.hoptimator.Job;
@@ -34,6 +35,8 @@ public class K8sDeployerProvider implements DeployerProvider {
       list.add(new K8sTriggerDeployer((Trigger) obj, context));
     } else if (obj instanceof DatabaseDeployable) {
       list.add(new K8sDatabaseDeployer((DatabaseDeployable) obj, context));
+    } else if (obj instanceof SqlJobDeployable) {
+      list.add(new K8sSqlJobDeployer((SqlJobDeployable) obj, context));
     }
 
     return list;
