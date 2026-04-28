@@ -76,7 +76,7 @@ undeploy-flink:
 
 deploy-kafka: deploy deploy-flink
 	kubectl create namespace kafka || echo "skipping"
-	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
+	curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/1.0.0/strimzi-cluster-operator-1.0.0.yaml" | sed 's/namespace: myproject/namespace: kafka/g' | kubectl apply -f - -n kafka
 	sleep 10 # avoid kubectl race condition
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
@@ -89,7 +89,7 @@ undeploy-kafka:
 	kubectl delete kafkatopic.kafka.strimzi.io --all || echo "skipping"
 	kubectl delete strimzi -n kafka --all || echo "skipping"
 	kubectl delete pvc -l strimzi.io/name=one-kafka -n kafka || echo "skipping"
-	kubectl delete -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka || echo "skipping"
+	curl -sL "https://github.com/strimzi/strimzi-kafka-operator/releases/download/1.0.0/strimzi-cluster-operator-1.0.0.yaml" | sed 's/namespace: myproject/namespace: kafka/g' | kubectl delete -f - -n kafka || echo "skipping"
 	kubectl delete -f ./deploy/samples/kafkadb.yaml || echo "skipping"
 	kubectl delete namespace kafka || echo "skipping"
 

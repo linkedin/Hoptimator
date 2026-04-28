@@ -168,7 +168,7 @@ spec:
   methods:
     - Scan
   yaml: |
-    apiVersion: kafka.strimzi.io/v1beta2
+    apiVersion: kafka.strimzi.io/v1
     kind: KafkaTopic
     metadata:
       name: {{name}}
