@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DependencyGuarded;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
@@ -10,13 +11,24 @@ import com.linkedin.hoptimator.util.Template;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-/** Specifies an abstract Source with concrete YAML by applying TableTemplates. */
-class K8sSourceDeployer extends K8sYamlDeployer {
+/**
+ * Specifies an abstract Source with concrete YAML by applying TableTemplates.
+ *
+ * <p>This is the deployer that the Strimzi/operator-backed environments actually use for
+ * source-backed physical resources (Kafka topics via TableTemplate, etc.) — driver-specific
+ * deployers like {@code KafkaDeployer} are intentionally disabled in those envs (see
+ * {@code hoptimator-kafka/.../META-INF/services/...DeployerProvider}). Implements
+ * {@link DependencyGuarded} so the dependency guard still fires on DROP TABLE regardless of
+ * which physical deployer is active for the source.
+ */
+class K8sSourceDeployer extends K8sYamlDeployer implements DependencyGuarded {
   private static final String JOB_PROPERTIES_PREFIX = "job.properties";
   private final K8sContext context;
   private final Source source;
@@ -31,6 +43,11 @@ class K8sSourceDeployer extends K8sYamlDeployer {
 
   K8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> createTableTemplateApi(K8sContext context) {
     return new K8sApi<>(context, K8sApiEndpoints.TABLE_TEMPLATES);
+  }
+
+  @Override
+  public Collection<Source> guardedResources() {
+    return Collections.singletonList(source);
   }
 
   @Override

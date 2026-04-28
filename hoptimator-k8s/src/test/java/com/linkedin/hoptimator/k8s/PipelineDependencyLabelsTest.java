@@ -69,18 +69,17 @@ class PipelineDependencyLabelsTest {
   }
 
   @Test
-  void labelsForIncludesOnlySources() {
-    // Sinks are deliberately excluded — the guard is about readers, not writers.
+  void labelsForIncludesSourcesAndSink() {
+    // Both edges matter: dropping a source orphans readers; dropping a sink orphans writers.
     Source s1 = src("kafka1", "events");
     Source s2 = src("venice1", "store");
     Sink sink = sink("mysql1", "outbox");
     Map<String, String> labels = PipelineDependencyLabels.labelsFor(Arrays.asList(s1, s2), sink);
 
-    assertEquals(2, labels.size());
+    assertEquals(3, labels.size());
     assertTrue(labels.containsKey(PipelineDependencyLabels.labelKey("kafka1", Collections.singletonList("events"))));
     assertTrue(labels.containsKey(PipelineDependencyLabels.labelKey("venice1", Collections.singletonList("store"))));
-    assertFalse(labels.containsKey(PipelineDependencyLabels.labelKey("mysql1", Collections.singletonList("outbox"))),
-        "sink must NOT appear as a depends-on label — partial-views share sinks");
+    assertTrue(labels.containsKey(PipelineDependencyLabels.labelKey("mysql1", Collections.singletonList("outbox"))));
   }
 
   @Test
@@ -91,8 +90,9 @@ class PipelineDependencyLabelsTest {
   }
 
   @Test
-  void labelsForOmitsSinkEvenWhenSourceCoincides() {
-    // Self-loop pipeline: the source IS labeled (it's a read), but the sink alone wouldn't be.
+  void labelsForCollapsesSelfLoopIntoOneEntry() {
+    // Self-loop pipeline: source and sink share a slug, so the map collapses to one entry
+    // rather than producing duplicate keys.
     Source s = src("db", "t");
     Sink k = sink("db", "t");
     Map<String, String> labels = PipelineDependencyLabels.labelsFor(Collections.singletonList(s), k);
@@ -124,15 +124,15 @@ class PipelineDependencyLabelsTest {
   }
 
   @Test
-  void annotationForListsAllSourceIdentifiers() {
-    // Sink is excluded for the same reason as labels — this is a sources-only annotation.
+  void annotationForListsAllIdentifiers() {
+    // Sources and the sink — both edges are recorded so the delete-time check can disambiguate
+    // a real dependency from a hash collision regardless of which side matched.
     String annotation = PipelineDependencyLabels.annotationFor(
         Arrays.asList(src("kafka", "a"), src("venice", "b")),
         sink("mysql", "c"));
     assertTrue(annotation.contains("kafka_a"));
     assertTrue(annotation.contains("venice_b"));
-    assertFalse(annotation.contains("mysql_c"),
-        "sink must NOT appear in the annotation — sources-only");
+    assertTrue(annotation.contains("mysql_c"));
   }
 
   @Test
@@ -144,13 +144,13 @@ class PipelineDependencyLabelsTest {
 
   @Test
   void parseAnnotationRoundtrip() {
-    // Sources only — sink is omitted by annotationFor by design.
     String annotation = PipelineDependencyLabels.annotationFor(
         Arrays.asList(src("a", "1"), src("b", "2")), sink("c", "3"));
     Set<String> parsed = PipelineDependencyLabels.parseAnnotation(annotation);
-    assertEquals(2, parsed.size());
+    assertEquals(3, parsed.size());
     assertTrue(parsed.contains("a_1"));
     assertTrue(parsed.contains("b_2"));
+    assertTrue(parsed.contains("c_3"));
   }
 
   @Test

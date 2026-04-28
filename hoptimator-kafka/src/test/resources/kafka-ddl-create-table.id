@@ -84,50 +84,43 @@ spec:
     segment.bytes: 1073741824
 !specify create-table-test
 
-# Clean up - drop table
-drop table KAFKA."create-table-test";
-(0 rows modified)
-
-!update
-
 # ─────────────────────────────────────────────────────────────────────────────
-# Cross-driver dependency guard: a Kafka topic referenced by an MV's pipeline
-# cannot be dropped until the dependent MV is removed. Exercises the
-# DependencyGuarded SPI across deployer types — the label-based check protects
-# Kafka topic drops that would orphan an active downstream pipeline.
+# Dependency guard: a Kafka topic referenced by an MV's pipeline — as either a
+# source or a sink — cannot be dropped until the dependent MV is removed.
+# Exercises the DependencyGuarded SPI across deployer types: the label-based
+# check protects Kafka topic drops that would orphan an active downstream
+# pipeline.
 #
-# Uses a partial materialized view (KAFKA."existing-topic-1$guard") so the MV's
-# implicit sink falls back to the pre-existing "existing-topic-1" topic, while
-# the pipeline reads from the freshly-created "guard-source". DROP TABLE on
-# guard-source is what we expect the guard to block.
+# A single MV exercises both edges. The MV is a partial view
+# (KAFKA."create-table-test$guard") whose implicit sink falls back to
+# create-table-test, and reads from existing-topic-2.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Fresh source topic.
-create or replace table KAFKA."guard-source" ("KEY" VARCHAR, "VALUE" BINARY) WITH ("kafka.partitions" '1');
+# Pipeline reads from existing-topic-2 (source) and writes to create-table-test
+# (partial-view sink). Its Pipeline CRD gets a depends-on-* label per edge.
+create or replace materialized view KAFKA."create-table-test$guard" as select * from KAFKA."existing-topic-2";
 (0 rows modified)
 
 !update
 
-# Downstream MV reads from guard-source; its pipeline gets a depends-on-* label
-# pointing at KAFKA/guard-source.
-create or replace materialized view KAFKA."existing-topic-1$guard" as select * from KAFKA."guard-source";
-(0 rows modified)
-
-!update
-
-# Drop is blocked — guard-source is referenced by the MV's pipeline.
-drop table KAFKA."guard-source";
+# Source-side guard: existing-topic-2 is a source of the MV's pipeline.
+drop table KAFKA."existing-topic-2";
 active pipeline(s) depend on it
 !error
 
-# Drop the dependent MV first, releasing the label that pinned guard-source.
-drop materialized view KAFKA."existing-topic-1$guard";
+# Sink-side guard: create-table-test is the partial-view sink of the MV's pipeline.
+drop table KAFKA."create-table-test";
+active pipeline(s) depend on it
+!error
+
+# Drop the dependent MV first; its pipeline (and both labels) go away.
+drop materialized view KAFKA."create-table-test$guard";
 (0 rows modified)
 
 !update
 
-# Now the source topic drops cleanly.
-drop table KAFKA."guard-source";
+# Now sink drop should succeed
+drop table KAFKA."create-table-test";
 (0 rows modified)
 
 !update

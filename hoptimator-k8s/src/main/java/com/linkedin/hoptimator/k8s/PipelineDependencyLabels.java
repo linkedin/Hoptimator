@@ -63,10 +63,12 @@ public final class PipelineDependencyLabels {
   }
 
   /**
-   * Labels to stamp on a Pipeline CRD — one entry per source. Sinks are deliberately excluded:
-   * the guard's job is to find pipelines that <em>read from</em> a resource being deleted, not
-   * pipelines that write to it. Including sinks would break partial-view scenarios where two
-   * pipelines share a sink (dropping one would be blocked by the other's sink-label).
+   * Labels to stamp on a Pipeline CRD — one entry per source <em>and</em> the sink. Both edges
+   * matter to the guard: dropping a source orphans pipelines that read from it; dropping a sink
+   * orphans pipelines that write to it. The partial-view scenario where two pipelines share a
+   * sink (e.g. {@code X} and {@code X$piece}) is unaffected — DROP MV routes through
+   * {@code K8sViewDeployer}, which deliberately does not implement {@code DependencyGuarded}
+   * (DROP MV is metadata-only and does not destroy the underlying physical sink).
    *
    * <p>Keys are the same as {@link #labelKey}. Values are the readable identifier, truncated
    * to 63 chars if necessary (the annotation preserves the untruncated form).
@@ -76,11 +78,14 @@ public final class PipelineDependencyLabels {
     for (Source src : sources) {
       labels.put(labelKey(src.database(), src.path()), truncate(identifier(src.database(), src.path())));
     }
+    if (sink != null) {
+      labels.put(labelKey(sink.database(), sink.path()), truncate(identifier(sink.database(), sink.path())));
+    }
     return labels;
   }
 
   /**
-   * Collision-guard annotation value — comma-separated list of full source identifiers,
+   * Collision-guard annotation value — comma-separated list of full source and sink identifiers,
    * deduplicated. The delete-time check cross-references this annotation after the label
    * selector narrows the candidate set.
    */
@@ -88,6 +93,9 @@ public final class PipelineDependencyLabels {
     Set<String> ids = new LinkedHashSet<>();
     for (Source src : sources) {
       ids.add(identifier(src.database(), src.path()));
+    }
+    if (sink != null) {
+      ids.add(identifier(sink.database(), sink.path()));
     }
     return String.join(",", ids);
   }

@@ -5,7 +5,6 @@ import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,19 +19,18 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collection;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-    justification = "Mockito doReturn().when() stubs — framework captures the return value")
 class K8sSourceDeployerTest {
 
   @Mock
@@ -58,7 +56,12 @@ class K8sSourceDeployerTest {
         return fakeYamlApi;
       }
     };
+  }
+
+  /** Wires up {@code mockContext.connection()} for tests that exercise specify()'s template path. */
+  private void stubConnection() {
     when(mockContext.connection()).thenReturn(connection);
+    when(connection.connectionProperties()).thenReturn(new Properties());
   }
 
   private K8sSourceDeployer makeDeployer(Source source) {
@@ -85,7 +88,7 @@ class K8sSourceDeployerTest {
 
   @Test
   void specifyWithNoTemplatesReturnsEmpty() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    stubConnection();
 
     Source source = new Source("testdb", Arrays.asList("schema", "table"),
         Collections.emptyMap());
@@ -100,7 +103,7 @@ class K8sSourceDeployerTest {
 
   @Test
   void specifyRendersMatchingTemplate() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    stubConnection();
 
     templates.add(new V1alpha1TableTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -121,7 +124,7 @@ class K8sSourceDeployerTest {
 
   @Test
   void specifyFiltersOutNonMatchingDatabases() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    stubConnection();
 
     templates.add(new V1alpha1TableTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -141,7 +144,7 @@ class K8sSourceDeployerTest {
 
   @Test
   void specifyWithJobPropertiesInOptions() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    stubConnection();
 
     templates.add(new V1alpha1TableTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -161,7 +164,7 @@ class K8sSourceDeployerTest {
 
   @Test
   void specifyWithNullDatabasesMatchesAll() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    stubConnection();
 
     templates.add(new V1alpha1TableTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -182,7 +185,7 @@ class K8sSourceDeployerTest {
   @Test
   void specifyRendersNonEmptyYamlWithSourceContent() throws SQLException {
     // Verify fields are non-empty.
-    doReturn(new Properties()).when(connection).connectionProperties();
+    stubConnection();
 
     templates.add(new V1alpha1TableTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -206,7 +209,7 @@ class K8sSourceDeployerTest {
 
   @Test
   void getJobPropertiesFromOptionsMapsCorrectKeys() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    stubConnection();
 
     // Template uses {{job.properties}} prefix variable to expose job properties
     templates.add(new V1alpha1TableTemplate()
@@ -231,9 +234,19 @@ class K8sSourceDeployerTest {
   }
 
   @Test
+  void guardedResourcesReturnsConstructorSource() {
+    Source source = new Source("mydb", Arrays.asList("myschema", "mytable"), Collections.emptyMap());
+    K8sSourceDeployer deployer = makeDeployer(source);
+    Collection<Source> guarded = deployer.guardedResources();
+    // Exactly the source we were given — same identity, no copy/wrap.
+    assertEquals(1, guarded.size());
+    assertSame(source, guarded.iterator().next());
+  }
+
+  @Test
   void getJobPropertiesFromOptionsFiltersNonMatchingKeys() throws SQLException {
     // Ensures the filter actually filters — only job.properties.* keys should be mapped
-    doReturn(new Properties()).when(connection).connectionProperties();
+    stubConnection();
 
     templates.add(new V1alpha1TableTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
