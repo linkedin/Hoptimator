@@ -56,10 +56,15 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   public void addDatabases(SchemaPlus parentSchema, Connection connection) {
     for (Row row : rows()) {
       if (row.CATALOG != null) {
-        Schema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
-                ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
+        HoptimatorJdbcCatalogSchema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG,
+            row.SCHEMA, dataSource(row, ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
             dialect(row), engines.forDatabase(row.NAME), connection);
         parentSchema.add(row.CATALOG.toUpperCase(Locale.ROOT), catalogSchema);
+
+        // Also expose the metadata.name as an alias pointing into the schema
+        if (row.SCHEMA != null && !row.SCHEMA.isEmpty() && !row.NAME.equalsIgnoreCase(row.CATALOG)) {
+          parentSchema.add(row.NAME, catalogSchema.createSchema(row.SCHEMA));
+        }
       } else {
         Schema schema = HoptimatorJdbcSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
                 ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
