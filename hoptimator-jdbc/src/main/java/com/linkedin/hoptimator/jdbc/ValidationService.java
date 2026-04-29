@@ -68,6 +68,18 @@ public final class ValidationService {
     }
   }
 
+  /**
+   * Connection-aware validate-and-throw. Lets validators query external systems
+   * (e.g. pre-delete dependency lookups against a Kubernetes API).
+   */
+  public static <T> void validateOrThrow(T obj, Connection connection) throws SQLException {
+    Validator.Issues issues = new Validator.Issues("");
+    validators(obj, connection).forEach(x -> x.validate(issues));
+    if (!issues.valid()) {
+      throw new SQLDataException("Failed validation:\n" + issues);
+    }
+  }
+
   public static Collection<ValidatorProvider> providers() {
     ServiceLoader<ValidatorProvider> loader = ServiceLoader.load(ValidatorProvider.class);
     List<ValidatorProvider> providers = new ArrayList<>();
@@ -77,5 +89,9 @@ public final class ValidationService {
 
   public static <T> Collection<Validator> validators(T obj) {
     return providers().stream().flatMap(x -> x.validators(obj).stream()).collect(Collectors.toList());
+  }
+
+  public static <T> Collection<Validator> validators(T obj, Connection connection) {
+    return providers().stream().flatMap(x -> x.validators(obj, connection).stream()).collect(Collectors.toList());
   }
 }

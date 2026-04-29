@@ -421,6 +421,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
           TemporaryTable temporaryTable = (TemporaryTable) table;
           source = new Source(temporaryTable.databaseName(), tablePath, Collections.emptyMap());
         }
+        // Pre-delete dependency guard: a registered ValidatorProvider (hoptimator-k8s) can
+        // refuse the DROP if any active pipeline still references this resource.
+        ValidationService.validateOrThrow(source, connection);
         deployers = DeploymentService.deployers(source, connection);
         logger.info("Deleting table {}", tableName);
         DeploymentService.delete(deployers);

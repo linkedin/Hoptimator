@@ -89,3 +89,37 @@ drop table KAFKA."create-table-test";
 (0 rows modified)
 
 !update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependency guard (validator-based): a Kafka topic referenced by an active
+# pipeline's SQL cannot be dropped until the dependent MV is removed. The
+# K8sValidatorProvider scans Pipeline CRDs at DROP time and looks for a
+# backtick-quoted reference to the target schema.table in spec.sql.
+#
+# Setup uses fixture topics (existing-topic-1, existing-topic-2) so the MV
+# can be planned with HoptimatorJdbcConvention. The MV's pipeline reads from
+# existing-topic-2 and writes to existing-topic-1. We assert the guard fires
+# on DROP TABLE for both endpoints; we do NOT actually drop the fixture
+# topics, since later tests rely on them.
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view KAFKA."existing-topic-1$guard" as select * from KAFKA."existing-topic-2";
+(0 rows modified)
+
+!update
+
+# Source-side guard: existing-topic-2 is a source of the MV's pipeline.
+drop table KAFKA."existing-topic-2";
+active pipeline(s) depend on it
+!error
+
+# Sink-side guard: existing-topic-1 is the partial-view sink of the MV's pipeline.
+drop table KAFKA."existing-topic-1";
+active pipeline(s) depend on it
+!error
+
+# Drop the dependent MV first; the pipeline is gone, the topics drop cleanly.
+drop materialized view KAFKA."existing-topic-1$guard";
+(0 rows modified)
+
+!update
