@@ -16,6 +16,7 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.ViewTable;
 
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -157,7 +158,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
   }
 
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, Connection connection) {
     for (Row row : rows()) {
       Validator.Issues issues2 = issues.child(row.toString());
       Validator.validateSubdomainName(row.NAME, issues2.child("NAME"));

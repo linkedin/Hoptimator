@@ -25,6 +25,7 @@ import org.apache.calcite.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collections;
@@ -55,7 +56,7 @@ public class VeniceDeployer implements Deployer, Validated {
   }
 
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, Connection connection) {
     String storeName = source.table();
 
     // Validate Venice configuration

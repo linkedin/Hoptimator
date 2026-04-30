@@ -15,9 +15,9 @@ class DefaultValidatorProviderTest {
   @Test
   void testValidatorsReturnsValidatorForValidatedObject() {
     DefaultValidatorProvider provider = new DefaultValidatorProvider();
-    Validated validated = issues -> issues.error("test error");
+    Validated validated = (issues, conn) -> issues.error("test error");
 
-    Collection<Validator> validators = provider.validators(validated);
+    Collection<Validator> validators = provider.validators(validated, null);
 
     assertEquals(1, validators.size());
   }
@@ -26,7 +26,7 @@ class DefaultValidatorProviderTest {
   void testValidatorsReturnsEmptyForNonValidatedObject() {
     DefaultValidatorProvider provider = new DefaultValidatorProvider();
 
-    Collection<Validator> validators = provider.validators("not-validated");
+    Collection<Validator> validators = provider.validators("not-validated", null);
 
     assertTrue(validators.isEmpty());
   }
@@ -35,7 +35,7 @@ class DefaultValidatorProviderTest {
   void testValidatorsReturnsEmptyForNull() {
     DefaultValidatorProvider provider = new DefaultValidatorProvider();
 
-    Collection<Validator> validators = provider.validators(null);
+    Collection<Validator> validators = provider.validators(null, null);
 
     assertTrue(validators.isEmpty());
   }
@@ -43,11 +43,11 @@ class DefaultValidatorProviderTest {
   @Test
   void testReturnedValidatorDelegates() {
     DefaultValidatorProvider provider = new DefaultValidatorProvider();
-    Validated validated = issues -> issues.error("validation failed");
+    Validated validated = (issues, conn) -> issues.error("validation failed");
 
-    Collection<Validator> validators = provider.validators(validated);
+    Collection<Validator> validators = provider.validators(validated, null);
     Validator.Issues issues = new Validator.Issues("test");
-    validators.iterator().next().validate(issues);
+    validators.iterator().next().validate(issues, null);
 
     assertTrue(issues.toString().contains("validation failed"));
   }

@@ -315,7 +315,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertTrue(issues.valid(), "Expected no validation errors for new store. Issues: " + issues);
   }
@@ -348,7 +348,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertTrue(issues.valid(), "Expected no validation errors when key schema unchanged. Issues: " + issues);
   }
@@ -381,7 +381,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid(), "Expected validation error for key schema change");
     assertTrue(issues.toString().contains("Key schema evolution is not supported"),
@@ -400,7 +400,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Failed to generate key schema"));
@@ -418,7 +418,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Failed to generate value schema"));
@@ -436,7 +436,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Failed to generate key schema"));

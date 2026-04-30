@@ -32,23 +32,25 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 class K8sPipelineDependencyValidator implements Validator {
 
   private final Source source;
-  private final Connection connection;
 
-  K8sPipelineDependencyValidator(Source source, Connection connection) {
+  K8sPipelineDependencyValidator(Source source) {
     this.source = source;
-    this.connection = connection;
   }
 
   @Override
-  public void validate(Issues issues) {
+  public void validate(Issues issues, Connection connection) {
     String pattern = referencePattern(source);
     if (pattern == null) {
       // Nothing to match against (e.g. single-element path with no schema).
       return;
     }
+    if (connection == null) {
+      issues.error("Cannot run pre-delete dependency check without a connection");
+      return;
+    }
     Collection<V1alpha1Pipeline> pipelines;
     try {
-      pipelines = pipelineApi().list();
+      pipelines = pipelineApi(connection).list();
     } catch (SQLException e) {
       issues.error("Failed to list pipelines for dependency check: " + e.getMessage());
       return;
@@ -71,7 +73,7 @@ class K8sPipelineDependencyValidator implements Validator {
   }
 
   /** Package-visible factory hook so tests can inject a {@link FakeK8sApi}. */
-  K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi() {
+  K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi(Connection connection) {
     return new K8sApi<>(K8sContext.create(connection), K8sApiEndpoints.PIPELINES);
   }
 

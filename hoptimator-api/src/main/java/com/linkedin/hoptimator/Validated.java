@@ -5,14 +5,11 @@ import java.sql.Connection;
 
 public interface Validated {
 
-  void validate(Validator.Issues issues);
-
   /**
-   * Connection-aware validation hook. Default delegates to {@link #validate(Validator.Issues)}.
-   * Override (or have a {@link ValidatorProvider} return a Validator that overrides) when the
-   * check needs to query an external system — e.g. pre-delete dependency lookups.
+   * Validates {@code this}, recording any problems in {@code issues}. The connection is always
+   * supplied so validators can run lookups against external systems (e.g. pre-delete dependency
+   * checks). Pass {@code null} only when the caller genuinely has no connection — most validators
+   * ignore it, but some require it.
    */
-  default void validate(Validator.Issues issues, Connection connection) {
-    validate(issues);
-  }
+  void validate(Validator.Issues issues, Connection connection);
 }

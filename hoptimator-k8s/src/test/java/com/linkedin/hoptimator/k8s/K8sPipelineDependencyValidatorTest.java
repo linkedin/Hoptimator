@@ -8,6 +8,8 @@ import java.util.List;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
@@ -22,12 +24,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class K8sPipelineDependencyValidatorTest {
 
+  /**
+   * Sentinel non-null connection to unblock the validator's null-check. The test override of
+   * {@code pipelineApi(connection)} ignores the actual value, so any non-null reference works.
+   */
+  private static final Connection FAKE_CONNECTION = org.mockito.Mockito.mock(Connection.class);
+
   /** Builds a validator backed by an in-memory pipeline list. */
   private K8sPipelineDependencyValidator makeValidator(Source source, List<V1alpha1Pipeline> pipelines) {
     FakeK8sApi<V1alpha1Pipeline, V1alpha1PipelineList> api = new FakeK8sApi<>(pipelines);
-    return new K8sPipelineDependencyValidator(source, null) {
+    return new K8sPipelineDependencyValidator(source) {
       @Override
-      K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi() {
+      K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi(Connection connection) {
         return api;
       }
     };
@@ -47,7 +55,7 @@ class K8sPipelineDependencyValidatorTest {
   void noPipelinesIsValid() {
     K8sPipelineDependencyValidator v = makeValidator(source("KAFKA", "topic-a"), new ArrayList<>());
     Validator.Issues issues = new Validator.Issues("");
-    v.validate(issues);
+    v.validate(issues, FAKE_CONNECTION);
     assertTrue(issues.valid());
   }
 
@@ -60,7 +68,7 @@ class K8sPipelineDependencyValidatorTest {
 
     K8sPipelineDependencyValidator v = makeValidator(source("KAFKA", "topic-a"), pipelines);
     Validator.Issues issues = new Validator.Issues("");
-    v.validate(issues);
+    v.validate(issues, FAKE_CONNECTION);
     assertTrue(issues.valid());
   }
 
@@ -73,7 +81,7 @@ class K8sPipelineDependencyValidatorTest {
 
     K8sPipelineDependencyValidator v = makeValidator(source("KAFKA", "existing-topic-2"), pipelines);
     Validator.Issues issues = new Validator.Issues("");
-    v.validate(issues);
+    v.validate(issues, FAKE_CONNECTION);
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("kafka-existing-topic-1-guard"),
         "error must name the dependent pipeline");
@@ -88,7 +96,7 @@ class K8sPipelineDependencyValidatorTest {
 
     K8sPipelineDependencyValidator v = makeValidator(source("KAFKA", "existing-topic-1"), pipelines);
     Validator.Issues issues = new Validator.Issues("");
-    v.validate(issues);
+    v.validate(issues, FAKE_CONNECTION);
     assertFalse(issues.valid());
   }
 
@@ -102,7 +110,7 @@ class K8sPipelineDependencyValidatorTest {
 
     K8sPipelineDependencyValidator v = makeValidator(source("KAFKA", "topic"), pipelines);
     Validator.Issues issues = new Validator.Issues("");
-    v.validate(issues);
+    v.validate(issues, FAKE_CONNECTION);
     assertTrue(issues.valid(), "exact-name source must not match a substring-bearing pipeline");
   }
 
@@ -116,7 +124,7 @@ class K8sPipelineDependencyValidatorTest {
 
     K8sPipelineDependencyValidator v = makeValidator(source("KAFKA", "shared-source"), pipelines);
     Validator.Issues issues = new Validator.Issues("");
-    v.validate(issues);
+    v.validate(issues, FAKE_CONNECTION);
     assertFalse(issues.valid());
     String msg = issues.toString();
     assertTrue(msg.contains("p1") && msg.contains("p2"),

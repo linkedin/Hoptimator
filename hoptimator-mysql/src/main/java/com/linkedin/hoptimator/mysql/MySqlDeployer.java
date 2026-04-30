@@ -100,7 +100,7 @@ public class MySqlDeployer implements Deployer, Validated {
   }
 
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, Connection connection) {
     String tableName = source.table();
     String database = source.schema();
 

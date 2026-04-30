@@ -294,7 +294,7 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
     // Validate the DDL statement.
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create);
+    ValidationService.validateOrThrow(create, conn);
 
     // Extract query SQL (rename columns if a column list was provided) and plan the query.
     // This is done first — before schema/conflict checks — so that:
@@ -372,10 +372,10 @@ public final class HoptimatorDdlUtils {
 
       // Validate the hook and its deployers.
       logger.info("Validating materialized view {}", viewName);
-      ValidationService.validateOrThrow(hook);
+      ValidationService.validateOrThrow(hook, conn);
       deployers = DeploymentService.deployers(hook, conn);
       logger.info("Validating deployable resources for materialized view {}", viewName);
-      ValidationService.validateOrThrow(deployers);
+      ValidationService.validateOrThrow(deployers, conn);
       logger.info("Validated materialized view {}", viewName);
 
       // Execute (create/update) or collect specs (specify).
@@ -440,7 +440,7 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create);
+    ValidationService.validateOrThrow(create, conn);
 
     // TODO: Add support for populating new tables from a query as a one-time operation.
     if (create.query != null) {
@@ -571,10 +571,10 @@ public final class HoptimatorDdlUtils {
     boolean success = false;
     try {
       logger.info("Validating new table {}", source);
-      ValidationService.validateOrThrow(source);
+      ValidationService.validateOrThrow(source, conn);
       deployers = DeploymentService.deployers(source, conn);
       logger.info("Validating deployable resources for table {}", tableName);
-      ValidationService.validateOrThrow(deployers);
+      ValidationService.validateOrThrow(deployers, conn);
 
       if (mode == DdlMode.UPDATE) {
         logger.info("Deploying update table {}", source);

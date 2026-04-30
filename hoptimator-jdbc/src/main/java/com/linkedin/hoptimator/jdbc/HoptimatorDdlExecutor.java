@@ -107,7 +107,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", create);
     try {
-      ValidationService.validateOrThrow(create);
+      ValidationService.validateOrThrow(create, connection);
     } catch (SQLException e) {
       throw new DdlException(create, e.getMessage(), e);
     }
@@ -145,9 +145,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Validating deployable resources for view {}", viewName);
-      ValidationService.validateOrThrow(viewTable);
+      ValidationService.validateOrThrow(viewTable, connection);
       deployers = DeploymentService.deployers(view, connection);
-      ValidationService.validateOrThrow(deployers);
+      ValidationService.validateOrThrow(deployers, connection);
       logger.info("Validated view {}", viewName);
       if (create.getReplace()) {
         logger.info("Deploying update view {}", viewName);
@@ -195,7 +195,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlCreateTrigger create, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", create);
     try {
-      ValidationService.validateOrThrow(create);
+      ValidationService.validateOrThrow(create, connection);
     } catch (SQLException e) {
       throw new DdlException(create, e.getMessage(), e);
     }
@@ -233,9 +233,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Validating trigger {} with deployers", name);
-      ValidationService.validateOrThrow(trigger);
+      ValidationService.validateOrThrow(trigger, connection);
       deployers = DeploymentService.deployers(trigger, connection);
-      ValidationService.validateOrThrow(deployers);
+      ValidationService.validateOrThrow(deployers, connection);
       logger.info("Validated trigger {}", name);
       if (create.getReplace()) {
         logger.info("Updating trigger {}", name);
@@ -283,7 +283,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlDropTrigger drop, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", drop);
     try {
-      ValidationService.validateOrThrow(drop);
+      ValidationService.validateOrThrow(drop, connection);
     } catch (SQLException e) {
       throw new DdlException(drop, e.getMessage(), e);
     }
@@ -318,7 +318,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   private void updateTriggerPausedState(SqlNode sqlNode, SqlIdentifier triggerName, boolean paused) {
     logger.info("Validating statement: {}", sqlNode);
     try {
-      ValidationService.validateOrThrow(sqlNode);
+      ValidationService.validateOrThrow(sqlNode, connection);
     } catch (SQLException e) {
       throw new DdlException(sqlNode, e.getMessage(), e);
     }
@@ -353,7 +353,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlDropObject drop, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", drop);
     try {
-      ValidationService.validateOrThrow(drop);
+      ValidationService.validateOrThrow(drop, connection);
     } catch (SQLException e) {
       throw new DdlException(drop, e.getMessage(), e);
     }

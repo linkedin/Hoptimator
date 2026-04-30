@@ -103,7 +103,7 @@ class ValidationServiceTest {
   void testValidateObjIssuesInvokesValidators() {
     ValidatorProviderTest.enableErrors();
     Validator.Issues issues = new Validator.Issues("test");
-    ValidationService.validate("any-object", issues);
+    ValidationService.validate("any-object", issues, null);
     assertFalse(issues.valid(),
         "validate(obj, issues) must invoke validators; if forEach is removed no error fires");
     assertTrue(issues.toString().contains("injected error"),
@@ -115,7 +115,7 @@ class ValidationServiceTest {
   void testValidateOrThrowSingleObjectThrowsWhenErrorRecorded() {
     ValidatorProviderTest.enableErrors();
     assertThrows(SQLException.class,
-        () -> ValidationService.validateOrThrow("any-object"),
+        () -> ValidationService.validateOrThrow("any-object", null),
         "validateOrThrow must throw when a provider records an error");
   }
 
@@ -125,27 +125,27 @@ class ValidationServiceTest {
   @Test
   void testValidateOrThrowSingleObjectPassesWhenValid() throws SQLException {
     // ValidatorProviderTest is in no-error mode (reset in setUp)
-    ValidationService.validateOrThrow("test-object");
+    ValidationService.validateOrThrow("test-object", null);
   }
 
   @Test
   void testValidateOrThrowCollectionThrowsWhenErrorRecorded() {
     ValidatorProviderTest.enableErrors();
     assertThrows(SQLException.class,
-        () -> ValidationService.validateOrThrow(Arrays.asList("obj1", "obj2")),
+        () -> ValidationService.validateOrThrow(Arrays.asList("obj1", "obj2"), null),
         "validateOrThrow(Collection) must throw when provider records an error");
   }
 
   @Test
   void testValidateOrThrowCollectionPassesWhenValid() throws SQLException {
     Collection<String> validObjects = Arrays.asList("obj1", "obj2");
-    ValidationService.validateOrThrow(validObjects);
+    ValidationService.validateOrThrow(validObjects, null);
   }
 
   @Test
   void testValidateOrThrowCollectionPassesWithEmptyCollection() throws SQLException {
     Collection<String> emptyCollection = Collections.emptyList();
-    ValidationService.validateOrThrow(emptyCollection);
+    ValidationService.validateOrThrow(emptyCollection, null);
   }
 
   // ValidatorProviderTest is registered via META-INF/services so ServiceLoader must find it.
@@ -161,7 +161,7 @@ class ValidationServiceTest {
   @Test
   void testValidatorsReturnsValidatorsFromRegisteredProvider() {
     ValidatorProviderTest.enableErrors();
-    Collection<Validator> validators = ValidationService.validators("any-object");
+    Collection<Validator> validators = ValidationService.validators("any-object", null);
     assertNotNull(validators);
     assertFalse(validators.isEmpty(),
         "validators() must return the non-empty list provided by ValidatorProviderTest");
@@ -175,14 +175,14 @@ class ValidationServiceTest {
 
   @Test
   void testValidatorsReturnsCollection() {
-    Collection<Validator> validators = ValidationService.validators("test-object");
+    Collection<Validator> validators = ValidationService.validators("test-object", null);
     assertNotNull(validators);
   }
 
   @Test
   void testValidatePopulatesIssues() {
     Validator.Issues issues = new Validator.Issues("test");
-    ValidationService.validate("test-object", issues);
+    ValidationService.validate("test-object", issues, null);
     assertNotNull(issues);
   }
 

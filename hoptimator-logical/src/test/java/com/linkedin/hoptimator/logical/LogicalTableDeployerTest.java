@@ -516,7 +516,7 @@ class LogicalTableDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi)
-        .validate(issues);
+        .validate(issues, null);
 
     assertTrue(issues.valid());
   }
@@ -527,7 +527,7 @@ class LogicalTableDeployerTest {
     new LogicalTableDeployer(
         testSource(), twoTierProps("missing-db", "also-missing"),
         mockContext(), new FakeK8sApi<>(new ArrayList<>()))
-        .validate(issues);
+        .validate(issues, null);
 
     assertFalse(issues.valid());
   }
@@ -548,9 +548,9 @@ class LogicalTableDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
         makeSource("logical", "testevent"), oneTierProps, ctx, dbApi)
-        .validate(issues);
+        .validate(issues, null);
 
-    verify(mockValidatedDeployer).validate(issues);
+    verify(mockValidatedDeployer).validate(issues, null);
     assertTrue(issues.valid());
   }
 
@@ -594,7 +594,7 @@ class LogicalTableDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
         makeSource("logical", "testevent"), oneTierProps, ctx, dbApi)
-        .validate(issues);
+        .validate(issues, null);
 
     assertFalse(issues.valid());
   }

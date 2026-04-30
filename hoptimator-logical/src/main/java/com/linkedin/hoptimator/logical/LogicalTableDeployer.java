@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.logical;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLNonTransientException;
@@ -113,7 +114,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * <p>Called by {@link com.linkedin.hoptimator.jdbc.ValidationService} before deployment.
    */
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, Connection connection) {
     try {
       // Pre-register the row type in tier schemas so deployers (e.g. VeniceDeployer) can
       // call HoptimatorDriver.rowType() during their own validate() calls.
@@ -124,7 +125,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
         Collection<Deployer> deployers = DeploymentService.deployers(tierSource, context.connection());
         for (Deployer deployer : deployers) {
           if (deployer instanceof Validated) {
-            ((Validated) deployer).validate(issues);
+            ((Validated) deployer).validate(issues, connection);
           }
         }
       }

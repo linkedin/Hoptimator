@@ -51,17 +51,10 @@ class K8sValidatorProviderTest {
   }
 
   @Test
-  void nullConnectionReturnsNoValidators() {
-    // Without a connection we can't query K8s — return nothing rather than fail at validate-time.
+  void nullConnectionStillReturnsTheValidator() {
+    // The provider is connection-agnostic: it just decides which validators apply based on the
+    // object type. The validator itself fails fast at validate-time if the connection is missing.
     Collection<Validator> validators = provider.validators(new PendingDelete<>(source()), null);
-    assertTrue(validators.isEmpty());
-  }
-
-  @Test
-  void connectionLessOverloadAlwaysReturnsNothing() {
-    // The connection-less validators(obj) variant is for in-process structural checks that don't
-    // exist for pre-delete dependency lookups — must be empty.
-    assertTrue(provider.validators(source()).isEmpty());
-    assertTrue(provider.validators(new PendingDelete<>(source())).isEmpty());
+    assertEquals(1, validators.size());
   }
 }

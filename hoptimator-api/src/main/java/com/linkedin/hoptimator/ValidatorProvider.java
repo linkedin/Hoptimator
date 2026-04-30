@@ -6,14 +6,11 @@ import java.util.Collection;
 
 public interface ValidatorProvider {
 
-  <T> Collection<Validator> validators(T obj);
-
   /**
-   * Connection-aware variant. Default delegates to {@link #validators(Object)}. Implementations
-   * that need to capture the connection at construction (so the resulting Validators can run
-   * lookups against an external system) override this overload.
+   * Returns validators that should be applied to {@code obj}. The connection is always supplied
+   * — providers that don't need it can ignore it (matches the {@code DeployerProvider} pattern).
+   * Implementations capturing the connection in returned validators must accept that the
+   * connection may be {@code null} when the caller has none.
    */
-  default <T> Collection<Validator> validators(T obj, Connection connection) {
-    return validators(obj);
-  }
+  <T> Collection<Validator> validators(T obj, Connection connection);
 }

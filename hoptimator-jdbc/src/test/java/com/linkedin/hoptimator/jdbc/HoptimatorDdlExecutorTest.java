@@ -1224,10 +1224,10 @@ class HoptimatorDdlExecutorTest {
   private void stubValidationToFail() {
     // Casting to Object in the lambda forces Java's overload resolution to pick the T-object
     // overload (erased to Object) rather than the Collection overload.
-    mockValidationService.when(() -> ValidationService.validateOrThrow(any(Object.class)))
+    mockValidationService.when(() -> ValidationService.validateOrThrow(any(Object.class), any()))
         .thenThrow(new SQLException("validation failed"));
     // Also stub the Collection overload for callers that pass deployer collections.
-    mockValidationService.when(() -> ValidationService.validateOrThrow(any(Collection.class)))
+    mockValidationService.when(() -> ValidationService.validateOrThrow(any(Collection.class), any()))
         .thenThrow(new SQLException("validation failed"));
   }
 }
