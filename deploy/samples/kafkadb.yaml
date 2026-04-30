@@ -17,7 +17,7 @@ spec:
   databases:
   - kafka-database
   yaml: |
-    apiVersion: kafka.strimzi.io/v1beta2
+    apiVersion: kafka.strimzi.io/v1
     kind: KafkaTopic
     metadata:
       name: {{name}}
@@ -42,7 +42,7 @@ spec:
 
 ---
 
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: kafka-database-existing-topic-1
@@ -58,7 +58,7 @@ spec:
 
 ---
 
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: kafka-database-existing-topic-2
