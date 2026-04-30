@@ -12,9 +12,6 @@ ext.jacocoAggregateExcludes = [
   // ── hoptimator-models / hoptimator-k8s ──────────────────────────────────────
   '**/models/**',           // auto-generated K8s CRD model classes
 
-  // ── hoptimator-operator ──────────────────────────────────────────────────────
-  '**/PipelineOperatorApp.class',                  // operator main entry point
-
   // ── hoptimator-flink-runner ──────────────────────────────────────────────────
   '**/FlinkRunner.class',                          // CLI entry point; requires Flink runtime
 
