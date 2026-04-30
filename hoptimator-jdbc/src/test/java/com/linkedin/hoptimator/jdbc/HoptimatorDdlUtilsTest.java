@@ -1640,6 +1640,7 @@ class HoptimatorDdlUtilsTest {
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SqlIdentifier compoundName =
           new SqlIdentifier(Arrays.asList("catalog", "my-job"), SqlParserPos.ZERO);
+      // Anonymous subclass is required because SqlCreateJob's constructor is protected
       SqlCreateJob create = new SqlCreateJob(
           SqlParserPos.ZERO, false, false, compoundName,
           SqlLiteral.createCharString("SELECT 1", SqlParserPos.ZERO),
@@ -1659,6 +1660,7 @@ class HoptimatorDdlUtilsTest {
     try (HoptimatorConnection conn =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SqlIdentifier name = new SqlIdentifier("my-job", SqlParserPos.ZERO);
+      // Anonymous subclass is required because SqlCreateJob's constructor is protected
       SqlCreateJob create = new SqlCreateJob(
           SqlParserPos.ZERO, false, false, name,
           SqlLiteral.createCharString("   ", SqlParserPos.ZERO),

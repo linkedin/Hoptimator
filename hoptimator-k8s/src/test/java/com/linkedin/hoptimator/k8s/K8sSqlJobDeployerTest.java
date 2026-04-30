@@ -185,7 +185,7 @@ class K8sSqlJobDeployerTest {
     List<String> specs = deployer.specify();
 
     assertEquals(1, specs.size());
-    assertTrue(specs.get(0).contains("myetljob"), "name must be canonicalized to lower-kebab-case");
+    assertTrue(specs.get(0).contains("myetljob"), "name must be canonicalized to lowercase");
   }
 
   @Test
