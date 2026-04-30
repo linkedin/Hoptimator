@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.k8s;
 import com.linkedin.hoptimator.DatabaseDeployable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
