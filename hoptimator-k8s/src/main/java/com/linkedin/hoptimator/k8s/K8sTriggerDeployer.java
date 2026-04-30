@@ -15,14 +15,14 @@ import java.util.Map;
 import java.util.Properties;
 
 
-class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1TableTriggerList> {
+public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1TableTriggerList> {
 
   private final K8sContext context;
   private final Trigger trigger;
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> triggerApi;
   private final K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> jobTemplateApi;
 
-  K8sTriggerDeployer(Trigger trigger, K8sContext context) {
+  public K8sTriggerDeployer(Trigger trigger, K8sContext context) {
     super(context, K8sApiEndpoints.TABLE_TRIGGERS);
     this.context = context;
     this.trigger = trigger;
@@ -40,21 +40,26 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
 
   @Override
   public void update() throws SQLException {
-    if (trigger.options().containsKey(Trigger.PAUSED_OPTION)) {
-      String pauseValue = trigger.options().get(Trigger.PAUSED_OPTION);
-      String canonicalName = K8sUtils.canonicalizeName(trigger.name());
-      V1alpha1TableTrigger existingTrigger = triggerApi.get(canonicalName);
+    String canonicalName = K8sUtils.canonicalizeName(trigger.name());
+    V1alpha1TableTrigger existingTrigger = triggerApi.getIfExists(context.namespace(), canonicalName);
 
+    Boolean targetPaused = null;
+    if (trigger.options().containsKey(Trigger.PAUSED_OPTION)) {
+      targetPaused = Boolean.TRUE.toString().equals(trigger.options().get(Trigger.PAUSED_OPTION));
+    } else if (existingTrigger != null && existingTrigger.getSpec() != null) {
+      targetPaused = existingTrigger.getSpec().getPaused();
+    }
+
+    if (targetPaused != null) {
       if (existingTrigger == null) {
         throw new SQLException("Trigger " + trigger.name() + " not found.");
       }
-
       V1alpha1TableTriggerSpec spec = existingTrigger.getSpec();
       if (spec == null) {
         spec = new V1alpha1TableTriggerSpec();
         existingTrigger.spec(spec);
       }
-      spec.setPaused("true".equals(pauseValue));
+      spec.setPaused(targetPaused);
       triggerApi.update(existingTrigger);
       return;
     }
@@ -107,6 +112,9 @@ class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1Table
         .yaml(rendered);
     if (!jobProps.isEmpty()) {
       spec.jobProperties(jobProps);
+    }
+    if (trigger.options().containsKey(Trigger.PAUSED_OPTION)) {
+      spec.paused("true".equals(trigger.options().get(Trigger.PAUSED_OPTION)));
     }
     return new V1alpha1TableTrigger()
         .kind(K8sApiEndpoints.TABLE_TRIGGERS.kind())
