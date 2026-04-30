@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DatabaseDeployable;
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Job;
@@ -99,6 +100,18 @@ class K8sDeployerProviderTest {
 
     assertEquals(1, deployers.size());
     assertInstanceOf(K8sTriggerDeployer.class, deployers.iterator().next());
+  }
+
+  @Test
+  void deployersForDatabaseDeployableReturnsDatabaseDeployer() {
+    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    K8sDeployerProvider provider = new K8sDeployerProvider();
+    DatabaseDeployable database = mock(DatabaseDeployable.class);
+
+    Collection<Deployer> deployers = provider.deployers(database, connection);
+
+    assertEquals(1, deployers.size());
+    assertInstanceOf(K8sDatabaseDeployer.class, deployers.iterator().next());
   }
 
   @Test

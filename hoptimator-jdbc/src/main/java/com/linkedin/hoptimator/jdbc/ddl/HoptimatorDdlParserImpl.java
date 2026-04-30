@@ -7,6 +7,7 @@ import org.apache.calcite.sql.SqlDrop;
 import org.apache.calcite.sql.SqlTruncate;
 import org.apache.calcite.sql.ddl.SqlCreateTableLike;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
@@ -6727,6 +6728,24 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
     }
         {if (true) return new SqlCreateTrigger(s.end(this), replace, ifNotExists, id, target,
             template, namespace, cronSchedule, optionList);}
+    throw new Error("Missing return statement in function");
+  }
+
+  final public SqlCreate SqlCreateDatabase(Span s, boolean replace) throws ParseException {
+    final boolean ifNotExists;
+    final SqlIdentifier id;
+    SqlNodeList optionList = null;
+    jj_consume_token(DATABASE);
+    ifNotExists = IfNotExistsOpt();
+    id = CompoundIdentifier();
+    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case WITH:
+      optionList = Options();
+      break;
+    default:
+      ;
+    }
+        {if (true) return new SqlCreateDatabase(s.end(this), replace, ifNotExists, id, optionList);}
     throw new Error("Missing return statement in function");
   }
 
@@ -24461,6 +24480,9 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
       ;
     }
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case DATABASE:
+      create = SqlCreateDatabase(s, replace);
+      break;
     case MATERIALIZED:
       create = SqlCreateMaterializedView(s, replace);
       break;
