@@ -1542,7 +1542,7 @@ class HoptimatorDdlUtilsTest {
     try (HoptimatorConnection conn =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       // Construct a SqlCreateDatabase with a compound identifier directly since the parser
-      // only accepts simple names; use the protected constructor via reflection is not allowed
+      // only accepts simple names; using the protected constructor via reflection is not allowed
       // so we exercise validation via the parse path with a manually constructed node.
       SqlIdentifier compoundName =
           new SqlIdentifier(Arrays.asList("catalog", "mydb"), SqlParserPos.ZERO);
@@ -1558,7 +1558,7 @@ class HoptimatorDdlUtilsTest {
   }
 
   @Test
-  void processCreateDatabaseSpecifyModeWithNoOptionsThrowsOrReturnsEmpty() throws Exception {
+  void processCreateDatabaseSpecifyModeWithNoOptionsReturnsEmpty() throws Exception {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection conn =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {

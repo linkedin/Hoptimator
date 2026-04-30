@@ -96,7 +96,7 @@ class K8sDatabaseDeployerTest {
   }
 
   @Test
-  void specifyWithUppercasedOptionKeysUsedCaseInsensitively() throws SQLException {
+  void specifyWithUppercasedOptionKeysUsesCaseInsensitiveLookup() throws SQLException {
     // SQL parser uppercases unquoted identifiers, so WITH (url '...') produces key "URL"
     Map<String, String> options = new HashMap<>();
     options.put("URL", "jdbc:mysql://localhost:3306/mydb");
