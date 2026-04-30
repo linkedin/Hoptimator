@@ -24703,6 +24703,12 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
     case BATCH:
       create = SqlCreateJob(s, replace);
       break;
+    case DATABASE:
+      create = SqlCreateDatabase(s, replace);
+      break;
+    case MATERIALIZED:
+      create = SqlCreateMaterializedView(s, replace);
+      break;
     default:
       jj_la1[269] = jj_gen;
       if (jj_2_74(2)) {

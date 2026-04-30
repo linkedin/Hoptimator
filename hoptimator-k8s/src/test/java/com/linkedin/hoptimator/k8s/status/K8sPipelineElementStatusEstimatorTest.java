@@ -65,7 +65,7 @@ public class K8sPipelineElementStatusEstimatorTest {
       "apiVersion: foo.org/v1beta1\n" + "kind: FakeJob\n" + "metadata:\n" + "  name: fake-job-name\n" + "spec:\n"
           + "  deploymentName: fake-deployment\n" + "  job:\n" + "    entryClass: com.runner.FakeRunner";
   private static final String FAKE_KAFKA_TOPIC_SPEC =
-      "apiVersion: kafka.strimzi.io/v1beta2\n" + "kind: KafkaTopic\n" + "metadata:\n" + "      name: fake-kafka-topic\n"
+      "apiVersion: kafka.strimzi.io/v1\n" + "kind: KafkaTopic\n" + "metadata:\n" + "      name: fake-kafka-topic\n"
           + "      labels:\n" + "        strimzi.io/cluster: one\n" + "spec:\n" + "      topicName: existing-topic-1\n"
           + "      partitions: 1";
 
