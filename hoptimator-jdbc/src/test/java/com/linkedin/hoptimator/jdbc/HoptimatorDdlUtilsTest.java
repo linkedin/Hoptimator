@@ -6,6 +6,7 @@ import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.ThrowingFunction;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -1494,6 +1495,102 @@ class HoptimatorDdlUtilsTest {
 
       assertNotNull(result.specs);
       assertTrue(result.specs.isEmpty());
+    }
+  }
+
+  // ── processCreateDatabase tests ─────────────────────────────────────────────
+
+  @Test
+  void processCreateDatabaseSpecifyModeReturnsEmptySpecsWhenNoDeployersRegistered()
+      throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SqlCreateDatabase create = (SqlCreateDatabase) HoptimatorDriver.parseQuery(conn,
+          "CREATE DATABASE \"mydb\" WITH (url 'jdbc:mysql://localhost:3306/mydb')");
+
+      // No deployer providers are registered in the test env, so specs should be empty
+      HoptimatorDdlUtils.SpecifyResult result =
+          HoptimatorDdlUtils.processCreateDatabase(conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      assertNotNull(result);
+      assertNotNull(result.specs);
+      assertTrue(result.specs.isEmpty(), "Expected empty spec list when no deployers registered");
+    }
+  }
+
+  @Test
+  void processCreateDatabaseSpecifyModeViewPathContainsDatabaseName() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SqlCreateDatabase create = (SqlCreateDatabase) HoptimatorDriver.parseQuery(conn,
+          "CREATE DATABASE \"mydb\" WITH (url 'jdbc:mysql://localhost:3306/mydb')");
+
+      HoptimatorDdlUtils.SpecifyResult result =
+          HoptimatorDdlUtils.processCreateDatabase(conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      assertNotNull(result.viewPath);
+      assertFalse(result.viewPath.isEmpty());
+      assertEquals("mydb", result.viewPath.get(0));
+    }
+  }
+
+  @Test
+  void processCreateDatabaseThrowsForCompoundDatabaseName() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // Construct a SqlCreateDatabase with a compound identifier directly since the parser
+      // only accepts simple names; use the protected constructor via reflection is not allowed
+      // so we exercise validation via the parse path with a manually constructed node.
+      SqlIdentifier compoundName =
+          new SqlIdentifier(Arrays.asList("catalog", "mydb"), SqlParserPos.ZERO);
+      SqlCreateDatabase create = new SqlCreateDatabase(
+          SqlParserPos.ZERO, false, false, compoundName, null) { };
+
+      SQLException ex = assertThrows(SQLException.class,
+          () -> HoptimatorDdlUtils.processCreateDatabase(
+              conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY));
+      assertTrue(ex.getMessage().contains("compound"),
+          "Expected 'compound' error but got: " + ex.getMessage());
+    }
+  }
+
+  @Test
+  void processCreateDatabaseSpecifyModeWithNoOptionsThrowsOrReturnsEmpty() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // A database with no options — deployers will fail validation (missing url) or there
+      // are no deployers, so either throws SQLException or returns empty specs.
+      SqlCreateDatabase create = (SqlCreateDatabase) HoptimatorDriver.parseQuery(conn,
+          "CREATE DATABASE \"mydb\"");
+
+      // With no deployers registered, no validation on the deployable happens, so it should
+      // return an empty spec list.
+      HoptimatorDdlUtils.SpecifyResult result =
+          HoptimatorDdlUtils.processCreateDatabase(conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      assertNotNull(result);
+      assertTrue(result.specs.isEmpty());
+    }
+  }
+
+  @Test
+  void specifyFromSqlForCreateDatabaseReturnsEmptySpecsWhenNoDeployersRegistered()
+      throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      HoptimatorDdlUtils.SpecifyResult result = HoptimatorDdlUtils.specifyFromSql(
+          "CREATE DATABASE \"testdb\" WITH (url 'jdbc:mysql://localhost/testdb')", conn);
+
+      assertNotNull(result);
+      assertNotNull(result.specs);
+      assertTrue(result.specs.isEmpty(), "specifyFromSql should route CREATE DATABASE to processCreateDatabase");
+      assertNotNull(result.viewPath);
+      assertEquals("testdb", result.viewPath.get(0));
     }
   }
 
