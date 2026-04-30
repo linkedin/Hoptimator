@@ -44,9 +44,11 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.util.DeploymentService;
 
+import com.linkedin.hoptimator.PendingDelete;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
+import com.linkedin.hoptimator.jdbc.ValidationService;
 
 
 /**
@@ -208,29 +210,35 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   @Override
   public void delete() throws SQLException {
-    // Pre-condition: ValidationService.validateOrThrow(PendingDelete<Source>, connection) has
-    // already run by the time DeploymentService.delete reaches us — no active pipeline depends
-    // on this logical table or any of its tier sources (the LogicalValidatorProvider expands
-    // the check across tiers).
-    String crdName = K8sUtils.canonicalizeName(source.path());
+    // A logical DROP is structurally equivalent to running DROP TABLE on each tier plus
+    // deleting the LogicalTable CRD. We mirror that shape exactly: each tier goes through the
+    // same validateOrThrow → DeploymentService.delete pipeline a standalone DROP would.
+    Map<String, Source> tierSources = buildTierSources();
+    HoptimatorConnection conn = context.connection();
 
-    // 1. Delete the LogicalTable CRD. K8s cascades to owned Pipeline and TableTrigger CRDs via
+    // 1. Per-tier pre-flight: refuse the drop if any active pipeline depends on a tier resource.
+    //    Same dep-guard the K8s validator runs on a single-tier DROP; calling it once per tier
+    //    is the price of having multiple physical resources backing one logical table.
+    for (Source tierSource : tierSources.values()) {
+      ValidationService.validateOrThrow(new PendingDelete<>(tierSource), conn);
+    }
+
+    // 2. Delete the LogicalTable CRD. K8s cascades to owned Pipeline and TableTrigger CRDs via
     //    ownerReferences, removing the implicit inter-tier pipelines and the offline trigger.
+    String crdName = K8sUtils.canonicalizeName(source.path());
     K8sLogicalTableDeployer crdDeployer = (logicalTableDeployer != null)
         ? logicalTableDeployer
         : createLogicalTableDeployer(crdName, source.database(), buildTierMap());
     crdDeployer.delete();
 
-    // 2. Best-effort cleanup of physical tier resources (Kafka topic, Venice store, etc.).
-    //    These are NOT owned by the LogicalTable CRD (cross-driver), so the K8s cascade above
-    //    doesn't reach them. Failure to delete one doesn't abort the others — a residual tier
-    //    resource is recoverable, but a partial deletion blocking re-create is not.
-    Map<String, Source> tierSources = buildTierSources();
+    // 3. Per-tier physical cleanup. These resources are NOT owned by the LogicalTable CRD
+    //    (cross-driver), so the K8s cascade above doesn't reach them. Best-effort: a failing
+    //    tier delete logs a warning but doesn't abort — a stranded tier is recoverable; a
+    //    partial delete that blocks re-create is not.
     for (Map.Entry<String, Source> entry : tierSources.entrySet()) {
       Source tierSource = entry.getValue();
       try {
-        Collection<Deployer> tierResourceDeployers =
-            DeploymentService.deployers(tierSource, context.connection());
+        Collection<Deployer> tierResourceDeployers = DeploymentService.deployers(tierSource, conn);
         for (Deployer d : tierResourceDeployers) {
           d.delete();
         }
@@ -240,9 +248,8 @@ public class LogicalTableDeployer implements Deployer, Validated {
       }
     }
 
-    // 3. Schema cleanup: remove TemporaryTable entries that CREATE registered in tier schemas
-    //    (KAFKA, VENICE, ...). Silent no-op if a fresh connection never registered them.
-    HoptimatorConnection conn = context.connection();
+    // 4. Schema cleanup: remove TemporaryTable entries that CREATE registered in tier schemas.
+    //    Silent no-op if a fresh connection never registered them.
     if (conn != null) {
       for (Source tierSource : tierSources.values()) {
         HoptimatorDdlUtils.removeTableFromSchema(conn, tierSource.catalog(), tierSource.schema(),

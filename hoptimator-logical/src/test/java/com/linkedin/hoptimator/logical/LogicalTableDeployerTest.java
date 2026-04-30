@@ -80,6 +80,9 @@ class LogicalTableDeployerTest {
   MockedStatic<HoptimatorDriver> hoptimatorDriverMock;
 
   @Mock
+  MockedStatic<com.linkedin.hoptimator.jdbc.ValidationService> validationServiceMock;
+
+  @Mock
   K8sLogicalTableDeployer mockCrdDeployer;
 
   // Helper methods shared by outer class tests
