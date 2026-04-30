@@ -32,6 +32,7 @@ data: {
       "org.apache.calcite.sql.SqlTruncate"
       "org.apache.calcite.sql.ddl.SqlCreateTableLike"
       "org.apache.calcite.sql.ddl.SqlDdlNodes"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable"
@@ -91,6 +92,7 @@ data: {
     # Each must accept arguments "(SqlParserPos pos, boolean replace)".
     # Example: "SqlCreateForeignSchema".
     createStatementParserMethods: [
+      "SqlCreateDatabase"
       "SqlCreateMaterializedView"
       "SqlCreateTrigger"
       "SqlCreateTable"
