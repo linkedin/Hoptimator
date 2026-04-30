@@ -168,11 +168,25 @@ Failed to generate key schema for Venice store testevent
 !describe "VENICE"."testevent"
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 7: DROP TABLE — disabled; should fail with helpful error message
+# Test 7: DROP TABLE — deletes the LogicalTable CRD (cascading the implicit
+# inter-tier pipelines and the offline trigger via owner refs), best-effort
+# cleans up tier resources, and de-registers tier TemporaryTables from the
+# connection schemas.
 # ─────────────────────────────────────────────────────────────────────────────
 drop table "LOGICAL"."testevent";
-Logical table deletion is not yet supported
-!error
+(0 rows modified)
+
+!update
+
+# Owner-ref cascade removes the implicit nearline→online pipeline.
+select name from "k8s".pipelines where name = 'logical-testevent-nearline-to-online';
++------+
+| NAME |
++------+
++------+
+(0 rows)
+
+!ok
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 8: CREATE TABLE against non-existent schema is rejected
@@ -220,8 +234,19 @@ spec:
 !specify create-table-test
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Clean up (deletion not yet supported — verified in Test 6 above)
+# Clean up — DROP TABLE on the second logical table also succeeds.
 # ─────────────────────────────────────────────────────────────────────────────
 drop table "LOGICAL"."pageview";
-Logical table deletion is not yet supported
-!error
+(0 rows modified)
+
+!update
+
+# Owner-ref cascade also removes the pageview pipeline.
+select name from "k8s".pipelines where name = 'logical-pageview-nearline-to-online';
++------+
+| NAME |
++------+
++------+
+(0 rows)
+
+!ok

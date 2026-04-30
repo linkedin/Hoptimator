@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.logical;
 
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -231,14 +230,99 @@ class LogicalTableDeployerTest {
   // delete() / specify() tests
 
   @Test
-  void deleteThrowsSQLFeatureNotSupportedException() {
+  void deleteRemovesCrdAndCleansUpTierResources() throws Exception {
     Properties props = new Properties();
-    props.setProperty("nearline", "kafka-db");
-    props.setProperty("online", "venice-db");
+    props.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
+    props.setProperty(LogicalTier.OFFLINE.tierName(), "offline-db");
 
-    LogicalTableDeployer deployer = new LogicalTableDeployer(makeSource("mydb", "myTable"), props, null);
-    SQLFeatureNotSupportedException e = assertThrows(SQLFeatureNotSupportedException.class, deployer::delete);
-    assertTrue(e.getMessage().contains("Logical table deletion is not yet supported"));
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(Arrays.asList(
+        makeDb("nearline-db", "NEARLINE"),
+        makeDb("offline-db", "OFFLINE")));
+
+    K8sContext ctx = mock(K8sContext.class);
+    HoptimatorConnection conn = mock(HoptimatorConnection.class);
+    when(ctx.connection()).thenReturn(conn);
+
+    Deployer mockTierDeployer = mock(Deployer.class);
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(List.of(mockTierDeployer));
+
+    LogicalTableDeployer deployer = new LogicalTableDeployer(
+        makeSource("logical", "mytable"), props, ctx, dbApi) {
+      @Override
+      K8sLogicalTableDeployer createLogicalTableDeployer(String name, String label,
+          Map<String, String> tierMap) {
+        return mockCrdDeployer;
+      }
+    };
+
+    deployer.delete();
+
+    // 1. CRD delete invoked — cascade handles owned pipelines/triggers.
+    verify(mockCrdDeployer).delete();
+
+    // 2. Tier resource cleanup: each tier's deployer was delete()d (best-effort).
+    verify(mockTierDeployer, org.mockito.Mockito.atLeastOnce()).delete();
+  }
+
+  @Test
+  void deleteSwallowsTierCleanupFailures() throws Exception {
+    // Best-effort tier cleanup: a failing tier delete must NOT abort the operation. The CRD
+    // is already gone (and its cascade with it) — leaving a stranded tier resource is recoverable;
+    // throwing here would block re-create later.
+    Properties props = new Properties();
+    props.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
+
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        List.of(makeDb("nearline-db", "NEARLINE")));
+
+    K8sContext ctx = mock(K8sContext.class);
+    when(ctx.connection()).thenReturn(mock(HoptimatorConnection.class));
+
+    Deployer flakyTierDeployer = mock(Deployer.class);
+    org.mockito.Mockito.doThrow(new SQLException("kafka exploded")).when(flakyTierDeployer).delete();
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(List.of(flakyTierDeployer));
+
+    LogicalTableDeployer deployer = new LogicalTableDeployer(
+        makeSource("logical", "mytable"), props, ctx, dbApi) {
+      @Override
+      K8sLogicalTableDeployer createLogicalTableDeployer(String name, String label,
+          Map<String, String> tierMap) {
+        return mockCrdDeployer;
+      }
+    };
+
+    // Should NOT throw despite the flaky tier deployer.
+    deployer.delete();
+    verify(mockCrdDeployer).delete();
+  }
+
+  @Test
+  void deletePropagatesCrdDeletionFailure() throws Exception {
+    // CRD deletion failing IS fatal — without the CRD gone, owner-ref cascade hasn't fired and
+    // the implicit pipelines remain. Caller must see the error.
+    Properties props = new Properties();
+    props.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
+
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
+        List.of(makeDb("nearline-db", "NEARLINE")));
+
+    K8sContext ctx = mock(K8sContext.class);
+    when(ctx.connection()).thenReturn(mock(HoptimatorConnection.class));
+    org.mockito.Mockito.doThrow(new SQLException("CRD delete failed")).when(mockCrdDeployer).delete();
+
+    LogicalTableDeployer deployer = new LogicalTableDeployer(
+        makeSource("logical", "mytable"), props, ctx, dbApi) {
+      @Override
+      K8sLogicalTableDeployer createLogicalTableDeployer(String name, String label,
+          Map<String, String> tierMap) {
+        return mockCrdDeployer;
+      }
+    };
+
+    SQLException e = assertThrows(SQLException.class, deployer::delete);
+    assertTrue(e.getMessage().contains("CRD delete failed"));
   }
 
   // CRD model construction tests

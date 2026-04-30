@@ -837,4 +837,39 @@ public final class HoptimatorDdlUtils {
       return registerTemporaryTable(rootSchema, tableName, rowType, databaseName);
     }
   }
+
+  /**
+   * Best-effort inverse of {@link #registerTemporaryTableInSchema}. Removes the temp-table
+   * registration if the schema (and table) are present in this connection. Silent no-op when
+   * the connection has no Calcite schema yet, or the catalog/schema/table are missing — DROP
+   * can be called from a fresh connection that never registered them in the first place.
+   */
+  public static void removeTableFromSchema(HoptimatorConnection conn,
+      @Nullable String catalog, @Nullable String schema, String tableName) {
+    if (conn == null || conn.calciteConnection() == null) {
+      return;
+    }
+    SchemaPlus rootSchema = conn.calciteConnection().getRootSchema();
+    if (rootSchema == null) {
+      return;
+    }
+    SchemaPlus targetSchema;
+    if (catalog != null && schema != null) {
+      SchemaPlus catalogSchemaPlus = rootSchema.subSchemas().get(catalog);
+      if (catalogSchemaPlus == null) {
+        return;
+      }
+      targetSchema = catalogSchemaPlus.subSchemas().get(schema);
+    } else if (schema != null) {
+      targetSchema = rootSchema.subSchemas().get(schema);
+    } else {
+      targetSchema = rootSchema;
+    }
+    if (targetSchema == null) {
+      return;
+    }
+    if (targetSchema.tables().get(tableName) != null) {
+      targetSchema.removeTable(tableName);
+    }
+  }
 }

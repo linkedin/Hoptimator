@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.logical;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLNonTransientException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -209,13 +208,47 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   @Override
   public void delete() throws SQLException {
-    // TODO: Implement safe logical table deletion.
-    // Deletion is blocked until we can verify no active pipelines depend on this table.
-    // See: LogicalTableDeployer.delete()
-    throw new SQLFeatureNotSupportedException(
-        "Logical table deletion is not yet supported. "
-        + "Cannot safely delete physical tier resources without verifying no active pipelines "
-        + "depend on this table.");
+    // Pre-condition: ValidationService.validateOrThrow(PendingDelete<Source>, connection) has
+    // already run by the time DeploymentService.delete reaches us — no active pipeline depends
+    // on this logical table or any of its tier sources (the LogicalValidatorProvider expands
+    // the check across tiers).
+    String crdName = K8sUtils.canonicalizeName(source.path());
+
+    // 1. Delete the LogicalTable CRD. K8s cascades to owned Pipeline and TableTrigger CRDs via
+    //    ownerReferences, removing the implicit inter-tier pipelines and the offline trigger.
+    K8sLogicalTableDeployer crdDeployer = (logicalTableDeployer != null)
+        ? logicalTableDeployer
+        : createLogicalTableDeployer(crdName, source.database(), buildTierMap());
+    crdDeployer.delete();
+
+    // 2. Best-effort cleanup of physical tier resources (Kafka topic, Venice store, etc.).
+    //    These are NOT owned by the LogicalTable CRD (cross-driver), so the K8s cascade above
+    //    doesn't reach them. Failure to delete one doesn't abort the others — a residual tier
+    //    resource is recoverable, but a partial deletion blocking re-create is not.
+    Map<String, Source> tierSources = buildTierSources();
+    for (Map.Entry<String, Source> entry : tierSources.entrySet()) {
+      Source tierSource = entry.getValue();
+      try {
+        Collection<Deployer> tierResourceDeployers =
+            DeploymentService.deployers(tierSource, context.connection());
+        for (Deployer d : tierResourceDeployers) {
+          d.delete();
+        }
+      } catch (Exception e) {
+        log.warn("Best-effort cleanup of tier {} resource {} failed: {}",
+            entry.getKey(), tierSource.table(), e.getMessage());
+      }
+    }
+
+    // 3. Schema cleanup: remove TemporaryTable entries that CREATE registered in tier schemas
+    //    (KAFKA, VENICE, ...). Silent no-op if a fresh connection never registered them.
+    HoptimatorConnection conn = context.connection();
+    if (conn != null) {
+      for (Source tierSource : tierSources.values()) {
+        HoptimatorDdlUtils.removeTableFromSchema(conn, tierSource.catalog(), tierSource.schema(),
+            tierSource.table());
+      }
+    }
   }
 
   @Override
