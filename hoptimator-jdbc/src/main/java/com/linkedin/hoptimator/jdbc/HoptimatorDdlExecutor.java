@@ -20,6 +20,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.PendingDelete;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.UserJob;
@@ -422,8 +423,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
           source = new Source(temporaryTable.databaseName(), tablePath, Collections.emptyMap());
         }
         // Pre-delete dependency guard: a registered ValidatorProvider (hoptimator-k8s) can
-        // refuse the DROP if any active pipeline still references this resource.
-        ValidationService.validateOrThrow(source, connection);
+        // refuse the DROP if any active pipeline still references this resource. The
+        // PendingDelete wrapper is the explicit "delete intent" signal — validators that key
+        // off raw Source aren't triggered.
+        ValidationService.validateOrThrow(new PendingDelete<>(source), connection);
         deployers = DeploymentService.deployers(source, connection);
         logger.info("Deleting table {}", tableName);
         DeploymentService.delete(deployers);

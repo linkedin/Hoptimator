@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,11 +32,11 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 class K8sPipelineDependencyValidator implements Validator {
 
   private final Source source;
-  private final K8sContext context;
+  private final Connection connection;
 
-  K8sPipelineDependencyValidator(Source source, K8sContext context) {
+  K8sPipelineDependencyValidator(Source source, Connection connection) {
     this.source = source;
-    this.context = context;
+    this.connection = connection;
   }
 
   @Override
@@ -71,7 +72,7 @@ class K8sPipelineDependencyValidator implements Validator {
 
   /** Package-visible factory hook so tests can inject a {@link FakeK8sApi}. */
   K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi() {
-    return new K8sApi<>(context, K8sApiEndpoints.PIPELINES);
+    return new K8sApi<>(K8sContext.create(connection), K8sApiEndpoints.PIPELINES);
   }
 
   /**
