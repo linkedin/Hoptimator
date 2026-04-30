@@ -58,14 +58,10 @@ kind: Kafka
 metadata:
   name: one
   namespace: kafka
-  annotations:
-    strimzi.io/node-pools: enabled
-    strimzi.io/kraft: enabled
 spec:
   kafka:
     version: 4.2.0
-    metadataVersion: "4.0"
-    replicas: 1
+    metadataVersion: 4.2-IV1
     listeners:
       - name: plain
         port: 9094
