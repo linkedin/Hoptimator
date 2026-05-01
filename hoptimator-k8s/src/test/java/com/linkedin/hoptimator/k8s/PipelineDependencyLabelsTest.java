@@ -159,26 +159,4 @@ class PipelineDependencyLabelsTest {
     assertTrue(PipelineDependencyLabels.parseAnnotation("").isEmpty());
     assertTrue(PipelineDependencyLabels.parseAnnotation("  ,  ").isEmpty());
   }
-
-  @Test
-  void stripDependencyLabelsRemovesOnlyPrefixedEntries() {
-    Map<String, String> existing = new LinkedHashMap<>();
-    existing.put("app", "hoptimator");                                       // unrelated label, keep
-    existing.put(PipelineDependencyLabels.labelKey("db", List.of("t")), "db/t");  // strip
-    existing.put("pipeline", "my-pipeline");                                 // keep
-
-    Map<String, String> stripped = PipelineDependencyLabels.stripDependencyLabels(existing);
-
-    assertEquals(2, stripped.size());
-    assertTrue(stripped.containsKey("app"));
-    assertTrue(stripped.containsKey("pipeline"));
-    assertFalse(stripped.containsKey(PipelineDependencyLabels.labelKey("db", List.of("t"))));
-  }
-
-  @Test
-  void stripDependencyLabelsHandlesNull() {
-    Map<String, String> result = PipelineDependencyLabels.stripDependencyLabels(null);
-    assertNotNull(result, "null input must return a non-null empty map, not propagate the null");
-    assertTrue(result.isEmpty());
-  }
 }

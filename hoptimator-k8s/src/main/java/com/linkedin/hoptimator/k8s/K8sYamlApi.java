@@ -115,7 +115,7 @@ public class K8sYamlApi implements Api<String> {
     final KubernetesApiResponse<DynamicKubernetesObject> resp;
     if (existing.isSuccess()) {
 
-      // Ensure labels are additive. Existing values are kept.
+      // Ensure labels, annotations are additive. Existing values are kept.
       Map<String, String> labels = new HashMap<>();
       if (obj.getMetadata().getLabels() != null) {
         labels.putAll(obj.getMetadata().getLabels());
@@ -124,6 +124,15 @@ public class K8sYamlApi implements Api<String> {
         labels.putAll(existing.getObject().getMetadata().getLabels());
       }
       existing.getObject().getMetadata().setLabels(labels);
+
+      Map<String, String> annotations = new HashMap<>();
+      if (obj.getMetadata().getAnnotations() != null) {
+        annotations.putAll(obj.getMetadata().getAnnotations());
+      }
+      if (existing.getObject().getMetadata().getAnnotations() != null) {
+        annotations.putAll(existing.getObject().getMetadata().getAnnotations());
+      }
+      existing.getObject().getMetadata().setAnnotations(annotations);
 
       obj.setMetadata(existing.getObject().getMetadata());
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).update(obj);

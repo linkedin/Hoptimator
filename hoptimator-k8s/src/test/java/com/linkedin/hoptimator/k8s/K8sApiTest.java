@@ -277,6 +277,58 @@ class K8sApiTest {
   }
 
   @Test
+  void updateMergesAnnotationsFromExisting() throws SQLException {
+    V1alpha1Pipeline pipeline = makePipeline("existing", "test-ns");
+    Map<String, String> newAnnotations = new HashMap<>();
+    newAnnotations.put("new-key", "new-val");
+    pipeline.getMetadata().setAnnotations(newAnnotations);
+
+    V1alpha1Pipeline existing = makePipeline("existing", "test-ns");
+    Map<String, String> existingAnnotations = new HashMap<>();
+    existingAnnotations.put("existing-key", "existing-val");
+    existing.getMetadata().setAnnotations(existingAnnotations);
+    existing.getMetadata().setResourceVersion("rv2");
+
+    when(mockGenericApi.get(eq("test-ns"), eq("existing"))).thenReturn(mockSingleResponse);
+    when(mockSingleResponse.isSuccess()).thenReturn(true);
+    when(mockSingleResponse.getObject()).thenReturn(existing);
+    when(mockGenericApi.update(any(V1alpha1Pipeline.class))).thenReturn(mockSingleResponse);
+
+    api.update(pipeline);
+
+    Map<String, String> mergedAnnotations = pipeline.getMetadata().getAnnotations();
+    assertEquals("existing-val", mergedAnnotations.get("existing-key"));
+    assertEquals("new-val", mergedAnnotations.get("new-key"));
+  }
+
+  @Test
+  void updateLocalAnnotationWinsOnSharedKey() throws SQLException {
+    // Locks in the freshness guarantee the dependency-guard relies on: when the local object
+    // sets the same annotation key the cluster's existing object had, the local value wins.
+    // Without this, the depends-on annotation would never refresh on CREATE OR REPLACE and stale
+    // labels could no longer be disambiguated by the collision-guard.
+    V1alpha1Pipeline pipeline = makePipeline("existing", "test-ns");
+    Map<String, String> newAnnotations = new HashMap<>();
+    newAnnotations.put("shared-key", "fresh-val");
+    pipeline.getMetadata().setAnnotations(newAnnotations);
+
+    V1alpha1Pipeline existing = makePipeline("existing", "test-ns");
+    Map<String, String> existingAnnotations = new HashMap<>();
+    existingAnnotations.put("shared-key", "stale-val");
+    existing.getMetadata().setAnnotations(existingAnnotations);
+    existing.getMetadata().setResourceVersion("rv2");
+
+    when(mockGenericApi.get(eq("test-ns"), eq("existing"))).thenReturn(mockSingleResponse);
+    when(mockSingleResponse.isSuccess()).thenReturn(true);
+    when(mockSingleResponse.getObject()).thenReturn(existing);
+    when(mockGenericApi.update(any(V1alpha1Pipeline.class))).thenReturn(mockSingleResponse);
+
+    api.update(pipeline);
+
+    assertEquals("fresh-val", pipeline.getMetadata().getAnnotations().get("shared-key"));
+  }
+
+  @Test
   void updateWhenObjectNotExistsCallsCreate() throws SQLException {
     V1alpha1Pipeline pipeline = makePipeline("new-pipeline", "test-ns");
 

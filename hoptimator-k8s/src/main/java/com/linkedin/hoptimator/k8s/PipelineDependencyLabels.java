@@ -18,8 +18,8 @@ import com.linkedin.hoptimator.Source;
  * Computes the labels and annotation that encode a Pipeline CRD's dependency edges.
  *
  * <p>Every source and sink a pipeline references is recorded as a label:
- * {@code hoptimator.linkedin.com/depends-on-<slug>: "<database>/<pathString>"} where
- * {@code <slug>} is a deterministic hash derived from {@code database + "/" + pathString}.
+ * {@code hoptimator.linkedin.com/depends-on-<slug>: "<database>_<pathString>"} where
+ * {@code <slug>} is a deterministic hash derived from {@code database + "_" + pathString}.
  * The hash keeps label keys within Kubernetes's 63-character name limit for arbitrary paths,
  * and lets {@code K8sApi.select} filter pipelines by dependency on the server.
  *
@@ -39,9 +39,6 @@ public final class PipelineDependencyLabels {
 
   /**
    * Canonical logical identifier for a resource: {@code <database>_<dot-joined-path>}.
-   *
-   * <p>The separator is {@code _} (not {@code /}) so the result is also a valid Kubernetes
-   * label value out of the box — K8s allows {@code [A-Za-z0-9_.-]} but not {@code /}.
    */
   public static String identifier(String database, Iterable<String> path) {
     return database + "_" + String.join(".", path);
@@ -65,13 +62,11 @@ public final class PipelineDependencyLabels {
   /**
    * Labels to stamp on a Pipeline CRD — one entry per source <em>and</em> the sink. Both edges
    * matter to the guard: dropping a source orphans pipelines that read from it; dropping a sink
-   * orphans pipelines that write to it. The partial-view scenario where two pipelines share a
-   * sink (e.g. {@code X} and {@code X$piece}) is unaffected — DROP MV routes through
-   * {@code K8sViewDeployer}, which deliberately does not implement {@code DependencyGuarded}
-   * (DROP MV is metadata-only and does not destroy the underlying physical sink).
+   * orphans pipelines that write to it.
    *
    * <p>Keys are the same as {@link #labelKey}. Values are the readable identifier, truncated
-   * to 63 chars if necessary (the annotation preserves the untruncated form).
+   * to 63 chars if necessary (the annotation preserves the untruncated form). Values are
+   * for debugging purposes only.
    */
   public static Map<String, String> labelsFor(Collection<Source> sources, Sink sink) {
     Map<String, String> labels = new LinkedHashMap<>();
@@ -86,8 +81,8 @@ public final class PipelineDependencyLabels {
 
   /**
    * Collision-guard annotation value — comma-separated list of full source and sink identifiers,
-   * deduplicated. The delete-time check cross-references this annotation after the label
-   * selector narrows the candidate set.
+   * deduplicated and not truncated. The delete-time check cross-references this annotation after
+   *  the label selector narrows the candidate set.
    */
   public static String annotationFor(Collection<Source> sources, Sink sink) {
     Set<String> ids = new LinkedHashSet<>();
@@ -98,21 +93,6 @@ public final class PipelineDependencyLabels {
       ids.add(identifier(sink.database(), sink.path()));
     }
     return String.join(",", ids);
-  }
-
-  /**
-   * Removes any {@code depends-on-*} entries from an existing label map so that an update can
-   * restamp the current dependency set without carrying stale labels from an earlier version of
-   * the pipeline. {@link K8sApi#update} is additive for labels; callers must strip first.
-   */
-  public static Map<String, String> stripDependencyLabels(Map<String, String> labels) {
-    if (labels == null) {
-      return new LinkedHashMap<>();
-    }
-    return labels.entrySet().stream()
-        .filter(e -> !e.getKey().startsWith(LABEL_PREFIX))
-        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,
-            (a, b) -> a, LinkedHashMap::new));
   }
 
   /** Parses the collision-guard annotation back into the set of identifiers it encoded. */

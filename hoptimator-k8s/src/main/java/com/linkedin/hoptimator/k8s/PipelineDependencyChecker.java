@@ -56,7 +56,7 @@ public final class PipelineDependencyChecker {
         continue;
       }
       if (!annotationConfirms(p, identifier)) {
-        // Label matched but annotation doesn't — this is a slug collision, skip it.
+        // Label matched but annotation doesn't — this is a slug collision or a stale label, skip it.
         continue;
       }
       blockers.add(describeBlocker(p));

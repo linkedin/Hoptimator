@@ -19,6 +19,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
@@ -85,7 +86,7 @@ class PipelineDependencyCheckerTest {
         () -> PipelineDependencyChecker.assertNoExternalDependents(
             api, DB, PATH, "LogicalTable", "self-name"));
     assertTrue(ex.getMessage().contains("external-pipe"));
-    assertTrue(!ex.getMessage().contains("owned-pipe"), "self-owned pipeline must not be listed");
+    assertFalse(ex.getMessage().contains("owned-pipe"), "self-owned pipeline must not be listed");
   }
 
   @Test

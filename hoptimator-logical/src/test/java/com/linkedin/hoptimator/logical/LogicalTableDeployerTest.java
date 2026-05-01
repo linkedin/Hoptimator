@@ -117,8 +117,6 @@ class LogicalTableDeployerTest {
 
   private static K8sContext mockContext() {
     K8sContext ctx = mock(K8sContext.class);
-    // Each stub is used by some tests but not all — mark lenient individually so the class
-    // doesn't need @MockitoSettings(strictness = Strictness.LENIENT).
     lenient().when(ctx.namespace()).thenReturn("default");
     lenient().when(ctx.withOwner(any())).thenReturn(ctx);
     lenient().when(ctx.withLabel(anyString(), anyString())).thenReturn(ctx);

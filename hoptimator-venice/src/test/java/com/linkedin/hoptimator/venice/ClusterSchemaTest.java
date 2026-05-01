@@ -194,7 +194,7 @@ class ClusterSchemaTest {
       @Override
       protected ControllerClient createControllerClient(String cluster, Optional<SSLFactory> sslFactory) {
         // verify the non-localhost branch would be reached (url does not contain localhost)
-        assertTrue(!properties.getProperty("router.url").contains("localhost"));
+        assertFalse(properties.getProperty("router.url").contains("localhost"));
         return mockControllerClient;
       }
     };
