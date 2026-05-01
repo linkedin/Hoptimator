@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.ValidatorProvider;
 
+import java.sql.Connection;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -39,10 +40,10 @@ public class ValidatorProviderTest implements ValidatorProvider {
   }
 
   @Override
-  public <T> Collection<Validator> validators(T obj) {
+  public <T> Collection<Validator> validators(T obj, Connection connection) {
     LAST_SEEN.set(obj);
     if (SHOULD_ERROR.get()) {
-      return Collections.singletonList(issues -> issues.error("ValidatorProviderTest injected error"));
+      return Collections.singletonList((issues, conn) -> issues.error("ValidatorProviderTest injected error"));
     }
     return Collections.emptyList();
   }

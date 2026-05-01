@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.DeploymentService;
@@ -9,10 +10,17 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 
-/** Deploys View and Pipeline objects, along with all the pipeline elements. */
+/**
+ * Deploys View and Pipeline objects, along with all the pipeline elements.
+ *
+ * <p>The dependency guard is implemented on {@link K8sViewDeployer} (which is what gets
+ * routed to during DROP MV), so this class doesn't need to implement
+ * {@link com.linkedin.hoptimator.DependencyGuarded} itself.
+ */
 class K8sMaterializedViewDeployer implements Deployer {
 
   private final MaterializedView view;
@@ -34,8 +42,8 @@ class K8sMaterializedViewDeployer implements Deployer {
   }
 
   K8sPipelineBundle createPipelineBundle(String name, List<String> pipelineSpecs, String sql,
-      K8sContext viewContext) {
-    return new K8sPipelineBundle(name, pipelineSpecs, sql, viewContext);
+      Collection<Source> sources, Sink sink, K8sContext viewContext) {
+    return new K8sPipelineBundle(name, pipelineSpecs, sql, sources, sink, viewContext);
   }
 
   @Override
@@ -45,7 +53,8 @@ class K8sMaterializedViewDeployer implements Deployer {
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.createAndReference();
       K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(), viewContext);
+      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(),
+          view.pipeline().sources(), view.pipeline().sink(), viewContext);
       deployers.add(bundle);
       bundle.create();
     }
@@ -58,7 +67,8 @@ class K8sMaterializedViewDeployer implements Deployer {
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.updateAndReference();
       K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(), viewContext);
+      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(),
+          view.pipeline().sources(), view.pipeline().sink(), viewContext);
       deployers.add(bundle);
       bundle.update();
     }

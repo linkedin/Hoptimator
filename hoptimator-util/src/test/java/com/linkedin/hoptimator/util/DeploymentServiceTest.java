@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -180,7 +181,6 @@ class DeploymentServiceTest {
     assertEquals("value", mixed.get("simple"));
     assertEquals("test", mixed.get("another"));
   }
-
 
   @Test
   void testCreateCallsCreateOnAllDeployers() throws SQLException {

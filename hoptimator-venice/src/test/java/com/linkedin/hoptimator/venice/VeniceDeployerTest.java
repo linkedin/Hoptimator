@@ -10,7 +10,6 @@ import com.linkedin.venice.controllerapi.NewStoreResponse;
 import com.linkedin.venice.controllerapi.SchemaResponse;
 import com.linkedin.venice.controllerapi.StoreResponse;
 import com.linkedin.venice.meta.StoreInfo;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.avro.Schema;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,8 +39,6 @@ import static org.mockito.Mockito.when;
  * Tests for VeniceDeployer using mocks.
  */
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 class VeniceDeployerTest {
 
   private static final String TEST_STORE = "test_store";
@@ -315,7 +312,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertTrue(issues.valid(), "Expected no validation errors for new store. Issues: " + issues);
   }
@@ -348,7 +345,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertTrue(issues.valid(), "Expected no validation errors when key schema unchanged. Issues: " + issues);
   }
@@ -381,7 +378,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid(), "Expected validation error for key schema change");
     assertTrue(issues.toString().contains("Key schema evolution is not supported"),
@@ -400,7 +397,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Failed to generate key schema"));
@@ -418,7 +415,7 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Failed to generate value schema"));
@@ -436,10 +433,11 @@ class VeniceDeployerTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Failed to generate key schema"));
     assertTrue(issues.toString().contains("Failed to generate value schema"));
   }
+
 }

@@ -184,10 +184,10 @@ class ValidatorTest {
 
   @Test
   void testDefaultValidatorDelegatesToTarget() {
-    Validated target = issues -> issues.error("target error");
+    Validated target = (issues, conn) -> issues.error("target error");
     Validator.DefaultValidator<Validated> validator = new Validator.DefaultValidator<>(target);
     Validator.Issues issues = new Validator.Issues("root");
-    validator.validate(issues);
+    validator.validate(issues, null);
     assertFalse(issues.valid());
   }
 

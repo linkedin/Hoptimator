@@ -38,7 +38,7 @@ class CompatibilityValidatorBaseTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    validator.validate(issues);
+    validator.validate(issues, null);
 
     assertTrue(issues.valid());
   }
@@ -57,7 +57,7 @@ class CompatibilityValidatorBaseTest {
     Validator.Issues issues = new Validator.Issues("test");
 
     try {
-      validator.validate(issues);
+      validator.validate(issues, null);
     } catch (IllegalArgumentException e) {
       assertTrue(e.getMessage().contains("Null original schema"));
     }
@@ -99,7 +99,7 @@ class CompatibilityValidatorBaseTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    validator.validate(issues);
+    validator.validate(issues, null);
     assertTrue(issues.valid());
   }
 
@@ -125,7 +125,7 @@ class CompatibilityValidatorBaseTest {
     };
 
     Validator.Issues issues = new Validator.Issues("test");
-    validator.validate(issues);
+    validator.validate(issues, null);
 
     // brandNewTable won't have an original, so validate should be skipped
     assertTrue(issues.valid());

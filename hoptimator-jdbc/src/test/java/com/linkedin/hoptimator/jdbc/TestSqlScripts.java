@@ -13,6 +13,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.Collection;
 import java.util.List;
 
@@ -76,7 +77,7 @@ public class TestSqlScripts extends QuidemTestBase {
 
   public static class CreateViewValidatorProvider implements ValidatorProvider {
     @Override
-    public <T> Collection<Validator> validators(T obj) {
+    public <T> Collection<Validator> validators(T obj, Connection connection) {
       if (obj instanceof SqlCreateView || obj instanceof SqlCreateMaterializedView) {
         return List.of(new SqlCreateViewValidator());
       }
@@ -88,7 +89,7 @@ public class TestSqlScripts extends QuidemTestBase {
     static final String ERROR_MESSAGE = "Create view is not allowed in this test.";
 
     @Override
-    public void validate(Issues issues) {
+    public void validate(Issues issues, Connection connection) {
       issues.error(ERROR_MESSAGE);
     }
   }

@@ -198,7 +198,7 @@ class K8sViewTableTest {
     stubRows();
 
     Validator.Issues issues = new Validator.Issues("test");
-    tableWithApi.validate(issues);
+    tableWithApi.validate(issues, null);
     assertNotNull(issues);
   }
 
@@ -213,7 +213,7 @@ class K8sViewTableTest {
     stubRows();
 
     Validator.Issues issues = new Validator.Issues("test");
-    tableWithApi.validate(issues);
+    tableWithApi.validate(issues, null);
     assertNotNull(issues);
   }
 
@@ -402,7 +402,7 @@ class K8sViewTableTest {
     stubRows();
 
     Validator.Issues issues = new Validator.Issues("test");
-    tableWithApi.validate(issues);
+    tableWithApi.validate(issues, null);
 
     assertFalse(issues.valid(),
         "Duplicate view name must record an error, making issues invalid");
@@ -419,7 +419,7 @@ class K8sViewTableTest {
     stubRows();
 
     Validator.Issues issues = new Validator.Issues("test");
-    tableWithApi.validate(issues);
+    tableWithApi.validate(issues, null);
 
     assertTrue(issues.valid(), "unique valid names must not produce errors");
   }

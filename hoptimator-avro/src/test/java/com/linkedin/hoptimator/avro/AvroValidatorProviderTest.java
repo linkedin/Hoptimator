@@ -24,7 +24,7 @@ class AvroValidatorProviderTest {
   void testValidatorsReturnsAvroTableValidatorForSchemaPlus() {
     AvroValidatorProvider provider = new AvroValidatorProvider();
 
-    Collection<Validator> validators = provider.validators(schemaPlus);
+    Collection<Validator> validators = provider.validators(schemaPlus, null);
 
     assertEquals(1, validators.size());
     assertInstanceOf(AvroTableValidator.class, validators.iterator().next());
@@ -34,7 +34,7 @@ class AvroValidatorProviderTest {
   void testValidatorsReturnsEmptyForNonSchemaPlus() {
     AvroValidatorProvider provider = new AvroValidatorProvider();
 
-    Collection<Validator> validators = provider.validators("not-a-schema");
+    Collection<Validator> validators = provider.validators("not-a-schema", null);
 
     assertTrue(validators.isEmpty());
   }
@@ -43,7 +43,7 @@ class AvroValidatorProviderTest {
   void testValidatorsReturnsEmptyForNull() {
     AvroValidatorProvider provider = new AvroValidatorProvider();
 
-    Collection<Validator> validators = provider.validators(null);
+    Collection<Validator> validators = provider.validators(null, null);
 
     assertTrue(validators.isEmpty());
   }

@@ -31,8 +31,8 @@ import java.util.stream.Collectors;
 /**
  * Deployer for MySQL tables. Creates tables in the synchronous DDL hot path.
  *
- * <p>Implements {@link Validated} to pre-check table constraints
- * before any deployment side effects.
+ * <p>Implements {@link Validated} to pre-check table constraints before any deployment side
+ * effects.
  */
 public class MySqlDeployer implements Deployer, Validated {
 
@@ -99,7 +99,7 @@ public class MySqlDeployer implements Deployer, Validated {
   }
 
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, Connection connection) {
     String tableName = source.table();
     String database = source.schema();
 
@@ -170,11 +170,11 @@ public class MySqlDeployer implements Deployer, Validated {
                 if (columnName.equals(keyField)) {
                   String newType = toMySqlType(field);
                   String existingType = existingCol.type;
-                  
+
                   // Normalize types for comparison (remove size for basic comparison)
                   String normalizedNew = newType.replaceAll("\\(.*?\\)", "");
                   String normalizedExisting = existingType.replaceAll("\\(.*?\\)", "");
-                  
+
                   if (!normalizedNew.equalsIgnoreCase(normalizedExisting)) {
                     issues.error("Cannot modify KEY field type for table " + tableName
                         + ". KEY field '" + keyField + "' has existing type " + existingType
