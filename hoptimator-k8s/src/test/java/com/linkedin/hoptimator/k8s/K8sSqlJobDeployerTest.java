@@ -86,9 +86,8 @@ class K8sSqlJobDeployerTest {
     assertEquals(1, specs.size());
     String yaml = specs.get(0);
     assertTrue(yaml.contains("my-etl-job"));
-    // SnakeYAML serializes enum by name (FLINK, STREAMING) rather than value (Flink, Streaming)
-    assertTrue(yaml.contains("FLINK"));
-    assertTrue(yaml.contains("STREAMING"));
+    assertTrue(yaml.contains("Flink"));
+    assertTrue(yaml.contains("Streaming"));
   }
 
   @Test
@@ -224,8 +223,7 @@ class K8sSqlJobDeployerTest {
 
     assertEquals(1, specs.size());
     String yaml = specs.get(0);
-    // SnakeYAML serializes enum by name (BATCH) rather than value (Batch)
-    assertTrue(yaml.contains("BATCH"));
+    assertTrue(yaml.contains("Batch"));
   }
 
   @Test
