@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
-import com.linkedin.hoptimator.avro.AvroSchemaProvider;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
@@ -117,7 +117,7 @@ class HoptimatorJdbcTableTest {
   }
 
   @Test
-  void valueSchemaReturnsNullWhenUpstreamDoesNotImplementProvider() {
+  void valueSchemaReturnsNullWhenUpstreamDoesNotImplementSource() {
     Table upstream = new AbstractTable() {
       @Override
       public RelDataType getRowType(RelDataTypeFactory factory) {
@@ -137,12 +137,12 @@ class HoptimatorJdbcTableTest {
   }
 
   @Test
-  void valueAndKeySchemaDelegateToUpstreamProvider() {
+  void valueAndKeySchemaDelegateToUpstreamSource() {
     Schema expectedValue = SchemaBuilder.record("Foo").namespace("com.linkedin.bar").fields()
         .requiredString("v").endRecord();
     Schema expectedKey = SchemaBuilder.record("FooKey").namespace("com.linkedin.keyns").fields()
         .requiredString("id").endRecord();
-    Table upstream = new ProviderTable(expectedValue, expectedKey);
+    Table upstream = new SourceTable(expectedValue, expectedKey);
     HoptimatorJdbcTable wrapper = new HoptimatorJdbcTable(mockJdbcTable,
         new HoptimatorJdbcConvention(AnsiSqlDialect.DEFAULT, mockExpression, "db",
             Collections.emptyList(), mockConnection)) {
@@ -159,7 +159,7 @@ class HoptimatorJdbcTableTest {
   void keySchemaReturnsNullWhenUpstreamHasNoKey() {
     Schema valueOnly = SchemaBuilder.record("Foo").namespace("ns").fields()
         .requiredString("v").endRecord();
-    Table upstream = new ProviderTable(valueOnly, null);
+    Table upstream = new SourceTable(valueOnly, null);
     HoptimatorJdbcTable wrapper = new HoptimatorJdbcTable(mockJdbcTable,
         new HoptimatorJdbcConvention(AnsiSqlDialect.DEFAULT, mockExpression, "db",
             Collections.emptyList(), mockConnection)) {
@@ -172,11 +172,11 @@ class HoptimatorJdbcTableTest {
     assertNull(wrapper.keySchema(), "upstream with no key should propagate null");
   }
 
-  private static final class ProviderTable extends AbstractTable implements AvroSchemaProvider {
+  private static final class SourceTable extends AbstractTable implements AvroSchemaSource {
     private final Schema value;
     private final Schema key;
 
-    ProviderTable(Schema value, Schema key) {
+    SourceTable(Schema value, Schema key) {
       this.value = value;
       this.key = key;
     }

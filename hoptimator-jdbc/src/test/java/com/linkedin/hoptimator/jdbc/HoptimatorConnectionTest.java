@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.avro.AvroSchemaProvider;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -218,14 +218,14 @@ class HoptimatorConnectionTest {
   }
 
   @Test
-  void providerSchemaAtReturnsNullForUnknownPath() {
+  void avroSchemaAtReturnsNullForUnknownPath() {
     SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
-    assertNull(HoptimatorConnection.providerSchemaAt(root,
+    assertNull(HoptimatorConnection.avroSchemaAt(root,
         List.of("missingDb", "missingTable")));
   }
 
   @Test
-  void providerSchemaAtReturnsNullWhenTableIsNotProvider() {
+  void avroSchemaAtReturnsNullWhenTableIsNotSource() {
     SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
     SchemaPlus db = root.add("db", new AbstractSchema());
     db.add("plain", new AbstractTable() {
@@ -235,25 +235,25 @@ class HoptimatorConnectionTest {
       }
     });
 
-    assertNull(HoptimatorConnection.providerSchemaAt(root, List.of("db", "plain")));
+    assertNull(HoptimatorConnection.avroSchemaAt(root, List.of("db", "plain")));
   }
 
   @Test
-  void providerSchemaAtReturnsValueSchemaWhenProviderHasNoKey() {
+  void avroSchemaAtReturnsValueSchemaWhenSourceHasNoKey() {
     // No key → the merge helper returns the value schema unchanged.
     Schema value = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
         .requiredString("name").endRecord();
     SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
     SchemaPlus db = root.add("db", new AbstractSchema());
-    db.add("user", new ProviderTable(value, null));
+    db.add("user", new SourceTable(value, null));
 
-    Schema result = HoptimatorConnection.providerSchemaAt(root, List.of("db", "user"));
+    Schema result = HoptimatorConnection.avroSchemaAt(root, List.of("db", "user"));
 
     assertSame(value, result, "no key → merged is just the value schema");
   }
 
   @Test
-  void providerSchemaAtMergesKeyAndValueWhenProviderExposesBoth() {
+  void avroSchemaAtMergesKeyAndValueWhenSourceExposesBoth() {
     // Both key and value → merged view with KEY_-prefixed key fields prepended before value.
     // resolve() uses this so SQL queries can reference key columns by name.
     Schema value = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
@@ -262,9 +262,9 @@ class HoptimatorConnectionTest {
         .requiredString("id").endRecord();
     SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
     SchemaPlus db = root.add("db", new AbstractSchema());
-    db.add("user", new ProviderTable(value, key));
+    db.add("user", new SourceTable(value, key));
 
-    Schema result = HoptimatorConnection.providerSchemaAt(root, List.of("db", "user"));
+    Schema result = HoptimatorConnection.avroSchemaAt(root, List.of("db", "user"));
 
     assertNotNull(result);
     assertEquals(2, result.getFields().size());
@@ -276,15 +276,15 @@ class HoptimatorConnectionTest {
   }
 
   @Test
-  void providerSchemaAtMergesPrimitiveKeyAsSingleKeyField() {
+  void avroSchemaAtMergesPrimitiveKeyAsSingleKeyField() {
     Schema value = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
         .requiredString("name").endRecord();
     Schema key = Schema.create(Schema.Type.STRING);
     SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
     SchemaPlus db = root.add("db", new AbstractSchema());
-    db.add("user", new ProviderTable(value, key));
+    db.add("user", new SourceTable(value, key));
 
-    Schema result = HoptimatorConnection.providerSchemaAt(root, List.of("db", "user"));
+    Schema result = HoptimatorConnection.avroSchemaAt(root, List.of("db", "user"));
 
     assertNotNull(result);
     assertEquals(2, result.getFields().size());
@@ -293,11 +293,11 @@ class HoptimatorConnectionTest {
     assertEquals("name", result.getFields().get(1).name());
   }
 
-  private static final class ProviderTable extends AbstractTable implements AvroSchemaProvider {
+  private static final class SourceTable extends AbstractTable implements AvroSchemaSource {
     private final Schema value;
     private final Schema key;
 
-    ProviderTable(Schema value, Schema key) {
+    SourceTable(Schema value, Schema key) {
       this.value = value;
       this.key = key;
     }

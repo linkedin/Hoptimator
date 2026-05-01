@@ -18,7 +18,7 @@ import org.apache.avro.Schema;
  *       a primitive {@link Schema}.
  * </ul>
  */
-public interface AvroSchemaProvider {
+public interface AvroSchemaSource {
 
   /**
    * Returns the value/payload Avro schema — the data record's schema without any query-layer
@@ -31,7 +31,7 @@ public interface AvroSchemaProvider {
    * Returns the key Avro schema, or {@code null} when this table has no distinct key concept.
    * Struct keys expose their fields directly; primitive keys return a primitive {@link Schema}.
    * SQL/query-layer consumers may merge this with {@link #valueSchema()} via
-   * {@link AvroSchemas#mergedAvroSchemaFor(AvroSchemaProvider)}.
+   * {@link AvroSchemas#mergedAvroSchemaFor(AvroSchemaSource)}.
    */
   default Schema keySchema() {
     return null;

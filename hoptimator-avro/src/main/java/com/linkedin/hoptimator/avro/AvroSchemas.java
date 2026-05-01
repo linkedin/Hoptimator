@@ -49,18 +49,18 @@ public final class AvroSchemas {
   }
 
   /**
-   * Produces the merged Avro schema for an {@link AvroSchemaProvider}: the value schema with key
+   * Produces the merged Avro schema for an {@link AvroSchemaSource}: the value schema with key
    * fields prepended using Hoptimator's standard convention ({@link #KEY_PREFIX} for struct keys,
-   * {@link #PRIMITIVE_KEY_NAME} field for primitive keys). When the provider has no key
-   * ({@link AvroSchemaProvider#keySchema()} returns {@code null}), returns the value schema
+   * {@link #PRIMITIVE_KEY_NAME} field for primitive keys). When the source has no key
+   * ({@link AvroSchemaSource#keySchema()} returns {@code null}), returns the value schema
    * unchanged.
    *
    * <p>Centralizes the Hoptimator merging convention so SQL/query-layer consumers (like
    * {@code HoptimatorConnection.resolve()}) share one implementation.
    */
-  public static Schema mergedAvroSchemaFor(AvroSchemaProvider provider) {
-    Schema key = provider.keySchema();
-    Schema value = provider.valueSchema();
+  public static Schema mergedAvroSchemaFor(AvroSchemaSource source) {
+    Schema key = source.keySchema();
+    Schema value = source.valueSchema();
     if (key == null) {
       return value;
     }

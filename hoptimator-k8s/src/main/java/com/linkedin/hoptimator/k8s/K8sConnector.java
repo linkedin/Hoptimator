@@ -5,7 +5,7 @@ import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
-import com.linkedin.hoptimator.avro.AvroSchemaProvider;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
@@ -116,15 +116,15 @@ class K8sConnector implements Connector {
 
   /**
    * Renders the value Avro schema for the {@code {{avroValueSchema}}} template variable. Prefers
-   * the upstream table's native value schema when it implements {@link AvroSchemaProvider} — keys
+   * the upstream table's native value schema when it implements {@link AvroSchemaSource} — keys
    * aren't included, because the connector handles them separately via {@code key.fields}. Falls
    * back to synthesizing from the flat row type, which loses source-level namespaces and nested
    * record identities.
    */
   private Schema avroValueSchema(Source source, RelDataType sourceRowType) {
     Table table = lookupTable(source);
-    if (table instanceof AvroSchemaProvider) {
-      Schema provided = ((AvroSchemaProvider) table).valueSchema();
+    if (table instanceof AvroSchemaSource) {
+      Schema provided = ((AvroSchemaSource) table).valueSchema();
       if (provided != null) {
         return provided;
       }

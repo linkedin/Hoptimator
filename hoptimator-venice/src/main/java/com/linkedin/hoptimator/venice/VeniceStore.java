@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.avro.AvroConverter;
-import com.linkedin.hoptimator.avro.AvroSchemaProvider;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.util.DataTypeUtils;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
@@ -13,7 +13,7 @@ import org.apache.calcite.schema.impl.AbstractTable;
 
 
 /** A batch of records from a Venice store. */
-public class VeniceStore extends AbstractTable implements AvroSchemaProvider {
+public class VeniceStore extends AbstractTable implements AvroSchemaSource {
 
   private final StoreSchemaFetcher storeSchemaFetcher;
   private final Integer valueSchemaId;

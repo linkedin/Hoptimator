@@ -2,7 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.avro.AvroSchemaProvider;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
@@ -357,8 +357,8 @@ class K8sConnectorTest {
   }
 
   @Test
-  void configureAvroValueSchemaUsesProviderWhenAvailable() throws SQLException {
-    // When the resolved table implements AvroSchemaProvider, its native Avro schema is rendered
+  void configureAvroValueSchemaUsesSourceWhenAvailable() throws SQLException {
+    // When the resolved table implements AvroSchemaSource, its native Avro schema is rendered
     // into the template as-is — no round-trip through RelDataType.
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("KEY_id", SqlTypeName.VARCHAR)
@@ -366,13 +366,13 @@ class K8sConnectorTest {
     hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), any()))
         .thenReturn(rowType);
 
-    Schema nativeSchema = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
+    Schema avroSchema = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
         .requiredString("KEY_id")
         .requiredString("name")
         .endRecord();
     Source source = new Source("testdb", Arrays.asList("schema", "table"),
         Collections.emptyMap());
-    installRootSchemaWithTable(source, new ProviderTable(nativeSchema));
+    installRootSchemaWithTable(source, new SourceTable(avroSchema));
 
     FakeK8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> templateApi = new FakeK8sApi<>(
         List.of(new V1alpha1TableTemplate()
@@ -393,8 +393,8 @@ class K8sConnectorTest {
   }
 
   @Test
-  void configureAvroValueSchemaFallsBackToRowTypeSynthesisWhenNoProvider() throws SQLException {
-    // No provider on the resolved table → synthesize from the row type using AvroConverter.avro.
+  void configureAvroValueSchemaFallsBackToRowTypeSynthesisWhenNoSource() throws SQLException {
+    // No AvroSchemaSource on the resolved table → synthesize from the row type using AvroConverter.avro.
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("name", SqlTypeName.VARCHAR).build();
     hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), any()))
@@ -439,10 +439,10 @@ class K8sConnectorTest {
     }
   }
 
-  private static final class ProviderTable extends AbstractTable implements AvroSchemaProvider {
+  private static final class SourceTable extends AbstractTable implements AvroSchemaSource {
     private final Schema value;
 
-    ProviderTable(Schema value) {
+    SourceTable(Schema value) {
       this.value = value;
     }
 

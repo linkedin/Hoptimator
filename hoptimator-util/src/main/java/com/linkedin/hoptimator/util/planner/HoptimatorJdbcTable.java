@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.linkedin.hoptimator.avro.AvroSchemaProvider;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.util.DataTypeUtils;
 import org.apache.avro.Schema;
 import org.apache.calcite.adapter.java.AbstractQueryableTable;
@@ -30,7 +30,7 @@ import java.util.List;
 
 
 public class HoptimatorJdbcTable extends AbstractQueryableTable implements TranslatableTable,
-    ModifiableTable, AvroSchemaProvider {
+    ModifiableTable, AvroSchemaSource {
 
   private final JdbcTable jdbcTable;
   private final HoptimatorJdbcConvention convention;
@@ -79,7 +79,7 @@ public class HoptimatorJdbcTable extends AbstractQueryableTable implements Trans
 
   /**
    * Returns the upstream's native Avro value schema when the underlying data source exposes one
-   * via {@link AvroSchemaProvider}. Returns {@code null} when the upstream is not a Calcite
+   * via {@link AvroSchemaSource}. Returns {@code null} when the upstream is not a Calcite
    * connection, when the upstream table cannot be located, or when it does not implement the
    * interface.
    *
@@ -89,17 +89,17 @@ public class HoptimatorJdbcTable extends AbstractQueryableTable implements Trans
   @Override
   public @Nullable Schema valueSchema() {
     Table upstream = upstreamTable();
-    return upstream instanceof AvroSchemaProvider ? ((AvroSchemaProvider) upstream).valueSchema() : null;
+    return upstream instanceof AvroSchemaSource ? ((AvroSchemaSource) upstream).valueSchema() : null;
   }
 
   /**
    * Returns the upstream's native Avro key schema when present, or {@code null} when the upstream
-   * table has no distinct key concept or does not implement {@link AvroSchemaProvider}.
+   * table has no distinct key concept or does not implement {@link AvroSchemaSource}.
    */
   @Override
   public @Nullable Schema keySchema() {
     Table upstream = upstreamTable();
-    return upstream instanceof AvroSchemaProvider ? ((AvroSchemaProvider) upstream).keySchema() : null;
+    return upstream instanceof AvroSchemaSource ? ((AvroSchemaSource) upstream).keySchema() : null;
   }
 
   @VisibleForTesting
