@@ -2,15 +2,23 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +42,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -344,5 +354,106 @@ class K8sConnectorTest {
     Map<String, String> config = connector.configure();
 
     assertEquals("kafka", config.get("connector"));
+  }
+
+  @Test
+  void configureAvroValueSchemaUsesSourceWhenAvailable() throws SQLException {
+    // When the resolved table implements AvroSchemaSource, its native Avro schema is rendered
+    // into the template as-is — no round-trip through RelDataType.
+    RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
+        .add("KEY_id", SqlTypeName.VARCHAR)
+        .add("name", SqlTypeName.VARCHAR).build();
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), any()))
+        .thenReturn(rowType);
+
+    Schema avroSchema = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
+        .requiredString("KEY_id")
+        .requiredString("name")
+        .endRecord();
+    Source source = new Source("testdb", Arrays.asList("schema", "table"),
+        Collections.emptyMap());
+    installRootSchemaWithTable(source, new SourceTable(avroSchema));
+
+    FakeK8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> templateApi = new FakeK8sApi<>(
+        List.of(new V1alpha1TableTemplate()
+            .metadata(new V1ObjectMeta().name("tpl"))
+            .spec(new V1alpha1TableTemplateSpec()
+                .databases(List.of("testdb"))
+                .connector("avroValueSchema={{avroValueSchema}}"))));
+
+    K8sConnector connector = makeConnector(source, templateApi);
+    Map<String, String> config = connector.configure();
+
+    String rendered = config.get("avroValueSchema");
+    assertNotNull(rendered);
+    assertTrue(rendered.contains("\"namespace\":\"com.linkedin.foo\""),
+        "provider namespace preserved; got " + rendered);
+    assertTrue(rendered.contains("\"name\":\"User\""),
+        "provider record name preserved; got " + rendered);
+  }
+
+  @Test
+  void configureAvroValueSchemaFallsBackToRowTypeSynthesisWhenNoSource() throws SQLException {
+    // No AvroSchemaSource on the resolved table → synthesize from the row type using AvroConverter.avro.
+    RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
+        .add("name", SqlTypeName.VARCHAR).build();
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), any()))
+        .thenReturn(rowType);
+
+    Source source = new Source("testdb", Arrays.asList("schema", "table"),
+        Collections.emptyMap());
+    installRootSchemaWithTable(source, new PlainTable());
+
+    FakeK8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> templateApi = new FakeK8sApi<>(
+        List.of(new V1alpha1TableTemplate()
+            .metadata(new V1ObjectMeta().name("tpl"))
+            .spec(new V1alpha1TableTemplateSpec()
+                .databases(List.of("testdb"))
+                .connector("avroValueSchema={{avroValueSchema}}"))));
+
+    K8sConnector connector = makeConnector(source, templateApi);
+    Map<String, String> config = connector.configure();
+
+    assertTrue(config.get("avroValueSchema").contains("\"namespace\":\"com.linkedin.hoptimator.table\""),
+        "synthesized fallback produces the legacy namespace pattern; got " + config.get("avroValueSchema"));
+  }
+
+  private void installRootSchemaWithTable(Source source, Table table) {
+    SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
+    SchemaPlus parent = root;
+    for (String part : source.path().subList(0, source.path().size() - 1)) {
+      parent = parent.add(part, new org.apache.calcite.schema.impl.AbstractSchema());
+    }
+    parent.add(source.table(), table);
+
+    CalciteConnection calciteConn = mock(CalciteConnection.class);
+    when(calciteConn.getRootSchema()).thenReturn(root);
+    when(connection.calciteConnection()).thenReturn(calciteConn);
+    when(mockContext.connection()).thenReturn(connection);
+  }
+
+  private static final class PlainTable extends AbstractTable {
+    @Override
+    public RelDataType getRowType(RelDataTypeFactory factory) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  private static final class SourceTable extends AbstractTable implements AvroSchemaSource {
+    private final Schema value;
+
+    SourceTable(Schema value) {
+      this.value = value;
+    }
+
+    @Override
+    public Schema valueSchema() {
+      return value;
+    }
+
+    @Override
+    public RelDataType getRowType(RelDataTypeFactory factory) {
+      throw new UnsupportedOperationException();
+    }
   }
 }

@@ -1,6 +1,8 @@
 package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.avro.AvroConverter;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.util.DataTypeUtils;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import org.apache.avro.Schema;
@@ -11,9 +13,7 @@ import org.apache.calcite.schema.impl.AbstractTable;
 
 
 /** A batch of records from a Venice store. */
-public class VeniceStore extends AbstractTable {
-
-  private static final String KEY_PREFIX = "KEY_";
+public class VeniceStore extends AbstractTable implements AvroSchemaSource {
 
   private final StoreSchemaFetcher storeSchemaFetcher;
   private final Integer valueSchemaId;
@@ -26,12 +26,7 @@ public class VeniceStore extends AbstractTable {
   @Override
   public RelDataType getRowType(RelDataTypeFactory typeFactory) {
     Schema keySchema = storeSchemaFetcher.getKeySchema();
-    Schema valueSchema;
-    if (valueSchemaId != null) {
-      valueSchema = storeSchemaFetcher.getValueSchema(valueSchemaId);
-    } else {
-      valueSchema = storeSchemaFetcher.getLatestValueSchema();
-    }
+    Schema valueSchema = fetchValueSchema();
 
     // Venice contains both a key schema and a value schema. Since we need to pass back one joint schema,
     // and to avoid name collisions, all key fields are flattened as "KEY_foo".
@@ -41,17 +36,34 @@ public class VeniceStore extends AbstractTable {
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     if (key.isStruct()) {
       for (RelDataTypeField field: key.getFieldList()) {
-        builder.add(KEY_PREFIX + field.getName(), field.getType());
+        builder.add(AvroSchemas.KEY_PREFIX + field.getName(), field.getType());
       }
     } else {
-      builder.add("KEY", key);
+      builder.add(AvroSchemas.PRIMITIVE_KEY_NAME, key);
     }
     builder.addAll(value.getFieldList());
     RelDataType combinedSchema = builder.build();
     return DataTypeUtils.flatten(combinedSchema, typeFactory);
   }
 
+  @Override
+  public Schema valueSchema() {
+    return fetchValueSchema();
+  }
+
+  @Override
+  public Schema keySchema() {
+    return storeSchemaFetcher.getKeySchema();
+  }
+
   protected RelDataType rel(Schema schema, RelDataTypeFactory typeFactory) {
     return AvroConverter.rel(schema, typeFactory);
+  }
+
+  private Schema fetchValueSchema() {
+    if (valueSchemaId != null) {
+      return storeSchemaFetcher.getValueSchema(valueSchemaId);
+    }
+    return storeSchemaFetcher.getLatestValueSchema();
   }
 }
