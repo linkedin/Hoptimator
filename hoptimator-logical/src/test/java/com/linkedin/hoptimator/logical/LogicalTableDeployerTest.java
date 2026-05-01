@@ -40,8 +40,6 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
@@ -139,9 +137,7 @@ class LogicalTableDeployerTest {
   private LogicalTableDeployer deployerWithMockCrd(
       Source src, Properties props, K8sContext ctx,
       FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi) {
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
-    return new LogicalTableDeployer(src, props, ctx, dbApi, ltApi) {
+    return new LogicalTableDeployer(src, props, ctx, dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
           String crdName, String databaseLabel, Map<String, String> tierMap) {
@@ -245,13 +241,10 @@ class LogicalTableDeployerTest {
 
   // delete() / DependencyGuarded / specify() tests
 
-  /** Builds a 2-tier deployer with mocked CRD deployer and pre-populated fake K8s APIs. */
-  private LogicalTableDeployer deployerWithApis(Properties props,
-      List<V1alpha1Database> dbs, List<V1alpha1LogicalTable> logicalTables) {
+  /** Builds a 2-tier deployer with mocked CRD deployer and a pre-populated fake Database API. */
+  private LogicalTableDeployer deployerWithApis(Properties props, List<V1alpha1Database> dbs) {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(new ArrayList<>(dbs));
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>(logicalTables));
-    return new LogicalTableDeployer(testSource(), props, mockContext(), dbApi, ltApi) {
+    return new LogicalTableDeployer(testSource(), props, mockContext(), dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
           String crdName, String databaseLabel, Map<String, String> tierMap) {
@@ -264,8 +257,7 @@ class LogicalTableDeployerTest {
   void deleteThrowsWhenCrdDeleteFails() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
-        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")),
-        Collections.emptyList());
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
     doThrow(new SQLException("crd gone")).when(mockCrdDeployer).delete();
 
@@ -281,8 +273,7 @@ class LogicalTableDeployerTest {
   void deleteSwallowsTierDeleteFailuresAndContinues() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
-        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")),
-        Collections.emptyList());
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
     // Two tier deployers: first throws, second succeeds. The overall delete must return cleanly.
     Deployer failing = mock(Deployer.class);
@@ -320,8 +311,7 @@ class LogicalTableDeployerTest {
   void deleteRemovesTierEntriesFromConnectionSchema() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
-        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")),
-        Collections.emptyList());
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
     Deployer tierDeployer = mock(Deployer.class);
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
@@ -349,8 +339,7 @@ class LogicalTableDeployerTest {
     // The failed tier's schema entry must NOT be removed; the succeeded tier's must be.
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
-        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")),
-        Collections.emptyList());
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
     Deployer failingTier = mock(Deployer.class);
     Deployer succeedingTier = mock(Deployer.class);
@@ -381,8 +370,7 @@ class LogicalTableDeployerTest {
   void deleteRunsCrdDeleteBeforeTierDeletes() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
-        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")),
-        Collections.emptyList());
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
     Deployer tierDeployer = mock(Deployer.class);
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
@@ -644,9 +632,7 @@ class LogicalTableDeployerTest {
 
     // Use a subclass that mocks the CRD deployer but does NOT suppress deployPipelineBundle,
     // so the pipeline path is exercised and fails due to the null connection in mockContext().
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
-    LogicalTableDeployer deployer = new LogicalTableDeployer(testSource(), props, mockContext(), dbApi, ltApi) {
+    LogicalTableDeployer deployer = new LogicalTableDeployer(testSource(), props, mockContext(), dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
           String crdName, String databaseLabel, Map<String, String> tierMap) {
@@ -669,11 +655,9 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
-        testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi, ltApi)
+        testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi)
         .validate(issues, null);
 
     assertTrue(issues.valid());
@@ -681,12 +665,10 @@ class LogicalTableDeployerTest {
 
   @Test
   void validateReportsIssueWhenDatabaseNotFound() throws Exception {
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
         testSource(), twoTierProps("missing-db", "also-missing"),
-        mockContext(), new FakeK8sApi<>(new ArrayList<>()), ltApi)
+        mockContext(), new FakeK8sApi<>(new ArrayList<>()))
         .validate(issues, null);
 
     assertFalse(issues.valid());
@@ -704,12 +686,10 @@ class LogicalTableDeployerTest {
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE")));
 
     K8sContext ctx = mock(K8sContext.class);
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
 
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
-        makeSource("logical", "testevent"), oneTierProps, ctx, dbApi, ltApi)
+        makeSource("logical", "testevent"), oneTierProps, ctx, dbApi)
         .validate(issues, null);
 
     verify(mockValidatedDeployer).validate(issues, null);
@@ -753,11 +733,9 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE")));
 
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
-        makeSource("logical", "testevent"), oneTierProps, ctx, dbApi, ltApi)
+        makeSource("logical", "testevent"), oneTierProps, ctx, dbApi)
         .validate(issues, null);
 
     assertFalse(issues.valid());
@@ -773,9 +751,7 @@ class LogicalTableDeployerTest {
     Properties props = twoTierProps("nearline-db", "online-db");
     props.setProperty(LogicalTier.ONLINE.tierName(), "online-db");
 
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
-    assertThrows(Exception.class, () -> new LogicalTableDeployer(testSource(), props, mockContext(), dbApi, ltApi).specify());
+    assertThrows(Exception.class, () -> new LogicalTableDeployer(testSource(), props, mockContext(), dbApi).specify());
   }
 
   @Test
@@ -786,10 +762,8 @@ class LogicalTableDeployerTest {
 
     Properties props = new Properties();
     props.setProperty(LogicalTier.OFFLINE.tierName(), "offline-db");
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
     List<String> specs = new LogicalTableDeployer(
-        testSource(), props, mockContext(), dbApi, ltApi).specify();
+        testSource(), props, mockContext(), dbApi).specify();
 
     assertNotNull(specs);
     assertTrue(specs.isEmpty(), "offline-only — no pipeline spec should be attempted");
@@ -810,11 +784,9 @@ class LogicalTableDeployerTest {
 
     // specify() calls DeploymentService.specify() per tier before the pipeline path,
     // which fails (null connection) — so we only see tier specs, not job specs.
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
     List<String> specs;
     try {
-      specs = new LogicalTableDeployer(testSource(), props, mockContext(), dbApi, ltApi).specify();
+      specs = new LogicalTableDeployer(testSource(), props, mockContext(), dbApi).specify();
     } catch (SQLException ignored) {
       // Pipeline planning may throw due to null connection; tier specs are added first.
       return;
@@ -829,11 +801,9 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
     assertThrows(Exception.class,
         () -> new LogicalTableDeployer(testSource(), twoTierProps("nearline-db", "offline-db"),
-            mockContext(), dbApi, ltApi).specify());
+            mockContext(), dbApi).specify());
   }
 
   @Test
@@ -877,9 +847,7 @@ class LogicalTableDeployerTest {
         new FakeK8sApi<>(jobTemplates);
     FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> triggerApi =
         new FakeK8sApi<>(preExistingTriggers);
-    FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> ltApi =
-        new FakeK8sApi<>(new ArrayList<>());
-    return new LogicalTableDeployer(src, props, ctx, dbApi, ltApi) {
+    return new LogicalTableDeployer(src, props, ctx, dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
           String crdName, String databaseLabel, Map<String, String> tierMap) {

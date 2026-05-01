@@ -16,8 +16,6 @@ import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -71,7 +69,6 @@ public class LogicalTableDeployer implements Deployer, Validated {
   private final Properties tierProps;
   private final K8sContext context;
   private final K8sApi<V1alpha1Database, V1alpha1DatabaseList> databasesApi;
-  private final K8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> logicalTableApi;
 
   private final List<Deployer> tierDeployers = new ArrayList<>();
   private final List<K8sPipelineBundle> pipelineDeployers = new ArrayList<>();
@@ -88,20 +85,16 @@ public class LogicalTableDeployer implements Deployer, Validated {
   private Map<String, Source> cachedTierSources;
 
   LogicalTableDeployer(Source source, Properties tierProps, K8sContext context) {
-    this(source, tierProps, context,
-        new K8sApi<>(context, K8sApiEndpoints.DATABASES),
-        new K8sApi<>(context, K8sApiEndpoints.LOGICAL_TABLES));
+    this(source, tierProps, context, new K8sApi<>(context, K8sApiEndpoints.DATABASES));
   }
 
-  /** Package-private constructor for testing — accepts injectable K8s APIs. */
+  /** Package-private constructor for testing — accepts an injectable Database K8s API. */
   LogicalTableDeployer(Source source, Properties tierProps, K8sContext context,
-      K8sApi<V1alpha1Database, V1alpha1DatabaseList> databasesApi,
-      K8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> logicalTableApi) {
+      K8sApi<V1alpha1Database, V1alpha1DatabaseList> databasesApi) {
     this.source = source;
     this.tierProps = tierProps;
     this.context = context;
     this.databasesApi = databasesApi;
-    this.logicalTableApi = logicalTableApi;
   }
 
   /**
@@ -216,32 +209,14 @@ public class LogicalTableDeployer implements Deployer, Validated {
   }
 
   /**
-   * Looks up the existing LogicalTable CRD's UID, used as the {@code selfOwnerUid} on
-   * {@link PendingDelete} so the pre-delete dep check excludes pipelines owned by this CRD
-   * (the implicit inter-tier pipelines are cascade-deleted with it). Returns {@code null} if
-   * the CRD doesn't exist (pre-create or already-deleted state).
-   */
-  private String existingLogicalTableUid() throws SQLException {
-    if (logicalTableApi == null) {
-      return null;
-    }
-    String crdName = K8sUtils.canonicalizeName(source.path());
-    V1alpha1LogicalTable existing = logicalTableApi.getIfExists(context.namespace(), crdName);
-    if (existing == null || existing.getMetadata() == null) {
-      return null;
-    }
-    return existing.getMetadata().getUid();
-  }
-
-  /**
    * Deletes a logical table.
    *
    * <p>A logical DROP is structurally equivalent to running DROP TABLE on each tier plus
    * deleting the LogicalTable CRD. We mirror that shape exactly: each tier goes through the
    * same {@code validateOrThrow → DeploymentService.delete} pipeline a standalone DROP would.
-   * The {@link PendingDelete}'s {@code selfOwnerUid} is the LogicalTable CRD's UID so that the
-   * implicit inter-tier pipelines (owned by the CRD, cascade-deleted with it) are excluded
-   * from the dependent set — only <em>external</em> pipelines block.
+   * The {@link PendingDelete}'s {@code (selfOwnerKind, selfOwnerName)} pair identifies the
+   * LogicalTable CRD so the implicit inter-tier pipelines (owned by the CRD, cascade-deleted
+   * with it) are excluded from the dependent set — only <em>external</em> pipelines block.
    *
    * <ol>
    *   <li>Per-tier dep check via the validator framework. Any active external pipeline blocks.
@@ -256,16 +231,16 @@ public class LogicalTableDeployer implements Deployer, Validated {
   public void delete() throws SQLException {
     Map<String, Source> tierSources = buildTierSources();
     HoptimatorConnection conn = context.connection();
-    String selfUid = existingLogicalTableUid();
+    String selfName = K8sUtils.canonicalizeName(source.path());
 
     // 1. Per-tier pre-flight dep check.
     for (Source tierSource : tierSources.values()) {
-      ValidationService.validateOrThrow(new PendingDelete<>(tierSource, selfUid), conn);
+      ValidationService.validateOrThrow(
+          new PendingDelete<>(tierSource, "LogicalTable", selfName), conn);
     }
 
     // 2. Delete the LogicalTable CRD (cascades owned pipelines/triggers).
-    createLogicalTableDeployer(
-        K8sUtils.canonicalizeName(source.path()), source.database(), buildTierMap()).delete();
+    createLogicalTableDeployer(selfName, source.database(), buildTierMap()).delete();
 
     // 3. Per-tier physical cleanup. Best-effort: only deregister a tier's schema entry when its
     //    physical delete succeeded; failed tiers keep their entries so the user can retry.

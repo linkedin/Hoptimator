@@ -24,9 +24,10 @@ import javax.annotation.Nullable;
  * {@link PipelineDependencyLabels#ANNOTATION_KEY} annotation to rule out the (rare) case of a
  * hash collision in the label slug.
  *
- * <p>Pipelines owned (directly) by {@code selfOwnerUid} are excluded from the blocker list: those
- * pipelines will be cascade-deleted alongside the parent resource, so counting them as external
- * dependents would make composite deletes (e.g. {@code LogicalTableDeployer.delete()}) impossible.
+ * <p>Pipelines owned (directly) by {@code (selfOwnerKind, selfOwnerName)} are excluded from the
+ * blocker list: those pipelines will be cascade-deleted alongside the parent resource, so counting
+ * them as external dependents would make composite deletes (e.g. {@code LogicalTableDeployer.delete()})
+ * impossible.
  */
 public final class PipelineDependencyChecker {
 
@@ -34,14 +35,15 @@ public final class PipelineDependencyChecker {
   }
 
   public static void assertNoExternalDependents(K8sContext context, String database,
-      List<String> path, @Nullable String selfOwnerUid) throws SQLException {
+      List<String> path, @Nullable String selfOwnerKind, @Nullable String selfOwnerName) throws SQLException {
     assertNoExternalDependents(new K8sApi<>(context, K8sApiEndpoints.PIPELINES),
-        database, path, selfOwnerUid);
+        database, path, selfOwnerKind, selfOwnerName);
   }
 
   /** Variant that takes a pre-built {@link K8sApi} — used by tests to inject mocks. */
   static void assertNoExternalDependents(K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> api,
-      String database, List<String> path, @Nullable String selfOwnerUid) throws SQLException {
+      String database, List<String> path, @Nullable String selfOwnerKind,
+      @Nullable String selfOwnerName) throws SQLException {
 
     String labelKey = PipelineDependencyLabels.labelKey(database, path);
     String identifier = PipelineDependencyLabels.identifier(database, path);
@@ -50,7 +52,7 @@ public final class PipelineDependencyChecker {
 
     List<String> blockers = new ArrayList<>();
     for (V1alpha1Pipeline p : matches) {
-      if (isSelfOwned(p, selfOwnerUid)) {
+      if (isSelfOwned(p, selfOwnerKind, selfOwnerName)) {
         continue;
       }
       if (!annotationConfirms(p, identifier)) {
@@ -67,8 +69,9 @@ public final class PipelineDependencyChecker {
     }
   }
 
-  private static boolean isSelfOwned(V1alpha1Pipeline pipeline, @Nullable String selfOwnerUid) {
-    if (selfOwnerUid == null) {
+  private static boolean isSelfOwned(V1alpha1Pipeline pipeline, @Nullable String selfOwnerKind,
+      @Nullable String selfOwnerName) {
+    if (selfOwnerKind == null || selfOwnerName == null) {
       return false;
     }
     V1ObjectMeta meta = pipeline.getMetadata();
@@ -76,7 +79,7 @@ public final class PipelineDependencyChecker {
       return false;
     }
     for (V1OwnerReference owner : meta.getOwnerReferences()) {
-      if (selfOwnerUid.equals(owner.getUid())) {
+      if (selfOwnerKind.equals(owner.getKind()) && selfOwnerName.equals(owner.getName())) {
         return true;
       }
     }
