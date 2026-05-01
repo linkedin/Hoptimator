@@ -25,6 +25,7 @@ import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.View;
 import com.linkedin.hoptimator.jdbc.ddl.HoptimatorDdlParserImpl;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
@@ -266,6 +267,19 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       throw new DdlException(create, e.getMessage(), e);
     }
     logger.info("CREATE TABLE {} completed", create.name);
+  }
+
+  /** Executes a {@code CREATE DATABASE} command. */
+  public void execute(SqlCreateDatabase create, CalcitePrepare.Context context) {
+    HoptimatorDdlUtils.DdlMode mode = create.getReplace()
+        ? HoptimatorDdlUtils.DdlMode.UPDATE : HoptimatorDdlUtils.DdlMode.CREATE;
+    try {
+      HoptimatorDdlUtils.processCreateDatabase(connection, create, mode);
+    } catch (SQLException | RuntimeException e) {
+      logger.info("Failed to deploy database {}", create.name);
+      throw new DdlException(create, e.getMessage(), e);
+    }
+    logger.info("CREATE DATABASE {} completed", create.name);
   }
 
   /** Executes a {@code PAUSE TRIGGER} command. */
