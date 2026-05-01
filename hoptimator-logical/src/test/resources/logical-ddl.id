@@ -218,6 +218,12 @@ spec:
 # protect plain tier drops also protect the composite logical-table drop, since
 # LogicalTableDeployer's guardedResources() exposes every tier source to the framework.
 # ─────────────────────────────────────────────────────────────────────────────
+
+# Drop is blocked — logical table inner pipeline depends on KAFKA/testevent
+drop table "KAFKA"."testevent";
+active pipeline(s) depend on it
+!error
+
 create or replace materialized view VENICE."testevent$guard" as select "KEY" as "KEY", "VALUE" as "memberId" from KAFKA."existing-topic-1";
 (0 rows modified)
 
