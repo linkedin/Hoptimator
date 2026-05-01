@@ -16,8 +16,6 @@ import com.linkedin.hoptimator.ValidatorProvider;
  * {@code PendingDelete<Source>} (not raw {@code Source}) makes the guard explicitly delete-time:
  * other callers of {@code ValidationService.validateOrThrow(source, connection)} won't trigger
  * a pre-delete lookup against K8s.
- *
- * <p>Registered via {@code META-INF/services/com.linkedin.hoptimator.ValidatorProvider}.
  */
 public class K8sValidatorProvider implements ValidatorProvider {
 

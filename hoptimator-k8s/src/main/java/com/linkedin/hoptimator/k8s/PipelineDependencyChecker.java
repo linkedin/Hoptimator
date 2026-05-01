@@ -12,6 +12,8 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 
+import javax.annotation.Nullable;
+
 
 /**
  * Checks whether any Pipeline CRDs still depend on a resource a {@link com.linkedin.hoptimator.Deployer}
@@ -32,14 +34,14 @@ public final class PipelineDependencyChecker {
   }
 
   public static void assertNoExternalDependents(K8sContext context, String database,
-      List<String> path, String selfOwnerUid) throws SQLException {
+      List<String> path, @Nullable String selfOwnerUid) throws SQLException {
     assertNoExternalDependents(new K8sApi<>(context, K8sApiEndpoints.PIPELINES),
         database, path, selfOwnerUid);
   }
 
   /** Variant that takes a pre-built {@link K8sApi} — used by tests to inject mocks. */
   static void assertNoExternalDependents(K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> api,
-      String database, List<String> path, String selfOwnerUid) throws SQLException {
+      String database, List<String> path, @Nullable String selfOwnerUid) throws SQLException {
 
     String labelKey = PipelineDependencyLabels.labelKey(database, path);
     String identifier = PipelineDependencyLabels.identifier(database, path);
@@ -65,7 +67,7 @@ public final class PipelineDependencyChecker {
     }
   }
 
-  private static boolean isSelfOwned(V1alpha1Pipeline pipeline, String selfOwnerUid) {
+  private static boolean isSelfOwned(V1alpha1Pipeline pipeline, @Nullable String selfOwnerUid) {
     if (selfOwnerUid == null) {
       return false;
     }

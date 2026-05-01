@@ -24,7 +24,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
  * <p>{@link K8sApi#update} merges labels additively, so stale {@code depends-on-*} labels from
  * a previous version of the pipeline's SQL can linger. Correctness is preserved by the
  * annotation, which is rewritten in full on every update: the checker rejects any label-only
- * match whose annotation doesn't list the target identifier. In return we avoid the extra
+ * match whose annotation doesn't list the target identifier. In return, we avoid the extra
  * round trip that in-place label stripping would require.
  */
 class K8sPipelineDeployer extends K8sDeployer<V1alpha1Pipeline, V1alpha1PipelineList> {
@@ -34,10 +34,6 @@ class K8sPipelineDeployer extends K8sDeployer<V1alpha1Pipeline, V1alpha1Pipeline
   private final String sql;
   private final Collection<Source> sources;
   private final Sink sink;
-
-  K8sPipelineDeployer(String name, List<String> specs, String sql, K8sContext context) {
-    this(name, specs, sql, Collections.emptyList(), null, context);
-  }
 
   K8sPipelineDeployer(String name, List<String> specs, String sql,
       Collection<Source> sources, Sink sink, K8sContext context) {

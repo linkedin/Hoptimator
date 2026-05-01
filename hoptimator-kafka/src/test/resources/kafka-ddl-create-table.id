@@ -87,9 +87,8 @@ spec:
 # ─────────────────────────────────────────────────────────────────────────────
 # Dependency guard: a Kafka topic referenced by an MV's pipeline — as either a
 # source or a sink — cannot be dropped until the dependent MV is removed.
-# Exercises the DependencyGuarded SPI across deployer types: the label-based
-# check protects Kafka topic drops that would orphan an active downstream
-# pipeline.
+# Exercises the label-based check that protects Kafka topic drops that would
+# orphan an active downstream pipeline.
 #
 # A single MV exercises both edges. The MV is a partial view
 # (KAFKA."create-table-test$guard") whose implicit sink falls back to

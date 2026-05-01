@@ -14,13 +14,7 @@ import java.util.Collection;
 import java.util.List;
 
 
-/**
- * Deploys View and Pipeline objects, along with all the pipeline elements.
- *
- * <p>The dependency guard is implemented on {@link K8sViewDeployer} (which is what gets
- * routed to during DROP MV), so this class doesn't need to implement
- * {@link com.linkedin.hoptimator.DependencyGuarded} itself.
- */
+/** Deploys View and Pipeline objects, along with all the pipeline elements. */
 class K8sMaterializedViewDeployer implements Deployer {
 
   private final MaterializedView view;

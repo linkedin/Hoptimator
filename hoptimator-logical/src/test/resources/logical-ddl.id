@@ -213,10 +213,9 @@ spec:
 !specify create-table-test
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Test 9: Dependency guard — an external MV consuming some logical table tier
-# must block DROP TABLE on the logical table. The same depends-on labels that
-# protect plain tier drops also protect the composite logical-table drop, since
-# LogicalTableDeployer's guardedResources() exposes every tier source to the framework.
+# Test 9: Dependency guard — An underlying tier cannot be dropped if there is
+# an active logical table. Likewise, a MV created against any tier will block
+# the composite logical table drop
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Drop is blocked — logical table inner pipeline depends on KAFKA/testevent

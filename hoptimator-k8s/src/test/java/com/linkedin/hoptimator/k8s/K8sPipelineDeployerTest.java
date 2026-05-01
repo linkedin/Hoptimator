@@ -13,7 +13,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -29,8 +28,8 @@ class K8sPipelineDeployerTest {
 
   @Test
   void toK8sObjectSetsPipelineFields() throws SQLException {
-    K8sPipelineDeployer deployer = new K8sPipelineDeployer(
-        "my-pipeline", Arrays.asList("spec1", "spec2"), "SELECT 1", null);
+    K8sPipelineDeployer deployer = new K8sPipelineDeployer("my-pipeline", Arrays.asList("spec1", "spec2"),
+        "SELECT 1", Collections.emptyList(), null, null);
 
     V1alpha1Pipeline pipeline = deployer.toK8sObject();
 
@@ -43,25 +42,12 @@ class K8sPipelineDeployerTest {
 
   @Test
   void toK8sObjectWithSingleSpec() throws SQLException {
-    K8sPipelineDeployer deployer = new K8sPipelineDeployer(
-        "single", List.of("only-spec"), "SELECT 1", null);
+    K8sPipelineDeployer deployer = new K8sPipelineDeployer("single", List.of("only-spec"),
+        "SELECT 1", Collections.emptyList(), null, null);
 
     V1alpha1Pipeline pipeline = deployer.toK8sObject();
 
     assertEquals("only-spec", pipeline.getSpec().getYaml());
-  }
-
-  @Test
-  void legacyConstructorOmitsDependencyLabelsAndAnnotation() throws SQLException {
-    K8sPipelineDeployer deployer = new K8sPipelineDeployer(
-        "legacy", List.of("spec"), "SELECT 1", null);
-
-    V1alpha1Pipeline pipeline = deployer.toK8sObject();
-
-    assertNull(pipeline.getMetadata().getLabels(),
-        "legacy constructor must not stamp any labels");
-    assertNull(pipeline.getMetadata().getAnnotations(),
-        "legacy constructor must not stamp any annotations");
   }
 
   @Test

@@ -19,7 +19,6 @@
  */
 package com.linkedin.hoptimator.jdbc;
 
-import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.PendingDelete;
 import com.linkedin.hoptimator.Source;
@@ -396,8 +395,6 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     final List<String> schemaPath = pair.left.path(null);
     List<String> tablePath = new ArrayList<>(schemaPath);
     tablePath.add(tableName);
-    String database = pair.left.schema instanceof Database
-        ? ((Database) pair.left.schema).databaseName() : null;
 
     Collection<Deployer> deployers = null;
     try {
