@@ -8,7 +8,7 @@ metadata:
   name: my-etl-job
 spec:
   configs:
-    checkpointing.interval: "10000"
+    checkpointing.interval: '10000'
   dialect: Flink
   executionMode: Streaming
   sql:
