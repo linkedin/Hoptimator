@@ -77,3 +77,8 @@ select paused from "k8s".table_triggers where name = 'logical-members-offline-tr
 (1 row)
 
 !ok
+
+drop table "LOGICAL_OFFLINE"."MEMBERS";
+(0 rows modified)
+
+!update
