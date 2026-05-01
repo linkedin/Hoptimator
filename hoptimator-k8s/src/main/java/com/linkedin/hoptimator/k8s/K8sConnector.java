@@ -4,13 +4,20 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroConverter;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
 import com.linkedin.hoptimator.util.Template;
+import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.util.Util;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -35,7 +42,6 @@ class K8sConnector implements Connector {
   private static final String KEY_OPTION = "keys";
   private static final String KEY_PREFIX_OPTION = "keyPrefix";
   private static final String KEY_TYPE_OPTION = "keyType";
-  private static final String KEY_PREFIX = "KEY_";
 
   K8sConnector(Source source, K8sContext context) {
     this.source = source;
@@ -59,6 +65,7 @@ class K8sConnector implements Connector {
             .with("catalog", source.catalog())
             .with("schema", source.schema())
             .with("table", source.table())
+            .with("avroValueSchema", () -> avroValueSchema(source, sourceRowType).toString())
             .with(options);
     List<String> templates = tableTemplateApi.list()
         .stream()
@@ -107,6 +114,35 @@ class K8sConnector implements Connector {
         .collect(Collectors.toMap(e -> e.getKey().substring(connectorHintPrefix.length() + 1), Map.Entry::getValue));
   }
 
+  /**
+   * Renders the value Avro schema for the {@code {{avroValueSchema}}} template variable. Prefers
+   * the upstream table's native value schema when it implements {@link AvroSchemaSource} — keys
+   * aren't included, because the connector handles them separately via {@code key.fields}. Falls
+   * back to synthesizing from the flat row type, which loses source-level namespaces and nested
+   * record identities.
+   */
+  private Schema avroValueSchema(Source source, RelDataType sourceRowType) {
+    Table table = lookupTable(source);
+    if (table instanceof AvroSchemaSource) {
+      Schema provided = ((AvroSchemaSource) table).valueSchema();
+      if (provided != null) {
+        return provided;
+      }
+    }
+    return AvroConverter.avro("com.linkedin.hoptimator", source.table(), sourceRowType);
+  }
+
+  private Table lookupTable(Source source) {
+    SchemaPlus schema = context.connection().calciteConnection().getRootSchema();
+    for (String part : Util.skipLast(source.path())) {
+      if (schema == null) {
+        return null;
+      }
+      schema = schema.subSchemas().get(part);
+    }
+    return schema == null ? null : schema.tables().get(source.table());
+  }
+
   @VisibleForTesting
   static Map<String, String> addKeysAsOption(Map<String, String> options, RelDataType rowType) {
     Map<String, String> newOptions = new LinkedHashMap<>(options);
@@ -118,11 +154,11 @@ class K8sConnector implements Connector {
 
     String keyString = rowType.getFieldList().stream()
         .map(RelDataTypeField::getName)
-        .filter(name -> name.startsWith(KEY_PREFIX))
+        .filter(name -> name.startsWith(AvroSchemas.KEY_PREFIX))
         .collect(Collectors.joining(";"));
     if (!keyString.isEmpty()) {
       newOptions.put(KEY_OPTION, keyString.replaceAll("\\s+", ""));
-      newOptions.put(KEY_PREFIX_OPTION, KEY_PREFIX);
+      newOptions.put(KEY_PREFIX_OPTION, AvroSchemas.KEY_PREFIX);
       newOptions.put(KEY_TYPE_OPTION, "RECORD");
     }
     return newOptions;

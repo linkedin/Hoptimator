@@ -25,7 +25,6 @@ public final class AvroConverter {
 
   private static final String KEY_OPTION = "key.fields";
   private static final String KEY_PREFIX_OPTION = "key.fields-prefix";
-  private static final String PRIMITIVE_KEY = "KEY";
 
   private AvroConverter() {
   }
@@ -130,7 +129,7 @@ public final class AvroConverter {
         String keyName = field.getName().substring(keyPrefix.length());
 
         // Key is a primitive
-        if (keyNames.size() == 1 && keyName.equals(PRIMITIVE_KEY)) {
+        if (keyNames.size() == 1 && keyName.equals(AvroSchemas.PRIMITIVE_KEY_NAME)) {
           primitiveKeySchema = avro(namespace, keySchemaName, field.getType());
         } else {
           keyBuilder.add(keyName, field.getType());

@@ -1,11 +1,19 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.AbstractTable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +34,7 @@ import java.util.function.Consumer;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -205,6 +214,107 @@ class HoptimatorConnectionTest {
       // "OUTPUT" is a known field in UTIL.PRINT — ensures correct path math, not empty Optional
       boolean hasOutput = result.getFieldNames().stream().anyMatch(n -> n.contains("OUTPUT"));
       assertTrue(hasOutput, "resolve() must resolve to UTIL.PRINT with its OUTPUT field");
+    }
+  }
+
+  @Test
+  void avroSchemaAtReturnsNullForUnknownPath() {
+    SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
+    assertNull(HoptimatorConnection.avroSchemaAt(root,
+        List.of("missingDb", "missingTable")));
+  }
+
+  @Test
+  void avroSchemaAtReturnsNullWhenTableIsNotSource() {
+    SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
+    SchemaPlus db = root.add("db", new AbstractSchema());
+    db.add("plain", new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory factory) {
+        throw new UnsupportedOperationException();
+      }
+    });
+
+    assertNull(HoptimatorConnection.avroSchemaAt(root, List.of("db", "plain")));
+  }
+
+  @Test
+  void avroSchemaAtReturnsValueSchemaWhenSourceHasNoKey() {
+    // No key → the merge helper returns the value schema unchanged.
+    Schema value = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
+        .requiredString("name").endRecord();
+    SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
+    SchemaPlus db = root.add("db", new AbstractSchema());
+    db.add("user", new SourceTable(value, null));
+
+    Schema result = HoptimatorConnection.avroSchemaAt(root, List.of("db", "user"));
+
+    assertSame(value, result, "no key → merged is just the value schema");
+  }
+
+  @Test
+  void avroSchemaAtMergesKeyAndValueWhenSourceExposesBoth() {
+    // Both key and value → merged view with KEY_-prefixed key fields prepended before value.
+    // resolve() uses this so SQL queries can reference key columns by name.
+    Schema value = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
+        .requiredString("name").endRecord();
+    Schema key = SchemaBuilder.record("UserKey").namespace("com.linkedin.keyns").fields()
+        .requiredString("id").endRecord();
+    SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
+    SchemaPlus db = root.add("db", new AbstractSchema());
+    db.add("user", new SourceTable(value, key));
+
+    Schema result = HoptimatorConnection.avroSchemaAt(root, List.of("db", "user"));
+
+    assertNotNull(result);
+    assertEquals(2, result.getFields().size());
+    assertEquals("KEY_id", result.getFields().get(0).name());
+    assertEquals("name", result.getFields().get(1).name());
+    // Merged record inherits value's namespace/name.
+    assertEquals("com.linkedin.foo", result.getNamespace());
+    assertEquals("User", result.getName());
+  }
+
+  @Test
+  void avroSchemaAtMergesPrimitiveKeyAsSingleKeyField() {
+    Schema value = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
+        .requiredString("name").endRecord();
+    Schema key = Schema.create(Schema.Type.STRING);
+    SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
+    SchemaPlus db = root.add("db", new AbstractSchema());
+    db.add("user", new SourceTable(value, key));
+
+    Schema result = HoptimatorConnection.avroSchemaAt(root, List.of("db", "user"));
+
+    assertNotNull(result);
+    assertEquals(2, result.getFields().size());
+    assertEquals("KEY", result.getFields().get(0).name());
+    assertEquals(Schema.Type.STRING, result.getFields().get(0).schema().getType());
+    assertEquals("name", result.getFields().get(1).name());
+  }
+
+  private static final class SourceTable extends AbstractTable implements AvroSchemaSource {
+    private final Schema value;
+    private final Schema key;
+
+    SourceTable(Schema value, Schema key) {
+      this.value = value;
+      this.key = key;
+    }
+
+    @Override
+    public Schema valueSchema() {
+      return value;
+    }
+
+    @Override
+    public Schema keySchema() {
+      return key;
+    }
+
+    @Override
+    public RelDataType getRowType(RelDataTypeFactory factory) {
+      throw new UnsupportedOperationException();
     }
   }
 

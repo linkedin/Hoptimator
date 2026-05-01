@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
+import org.apache.avro.Schema;
+import org.apache.avro.SchemaBuilder;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
 import org.apache.calcite.linq4j.QueryProvider;
 import org.apache.calcite.linq4j.Queryable;
@@ -13,6 +16,8 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -95,6 +100,101 @@ class HoptimatorJdbcTableTest {
     assertSame(mockTableModify, result);
     verify(mockJdbcTable).toModificationRel(mockCluster, mockRelOptTable, mockCatalogReader,
         mockInput, TableModify.Operation.INSERT, null, null, false);
+  }
+
+  @Test
+  void valueSchemaReturnsNullWhenNoUpstreamTable() {
+    HoptimatorJdbcTable tableWithNullUpstream = new HoptimatorJdbcTable(mockJdbcTable,
+        new HoptimatorJdbcConvention(AnsiSqlDialect.DEFAULT, mockExpression, "db",
+            Collections.emptyList(), mockConnection)) {
+      @Override
+      Table upstreamTable() {
+        return null;
+      }
+    };
+    assertNull(tableWithNullUpstream.valueSchema());
+    assertNull(tableWithNullUpstream.keySchema());
+  }
+
+  @Test
+  void valueSchemaReturnsNullWhenUpstreamDoesNotImplementSource() {
+    Table upstream = new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory factory) {
+        throw new UnsupportedOperationException();
+      }
+    };
+    HoptimatorJdbcTable wrapper = new HoptimatorJdbcTable(mockJdbcTable,
+        new HoptimatorJdbcConvention(AnsiSqlDialect.DEFAULT, mockExpression, "db",
+            Collections.emptyList(), mockConnection)) {
+      @Override
+      Table upstreamTable() {
+        return upstream;
+      }
+    };
+    assertNull(wrapper.valueSchema());
+    assertNull(wrapper.keySchema());
+  }
+
+  @Test
+  void valueAndKeySchemaDelegateToUpstreamSource() {
+    Schema expectedValue = SchemaBuilder.record("Foo").namespace("com.linkedin.bar").fields()
+        .requiredString("v").endRecord();
+    Schema expectedKey = SchemaBuilder.record("FooKey").namespace("com.linkedin.keyns").fields()
+        .requiredString("id").endRecord();
+    Table upstream = new SourceTable(expectedValue, expectedKey);
+    HoptimatorJdbcTable wrapper = new HoptimatorJdbcTable(mockJdbcTable,
+        new HoptimatorJdbcConvention(AnsiSqlDialect.DEFAULT, mockExpression, "db",
+            Collections.emptyList(), mockConnection)) {
+      @Override
+      Table upstreamTable() {
+        return upstream;
+      }
+    };
+    assertSame(expectedValue, wrapper.valueSchema());
+    assertSame(expectedKey, wrapper.keySchema());
+  }
+
+  @Test
+  void keySchemaReturnsNullWhenUpstreamHasNoKey() {
+    Schema valueOnly = SchemaBuilder.record("Foo").namespace("ns").fields()
+        .requiredString("v").endRecord();
+    Table upstream = new SourceTable(valueOnly, null);
+    HoptimatorJdbcTable wrapper = new HoptimatorJdbcTable(mockJdbcTable,
+        new HoptimatorJdbcConvention(AnsiSqlDialect.DEFAULT, mockExpression, "db",
+            Collections.emptyList(), mockConnection)) {
+      @Override
+      Table upstreamTable() {
+        return upstream;
+      }
+    };
+    assertSame(valueOnly, wrapper.valueSchema());
+    assertNull(wrapper.keySchema(), "upstream with no key should propagate null");
+  }
+
+  private static final class SourceTable extends AbstractTable implements AvroSchemaSource {
+    private final Schema value;
+    private final Schema key;
+
+    SourceTable(Schema value, Schema key) {
+      this.value = value;
+      this.key = key;
+    }
+
+    @Override
+    public Schema valueSchema() {
+      return value;
+    }
+
+    @Override
+    public Schema keySchema() {
+      return key;
+    }
+
+    @Override
+    public RelDataType getRowType(RelDataTypeFactory factory) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   @Test
