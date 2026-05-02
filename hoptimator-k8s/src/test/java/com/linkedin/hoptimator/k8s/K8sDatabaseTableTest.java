@@ -37,7 +37,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -298,6 +300,8 @@ class K8sDatabaseTableTest {
     doReturn(databases.stream().map(table::toRow).collect(Collectors.toList())).when(table).rows();
 
     HoptimatorJdbcCatalogSchema mockCatalogSchema = mock(HoptimatorJdbcCatalogSchema.class);
+    HoptimatorJdbcSchema mockAliasSchema = mock(HoptimatorJdbcSchema.class);
+    doReturn(mockAliasSchema).when(mockCatalogSchema).createSchema(anyString());
     mockedCatalogSchema.when(() -> HoptimatorJdbcCatalogSchema.create(
         anyString(), anyString(), anyString(), any(DataSource.class), any(SchemaPlus.class),
         any(), anyList(), any())).thenReturn(mockCatalogSchema);
@@ -305,6 +309,72 @@ class K8sDatabaseTableTest {
     table.addDatabases(root, connection);
 
     assertNotNull(root.subSchemas().get("MYCAT"));
+    // Alias under metadata.name pointing into spec.schema for shorthand "test-db"."t".
+    assertNotNull(root.subSchemas().get("test-db"));
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void addDatabasesWithCatalogSkipsAliasWhenNameMatchesCatalog() throws Exception {
+    List<V1alpha1Database> databases = new ArrayList<>();
+    databases.add(new V1alpha1Database()
+        .metadata(new V1ObjectMeta().name("MYCAT"))
+        .spec(new V1alpha1DatabaseSpec()
+            .url("jdbc:hoptimator://")
+            .catalog("MYCAT")
+            .schema("MYSCH")
+            .dialect(V1alpha1DatabaseSpec.DialectEnum.ANSI)));
+
+    lenient().when(mockEngineTable.forDatabase(anyString())).thenReturn(Collections.emptyList());
+    Properties connProps = new Properties();
+    doReturn(connProps).when(connection).connectionProperties();
+
+    SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
+
+    K8sDatabaseTable table = spy(new K8sDatabaseTable(mockContext, mockEngineTable));
+    doReturn(databases.stream().map(table::toRow).collect(Collectors.toList())).when(table).rows();
+
+    HoptimatorJdbcCatalogSchema mockCatalogSchema = mock(HoptimatorJdbcCatalogSchema.class);
+    mockedCatalogSchema.when(() -> HoptimatorJdbcCatalogSchema.create(
+        anyString(), anyString(), anyString(), any(DataSource.class), any(SchemaPlus.class),
+        any(), anyList(), any())).thenReturn(mockCatalogSchema);
+
+    table.addDatabases(root, connection);
+
+    assertNotNull(root.subSchemas().get("MYCAT"));
+    // createSchema must not be invoked when the alias would collide with the catalog name.
+    verify(mockCatalogSchema, never()).createSchema(anyString());
+  }
+
+  @SuppressWarnings("unchecked")
+  @Test
+  void addDatabasesWithCatalogSkipsAliasWhenSchemaIsNull() throws Exception {
+    List<V1alpha1Database> databases = new ArrayList<>();
+    databases.add(new V1alpha1Database()
+        .metadata(new V1ObjectMeta().name("test-db"))
+        .spec(new V1alpha1DatabaseSpec()
+            .url("jdbc:hoptimator://")
+            .catalog("MYCAT")
+            .dialect(V1alpha1DatabaseSpec.DialectEnum.ANSI)));
+
+    lenient().when(mockEngineTable.forDatabase(anyString())).thenReturn(Collections.emptyList());
+    Properties connProps = new Properties();
+    doReturn(connProps).when(connection).connectionProperties();
+
+    SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
+
+    K8sDatabaseTable table = spy(new K8sDatabaseTable(mockContext, mockEngineTable));
+    doReturn(databases.stream().map(table::toRow).collect(Collectors.toList())).when(table).rows();
+
+    HoptimatorJdbcCatalogSchema mockCatalogSchema = mock(HoptimatorJdbcCatalogSchema.class);
+    mockedCatalogSchema.when(() -> HoptimatorJdbcCatalogSchema.create(
+        anyString(), any(), any(), any(DataSource.class), any(SchemaPlus.class),
+        any(), anyList(), any())).thenReturn(mockCatalogSchema);
+
+    table.addDatabases(root, connection);
+
+    assertNotNull(root.subSchemas().get("MYCAT"));
+    verify(mockCatalogSchema, never()).createSchema(anyString());
   }
 
   @Test
