@@ -4,7 +4,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
@@ -20,9 +19,11 @@ import javax.annotation.Nullable;
  * is about to delete.
  *
  * <p>The lookup is a label-selector list against the Pipeline CRD group, so it is O(matches) on
- * the wire — not a full scan. Each candidate is then cross-checked against the
- * {@link PipelineDependencyLabels#ANNOTATION_KEY} annotation to rule out the (rare) case of a
- * hash collision in the label slug.
+ * the wire — not a full scan. Each candidate is then cross-checked against the union of the
+ * {@link PipelineDependencyLabels#ANNOTATION_KEY_SOURCES sources} and
+ * {@link PipelineDependencyLabels#ANNOTATION_KEY_SINK sink} annotations to rule out hash
+ * collisions in the label slug and stale labels left over from a prior version of the pipeline's
+ * SQL ({@link K8sApi#update}'s additive label merge can leak old {@code depends-on-*} keys).
  *
  * <p>Pipelines owned (directly) by {@code (selfOwnerKind, selfOwnerName)} are excluded from the
  * blocker list: those pipelines will be cascade-deleted alongside the parent resource, so counting
@@ -91,12 +92,15 @@ public final class PipelineDependencyChecker {
     if (meta == null || meta.getAnnotations() == null) {
       return true;   // pre-labeling pipeline — conservatively trust the label match
     }
-    String annotation = meta.getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY);
-    if (annotation == null) {
-      return true;   // same — no annotation to cross-check against
+    String sourcesAnno = meta.getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
+    String sinkAnno = meta.getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+    if (sourcesAnno == null && sinkAnno == null) {
+      return true;   // same — no annotations to cross-check against
     }
-    Set<String> listed = PipelineDependencyLabels.parseAnnotation(annotation);
-    return listed.contains(identifier);
+    if (sourcesAnno != null && PipelineDependencyLabels.parseAnnotation(sourcesAnno).contains(identifier)) {
+      return true;
+    }
+    return identifier.equals(sinkAnno);
   }
 
   /**

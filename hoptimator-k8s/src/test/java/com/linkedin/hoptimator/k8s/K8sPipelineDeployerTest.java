@@ -70,7 +70,7 @@ class K8sPipelineDeployerTest {
   }
 
   @Test
-  void stampsCollisionGuardAnnotation() throws SQLException {
+  void stampsDirectionalAnnotations() throws SQLException {
     K8sPipelineDeployer deployer = new K8sPipelineDeployer(
         "p1", List.of("spec"), "SELECT 1",
         Collections.singletonList(src("kafka", "topic")),
@@ -79,9 +79,12 @@ class K8sPipelineDeployerTest {
     V1alpha1Pipeline pipeline = deployer.toK8sObject();
     Map<String, String> annotations = pipeline.getMetadata().getAnnotations();
 
-    String annotation = annotations.get(PipelineDependencyLabels.ANNOTATION_KEY);
-    assertNotNull(annotation);
-    assertTrue(annotation.contains("kafka_topic"));
-    assertTrue(annotation.contains("mysql_outbox"));
+    String sources = annotations.get(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
+    String sink = annotations.get(PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+    assertNotNull(sources);
+    assertNotNull(sink);
+    assertTrue(sources.contains("kafka_topic"),
+        "sources annotation should list the kafka source: " + sources);
+    assertEquals("mysql_outbox", sink, "sink annotation holds the single identifier verbatim");
   }
 }

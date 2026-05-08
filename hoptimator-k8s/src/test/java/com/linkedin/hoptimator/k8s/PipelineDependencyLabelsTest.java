@@ -13,6 +13,7 @@ import com.linkedin.hoptimator.Source;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -121,33 +122,36 @@ class PipelineDependencyLabelsTest {
   }
 
   @Test
-  void annotationForListsAllIdentifiers() {
-    // Sources and the sink — both edges are recorded so the delete-time check can disambiguate
-    // a real dependency from a hash collision regardless of which side matched.
-    String annotation = PipelineDependencyLabels.annotationFor(
-        Arrays.asList(src("kafka", "a"), src("venice", "b")),
-        sink("mysql", "c"));
+  void sourcesAnnotationListsOnlySources() {
+    String annotation = PipelineDependencyLabels.sourcesAnnotation(
+        Arrays.asList(src("kafka", "a"), src("venice", "b")));
     assertTrue(annotation.contains("kafka_a"));
     assertTrue(annotation.contains("venice_b"));
-    assertTrue(annotation.contains("mysql_c"));
+    assertFalse(annotation.contains("mysql_c"), "sinks must not appear in sources annotation");
   }
 
   @Test
-  void annotationForDeduplicatesAndOmitsNullSink() {
-    String annotation = PipelineDependencyLabels.annotationFor(
-        Arrays.asList(src("db", "t"), src("db", "t")), null);
+  void sourcesAnnotationDeduplicatesIdenticalSources() {
+    String annotation = PipelineDependencyLabels.sourcesAnnotation(
+        Arrays.asList(src("db", "t"), src("db", "t")));
     assertEquals("db_t", annotation);
   }
 
   @Test
-  void parseAnnotationRoundtrip() {
-    String annotation = PipelineDependencyLabels.annotationFor(
-        Arrays.asList(src("a", "1"), src("b", "2")), sink("c", "3"));
+  void sinkAnnotationReturnsSingleIdentifierOrNull() {
+    assertEquals("mysql_c", PipelineDependencyLabels.sinkAnnotation(sink("mysql", "c")));
+    assertNull(PipelineDependencyLabels.sinkAnnotation(null),
+        "sink annotation should be null when there's no sink");
+  }
+
+  @Test
+  void parseAnnotationRoundtripFromSourcesValue() {
+    String annotation = PipelineDependencyLabels.sourcesAnnotation(
+        Arrays.asList(src("a", "1"), src("b", "2")));
     Set<String> parsed = PipelineDependencyLabels.parseAnnotation(annotation);
-    assertEquals(3, parsed.size());
+    assertEquals(2, parsed.size());
     assertTrue(parsed.contains("a_1"));
     assertTrue(parsed.contains("b_2"));
-    assertTrue(parsed.contains("c_3"));
   }
 
   @Test

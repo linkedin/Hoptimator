@@ -52,8 +52,14 @@ class K8sPipelineDeployer extends K8sDeployer<V1alpha1Pipeline, V1alpha1Pipeline
     if (!labels.isEmpty()) {
       meta.setLabels(new HashMap<>(labels));
       Map<String, String> annotations = new HashMap<>();
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY,
-          PipelineDependencyLabels.annotationFor(sources, sink));
+      String sourcesAnno = PipelineDependencyLabels.sourcesAnnotation(sources);
+      if (!sourcesAnno.isEmpty()) {
+        annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, sourcesAnno);
+      }
+      String sinkAnno = PipelineDependencyLabels.sinkAnnotation(sink);
+      if (sinkAnno != null) {
+        annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SINK, sinkAnno);
+      }
       meta.setAnnotations(annotations);
     }
     return new V1alpha1Pipeline().kind(K8sApiEndpoints.PIPELINES.kind())

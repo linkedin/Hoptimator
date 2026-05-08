@@ -42,8 +42,10 @@ class PipelineDependencyCheckerTest {
       meta.addOwnerReferencesItem(new V1OwnerReference().kind(ownerKind).name(ownerName));
     }
     if (annotationValue != null) {
+      // Treat the test's single value as the sources annotation. The cross-check now reads
+      // sources ∪ sink, so writing to either one is sufficient to confirm the identifier.
       Map<String, String> annotations = new HashMap<>();
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY, annotationValue);
+      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, annotationValue);
       meta.setAnnotations(annotations);
     }
     return new V1alpha1Pipeline().metadata(meta);

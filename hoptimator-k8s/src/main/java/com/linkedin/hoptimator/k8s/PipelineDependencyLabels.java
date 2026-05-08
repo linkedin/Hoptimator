@@ -14,7 +14,7 @@ import com.linkedin.hoptimator.Source;
 
 
 /**
- * Computes the labels and annotation that encode a Pipeline CRD's dependency edges.
+ * Computes the labels and annotations that encode a Pipeline CRD's dependency edges.
  *
  * <p>Every source and sink a pipeline references is recorded as a label:
  * {@code hoptimator.linkedin.com/depends-on-<slug>: "<database>_<pathString>"} where
@@ -22,13 +22,27 @@ import com.linkedin.hoptimator.Source;
  * The hash keeps label keys within Kubernetes's 63-character name limit for arbitrary paths,
  * and lets {@code K8sApi.select} filter pipelines by dependency on the server.
  *
- * <p>A collision-guard annotation ({@code ANNOTATION_KEY}) lists all logical identifiers verbatim,
- * so the delete-time check can distinguish a real dependency match from a rare hash collision.
+ * <p>Two annotations preserve the directional information the labels lose:
+ * <ul>
+ *   <li>{@link #ANNOTATION_KEY_SOURCES} — comma-separated list of source identifiers verbatim.</li>
+ *   <li>{@link #ANNOTATION_KEY_SINK} — the single sink identifier verbatim.</li>
+ * </ul>
+ * Together they serve two purposes:
+ * <ol>
+ *   <li><b>Collision guard</b> for the delete-time dependency checker — a label match is only
+ *       trusted when the resource appears in either annotation, so slug collisions and stale
+ *       labels (from {@link K8sApi#update}'s additive label merge) can't produce false positives.</li>
+ *   <li><b>Direction recovery</b> for visualization — the renderer draws source → pipeline → sink
+ *       arrows from the split.</li>
+ * </ol>
  */
 public final class PipelineDependencyLabels {
 
   static final String LABEL_PREFIX = "hoptimator.linkedin.com/depends-on-";
-  public static final String ANNOTATION_KEY = "hoptimator.linkedin.com/depends-on";
+  /** Annotation listing only source identifiers. */
+  public static final String ANNOTATION_KEY_SOURCES = "hoptimator.linkedin.com/depends-on-sources";
+  /** Annotation holding the single sink identifier. */
+  public static final String ANNOTATION_KEY_SINK = "hoptimator.linkedin.com/depends-on-sink";
 
   private static final int SLUG_LENGTH = 16;   // 64 bits of SHA-256 → ~1 in 1.8e19 collisions
   private static final int MAX_LABEL_VALUE = 63;
@@ -78,20 +92,21 @@ public final class PipelineDependencyLabels {
     return labels;
   }
 
-  /**
-   * Collision-guard annotation value — comma-separated list of full source and sink identifiers,
-   * deduplicated and not truncated. The delete-time check cross-references this annotation after
-   *  the label selector narrows the candidate set.
-   */
-  public static String annotationFor(Collection<Source> sources, Sink sink) {
+  /** Comma-separated list of source identifiers (no sink). Empty string if no sources. */
+  public static String sourcesAnnotation(Collection<Source> sources) {
     Set<String> ids = new LinkedHashSet<>();
     for (Source src : sources) {
       ids.add(identifier(src.database(), src.path()));
     }
-    if (sink != null) {
-      ids.add(identifier(sink.database(), sink.path()));
-    }
     return String.join(",", ids);
+  }
+
+  /** Single sink identifier, or {@code null} if there is no sink. */
+  public static String sinkAnnotation(Sink sink) {
+    if (sink == null) {
+      return null;
+    }
+    return identifier(sink.database(), sink.path());
   }
 
   /** Parses the collision-guard annotation back into the set of identifiers it encoded. */
