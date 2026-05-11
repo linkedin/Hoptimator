@@ -139,7 +139,11 @@ public abstract class GraphNode {
 
     @Override
     public String displayName() {
-      return (materialized ? "Materialized View " : "View ") + name;
+      // Bare name only — the renderer conveys "view"-ness via shape (rectangle for leaves)
+      // and via the kind-only subgraph wrapper title when a View owns its realizing Pipeline.
+      // Repeating "Materialized View " in the displayName duplicated info that's already
+      // present visually.
+      return name;
     }
   }
 
@@ -171,7 +175,10 @@ public abstract class GraphNode {
 
     @Override
     public String displayName() {
-      return "LogicalTable " + name;
+      // Bare name — the renderer prepends "LogicalTable " on the subgraph wrapper title
+      // because nothing inside the wrapper carries the LT name otherwise. Leaving the prefix
+      // off the displayName keeps the contract symmetric with View and Trigger.
+      return name;
     }
   }
 
@@ -247,7 +254,9 @@ public abstract class GraphNode {
 
     @Override
     public String displayName() {
-      return "Trigger " + name;
+      // Bare name only — the rhombus shape the renderer uses for triggers already conveys
+      // the kind. Job metadata (cron, kind, etc.) gets appended by the renderer separately.
+      return name;
     }
   }
 

@@ -101,7 +101,10 @@ public final class MermaidRenderer implements GraphRenderer {
       Map<GraphNode, Set<GraphNode>> ownedChildren, Map<GraphNode, String> ids,
       Set<GraphNode> rendered, String indent) {
     String ltId = ids.get(lt);
-    sb.append(indent).append("subgraph ").append(ltId).append("[\"")
+    // LT wrapper carries both kind and name — none of the inner tier subgraphs or owned
+    // children show the LT name, so it has to live here. (Contrast with View wrappers: the
+    // inner pipeline node duplicates the View name, so the wrapper drops the name.)
+    sb.append(indent).append("subgraph ").append(ltId).append("[\"LogicalTable ")
         .append(escape(lt.displayName())).append("\"]\n");
     sb.append(indent).append("  direction LR\n");
     rendered.add(lt);
@@ -153,13 +156,26 @@ public final class MermaidRenderer implements GraphRenderer {
     // as a separate node — same convention LogicalTable already uses.
     String ownerId = ids.get(owner);
     sb.append(indent).append("subgraph ").append(ownerId).append("[\"")
-        .append(escape(owner.displayName())).append("\"]\n");
+        .append(escape(subgraphTitle(owner))).append("\"]\n");
     rendered.add(owner);
     for (GraphNode child : ownedChildren.get(owner)) {
       sb.append(indent).append("  ").append(renderNode(child, ids)).append("\n");
       rendered.add(child);
     }
     sb.append(indent).append("end\n");
+  }
+
+  /**
+   * Subgraph title for an owner. Strips the resource name from {@link GraphNode.View}'s
+   * display string ("Materialized View foo" → "Materialized View") since the owned pipeline
+   * node already shows the name inside the subgraph — repeating it on the wrapper is noise.
+   * Other node kinds fall through to {@link GraphNode#displayName()} unchanged.
+   */
+  private static String subgraphTitle(GraphNode owner) {
+    if (owner instanceof GraphNode.View) {
+      return ((GraphNode.View) owner).materialized() ? "Materialized View" : "View";
+    }
+    return owner.displayName();
   }
 
   private static String tierFor(GraphNode child, Map<String, String> tiers) {

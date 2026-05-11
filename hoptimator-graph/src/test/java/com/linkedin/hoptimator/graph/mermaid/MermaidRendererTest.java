@@ -151,7 +151,8 @@ class MermaidRendererTest {
 
     String mermaid = new MermaidRenderer().render(new PipelineGraph(root, nodes, edges));
 
-    assertEquals("flowchart LR\n  n0[\"View v1\"]\n", mermaid);
+    // Leaf View renders with just the name — rectangle shape conveys "view-ness".
+    assertEquals("flowchart LR\n  n0[\"v1\"]\n", mermaid);
   }
 
   @Test
@@ -225,8 +226,12 @@ class MermaidRendererTest {
 
     assertTrue(mermaid.contains("subgraph "),
         "View owning a pipeline should produce a subgraph wrapper: " + mermaid);
-    assertTrue(mermaid.contains("Materialized View audience"),
-        "View display name should be the subgraph label: " + mermaid);
+    // Subgraph wrapper carries only the kind ("Materialized View") — the inner pipeline node
+    // already shows the resource name, so repeating it on the wrapper is just noise.
+    assertTrue(mermaid.contains("[\"Materialized View\"]"),
+        "View subgraph label should be just the kind without the name: " + mermaid);
+    assertTrue(mermaid.contains("audience"),
+        "the name should still appear (on the inner pipeline node): " + mermaid);
   }
 
   @Test

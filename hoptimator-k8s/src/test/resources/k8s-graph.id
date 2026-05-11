@@ -3,6 +3,18 @@
 
 # Integration test for the !graph quidem command. Validates that the visualizer's CLI surface
 # renders Mermaid output end-to-end against a real K8s cluster.
+#
+# Layout:
+#   - Tests 1-4 below are LIVE — real DDL, real !graph invocations, real
+#     expected-output blocks that Quidem diffs against.
+#   - Sections A-E that follow are SCAFFOLDS — every line is commented out.
+#     They enumerate scenarios we still want to cover but haven't pinned exact
+#     expected output for (the rendering depends on cluster state we'd have
+#     to capture once and bake in). To activate one: uncomment the section,
+#     run the file, replace the placeholder Mermaid block with whatever
+#     Quidem prints, commit. The unit tests in MermaidRendererTest /
+#     PipelineGraphBuilderTest already cover the same shapes at the unit
+#     level, so the integration version's value is end-to-end plumbing.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 1: reverse lookup against a database with no Database CRD.
@@ -65,3 +77,378 @@ drop materialized view ads.audience;
 
 !update
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+# SCAFFOLDS BELOW THIS LINE — every line is commented out, including DDL and
+# expected-output blocks. Activate scenario-by-scenario as expected output is
+# captured. See header at top of this file for the workflow.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ═════════════════════════════════════════════════════════════════════════════
+# A.  `!graph view <name>`  — forward lookup from a View / MaterializedView CRD.
+#     Tests 3-4 above cover the basic cases; this fills in the long tail.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# A.1  View that doesn't exist. Should produce a degenerate single-node graph
+# (no Pipeline backing) — the renderer must not crash on a missing view.
+#
+# flowchart LR
+#   n0[("ads/does-not-exist")]
+# !graph view ads/does-not-exist
+
+# A.2  MV chain — MV that reads from another MV. Validates that the graph
+# expands transitively up to --depth and that intermediate MVs render as
+# Pipelines (not Externals).
+#
+# create or replace materialized view ads.intermediate_mv as select first_name, last_name from ads.page_views;
+# (0 rows modified)
+# !update
+# create or replace materialized view ads.downstream_mv as select first_name, last_name from ads.intermediate_mv;
+# (0 rows modified)
+# !update
+#
+# # Default depth (2): reaches the upstream MV, may not reach its sources.
+# flowchart LR
+#   n0["intermediate_mv"]
+#   n1[/"...pipeline..."/]
+#   n2["downstream_mv"]
+#   n0 --> n1 --> n2
+# !graph view ads/downstream_mv
+#
+# # Deeper walk: should now expose the source side of the upstream.
+# flowchart LR
+#   n0[("...page_views...")]
+#   n1[/"...upstream pipeline..."/]
+#   n2["intermediate_mv"]
+#   n3[/"...downstream pipeline..."/]
+#   n4["downstream_mv"]
+#   n0 --> n1 --> n2 --> n3 --> n4
+# !graph view ads/downstream_mv --depth 5
+#
+# drop materialized view ads.downstream_mv;
+# (0 rows modified)
+# !update
+# drop materialized view ads.intermediate_mv;
+# (0 rows modified)
+# !update
+
+# A.3  Plain (non-materialized) view. No Pipeline gets deployed, so the graph
+# should render the view node alone (or with the upstream sources but no
+# pipeline edge in between, depending on builder semantics).
+#
+# create or replace view ads.plain_view as select first_name from ads.page_views;
+# (0 rows modified)
+# !update
+#
+# flowchart LR
+#   n0["plain_view"]
+# !graph view ads/plain_view
+#
+# drop view ads.plain_view;
+# (0 rows modified)
+# !update
+
+# ═════════════════════════════════════════════════════════════════════════════
+# B.  `!graph table <database>.<path>`  — reverse lookup against a resource.
+#     Exercises the dep-guard label index that backs the visualizer's reverse
+#     mode: K8sApi.select(depends-on-<slug>) → pipelines/triggers referencing
+#     the resource. Tests 1-2 above cover the empty/unknown cases.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# B.1  Reverse lookup against a real source one MV depends on. Validates the
+# pipeline shows up via its depends-on-<slug-of-source> label and that the
+# direction of the edge points away from the root toward the dependent.
+#
+# create or replace materialized view ads.b1_downstream as select first_name from ads.page_views;
+# (0 rows modified)
+# !update
+#
+# flowchart LR
+#   n0[("...ads.page_views...")]
+#   n1[/"...b1_downstream pipeline..."/]
+#   n2["b1_downstream"]
+#   n0 --> n1 --> n2
+# !graph table ads-database.ads.page_views
+#
+# drop materialized view ads.b1_downstream;
+# (0 rows modified)
+# !update
+
+# B.2  Reverse lookup against a sink. Same shape as B.1 but the root is the
+# pipeline's *sink*, so the upstream-source side should render too (subject to
+# the depth limit).
+#
+# create or replace materialized view ads.b2_sink as select first_name from ads.page_views;
+# (0 rows modified)
+# !update
+#
+# flowchart LR
+#   n0[("...ads.page_views...")]
+#   n1[/"...b2_sink pipeline..."/]
+#   n2[("ads-database.ads.b2_sink")]
+#   n0 --> n1 --> n2
+# !graph table ads-database.ads.b2_sink
+#
+# drop materialized view ads.b2_sink;
+# (0 rows modified)
+# !update
+
+# B.3  Reverse lookup against a resource referenced by *multiple* pipelines —
+# verifies the label-selector lookup returns all matches and the renderer
+# fans them out cleanly.
+#
+# create or replace materialized view ads.fan_a as select first_name from ads.page_views;
+# (0 rows modified)
+# !update
+# create or replace materialized view ads.fan_b as select first_name from ads.page_views;
+# (0 rows modified)
+# !update
+#
+# flowchart LR
+#   n0[("...ads.page_views...")]
+#   n1[/"...fan_a pipeline..."/]
+#   n2["fan_a"]
+#   n3[/"...fan_b pipeline..."/]
+#   n4["fan_b"]
+#   n0 --> n1 --> n2
+#   n0 --> n3 --> n4
+# !graph table ads-database.ads.page_views
+#
+# drop materialized view ads.fan_a;
+# (0 rows modified)
+# !update
+# drop materialized view ads.fan_b;
+# (0 rows modified)
+# !update
+
+# B.4  Reverse lookup against a resource referenced by a Trigger as its source.
+# Validates triggers participate in the reverse index alongside pipelines
+# (depends-on-sources annotation, dotted edge in renderer). Pairs with the
+# dep-guard scenario in k8s-trigger-validation.id.
+#
+# create or replace table ads."b4_table" ("i" int);
+# (0 rows modified)
+# !update
+# create trigger b4_trigger on ads."b4_table" as 'my-app' in 'my-mp' with (key 'value');
+# (0 rows modified)
+# !update
+#
+# flowchart LR
+#   n0[("ads-database.ads.b4_table")]
+#   n1{"b4_trigger ..."}
+#   n0 -.-> n1
+# !graph table ads-database.ads.b4_table
+#
+# drop trigger b4_trigger;
+# (0 rows modified)
+# !update
+# drop table ads."b4_table";
+# (0 rows modified)
+# !update
+
+# B.5  Reverse lookup against a resource referenced as a Trigger's *sink*
+# (LogicalTable bridging triggers — depends-on-sink annotation). Trigger
+# should render as the inbound edge to the root.
+# Requires a LogicalTable in scope so a bridging trigger is auto-spawned with
+# SINK_IDENTIFIER_OPTION set. See section C below for the LT setup, then
+# point a !graph table at the online tier here.
+
+# B.6  Mixed: a single resource referenced by *both* a pipeline (as source)
+# and a trigger (as source). Verifies the union appears in the reverse
+# graph, not just one or the other.
+#
+# create or replace table ads."b6_table" ("i" int);
+# (0 rows modified)
+# !update
+# create or replace materialized view ads.b6_mv as select "i" from ads."b6_table";
+# (0 rows modified)
+# !update
+# create trigger b6_trigger on ads."b6_table" as 'my-app' in 'my-mp' with (key 'value');
+# (0 rows modified)
+# !update
+#
+# flowchart LR
+#   n0[("ads-database.ads.b6_table")]
+#   n1[/"...b6_mv pipeline..."/]
+#   n2["b6_mv"]
+#   n3{"b6_trigger ..."}
+#   n0 --> n1 --> n2
+#   n0 -.-> n3
+# !graph table ads-database.ads.b6_table
+#
+# drop trigger b6_trigger;
+# (0 rows modified)
+# !update
+# drop materialized view ads.b6_mv;
+# (0 rows modified)
+# !update
+# drop table ads."b6_table";
+# (0 rows modified)
+# !update
+
+# ═════════════════════════════════════════════════════════════════════════════
+# C.  `!graph logical <name>`  — LogicalTable subgraph rendering. Exercises:
+#     - flowchart TD outer + direction LR inner switch
+#     - tier subgraphs (one per declared tier)
+#     - owned-pipeline rendering inside the LT wrapper
+#     - bridging trigger rendering (offline → trigger → online for reverse-ETL)
+# ═════════════════════════════════════════════════════════════════════════════
+
+# C.1  LogicalTable not found / never deployed. Expected: degenerate node, no
+# tier subgraphs.
+#
+# flowchart TD
+#   n0["does-not-exist"]
+# !graph logical default/does-not-exist
+
+# C.2  LogicalTable with all three tiers (offline + nearline + online) and an
+# auto-spawned backfill trigger that bridges offline → online. Plumbing:
+#   - LogicalTableDeployer creates: tier-source Pipelines per tier + a Trigger
+#     stamped with depends-on-sources (offline) + depends-on-sink (online).
+#   - Renderer should produce: TD outer subgraph, three nested LR tier
+#     subgraphs (in declaration order), trigger rendered as a flat node inside
+#     the LT wrapper, dotted edges:  offline-source -.-> trigger -.-> online-source.
+#
+# # TODO: fill in the CREATE LOGICAL TABLE DDL. The hoptimator-logical module
+# # defines the syntax; copy from a working example in
+# # hoptimator-logical/src/test/resources/.
+# #
+# # create logical table default.lt_three_tier (...)
+# #   with offline = profile-database, nearline = ads-database, online = venice-database;
+# # !update
+#
+# flowchart TD
+#   subgraph n0["lt_three_tier"]
+#     direction LR
+#     subgraph s_offline["offline"]
+#       n1[("profile-database.lt_three_tier")]
+#     end
+#     subgraph s_nearline["nearline"]
+#       n2[("ads-database.lt_three_tier")]
+#     end
+#     subgraph s_online["online"]
+#       n3[("venice-database.lt_three_tier")]
+#     end
+#     n4{"...backfill trigger..."}
+#   end
+#   n1 -.-> n4
+#   n4 -.-> n3
+# !graph logical default/lt_three_tier
+#
+# drop logical table default.lt_three_tier;
+# (0 rows modified)
+# !update
+
+# C.3  LogicalTable with a *paused* trigger. Same structure as C.2 but the
+# trigger node label includes "(paused)". Steps:
+#   create logical table ...; !update
+#   pause trigger <auto-spawned-name>; !update
+#   !graph logical default/<lt-name>
+
+# C.4  LogicalTable with a non-default cron schedule. Verifies CronHumanizer
+# rewrites the label (phrasing comes from cron-utils — see CronHumanizerTest
+# for the contract). Setup as C.2 but pass an explicit cron at LT creation
+# time. Depends on whether the LT DDL exposes a cron knob; if not, this
+# scenario lives at the unit level (MermaidRendererTest already covers it).
+
+# C.5  LogicalTable with an external downstream MV reading from one of its
+# tiers. Verifies the LT subgraph shows its own internals AND the external
+# pipeline crossing the boundary outward. Setup as C.2, then:
+#   create or replace materialized view ads.c5_downstream as select * from <tier-source>;
+# Expected: LT subgraph in TD orientation, with an additional pipeline node
+# outside it pointing to a c5_downstream sink node.
+
+# ═════════════════════════════════════════════════════════════════════════════
+# D.  Trigger-only scenarios (Shape A) — user-created standalone trigger with
+#     no sink. Section B covers triggers as part of larger graphs; this
+#     focuses on the trigger's own rendering.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# D.1  Standalone trigger with cron, no sink (Shape A). Validates the renderer
+# emits a single dotted edge from the source to the trigger and shows the
+# humanized cron in the label.
+#
+# create or replace table ads."d1_table" ("i" int);
+# (0 rows modified)
+# !update
+# create trigger d1_trigger on ads."d1_table" as 'my-app' in 'my-mp' with (key 'value');
+# (0 rows modified)
+# !update
+#
+# # Reverse-lookup the source — should expose the trigger.
+# flowchart LR
+#   n0[("ads-database.ads.d1_table")]
+#   n1{"d1_trigger ..."}
+#   n0 -.-> n1
+# !graph table ads-database.ads.d1_table
+#
+# drop trigger d1_trigger;
+# (0 rows modified)
+# !update
+# drop table ads."d1_table";
+# (0 rows modified)
+# !update
+
+# D.2  Trigger with no schedule (event-driven). Renderer should omit the
+# `cron:` line in the label. Requires DDL that creates a trigger without a
+# cron clause. If the grammar always requires a cron, this scenario lives at
+# the unit level (MermaidRendererTest already covers
+# triggerWithoutScheduleOmitsCron).
+
+# ═════════════════════════════════════════════════════════════════════════════
+# E.  Edge cases — depth flag, namespace prefix, quoted identifiers.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# E.1  --depth 0 — should clamp to root only, no edges traversed.
+# E.2  --depth 1 — root + immediate neighbors.
+# E.3  --depth 5 — full walk (caps at MAX_DEPTH internally).
+#
+# create or replace materialized view ads.e_mv as select first_name from ads.page_views;
+# (0 rows modified)
+# !update
+#
+# flowchart LR
+#   n0["e_mv"]
+# !graph view ads/e_mv --depth 0
+#
+# flowchart LR
+#   n0[/"...pipeline..."/]
+#   n1["e_mv"]
+#   n0 --> n1
+# !graph view ads/e_mv --depth 1
+#
+# flowchart LR
+#   n0[("...page_views source...")]
+#   n1[/"...pipeline..."/]
+#   n2["e_mv"]
+#   n0 --> n1 --> n2
+# !graph view ads/e_mv --depth 5
+#
+# drop materialized view ads.e_mv;
+# (0 rows modified)
+# !update
+
+# E.4  Namespace-prefixed view target (`namespace/name` form). Validates the
+# CLI parser splits on the slash and the provider doesn't pad an extra
+# default-namespace segment. Requires a non-default namespace in the test
+# cluster; if not available, this stays unit-test territory
+# (HoptimatorAppConfig.GraphCommandHandler.splitNamespaceName covers the parser).
+
+# E.5  Quoted identifier in the target name. Validates the CLI parser
+# preserves the literal name (no upper-casing surprises) and the K8s lookup
+# uses the canonicalized form.
+#
+# create or replace materialized view ads."E5$mixed-case" as select first_name from ads.page_views;
+# (0 rows modified)
+# !update
+#
+# flowchart LR
+#   n0[("...page_views...")]
+#   n1[/"...pipeline..."/]
+#   n2["E5$mixed-case"]
+#   n0 --> n1 --> n2
+# !graph view ads/E5$mixed-case
+#
+# drop materialized view ads."E5$mixed-case";
+# (0 rows modified)
+# !update
