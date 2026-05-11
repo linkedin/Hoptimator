@@ -1,0 +1,53 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Validate graph handling works for independent triggers
+# ─────────────────────────────────────────────────────────────────────────────
+
+create trigger testsimple on ads.ad_clicks as 'my-app' in 'my-mp' with (key 'value');
+(0 rows modified)
+
+!update
+
+flowchart LR
+  n0[("ADS.AD_CLICKS")]
+  n1{"testsimple<br/>template: my-app<br/>container: hello"}
+  n0 -.-> n1
+!graph table ADS.AD_CLICKS
+
+pause trigger testsimple;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  n0[("ADS.AD_CLICKS")]
+  n1{"testsimple<br/>template: my-app<br/>container: hello<br/>(paused)"}
+  n0 -.-> n1
+!graph table ADS.AD_CLICKS
+
+drop trigger testsimple;
+(0 rows modified)
+
+!update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Validate cron triggers
+# ─────────────────────────────────────────────────────────────────────────────
+
+create trigger cronTrigger ON ads.ad_clicks AS 'my-app' in 'my-mp' SCHEDULED '0 * * * *';
+(0 rows modified)
+
+!update
+
+flowchart LR
+  n0[("ADS.AD_CLICKS")]
+  n1{"crontrigger<br/>cron: every hour<br/>template: my-app<br/>container: hello"}
+  n0 -.-> n1
+!graph table ADS.AD_CLICKS
+
+drop trigger cronTrigger;
+(0 rows modified)
+
+!update

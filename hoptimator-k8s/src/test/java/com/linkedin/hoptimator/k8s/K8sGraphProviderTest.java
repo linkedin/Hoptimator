@@ -163,8 +163,8 @@ class K8sGraphProviderTest {
 
   @Test
   void unknownDatabaseAndSchemaPassesThrough() throws SQLException {
-    // Mirrors the "UNKNOWN.foo" test case in k8s-graph.id — the user-supplied identifier doesn't
-    // match anything, so we hand the original input back and let the builder produce the
+    // The user-supplied identifier doesn't match anything,
+    // so we hand the original input back and let the builder produce the
     // degenerate graph + warning downstream.
     when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     when(databaseApi.list()).thenReturn(Collections.emptyList());

@@ -10,8 +10,6 @@ import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.ResolvedTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.plan.RelOptTable;

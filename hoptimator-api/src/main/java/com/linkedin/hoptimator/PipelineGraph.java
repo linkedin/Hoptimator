@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Objects;
@@ -13,7 +12,7 @@ import java.util.Set;
  *
  * <p>The graph is intentionally minimal — discovery lives in builders (e.g.
  * {@code PipelineGraphBuilder} in hoptimator-k8s) and rendering lives in renderers (e.g.
- * {@code MermaidRenderer} in hoptimator-util). This POJO is the wire format between them.
+ * {@code MermaidRenderer} in hoptimator-graph). This POJO is the wire format between them.
  */
 public final class PipelineGraph {
 
@@ -41,27 +40,5 @@ public final class PipelineGraph {
 
   public Set<GraphEdge> edges() {
     return edges;
-  }
-
-  /** Convenience: every edge whose {@code from} is the given node. */
-  public Collection<GraphEdge> outgoing(GraphNode node) {
-    Set<GraphEdge> out = new LinkedHashSet<>();
-    for (GraphEdge e : edges) {
-      if (e.from().equals(node)) {
-        out.add(e);
-      }
-    }
-    return out;
-  }
-
-  /** Convenience: every edge whose {@code to} is the given node. */
-  public Collection<GraphEdge> incoming(GraphNode node) {
-    Set<GraphEdge> in = new LinkedHashSet<>();
-    for (GraphEdge e : edges) {
-      if (e.to().equals(node)) {
-        in.add(e);
-      }
-    }
-    return in;
   }
 }

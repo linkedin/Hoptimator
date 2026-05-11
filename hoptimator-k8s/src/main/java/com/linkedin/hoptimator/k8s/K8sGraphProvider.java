@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.k8s;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 import com.linkedin.hoptimator.GraphProvider;

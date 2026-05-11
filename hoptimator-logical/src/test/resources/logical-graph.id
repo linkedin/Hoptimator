@@ -1,0 +1,106 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LogicalTable with nearline + online tiers (no offline). The implicit
+# nearline-to-online pipeline lives inside the LT subgraph; the tier
+# externals nest in their respective tier subgraphs.
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace table "LOGICAL"."testevent" ("KEY" varchar, "memberId" bigint, "pageKey" varchar);
+(0 rows modified)
+
+!update
+
+flowchart TD
+  subgraph n0["LogicalTable logical-testevent"]
+    direction LR
+    subgraph s_nearline["nearline"]
+      n2[("KAFKA.testevent")]
+    end
+    subgraph s_online["online"]
+      n3[("VENICE.testevent")]
+    end
+    n1[/"logical-testevent-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2 --> n1
+  n1 --> n3
+!graph logical LOGICAL.testevent
+
+flowchart LR
+  n0[("KAFKA.testevent")]
+  n1[/"logical-testevent-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("VENICE.testevent")]
+  n0 --> n1
+  n1 --> n2
+!graph table KAFKA.testevent
+
+flowchart LR
+  n0[("VENICE.testevent")]
+  n1[/"logical-testevent-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("KAFKA.testevent")]
+  n2 --> n1
+  n1 --> n0
+!graph table VENICE.testevent
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LogicalTable with an offline tier + auto-spawned backfill trigger
+# (Shape B: source = offline, sink = nearline; reverse-ETL pattern).
+# The trigger renders inside the LT wrapper with dotted edges connecting
+# its source and sink. Tier subgraphs nest by declaration order.
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace table "LOGICAL_OFFLINE"."MEMBERS" ("ID" bigint, "NAME" varchar);
+(0 rows modified)
+
+!update
+
+flowchart TD
+  subgraph n0["LogicalTable logicaloffline-members"]
+    direction LR
+    subgraph s_nearline["nearline"]
+      n2[("ADS.MEMBERS")]
+    end
+    subgraph s_offline["offline"]
+      n3[("PROFILE.MEMBERS")]
+    end
+    n1[/"logical-members-nearline-to-offline<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+    n4{"logical-members-offline-trigger<br/>template: retl-job-template<br/>(paused)"}
+  end
+  n2 --> n1
+  n1 --> n3
+  n3 -.-> n4
+  n4 -.-> n2
+!graph logical LOGICAL_OFFLINE.MEMBERS
+
+flowchart LR
+  n0[("ADS.MEMBERS")]
+  n1{"logical-members-offline-trigger<br/>template: retl-job-template<br/>(paused)"}
+  n2[("PROFILE.MEMBERS")]
+  n3[/"logical-members-nearline-to-offline<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n1 -.-> n0
+  n2 -.-> n1
+  n0 --> n3
+  n3 --> n2
+!graph table ADS.MEMBERS
+
+flowchart LR
+  n0[("PROFILE.MEMBERS")]
+  n1[/"logical-members-nearline-to-offline<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.MEMBERS")]
+  n3{"logical-members-offline-trigger<br/>template: retl-job-template<br/>(paused)"}
+  n2 --> n1
+  n1 --> n0
+  n3 -.-> n2
+  n0 -.-> n3
+!graph table PROFILE.MEMBERS
+
+drop table "LOGICAL"."testevent";
+(0 rows modified)
+
+!update
+
+drop table "LOGICAL_OFFLINE"."MEMBERS";
+(0 rows modified)
+
+!update
