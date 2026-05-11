@@ -93,8 +93,10 @@ class MermaidRendererTest {
     assertTrue(mermaid.contains("offline"), "offline tier subgraph missing: " + mermaid);
     // Trigger arrow uses dotted edge.
     assertTrue(mermaid.contains(" -.-> "), "trigger edge should be dotted: " + mermaid);
-    assertTrue(mermaid.contains("cron: 0 */6 * * *"),
-        "trigger label should expose the cron schedule: " + mermaid);
+    // Don't pin the exact phrasing — that's cron-utils' contract. Just verify the schedule
+    // makes it onto the trigger label in humanized form rather than the raw cron string.
+    assertTrue(mermaid.contains("cron: ") && mermaid.contains("6") && mermaid.contains("hour"),
+        "trigger label should expose the cron schedule humanized: " + mermaid);
   }
 
   @Test

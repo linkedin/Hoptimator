@@ -204,7 +204,7 @@ public final class MermaidRenderer implements GraphRenderer {
         GraphNode.Trigger t = (GraphNode.Trigger) node;
         StringBuilder lbl = new StringBuilder(t.displayName());
         if (t.schedule() != null) {
-          lbl.append("<br/>cron: ").append(t.schedule());
+          lbl.append("<br/>cron: ").append(CronHumanizer.humanize(t.schedule()));
         }
         if (t.jobTemplateName() != null) {
           lbl.append("<br/>template: ").append(t.jobTemplateName());
