@@ -115,6 +115,66 @@ class PipelineGraphBuilderTest {
         "MV-on-MV should surface inlined kafka source");
   }
 
+  // ─── Test 2b: forView is scoped to the view's neighborhood ────────────────
+
+  @Test
+  void forViewIsScopedToTheViewNeighborhood() throws SQLException {
+    // Mirrors the real-world bug. Two MVs share a table as their connection point:
+    //   MV "P" reads from ads.ad_clicks and writes to ads.page_views.
+    //   MV "A" reads from ads.page_views (and profile.members) and writes to ads.audience.
+    // !graph view on A should show A's own pipeline + sources + sink, nothing else:
+    //   - No P-pipeline (upstream — chain belongs to !graph table).
+    //   - No ads.ad_clicks (P's source, not A's direct neighbor).
+    // !graph view on P should show P's own pipeline + sources + sink, nothing else:
+    //   - No A-pipeline (downstream of P's sink).
+    //   - No profile.members / ads.audience.
+    V1alpha1View viewP = view("ads", "p", true, "uid-P");
+    V1alpha1Pipeline pPipe = pipelineWithSourcesAndSink(
+        "p-pipeline", "uid-P", "View",
+        Arrays.asList("ads-database_ADS.AD_CLICKS"),
+        "ads-database_ADS.PAGE_VIEWS");
+
+    V1alpha1View viewA = view("ads", "a", true, "uid-A");
+    V1alpha1Pipeline aPipe = pipelineWithSourcesAndSink(
+        "a-pipeline", "uid-A", "View",
+        Arrays.asList("ads-database_ADS.PAGE_VIEWS", "profile-database_PROFILE.MEMBERS"),
+        "ads-database_ADS.AUDIENCE");
+
+    PipelineGraphBuilder builder = builder(
+        list(viewP, viewA),
+        list(pPipe, aPipe),
+        list(), list(),
+        list(database("ads-database", "kafka"), database("profile-database", "kafka")));
+
+    // !graph view P — must NOT include downstream A or its surroundings.
+    PipelineGraph forP = builder.forView("ads", "p", 2);
+    boolean pHasOwn = forP.nodes().stream().anyMatch(n ->
+        n instanceof GraphNode.Pipeline && "p-pipeline".equals(((GraphNode.Pipeline) n).name()));
+    boolean pHasA = forP.nodes().stream().anyMatch(n ->
+        n instanceof GraphNode.Pipeline && "a-pipeline".equals(((GraphNode.Pipeline) n).name()));
+    assertTrue(pHasOwn, "P's own pipeline should appear in its graph");
+    assertFalse(pHasA, "A's pipeline is downstream of P's sink — must not appear");
+    assertFalse(forP.nodes().stream().anyMatch(n ->
+            n instanceof GraphNode.External
+                && "profile-database".equals(((GraphNode.External) n).database())),
+        "profile.members only feeds the downstream MV — must not appear");
+
+    // !graph view A — must NOT include upstream P or ads.ad_clicks. The chain view is
+    // !graph table's job. A's graph is A's pipeline + its direct sources (PAGE_VIEWS,
+    // MEMBERS as leaves) + its sink (AUDIENCE as a leaf).
+    PipelineGraph forA = builder.forView("ads", "a", 2);
+    boolean aHasOwn = forA.nodes().stream().anyMatch(n ->
+        n instanceof GraphNode.Pipeline && "a-pipeline".equals(((GraphNode.Pipeline) n).name()));
+    boolean aHasP = forA.nodes().stream().anyMatch(n ->
+        n instanceof GraphNode.Pipeline && "p-pipeline".equals(((GraphNode.Pipeline) n).name()));
+    assertTrue(aHasOwn, "A's own pipeline should appear in its graph");
+    assertFalse(aHasP, "P's pipeline is upstream of A's source — must not chain into A's view graph");
+    assertFalse(forA.nodes().stream().anyMatch(n ->
+            n instanceof GraphNode.External
+                && ((GraphNode.External) n).path().contains("AD_CLICKS")),
+        "ads.ad_clicks is upstream of A's source PAGE_VIEWS — must not chain into A's view graph");
+  }
+
   // ─── Test 3: LogicalTable with three tiers + offline trigger ─────────────
 
   @Test

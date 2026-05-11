@@ -97,12 +97,16 @@ public final class PipelineGraphBuilder {
 
     // Materialized views have a Pipeline owned by the View CRD whose sink matches the view's
     // canonicalized path. Discover it via owner-reference scan over Pipelines in the namespace,
-    // expand each, and recurse out from the pipeline's external endpoints up to the depth cap.
+    // and expand each — but do NOT walk further upstream. A !graph view query is anchored on a
+    // specific view; the user expects "what this view does" (its pipeline + the resources it
+    // reads and writes directly), not a transitive chain to whatever produces its inputs.
+    // For the chain view, !graph table on the source is the right tool — the depth flag there
+    // controls how far to walk.
     if (materialized) {
       String viewUid = view.getMetadata() == null ? null : view.getMetadata().getUid();
       for (V1alpha1Pipeline pipeline : pipelineApi.list()) {
         if (ownedBy(pipeline.getMetadata(), "View", crdName, viewUid)) {
-          GraphNode.Pipeline pipeNode = t.expandPipelineAndRecurse(pipeline, root, cappedDepth);
+          GraphNode.Pipeline pipeNode = t.expandPipelineDirected(pipeline, Direction.UPSTREAM, 0);
           if (pipeNode != null) {
             t.addEdge(new GraphEdge(root, pipeNode, GraphEdge.Type.OWNER_OF));
           }
@@ -131,10 +135,11 @@ public final class PipelineGraphBuilder {
     // point to this LogicalTable. Each gets an OWNER_OF edge from the LogicalTable so the
     // renderer nests them inside the LogicalTable subgraph. Pipeline expansion adds the actual
     // tier-physical externals — we group those into tier subgraphs in a second pass below.
-    int cappedDepth = cap(depth);
+    // Same scoping rule as forView: don't recurse beyond the owned pipelines' immediate
+    // neighbors. The chain view belongs to !graph table.
     for (V1alpha1Pipeline pipeline : pipelineApi.list()) {
       if (ownedBy(pipeline.getMetadata(), "LogicalTable", ltName, ltUid)) {
-        GraphNode.Pipeline pipeNode = t.expandPipelineAndRecurse(pipeline, root, cappedDepth);
+        GraphNode.Pipeline pipeNode = t.expandPipelineDirected(pipeline, Direction.UPSTREAM, 0);
         if (pipeNode != null) {
           t.addEdge(new GraphEdge(root, pipeNode, GraphEdge.Type.OWNER_OF));
         }
@@ -170,9 +175,14 @@ public final class PipelineGraphBuilder {
   public PipelineGraph forResource(String database, List<String> path, int depth) throws SQLException {
     GraphNode.External root = externalNode(database, path);
 
-    Traversal t = new Traversal(cap(depth));
+    int cappedDepth = cap(depth);
+    Traversal t = new Traversal(cappedDepth);
     t.addNode(root);
-    t.expandFromResource(root);
+    // Reverse-lookup mode: walk in both directions from the root, but each recursion preserves
+    // its own direction (upstream stays upstream, downstream stays downstream) so unrelated
+    // siblings of intermediate pipelines don't leak in.
+    t.expandFromResource(root, cappedDepth, Direction.UPSTREAM);
+    t.expandFromResource(root, cappedDepth, Direction.DOWNSTREAM);
 
     return t.build(root);
   }
@@ -362,6 +372,21 @@ public final class PipelineGraphBuilder {
 
   // ─── Traversal state holder ──────────────────────────────────────────────
 
+  /**
+   * Direction of recursive expansion through pipelines/triggers.
+   *
+   * <ul>
+   *   <li>{@link #UPSTREAM} — follow producers. From an external, find pipelines/triggers where
+   *       it appears as the *sink*; from a pipeline, walk to its sources.</li>
+   *   <li>{@link #DOWNSTREAM} — follow consumers. From an external, find pipelines/triggers
+   *       where it appears as a *source*; from a pipeline, walk to its sink.</li>
+   * </ul>
+   *
+   * <p>Direction stays sticky across one recursive walk, so unrelated siblings of an
+   * intermediate pipeline don't get pulled in via the opposite direction.
+   */
+  enum Direction { UPSTREAM, DOWNSTREAM }
+
   private final class Traversal {
     private final int maxDepth;
     private final Map<String, GraphNode> nodes = new LinkedHashMap<>();
@@ -408,15 +433,15 @@ public final class PipelineGraphBuilder {
 
 
     /**
-     * Fan out from an external resource: select pipelines that depend on it, materialize each
-     * into a Pipeline node, attach edges, then recurse on the pipeline's other endpoints.
+     * Fan out from an external resource in one direction at a time. {@link Direction#UPSTREAM}
+     * finds pipelines/triggers that *produce* {@code resource} (where it appears as the sink);
+     * {@link Direction#DOWNSTREAM} finds those that *consume* it (where it appears as a source).
+     * Recursion stays in the same direction — once you're walking upstream, an intermediate
+     * pipeline's siblings don't get pulled in via their downstream side.
      */
-    void expandFromResource(GraphNode.External resource) throws SQLException {
-      expandFromResource(resource, maxDepth);
-    }
-
-    private void expandFromResource(GraphNode.External resource, int remainingDepth) throws SQLException {
-      String key = resource.database() + "/" + String.join(".", resource.path());
+    void expandFromResource(GraphNode.External resource, int remainingDepth, Direction direction)
+        throws SQLException {
+      String key = direction.name() + "/" + resource.database() + "/" + String.join(".", resource.path());
       if (!expandedResources.add(key) || remainingDepth <= 0) {
         return;
       }
@@ -429,11 +454,26 @@ public final class PipelineGraphBuilder {
           // Stale label or hash collision — ignore.
           continue;
         }
-        expandPipelineAndRecurse(pipeline, resource, remainingDepth);
+        Set<String> sources = parseAnnotation(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
+        String sink = annotationValue(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+        if (direction == Direction.UPSTREAM) {
+          // Only pipelines that *produce* resource (resource is the sink). Pipelines that
+          // merely consume resource are downstream — skip them in upstream walks.
+          if (!identifier.equals(sink)) {
+            continue;
+          }
+        } else {
+          // Only pipelines that *consume* resource (resource is one of the sources).
+          if (!sources.contains(identifier)) {
+            continue;
+          }
+        }
+        expandPipelineDirected(pipeline, direction, remainingDepth);
       }
 
-      // Triggers carry the same `depends-on-<slug>` labels; reverse-lookup pulls them in too.
-      // Direction depends on whether `resource` is the trigger's source or sink (or both).
+      // Triggers carry the same `depends-on-<slug>` labels. Same direction filter:
+      //   UPSTREAM   — trigger's sink == resource (trigger produces resource).
+      //   DOWNSTREAM — trigger's source == resource (trigger consumes resource).
       Collection<V1alpha1TableTrigger> triggerMatches = triggerApi.select(labelKey);
       for (V1alpha1TableTrigger trigger : triggerMatches) {
         String triggerSource = triggerSourceIdentifier(trigger);
@@ -442,13 +482,34 @@ public final class PipelineGraphBuilder {
           // Annotation cross-check — skip stale labels and slug collisions.
           continue;
         }
+        if (direction == Direction.UPSTREAM && !identifier.equals(triggerSink)) {
+          continue;
+        }
+        if (direction == Direction.DOWNSTREAM && !identifier.equals(triggerSource)) {
+          continue;
+        }
         GraphNode.Trigger tNode = triggerNode(trigger);
         addNode(tNode);
-        if (identifier.equals(triggerSource)) {
-          addEdge(new GraphEdge(resource, tNode, GraphEdge.Type.TRIGGERS));
-        }
-        if (identifier.equals(triggerSink)) {
+        if (direction == Direction.UPSTREAM) {
+          // Trigger produces resource; arrow points into resource.
           addEdge(new GraphEdge(tNode, resource, GraphEdge.Type.TRIGGERS));
+          // Walk further upstream from the trigger's source (if any) — that's what feeds
+          // the trigger.
+          if (triggerSource != null) {
+            GraphNode.External srcExt = externalFromIdentifier(triggerSource);
+            addNode(srcExt);
+            addEdge(new GraphEdge(srcExt, tNode, GraphEdge.Type.TRIGGERS));
+            expandFromResource(srcExt, remainingDepth - 1, Direction.UPSTREAM);
+          }
+        } else {
+          // Trigger consumes resource; arrow points away from resource.
+          addEdge(new GraphEdge(resource, tNode, GraphEdge.Type.TRIGGERS));
+          if (triggerSink != null) {
+            GraphNode.External sinkExt = externalFromIdentifier(triggerSink);
+            addNode(sinkExt);
+            addEdge(new GraphEdge(tNode, sinkExt, GraphEdge.Type.TRIGGERS));
+            expandFromResource(sinkExt, remainingDepth - 1, Direction.DOWNSTREAM);
+          }
         }
       }
     }
@@ -483,26 +544,37 @@ public final class PipelineGraphBuilder {
     }
 
     /**
-     * Ingest a pipeline and recursively expand from each of its external endpoints (skipping
-     * {@code anchor} when it's an external — used to avoid expanding back through the resource
-     * we came from in reverse-lookup mode).
+     * Ingest a pipeline and recursively expand in one direction. The pipeline node is added with
+     * all its source/sink edges (so the user always sees the pipeline's full shape), but the
+     * recursion only walks further in {@code direction}:
+     *
+     * <ul>
+     *   <li>{@link Direction#UPSTREAM} — recurse upstream from each of the pipeline's sources.
+     *       The sink is rendered as a leaf node here, since we don't follow it downstream.</li>
+     *   <li>{@link Direction#DOWNSTREAM} — recurse downstream from the pipeline's sink. The
+     *       sources stay as leaves.</li>
+     * </ul>
      */
-    GraphNode.Pipeline expandPipelineAndRecurse(V1alpha1Pipeline pipeline, GraphNode anchor,
+    GraphNode.Pipeline expandPipelineDirected(V1alpha1Pipeline pipeline, Direction direction,
         int remainingDepth) throws SQLException {
-      GraphNode.Pipeline pipeNode = expandPipeline(pipeline, anchor);
+      GraphNode.Pipeline pipeNode = expandPipeline(pipeline, null);
       if (pipeNode == null) {
         return null;
       }
       if (remainingDepth <= 0) {
         return pipeNode;
       }
-      for (GraphEdge edge : new ArrayList<>(edges)) {
-        if (!edge.from().equals(pipeNode) && !edge.to().equals(pipeNode)) {
-          continue;
+      Set<String> sources = parseAnnotation(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
+      String sink = annotationValue(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+      if (direction == Direction.UPSTREAM) {
+        for (String id : sources) {
+          GraphNode.External srcExt = externalFromIdentifier(id);
+          expandFromResource(srcExt, remainingDepth - 1, Direction.UPSTREAM);
         }
-        GraphNode other = edge.from().equals(pipeNode) ? edge.to() : edge.from();
-        if (other instanceof GraphNode.External && !other.equals(anchor)) {
-          expandFromResource((GraphNode.External) other, remainingDepth - 1);
+      } else {
+        if (sink != null) {
+          GraphNode.External sinkExt = externalFromIdentifier(sink);
+          expandFromResource(sinkExt, remainingDepth - 1, Direction.DOWNSTREAM);
         }
       }
       return pipeNode;

@@ -225,12 +225,10 @@ public final class MermaidRenderer implements GraphRenderer {
         if (t.jobTemplateName() != null) {
           lbl.append("<br/>template: ").append(t.jobTemplateName());
         }
-        if (t.jobKind() != null) {
-          lbl.append("<br/>kind: ").append(t.jobKind());
-        }
-        if (t.jobName() != null) {
-          lbl.append("<br/>job: ").append(t.jobName());
-        }
+        // Skip jobKind ("Job", "CronJob", etc.) — the rhombus shape already signals "trigger"
+        // and the K8s kind doesn't materially change how the user reads the graph.
+        // Skip jobName — it's a deterministic concatenation of name + template, so showing it
+        // bloats the diamond without adding info (diamond width scales with the longest line).
         if (t.containerName() != null) {
           lbl.append("<br/>container: ").append(t.containerName());
         }
