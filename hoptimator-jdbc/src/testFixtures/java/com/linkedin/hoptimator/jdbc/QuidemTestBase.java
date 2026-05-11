@@ -11,8 +11,8 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Assertions;
 
-import com.linkedin.hoptimator.GraphTarget;
-import com.linkedin.hoptimator.PipelineGraph;
+import com.linkedin.hoptimator.graph.GraphTarget;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
 import com.linkedin.hoptimator.util.GraphService;
 

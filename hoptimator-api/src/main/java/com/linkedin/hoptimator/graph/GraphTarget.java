@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator;
+package com.linkedin.hoptimator.graph;
 
 import java.util.List;
 import java.util.Objects;

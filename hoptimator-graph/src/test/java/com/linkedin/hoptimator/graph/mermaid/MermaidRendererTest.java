@@ -8,9 +8,9 @@ import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
-import com.linkedin.hoptimator.GraphEdge;
-import com.linkedin.hoptimator.GraphNode;
-import com.linkedin.hoptimator.PipelineGraph;
+import com.linkedin.hoptimator.graph.GraphEdge;
+import com.linkedin.hoptimator.graph.GraphNode;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;

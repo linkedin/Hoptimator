@@ -15,9 +15,9 @@ import java.util.Set;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
-import com.linkedin.hoptimator.GraphEdge;
-import com.linkedin.hoptimator.GraphNode;
-import com.linkedin.hoptimator.PipelineGraph;
+import com.linkedin.hoptimator.graph.GraphEdge;
+import com.linkedin.hoptimator.graph.GraphNode;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;

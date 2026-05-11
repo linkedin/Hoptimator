@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator;
+package com.linkedin.hoptimator.graph;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -7,11 +7,11 @@ import java.sql.SQLException;
 /**
  * SPI for backends that can materialize a {@link PipelineGraph} for a given {@link GraphTarget}.
  * Discovered at runtime via {@code ServiceLoader} — implementations register themselves through
- * a {@code META-INF/services/com.linkedin.hoptimator.GraphProvider} file in their module.
+ * a {@code META-INF/services/com.linkedin.hoptimator.graph.GraphProvider} file in their module.
  *
- * <p>Mirrors the {@link DeployerProvider} shape: {@code supports(target)} narrows what each
- * provider handles, and {@link #priority()} orders multiple providers when more than one
- * supports the same target.
+ * <p>Mirrors the {@code DeployerProvider} shape: {@code supports(target)} narrows what each
+ * provider handles. First match in ServiceLoader iteration order wins when more than one
+ * provider supports the same target.
  */
 public interface GraphProvider {
 

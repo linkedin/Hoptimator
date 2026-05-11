@@ -4,7 +4,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import com.linkedin.hoptimator.GraphTarget;
+import com.linkedin.hoptimator.graph.GraphTarget;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * SPI-discovery sanity checks for {@link GraphService}. Doesn't exercise a {@link
- * com.linkedin.hoptimator.GraphProvider} (those live in implementation modules and need a real
+ * com.linkedin.hoptimator.graph.GraphProvider} (those live in implementation modules and need a real
  * connection); just verifies the renderer-discovery side works against the in-module Mermaid
  * renderer registered via {@code META-INF/services}, and that {@link GraphService#buildGraph}
  * fails loudly when no provider supports a target.
@@ -30,9 +30,9 @@ class GraphServiceTest {
   @Test
   void renderUnknownFormatThrowsWithHelpfulMessage() {
     // Build the smallest valid graph to render: any non-null PipelineGraph.
-    com.linkedin.hoptimator.GraphNode root =
-        new com.linkedin.hoptimator.GraphNode.External("db", List.of("t"), null);
-    com.linkedin.hoptimator.PipelineGraph graph = new com.linkedin.hoptimator.PipelineGraph(
+    com.linkedin.hoptimator.graph.GraphNode root =
+        new com.linkedin.hoptimator.graph.GraphNode.External("db", List.of("t"), null);
+    com.linkedin.hoptimator.graph.PipelineGraph graph = new com.linkedin.hoptimator.graph.PipelineGraph(
         root, java.util.Set.of(root), java.util.Set.of());
 
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,

@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator;
+package com.linkedin.hoptimator.graph;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;

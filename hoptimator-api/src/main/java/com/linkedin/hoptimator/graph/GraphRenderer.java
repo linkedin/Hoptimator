@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator;
+package com.linkedin.hoptimator.graph;
 
 /**
  * SPI for serializing a {@link PipelineGraph} to a string format (Mermaid, DOT, JSON, etc.).

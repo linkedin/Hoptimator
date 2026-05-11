@@ -7,10 +7,10 @@ import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
-import com.linkedin.hoptimator.GraphProvider;
-import com.linkedin.hoptimator.GraphRenderer;
-import com.linkedin.hoptimator.GraphTarget;
-import com.linkedin.hoptimator.PipelineGraph;
+import com.linkedin.hoptimator.graph.GraphProvider;
+import com.linkedin.hoptimator.graph.GraphRenderer;
+import com.linkedin.hoptimator.graph.GraphTarget;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 
 
 /**

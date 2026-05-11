@@ -5,9 +5,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.linkedin.hoptimator.GraphProvider;
-import com.linkedin.hoptimator.GraphTarget;
-import com.linkedin.hoptimator.PipelineGraph;
+import com.linkedin.hoptimator.graph.GraphProvider;
+import com.linkedin.hoptimator.graph.GraphTarget;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 
@@ -23,7 +23,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
  *       with SQL-side → K8s-side identifier resolution (see {@link #resolveResource}).
  * </ul>
  *
- * <p>Registered via {@code META-INF/services/com.linkedin.hoptimator.GraphProvider} so callers
+ * <p>Registered via {@code META-INF/services/com.linkedin.hoptimator.graph.GraphProvider} so callers
  * reach it through {@link com.linkedin.hoptimator.graph.GraphService}.
  */
 public final class K8sGraphProvider implements GraphProvider {

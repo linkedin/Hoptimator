@@ -1,7 +1,7 @@
 package sqlline;
 
-import com.linkedin.hoptimator.GraphTarget;
-import com.linkedin.hoptimator.PipelineGraph;
+import com.linkedin.hoptimator.graph.GraphTarget;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
 import com.linkedin.hoptimator.util.GraphService;

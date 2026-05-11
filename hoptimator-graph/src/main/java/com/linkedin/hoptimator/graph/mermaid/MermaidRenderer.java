@@ -6,15 +6,15 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.linkedin.hoptimator.GraphEdge;
-import com.linkedin.hoptimator.GraphNode;
-import com.linkedin.hoptimator.GraphRenderer;
-import com.linkedin.hoptimator.PipelineGraph;
+import com.linkedin.hoptimator.graph.GraphEdge;
+import com.linkedin.hoptimator.graph.GraphNode;
+import com.linkedin.hoptimator.graph.GraphRenderer;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 
 
 /**
  * {@link GraphRenderer} that serializes a {@link PipelineGraph} as a Mermaid {@code flowchart}
- * string. Registered via {@code META-INF/services/com.linkedin.hoptimator.GraphRenderer} so it's
+ * string. Registered via {@code META-INF/services/com.linkedin.hoptimator.graph.GraphRenderer} so it's
  * discovered through {@link com.linkedin.hoptimator.graph.GraphService}.
  *
  * <p>Visual encoding:
