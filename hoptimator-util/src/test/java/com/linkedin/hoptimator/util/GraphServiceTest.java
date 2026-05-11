@@ -1,7 +1,11 @@
 package com.linkedin.hoptimator.util;
 
+import java.sql.SQLException;
 import java.util.List;
+import java.util.Set;
 
+import com.linkedin.hoptimator.graph.GraphNode;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 import org.junit.jupiter.api.Test;
 
 import com.linkedin.hoptimator.graph.GraphTarget;
@@ -30,10 +34,8 @@ class GraphServiceTest {
   @Test
   void renderUnknownFormatThrowsWithHelpfulMessage() {
     // Build the smallest valid graph to render: any non-null PipelineGraph.
-    com.linkedin.hoptimator.graph.GraphNode root =
-        new com.linkedin.hoptimator.graph.GraphNode.External("db", List.of("t"), null);
-    com.linkedin.hoptimator.graph.PipelineGraph graph = new com.linkedin.hoptimator.graph.PipelineGraph(
-        root, java.util.Set.of(root), java.util.Set.of());
+    GraphNode root = new GraphNode.External("db", List.of("t"), null);
+    PipelineGraph graph = new PipelineGraph(root, Set.of(root), Set.of());
 
     IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
         () -> GraphService.render(graph, "definitely-not-a-format"));
@@ -48,7 +50,7 @@ class GraphServiceTest {
     // No GraphProvider impl is on this module's test classpath, so any target should fail.
     GraphTarget unsupportedTarget = new GraphTarget.Resource("nope", List.of("nothing"));
     assertNotNull(unsupportedTarget);   // sanity guard against null returns elsewhere
-    assertThrows(java.sql.SQLException.class,
+    assertThrows(SQLException.class,
         () -> GraphService.buildGraph(unsupportedTarget, 1, null));
   }
 }

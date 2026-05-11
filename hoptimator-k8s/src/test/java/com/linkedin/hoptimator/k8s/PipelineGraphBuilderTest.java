@@ -36,6 +36,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -315,10 +316,53 @@ class PipelineGraphBuilderTest {
         "depth=0 should yield only the root resource");
   }
 
-  // ─── Test: depth ceiling enforcement ──────────────────────────────────────
+  // ─── Test: cycles in the pipeline graph terminate cleanly ────────────────
 
   @Test
-  void depthAboveMaxIsClamped() throws SQLException {
+  void forResourceTerminatesOnCycle() throws SQLException {
+    // Cycle: P1 reads T1 / writes T2; P2 reads T2 / writes T1. Same resource appears as both
+    // source and sink along the chain, which would loop forever without the Traversal's
+    // visited-set guard. Pin that the build still terminates and the rendered graph captures
+    // the loop as a closed cycle (4 nodes, 4 edges).
+    V1alpha1Pipeline p1 = pipelineWithSourcesAndSink(
+        "p1", "uid-job-1", "Job",
+        Arrays.asList("db_A.t1"),
+        "db_A.t2");
+    V1alpha1Pipeline p2 = pipelineWithSourcesAndSink(
+        "p2", "uid-job-2", "Job",
+        Arrays.asList("db_A.t2"),
+        "db_A.t1");
+
+    PipelineGraphBuilder builder = builder(
+        list(), list(p1, p2), list(), list(),
+        list(database("db", "kafka")));
+
+    // Generous depth to make sure termination comes from the visited-set, not the cap.
+    PipelineGraph graph = builder.forResource("db", Arrays.asList("A", "t1"), 10);
+
+    // Exactly 4 nodes: T1 (root), P1, T2, P2 — no duplicate node identities.
+    assertEquals(4, graph.nodes().size(),
+        "cycle should produce 4 distinct nodes (T1, P1, T2, P2), not infinite expansion");
+
+    // Exactly 4 edges in the loop:
+    //   T1 → P1 (DEPENDS_ON_SOURCE)
+    //   P1 → T2 (DEPENDS_ON_SINK)
+    //   T2 → P2 (DEPENDS_ON_SOURCE)
+    //   P2 → T1 (DEPENDS_ON_SINK)
+    assertEquals(4, graph.edges().size(),
+        "cycle should produce 4 distinct edges, no duplicates from re-expansion");
+
+    // The second arc closes the loop — P2's sink points back at the root.
+    boolean cycleCloses = graph.edges().stream()
+        .anyMatch(e -> e.type() == GraphEdge.Type.DEPENDS_ON_SINK
+            && e.to().equals(graph.root()));
+    assertTrue(cycleCloses, "an edge should point back at the root to close the cycle");
+  }
+
+  // ─── Test: large depth values are accepted ────────────────────────────────
+
+  @Test
+  void largeDepthHandledGracefully() throws SQLException {
     V1alpha1Pipeline pipeline = pipelineWithSourcesAndSink(
         "p1", "uid", "Job",
         Arrays.asList("kafka1_KAFKA.events"),
@@ -328,11 +372,11 @@ class PipelineGraphBuilderTest {
         list(), list(pipeline), list(), list(),
         list(database("kafka1", "kafka"), database("ads", "venice")));
 
-    // Depth 999 should clamp to MAX_DEPTH and behave equivalently — no exceptions.
+    // Depth 999: in practice graphs don't get that deep, so recursion terminates anyway.
     PipelineGraph graph = builder.forResource("kafka1", Arrays.asList("KAFKA", "events"), 999);
 
     assertNotNull(graph);
-    assertTrue(graph.nodes().size() >= 2, "clamped depth should still discover at least the pipeline");
+    assertTrue(graph.nodes().size() >= 2, "large depth should still discover at least the pipeline");
   }
 
   // ─── Test: forView accepts SQL-style identifiers and canonicalizes them ──
@@ -386,6 +430,49 @@ class PipelineGraphBuilderTest {
         + "metadata:\n  name: cron-job\n";
 
     assertEquals("Job", PipelineGraphBuilder.extractJobKind(yaml));
+  }
+
+  @Test
+  void extractJobTemplateNameStripsTriggerPrefix() {
+    // Deployer renders `metadata.name: <trigger>-<template>`. Strip the prefix to recover
+    // the template name (which the visualizer uses to label trigger nodes).
+    String yaml = ""
+        + "apiVersion: batch/v1\n"
+        + "kind: Job\n"
+        + "metadata:\n"
+        + "  name: testsimple-my-app\n"
+        + "  namespace: my-mp\n";
+
+    assertEquals("my-app", PipelineGraphBuilder.extractJobTemplateName("testsimple", yaml));
+  }
+
+  @Test
+  void extractJobTemplateNameReturnsNullWhenPrefixMissing() {
+    // YAML doesn't follow `<trigger>-<template>` — bail rather than misattribute.
+    String yaml = "metadata:\n  name: someother-job\n";
+    assertNull(PipelineGraphBuilder.extractJobTemplateName("testsimple", yaml));
+  }
+
+  @Test
+  void extractJobTemplateNameReturnsNullWhenNoMetadataName() {
+    assertNull(PipelineGraphBuilder.extractJobTemplateName("testsimple", "no metadata here"));
+    assertNull(PipelineGraphBuilder.extractJobTemplateName("testsimple", ""));
+    assertNull(PipelineGraphBuilder.extractJobTemplateName("testsimple", null));
+  }
+
+  @Test
+  void extractMetadataNameSkipsContainerName() {
+    // `name:` also appears under containers — must not match a container entry. The metadata
+    // line is indented but has no leading `-`, which is how we tell them apart.
+    String yaml = ""
+        + "metadata:\n"
+        + "  name: outer-name\n"
+        + "spec:\n"
+        + "  template:\n"
+        + "    spec:\n"
+        + "      containers:\n"
+        + "      - name: inner-name\n";
+    assertEquals("outer-name", PipelineGraphBuilder.extractMetadataName(yaml));
   }
 
   // ─── Test 4: reverse lookup with stale depends-on labels ─────────────────
@@ -456,10 +543,10 @@ class PipelineGraphBuilderTest {
     V1alpha1TableTrigger trigger = new V1alpha1TableTrigger();
     Map<String, String> annotations = new HashMap<>();
     if (sourceIdentifier != null) {
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, sourceIdentifier);
+      annotations.put(DependencyLabels.ANNOTATION_KEY_SOURCES, sourceIdentifier);
     }
     if (sinkIdentifier != null) {
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SINK, sinkIdentifier);
+      annotations.put(DependencyLabels.ANNOTATION_KEY_SINKS, sinkIdentifier);
     }
     V1ObjectMeta meta = new V1ObjectMeta().namespace(namespace).name(name).uid("trigger-uid")
         .annotations(annotations)
@@ -485,9 +572,9 @@ class PipelineGraphBuilderTest {
     if (sinkIdentifier != null) {
       labels.put("hoptimator.linkedin.com/depends-on-stub-" + sinkIdentifier.hashCode(), sinkIdentifier);
     }
-    annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, String.join(",", sourceIdentifiers));
+    annotations.put(DependencyLabels.ANNOTATION_KEY_SOURCES, String.join(",", sourceIdentifiers));
     if (sinkIdentifier != null) {
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SINK, sinkIdentifier);
+      annotations.put(DependencyLabels.ANNOTATION_KEY_SINKS, sinkIdentifier);
     }
 
     pipeline.setMetadata(new V1ObjectMeta()
@@ -512,9 +599,9 @@ class PipelineGraphBuilderTest {
     Map<String, String> annotations = new HashMap<>();
     // Stale label says we depend on kafka1.X — but the directional annotations only mention
     // kafka1.Y. The cross-check should fail and the pipeline should be filtered out.
-    labels.put(PipelineDependencyLabels.labelKey("kafka1", Arrays.asList("KAFKA", "x")),
+    labels.put(DependencyLabels.labelKey("kafka1", Arrays.asList("KAFKA", "x")),
         "kafka1_KAFKA.x");
-    annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, "kafka1_KAFKA.y");
+    annotations.put(DependencyLabels.ANNOTATION_KEY_SOURCES, "kafka1_KAFKA.y");
     pipeline.setMetadata(new V1ObjectMeta()
         .namespace("ns").name("stale-pipeline").uid("stale-uid")
         .labels(labels).annotations(annotations));

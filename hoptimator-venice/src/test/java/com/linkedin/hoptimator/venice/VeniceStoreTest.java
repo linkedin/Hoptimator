@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -208,7 +209,7 @@ class VeniceStoreTest {
     VeniceStore store = new VeniceStore(mockSchemaFetcher,
         new VeniceStoreConfig(Collections.emptyMap()));
 
-    Schema merged = com.linkedin.hoptimator.avro.AvroSchemas.mergedAvroSchemaFor(store);
+    Schema merged = AvroSchemas.mergedAvroSchemaFor(store);
 
     assertEquals("com.linkedin.foo", merged.getNamespace());
     assertEquals("User", merged.getName());

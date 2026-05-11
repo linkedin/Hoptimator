@@ -11,6 +11,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
@@ -45,12 +47,10 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
  * </ul>
  *
  * <p>Depth bounds traversal in both directions through the {@code depends-on-<slug>} label
- * selector. {@link #DEFAULT_DEPTH} = 2; the public surface caps depth at {@link #MAX_DEPTH}.
+ * selector. Callers pick whatever depth they want; the builder only floors negatives at 0
+ * so the recursion always terminates.
  */
 public final class PipelineGraphBuilder {
-
-  public static final int DEFAULT_DEPTH = 2;
-  public static final int MAX_DEPTH = 5;
 
   private final K8sApi<V1alpha1View, V1alpha1ViewList> viewApi;
   private final K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi;
@@ -89,7 +89,7 @@ public final class PipelineGraphBuilder {
     String crdName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
     V1alpha1View view = viewApi.get(namespace, crdName);
     boolean materialized = Boolean.TRUE.equals(view.getSpec().getMaterialized());
-    GraphNode.View root = new GraphNode.View(namespace, crdName, materialized);
+    GraphNode.View root = new GraphNode.View(crdName, materialized);
 
     int cappedDepth = cap(depth);
     Traversal t = new Traversal(cappedDepth);
@@ -123,7 +123,7 @@ public final class PipelineGraphBuilder {
     String crdName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
     V1alpha1LogicalTable lt = logicalTableApi.get(namespace, crdName);
     Map<String, String> tierMap = tierMap(lt.getSpec());
-    GraphNode.LogicalTable root = new GraphNode.LogicalTable(namespace, crdName, tierMap);
+    GraphNode.LogicalTable root = new GraphNode.LogicalTable(crdName, tierMap);
 
     Traversal t = new Traversal(cap(depth));
     t.addNode(root);
@@ -190,10 +190,7 @@ public final class PipelineGraphBuilder {
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private static int cap(int depth) {
-    if (depth < 0) {
-      return 0;
-    }
-    return Math.min(depth, MAX_DEPTH);
+    return Math.max(depth, 0);
   }
 
   private static boolean ownedBy(V1ObjectMeta meta, String ownerKind, String ownerName, String ownerUid) {
@@ -257,8 +254,7 @@ public final class PipelineGraphBuilder {
     if (yaml == null || yaml.isEmpty()) {
       return null;
     }
-    java.util.regex.Matcher m = java.util.regex.Pattern
-        .compile("(?m)^kind:\\s*(\\S*Job)\\s*$").matcher(yaml);
+    Matcher m = Pattern.compile("(?m)^kind:\\s*(\\S*Job)\\s*$").matcher(yaml);
     return m.find() ? m.group(1) : null;
   }
 
@@ -286,17 +282,48 @@ public final class PipelineGraphBuilder {
   }
 
   private static GraphNode.Trigger triggerNode(V1alpha1TableTrigger trigger) {
-    String namespace = trigger.getMetadata() == null ? null : trigger.getMetadata().getNamespace();
     String name = trigger.getMetadata() == null ? "<unknown>" : trigger.getMetadata().getName();
     String schedule = trigger.getSpec() == null ? null : trigger.getSpec().getSchedule();
     boolean paused = trigger.getSpec() != null && Boolean.TRUE.equals(trigger.getSpec().getPaused());
-    String jobTemplate = annotationValue(trigger, K8sTriggerDeployer.JOB_TEMPLATE_ANNOTATION);
     String yaml = trigger.getSpec() == null ? null : trigger.getSpec().getYaml();
-    String jobKind = extractJobKind(yaml);
-    String jobName = extractMetadataName(yaml);
     String containerName = extractFirstContainerName(yaml);
-    return new GraphNode.Trigger(namespace, name, schedule, paused,
-        jobTemplate, jobKind, jobName, containerName);
+    String jobTemplate = extractJobTemplateName(name, yaml);
+    return new GraphNode.Trigger(name, schedule, paused, jobTemplate, containerName);
+  }
+
+  /**
+   * Derive the JobTemplate name from the rendered Job's {@code metadata.name}. The deployer
+   * builds it as {@code <triggerName>-<templateName>} (both canonicalized), so we strip the
+   * trigger-name prefix to recover the template name. Returns null if the prefix doesn't match
+   * (the YAML doesn't follow the convention, or the name isn't present).
+   */
+  static String extractJobTemplateName(String triggerName, String yaml) {
+    if (triggerName == null || yaml == null || yaml.isEmpty()) {
+      return null;
+    }
+    String jobName = extractMetadataName(yaml);
+    if (jobName == null) {
+      return null;
+    }
+    String prefix = triggerName + "-";
+    if (!jobName.startsWith(prefix) || jobName.length() == prefix.length()) {
+      return null;
+    }
+    return jobName.substring(prefix.length());
+  }
+
+  /** Top-level {@code metadata.name:} value in a Kubernetes YAML doc; nullable. */
+  static String extractMetadataName(String yaml) {
+    if (yaml == null || yaml.isEmpty()) {
+      return null;
+    }
+    int metadataIdx = yaml.indexOf("metadata:");
+    if (metadataIdx < 0) {
+      return null;
+    }
+    Matcher m = Pattern.compile("(?m)^\\s+name:\\s*(\\S+)\\s*$")
+        .matcher(yaml.substring(metadataIdx));
+    return m.find() ? m.group(1) : null;
   }
 
   /**
@@ -325,17 +352,21 @@ public final class PipelineGraphBuilder {
 
   /** Pull the trigger's source identifier from the {@code depends-on-sources} annotation. */
   private static String triggerSourceIdentifier(V1alpha1TableTrigger trigger) {
-    String value = annotationValue(trigger, PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
+    String value = annotationValue(trigger, DependencyLabels.ANNOTATION_KEY_SOURCES);
     if (value == null || value.isEmpty()) {
       return null;
     }
-    Set<String> ids = PipelineDependencyLabels.parseAnnotation(value);
+    Set<String> ids = DependencyLabels.parseAnnotation(value);
     return ids.isEmpty() ? null : ids.iterator().next();
   }
 
-  /** Pull the trigger's sink identifier from the {@code depends-on-sink} annotation. */
+  /** Pull the trigger's sink identifier from the {@code depends-on-sinks} annotation. Today a
+   *  trigger has at most one sink, so we return the first; if/when triggers carry multiple sinks
+   *  this needs to grow into an iteration. */
   private static String triggerSinkIdentifier(V1alpha1TableTrigger trigger) {
-    return annotationValue(trigger, PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+    Set<String> sinks = DependencyLabels.parseAnnotation(
+        annotationValue(trigger, DependencyLabels.ANNOTATION_KEY_SINKS));
+    return sinks.isEmpty() ? null : sinks.iterator().next();
   }
 
   private static String annotationValue(V1alpha1TableTrigger trigger, String key) {
@@ -343,16 +374,6 @@ public final class PipelineGraphBuilder {
       return null;
     }
     return trigger.getMetadata().getAnnotations().get(key);
-  }
-
-  /** First {@code metadata.name:} line from the rendered yaml; nullable. */
-  static String extractMetadataName(String yaml) {
-    if (yaml == null || yaml.isEmpty()) {
-      return null;
-    }
-    java.util.regex.Matcher m = java.util.regex.Pattern
-        .compile("(?m)^\\s+name:\\s*(\\S+)\\s*$").matcher(yaml);
-    return m.find() ? m.group(1) : null;
   }
 
   /** First container's {@code name:} in the {@code containers:} list; nullable. */
@@ -364,8 +385,8 @@ public final class PipelineGraphBuilder {
     if (containersIdx < 0) {
       return null;
     }
-    java.util.regex.Matcher m = java.util.regex.Pattern
-        .compile("(?m)^\\s*-\\s*name:\\s*(\\S+)\\s*$").matcher(yaml.substring(containersIdx));
+    Matcher m = Pattern.compile("(?m)^\\s*-\\s*name:\\s*(\\S+)\\s*$")
+        .matcher(yaml.substring(containersIdx));
     return m.find() ? m.group(1) : null;
   }
 
@@ -423,7 +444,7 @@ public final class PipelineGraphBuilder {
       for (GraphNode n : nodes.values()) {
         if (n instanceof GraphNode.External) {
           GraphNode.External e = (GraphNode.External) n;
-          if (identifier.equals(PipelineDependencyLabels.identifier(e.database(), e.path()))) {
+          if (identifier.equals(DependencyLabels.identifier(e.database(), e.path()))) {
             return e;
           }
         }
@@ -445,8 +466,8 @@ public final class PipelineGraphBuilder {
       if (!expandedResources.add(key) || remainingDepth <= 0) {
         return;
       }
-      String labelKey = PipelineDependencyLabels.labelKey(resource.database(), resource.path());
-      String identifier = PipelineDependencyLabels.identifier(resource.database(), resource.path());
+      String labelKey = DependencyLabels.labelKey(resource.database(), resource.path());
+      String identifier = DependencyLabels.identifier(resource.database(), resource.path());
 
       Collection<V1alpha1Pipeline> matches = pipelineApi.select(labelKey);
       for (V1alpha1Pipeline pipeline : matches) {
@@ -454,12 +475,12 @@ public final class PipelineGraphBuilder {
           // Stale label or hash collision — ignore.
           continue;
         }
-        Set<String> sources = parseAnnotation(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
-        String sink = annotationValue(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+        Set<String> sources = parseAnnotation(pipeline, DependencyLabels.ANNOTATION_KEY_SOURCES);
+        Set<String> sinks = parseAnnotation(pipeline, DependencyLabels.ANNOTATION_KEY_SINKS);
         if (direction == Direction.UPSTREAM) {
-          // Only pipelines that *produce* resource (resource is the sink). Pipelines that
-          // merely consume resource are downstream — skip them in upstream walks.
-          if (!identifier.equals(sink)) {
+          // Only pipelines that *produce* resource (resource is one of the sinks). Pipelines
+          // that merely consume resource are downstream — skip them in upstream walks.
+          if (!sinks.contains(identifier)) {
             continue;
           }
         } else {
@@ -527,16 +548,16 @@ public final class PipelineGraphBuilder {
       GraphNode.Pipeline pipeNode = pipelineNode(pipeline);
       addNode(pipeNode);
 
-      Set<String> sources = parseAnnotation(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
-      String sink = annotationValue(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+      Set<String> sources = parseAnnotation(pipeline, DependencyLabels.ANNOTATION_KEY_SOURCES);
+      Set<String> sinks = parseAnnotation(pipeline, DependencyLabels.ANNOTATION_KEY_SINKS);
 
       for (String id : sources) {
         GraphNode.External ext = externalFromIdentifier(id);
         addNode(ext);
         addEdge(new GraphEdge(ext, pipeNode, GraphEdge.Type.DEPENDS_ON_SOURCE));
       }
-      if (sink != null) {
-        GraphNode.External ext = externalFromIdentifier(sink);
+      for (String id : sinks) {
+        GraphNode.External ext = externalFromIdentifier(id);
         addNode(ext);
         addEdge(new GraphEdge(pipeNode, ext, GraphEdge.Type.DEPENDS_ON_SINK));
       }
@@ -564,16 +585,16 @@ public final class PipelineGraphBuilder {
       if (remainingDepth <= 0) {
         return pipeNode;
       }
-      Set<String> sources = parseAnnotation(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
-      String sink = annotationValue(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+      Set<String> sources = parseAnnotation(pipeline, DependencyLabels.ANNOTATION_KEY_SOURCES);
+      Set<String> sinks = parseAnnotation(pipeline, DependencyLabels.ANNOTATION_KEY_SINKS);
       if (direction == Direction.UPSTREAM) {
         for (String id : sources) {
           GraphNode.External srcExt = externalFromIdentifier(id);
           expandFromResource(srcExt, remainingDepth - 1, Direction.UPSTREAM);
         }
       } else {
-        if (sink != null) {
-          GraphNode.External sinkExt = externalFromIdentifier(sink);
+        for (String id : sinks) {
+          GraphNode.External sinkExt = externalFromIdentifier(id);
           expandFromResource(sinkExt, remainingDepth - 1, Direction.DOWNSTREAM);
         }
       }
@@ -594,13 +615,11 @@ public final class PipelineGraphBuilder {
     }
 
     private GraphNode.Pipeline pipelineNode(V1alpha1Pipeline pipeline) {
-      String namespace = pipeline.getMetadata() == null ? null : pipeline.getMetadata().getNamespace();
       String name = pipeline.getMetadata() == null ? "<unknown>" : pipeline.getMetadata().getName();
-      String sql = pipeline.getSpec() == null ? null : pipeline.getSpec().getSql();
       String yaml = pipeline.getSpec() == null ? null : pipeline.getSpec().getYaml();
       String jobKind = extractJobKind(yaml);
       String engine = inferEngine(jobKind, yaml);
-      return new GraphNode.Pipeline(namespace, name, sql, jobKind, engine);
+      return new GraphNode.Pipeline(name, jobKind, engine);
     }
 
     private String pipelineId(V1alpha1Pipeline pipeline) {
@@ -613,7 +632,7 @@ public final class PipelineGraphBuilder {
 
     private Set<String> parseAnnotation(V1alpha1Pipeline pipeline, String key) {
       String value = annotationValue(pipeline, key);
-      return value == null ? Collections.emptySet() : PipelineDependencyLabels.parseAnnotation(value);
+      return value == null ? Collections.emptySet() : DependencyLabels.parseAnnotation(value);
     }
 
     private String annotationValue(V1alpha1Pipeline pipeline, String key) {
@@ -626,13 +645,13 @@ public final class PipelineGraphBuilder {
 
     private boolean annotationMentions(V1alpha1Pipeline pipeline, String identifier) {
       // Confirm the label-selector match is real — the resource must appear in either the
-      // sources or sink annotation. Used to filter out hash collisions and stale labels.
-      Set<String> sources = parseAnnotation(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
+      // sources or sinks annotation. Used to filter out hash collisions and stale labels.
+      Set<String> sources = parseAnnotation(pipeline, DependencyLabels.ANNOTATION_KEY_SOURCES);
       if (sources.contains(identifier)) {
         return true;
       }
-      String sink = annotationValue(pipeline, PipelineDependencyLabels.ANNOTATION_KEY_SINK);
-      return identifier.equals(sink);
+      Set<String> sinks = parseAnnotation(pipeline, DependencyLabels.ANNOTATION_KEY_SINKS);
+      return sinks.contains(identifier);
     }
   }
 }

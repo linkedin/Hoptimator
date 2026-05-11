@@ -9,10 +9,10 @@ import java.util.Objects;
  *
  * <p>Abstract base + nested final subclasses, one per CLI mode:
  * <ul>
- *   <li>{@link View} — graph rooted at a {@code V1alpha1View} (regular or materialized).</li>
- *   <li>{@link LogicalTable} — graph rooted at a {@code V1alpha1LogicalTable}.</li>
- *   <li>{@link Resource} — reverse lookup against the {@code depends-on-*} dependency index, rooted
- *       at an external resource identified by {@code (database, path)}.</li>
+ *   <li>{@link View} — graph rooted at a view (regular or materialized).</li>
+ *   <li>{@link LogicalTable} — graph rooted at a logical table.</li>
+ *   <li>{@link Resource} — reverse lookup against the dependency index, rooted at an external
+ *       resource identified by {@code (database, path)}.</li>
  * </ul>
  *
  * <p>Providers dispatch on the concrete subclass via {@code instanceof} to route to the right
@@ -24,7 +24,7 @@ public abstract class GraphTarget {
   private GraphTarget() {
   }
 
-  /** A regular or materialized view, identified by namespace + canonical CRD name. */
+  /** A regular or materialized view, identified by namespace + canonical name. */
   public static final class View extends GraphTarget {
     private final String namespace;
     private final String name;
@@ -48,7 +48,7 @@ public abstract class GraphTarget {
     }
   }
 
-  /** A logical table identified by namespace + canonical CRD name. */
+  /** A logical table identified by namespace + canonical name. */
   public static final class LogicalTable extends GraphTarget {
     private final String namespace;
     private final String name;
@@ -73,8 +73,8 @@ public abstract class GraphTarget {
   }
 
   /**
-   * An external resource (Kafka topic, Venice store, etc.) identified by its hoptimator
-   * Database CRD name plus path components. Used for reverse lookups.
+   * An external resource (Kafka topic, Venice store, MySQL table, etc.) identified by its
+   * database name plus path components. Used for reverse lookups.
    */
   public static final class Resource extends GraphTarget {
     private final String database;

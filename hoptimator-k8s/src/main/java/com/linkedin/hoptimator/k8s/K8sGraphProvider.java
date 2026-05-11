@@ -44,6 +44,12 @@ public final class K8sGraphProvider implements GraphProvider {
     if (target instanceof GraphTarget.Resource) {
       GraphTarget.Resource r = (GraphTarget.Resource) target;
       Resolved resolved = resolveResource(context, r.database(), r.path());
+      if (resolved == null) {
+        // No Database CRD matches the user-typed schema / catalog. Pass through verbatim so the
+        // builder produces a degenerate graph and the renderer surfaces the "no pipelines
+        // reference this resource" warning.
+        return builder.forResource(r.database(), r.path(), depth);
+      }
       return builder.forResource(resolved.database, resolved.path, depth);
     }
     throw new SQLException("K8sGraphProvider does not support target: " + target);
@@ -62,31 +68,29 @@ public final class K8sGraphProvider implements GraphProvider {
   }
 
   /**
-   * Resolve the user-supplied {@code (database, path)} into the form Pipelines and Triggers
-   * used when stamping their {@code depends-on-<slug>} labels.
+   * Resolve the user's SQL identifier into the form Pipelines and Triggers used when stamping
+   * their {@code depends-on-<slug>} labels.
    *
-   * <p>The {@code !graph table} CLI accepts SQL-side identifiers like {@code ADS.AD_CLICKS}
-   * (2-level: schema + table) or {@code MYSQL.testdb.orders} (3-level: catalog + schema +
-   * table), but the planner stamps labels using the K8s-side form: the {@code Database} CRD's
-   * {@code metadata.name} plus the qualified path. Without bridging, lookups silently return
-   * empty — the slugs are derived from different strings.
+   * <p>The {@code !graph table} CLI accepts SQL identifiers — {@code SCHEMA.TABLE} for 2-level
+   * databases or {@code CATALOG.SCHEMA.TABLE} for 3-level (JDBC-style) ones. The planner
+   * stamps labels using the K8s-side form: the {@code Database} CRD's {@code metadata.name}
+   * plus the qualified path. Without bridging, lookups silently return empty — the slugs are
+   * derived from different strings.
    *
-   * <p>Resolution order:
+   * <p>Resolution scans the {@code Database} CRD list and tries:
    * <ol>
-   *   <li>If a {@code Database} CRD exists with {@code metadata.name == database}, treat the
-   *       input as already-canonical and pass through.</li>
-   *   <li>Scan {@code Database} CRDs. Catalog match (case-insensitive) wins over schema match:
-   *       a user typing {@code MYSQL.testdb.orders} means the catalog is {@code MYSQL}, and
-   *       {@code mysql} is the CRD name we want.</li>
-   *   <li>Catalog match: substitute the CRD name as database; canonical path is
-   *       {@code [catalog, schema, ...rest]}. If the user already included the schema as the
-   *       first segment of {@code <rest>}, don't duplicate it.</li>
-   *   <li>Schema match: substitute the CRD name; canonical path is
-   *       {@code [catalog, schema, ...rest]} if the CRD has a catalog, otherwise
+   *   <li>Catalog match (case-insensitive). User typed {@code CATALOG.<rest>}. Canonical path
+   *       is {@code [catalog, schema, ...rest]}. If the user already included the schema as
+   *       the first segment of {@code <rest>}, don't duplicate it.</li>
+   *   <li>Schema match (case-insensitive). User typed {@code SCHEMA.<rest>}. Canonical path
+   *       is {@code [catalog, schema, ...rest]} if the CRD has a catalog, otherwise
    *       {@code [schema, ...rest]}.</li>
-   *   <li>If nothing matches, pass through — the lookup returns empty and the renderer surfaces
-   *       the "no pipelines reference this resource" warning.</li>
    * </ol>
+   * Catalog match wins when both are present so the canonical 3-level form
+   * {@code CATALOG.SCHEMA.TABLE} resolves correctly.
+   *
+   * <p>Returns {@code null} when nothing matches; callers then pass the input through
+   * unchanged so the builder produces the degenerate graph + "no pipelines reference" warning.
    *
    * <p>The path tail is preserved verbatim. The bridge can't know whether the actual stamped
    * label was upper- or mixed-case: Calcite-normalized MV sources are upper case
@@ -98,23 +102,15 @@ public final class K8sGraphProvider implements GraphProvider {
    */
   static Resolved resolveResource(K8sContext context, String database, List<String> path)
       throws SQLException {
-    return resolveResource(new K8sApi<>(context, K8sApiEndpoints.DATABASES),
-        context.namespace(), database, path);
+    return resolveResource(new K8sApi<>(context, K8sApiEndpoints.DATABASES), database, path);
   }
 
   /** Variant that takes a pre-built {@link K8sApi} — used by tests to inject mocks. */
   static Resolved resolveResource(K8sApi<V1alpha1Database, V1alpha1DatabaseList> databaseApi,
-      String namespace, String database, List<String> path) throws SQLException {
+      String database, List<String> path) throws SQLException {
 
-    // Step 1: exact name match — input is already canonical.
-    if (databaseApi.getIfExists(namespace, database) != null) {
-      return new Resolved(database, path);
-    }
-
-    // Step 2 + 3: try catalog and schema match on the Database CRD list. Catalog match wins
-    // when both are present because users typing the canonical 3-level form `CATALOG.SCHEMA.TABLE`
-    // expect the catalog to be the first segment. Pipelines don't collide on (CRD name, catalog,
-    // schema), so the first match in each category wins.
+    // Scan Database CRDs once; prefer catalog match over schema match when both are present
+    // (so canonical 3-level CATALOG.SCHEMA.TABLE input resolves correctly).
     V1alpha1Database catalogMatch = null;
     V1alpha1Database schemaMatch = null;
     for (V1alpha1Database d : databaseApi.list()) {
@@ -131,8 +127,6 @@ public final class K8sGraphProvider implements GraphProvider {
       }
     }
     if (catalogMatch != null) {
-      // User typed `CATALOG.<rest>`. Canonical path is `[catalog, schema, ...rest]`. If the
-      // user already included the schema as the first segment of <rest>, don't duplicate it.
       String catalog = catalogMatch.getSpec().getCatalog();
       String schema = catalogMatch.getSpec().getSchema();
       List<String> canonical = new ArrayList<>(path.size() + 2);
@@ -144,8 +138,6 @@ public final class K8sGraphProvider implements GraphProvider {
       return new Resolved(catalogMatch.getMetadata().getName(), canonical);
     }
     if (schemaMatch != null) {
-      // User typed `SCHEMA.<rest>`. If the Database has a catalog (3-level), the stamped path
-      // includes it: `[catalog, schema, ...rest]`. Otherwise it's `[schema, ...rest]`.
       String catalog = schemaMatch.getSpec().getCatalog();
       String schema = schemaMatch.getSpec().getSchema();
       List<String> canonical = new ArrayList<>(path.size() + 2);
@@ -156,10 +148,7 @@ public final class K8sGraphProvider implements GraphProvider {
       canonical.addAll(path);
       return new Resolved(schemaMatch.getMetadata().getName(), canonical);
     }
-
-    // Step 4: pass through. forResource() will return a degenerate graph and the CLI / Quidem
-    // wrapper surfaces the "no pipelines reference" warning.
-    return new Resolved(database, path);
+    return null;
   }
 
   /** Carries the result of {@link #resolveResource} — final {@code (database, path)} for the lookup. */

@@ -28,12 +28,12 @@ class MermaidRendererTest {
 
   @Test
   void rendersMaterializedViewWithLrOrientation() {
-    GraphNode.View root = new GraphNode.View("ns", "audience", true);
+    GraphNode.View root = new GraphNode.View("audience", true);
     GraphNode.External kafka = new GraphNode.External("kafka1",
         Arrays.asList("KAFKA", "events"), "kafka");
     GraphNode.External venice = new GraphNode.External("venice-prod",
         Arrays.asList("VENICE", "profile"), "venice");
-    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("ns", "audience", "INSERT INTO ...");
+    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience", null, null);
     GraphNode.External sink = new GraphNode.External("ads",
         Arrays.asList("VENICE", "audience"), "venice");
 
@@ -62,7 +62,7 @@ class MermaidRendererTest {
     tiers.put("nearline", "kafka-db");
     tiers.put("online", "venice-db");
     tiers.put("offline", "hdfs-db");
-    GraphNode.LogicalTable root = new GraphNode.LogicalTable("ns", "foo", tiers);
+    GraphNode.LogicalTable root = new GraphNode.LogicalTable("foo", tiers);
 
     GraphNode.External nearline = new GraphNode.External("kafka-db",
         Arrays.asList("kafka-db", "foo"), "kafka");
@@ -70,8 +70,8 @@ class MermaidRendererTest {
         Arrays.asList("venice-db", "foo"), "venice");
     GraphNode.External offline = new GraphNode.External("hdfs-db",
         Arrays.asList("hdfs-db", "foo"), "openhouse");
-    GraphNode.Trigger trigger = new GraphNode.Trigger("ns", "foo-offline-trigger",
-        "0 */6 * * *", false);
+    GraphNode.Trigger trigger = new GraphNode.Trigger("foo-offline-trigger",
+        "0 */6 * * *", false, null, null);
 
     Set<GraphNode> nodes = setOf(root, nearline, online, offline, trigger);
     Set<GraphEdge> edges = setOf(
@@ -101,7 +101,7 @@ class MermaidRendererTest {
 
   @Test
   void rendersTriggerPausedSuffix() {
-    GraphNode.Trigger trigger = new GraphNode.Trigger("ns", "t1", "@hourly", true);
+    GraphNode.Trigger trigger = new GraphNode.Trigger("t1", "@hourly", true, null, null);
     GraphNode.External target = new GraphNode.External("db", Arrays.asList("path"), null);
     Set<GraphNode> nodes = setOf(trigger, target);
     Set<GraphEdge> edges = setOf(new GraphEdge(trigger, target, GraphEdge.Type.TRIGGERS));
@@ -114,10 +114,9 @@ class MermaidRendererTest {
 
   @Test
   void rendersJobKindAndEngineInsidePipelineLabel() {
-    // Pipeline carries optional jobKind/engine pulled from V1alpha1PipelineSpec.yaml — those
+    // Pipeline carries optional jobKind/engine pulled from the underlying job artifact — those
     // surface inline in the Pipeline node label so the user sees the execution shape at a glance.
-    GraphNode.Pipeline pipe = new GraphNode.Pipeline("ns", "p1", null,
-        "FlinkDeployment", "Flink");
+    GraphNode.Pipeline pipe = new GraphNode.Pipeline("p1", "FlinkDeployment", "Flink");
     Set<GraphNode> nodes = setOf(pipe);
     Set<GraphEdge> edges = setOf();
 
@@ -145,7 +144,7 @@ class MermaidRendererTest {
 
   @Test
   void emptyGraphRendersOrientationOnly() {
-    GraphNode.View root = new GraphNode.View("ns", "v1", false);
+    GraphNode.View root = new GraphNode.View("v1", false);
     Set<GraphNode> nodes = setOf(root);
     Set<GraphEdge> edges = setOf();
 
@@ -161,7 +160,7 @@ class MermaidRendererTest {
     GraphNode.External v = new GraphNode.External("venice1", Arrays.asList("store"), "venice");
     GraphNode.External m = new GraphNode.External("mysql1", Arrays.asList("table"), "mysql");
     GraphNode.External o = new GraphNode.External("oh", Arrays.asList("ds"), "openhouse");
-    GraphNode.View root = new GraphNode.View("ns", "v", true);
+    GraphNode.View root = new GraphNode.View("v", true);
 
     Set<GraphNode> nodes = setOf(root, k, v, m, o);
     Set<GraphEdge> edges = setOf();
@@ -176,7 +175,7 @@ class MermaidRendererTest {
   @Test
   void triggerWithoutScheduleOmitsCron() {
     // Triggers may be event-driven (no cron). Label should not show a "cron:" prefix in that case.
-    GraphNode.Trigger trigger = new GraphNode.Trigger("ns", "t1", null, false);
+    GraphNode.Trigger trigger = new GraphNode.Trigger("t1", null, false, null, null);
     GraphNode.External target = new GraphNode.External("db", Arrays.asList("path"), null);
     Set<GraphNode> nodes = setOf(trigger, target);
     Set<GraphEdge> edges = setOf(new GraphEdge(trigger, target, GraphEdge.Type.TRIGGERS));
@@ -191,8 +190,8 @@ class MermaidRendererTest {
     // Mermaid rejects "Setting n0 as parent of n0 would create a cycle" when a subgraph id
     // collides with a node id inside it. Pin down the invariant: when an owner gets a subgraph
     // wrapper, its mermaid id must appear only as the subgraph header — never as a node line.
-    GraphNode.View view = new GraphNode.View("ns", "audience", true);
-    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("ns", "audience-pipe", null);
+    GraphNode.View view = new GraphNode.View("audience", true);
+    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience-pipe", null, null);
     GraphNode.External sink = new GraphNode.External("ads", Arrays.asList("realized"), "venice");
 
     Set<GraphNode> nodes = setOf(view, pipeline, sink);
@@ -213,8 +212,8 @@ class MermaidRendererTest {
   void ownerSubgraphWrapsOwnedChildrenForNonLogicalTable() {
     // When a non-LogicalTable node owns children (e.g. a View owning its realizing pipeline),
     // the owner gets a subgraph wrapper with the children inside.
-    GraphNode.View view = new GraphNode.View("ns", "audience", true);
-    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("ns", "audience-pipe", null);
+    GraphNode.View view = new GraphNode.View("audience", true);
+    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience-pipe", null, null);
     GraphNode.External sink = new GraphNode.External("ads", Arrays.asList("realized"), "venice");
 
     Set<GraphNode> nodes = setOf(view, pipeline, sink);
@@ -236,8 +235,8 @@ class MermaidRendererTest {
 
   @Test
   void multipleSourcesAllConnectToTheSamePipeline() {
-    GraphNode.View root = new GraphNode.View("ns", "fanin", true);
-    GraphNode.Pipeline pipe = new GraphNode.Pipeline("ns", "fanin-pipe", null);
+    GraphNode.View root = new GraphNode.View("fanin", true);
+    GraphNode.Pipeline pipe = new GraphNode.Pipeline("fanin-pipe", null, null);
     GraphNode.External a = new GraphNode.External("db1", Arrays.asList("a"), "kafka");
     GraphNode.External b = new GraphNode.External("db2", Arrays.asList("b"), "kafka");
     GraphNode.External c = new GraphNode.External("db3", Arrays.asList("c"), "venice");

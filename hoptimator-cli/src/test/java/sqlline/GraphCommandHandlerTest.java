@@ -76,7 +76,7 @@ class GraphCommandHandlerTest {
   @Test
   void isDegenerateFalseWhenEdgesExist() {
     GraphNode.External root = new GraphNode.External("db", Arrays.asList("a"), null);
-    GraphNode.Pipeline pipe = new GraphNode.Pipeline("ns", "p", null);
+    GraphNode.Pipeline pipe = new GraphNode.Pipeline("p", null, null);
     Set<GraphNode> nodes = pair(root, pipe);
     Set<GraphEdge> edges = oneEdge(new GraphEdge(root, pipe, GraphEdge.Type.DEPENDS_ON_SOURCE));
 

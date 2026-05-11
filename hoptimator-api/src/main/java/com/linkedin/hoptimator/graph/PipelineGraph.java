@@ -10,9 +10,9 @@ import java.util.Set;
  * A pipeline visualization graph: a {@link #root()} node the user asked about plus the surrounding
  * nodes and edges discovered during traversal.
  *
- * <p>The graph is intentionally minimal — discovery lives in builders (e.g.
- * {@code PipelineGraphBuilder} in hoptimator-k8s) and rendering lives in renderers (e.g.
- * {@code MermaidRenderer} in hoptimator-graph). This POJO is the wire format between them.
+ * <p>The graph is intentionally minimal — discovery lives in backend-specific
+ * {@link GraphProvider} implementations and rendering lives in {@link GraphRenderer}
+ * implementations. This POJO is the wire format between them.
  */
 public final class PipelineGraph {
 

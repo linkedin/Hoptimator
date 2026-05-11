@@ -302,14 +302,14 @@ public class HoptimatorAppConfig extends Application {
   }
 
   /**
-   * Renders a Mermaid flowchart for a Hoptimator entity. Three forms:
+   * Renders a Mermaid flowchart for a Hoptimator entity. Forms:
    * <pre>
-   *   !graph view &lt;name&gt;                        // optionally &lt;namespace&gt;/&lt;name&gt;
+   *   !graph view &lt;name&gt;                          // optionally &lt;namespace&gt;/&lt;name&gt;
    *   !graph logical &lt;name&gt;
-   *   !graph table &lt;database&gt;.&lt;path1&gt;.&lt;path2&gt;... // reverse lookup against the dep-guard index
+   *   !graph table &lt;schema&gt;.&lt;table&gt;               // 2-level identifier
+   *   !graph table &lt;catalog&gt;.&lt;schema&gt;.&lt;table&gt;     // 3-level (JDBC-style) identifier
    * </pre>
-   * Optional flag: {@code --depth N} (default {@link PipelineGraphBuilder#DEFAULT_DEPTH},
-   * capped at {@link PipelineGraphBuilder#MAX_DEPTH}).
+   * Optional flag: {@code --depth N} (default 2).
    */
   static final class GraphCommandHandler implements CommandHandler {
 
@@ -358,7 +358,7 @@ public class HoptimatorAppConfig extends Application {
       }
       String kind = parts[1].toLowerCase();
       String identifier = parts[2];
-      int depth = 2;   // default mirrors PipelineGraphBuilder.DEFAULT_DEPTH
+      int depth = 2;
       for (int i = 3; i < parts.length - 1; i++) {
         if ("--depth".equals(parts[i])) {
           try {
@@ -383,7 +383,7 @@ public class HoptimatorAppConfig extends Application {
         PipelineGraph graph = GraphService.buildGraph(target, depth, conn);
         sqlline.output(GraphService.render(graph, MermaidRenderer.FORMAT));
         // For reverse lookups, a degenerate (root-only) graph means the label-selector found
-        // nothing. The resource may legitimately not exist — there's no K8s CRD to 404 on.
+        // nothing. The resource may legitimately not exist.
         // Surface that as a Mermaid comment so it appears next to the spec but renderers ignore it.
         if (target instanceof GraphTarget.Resource && isDegenerate(graph)) {
           sqlline.output(degenerateGraphWarning());

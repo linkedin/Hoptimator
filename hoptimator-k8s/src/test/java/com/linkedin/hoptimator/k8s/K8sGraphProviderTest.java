@@ -17,15 +17,15 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.lenient;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.when;
 
 
 /**
  * Resolution logic for the {@code !graph table} reverse-lookup CLI path. The bridge translates
- * SQL-side identifiers ({@code ads.ad_clicks}) into the K8s-side canonical form Pipelines used
- * to stamp their {@code depends-on-<slug>} labels (Database CRD name + schema + uppercased path).
+ * SQL identifiers ({@code SCHEMA.TABLE} or {@code CATALOG.SCHEMA.TABLE}) into the K8s-side
+ * canonical form Pipelines used to stamp their {@code depends-on-<slug>} labels (Database CRD
+ * name + qualified path).
  */
 @ExtendWith(MockitoExtension.class)
 class K8sGraphProviderTest {
@@ -48,40 +48,26 @@ class K8sGraphProviderTest {
   }
 
   @Test
-  void exactNameMatchPassesThrough() throws SQLException {
-    when(databaseApi.getIfExists("default", "ads-database")).thenReturn(db("ads-database", "ADS"));
-
-    K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "ads-database", Arrays.asList("ADS", "AD_CLICKS"));
-
-    // Already canonical — no schema munging, no case changes.
-    assertEquals("ads-database", out.database);
-    assertEquals(Arrays.asList("ADS", "AD_CLICKS"), out.path);
-  }
-
-  @Test
   void schemaMatchSubstitutesDatabaseAndPrependsSchema() throws SQLException {
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     when(databaseApi.list()).thenReturn(Collections.singletonList(db("ads-database", "ADS")));
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "ADS", Collections.singletonList("AD_CLICKS"));
+        databaseApi, "ADS", Collections.singletonList("AD_CLICKS"));
 
     assertEquals("ads-database", out.database);
     assertEquals(Arrays.asList("ADS", "AD_CLICKS"), out.path);
   }
 
   @Test
-  void lowercaseSchemaInputResolvesAndPreservesPathCase() throws SQLException {
+  void schemaMatchIsCaseInsensitiveButPreservesPathCase() throws SQLException {
     // Schema-name match is case-insensitive, but path tail is preserved verbatim. The bridge
     // can't tell whether a stamped label was upper- or mixed-case (Calcite-normalized MV sources
     // are upper; LogicalTable inter-tier pipelines are mixed). Users copy the canonical form
     // from !graph view / !graph logical output.
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     when(databaseApi.list()).thenReturn(Collections.singletonList(db("ads-database", "ADS")));
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "ads", Collections.singletonList("ad_clicks"));
+        databaseApi, "ads", Collections.singletonList("ad_clicks"));
 
     assertEquals("ads-database", out.database);
     assertEquals(Arrays.asList("ADS", "ad_clicks"), out.path);
@@ -92,11 +78,10 @@ class K8sGraphProviderTest {
     // LogicalTable inter-tier pipelines stamp paths like [KAFKA, testevent] — schema upper from
     // the Database CRD, table preserved as the user wrote it. The bridge must not clobber the
     // tail case or the slug won't match.
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     when(databaseApi.list()).thenReturn(Collections.singletonList(db("kafka-db", "KAFKA")));
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "KAFKA", Collections.singletonList("testevent"));
+        databaseApi, "KAFKA", Collections.singletonList("testevent"));
 
     assertEquals("kafka-db", out.database);
     assertEquals(Arrays.asList("KAFKA", "testevent"), out.path);
@@ -107,11 +92,10 @@ class K8sGraphProviderTest {
     // User types `MYSQL.testdb.orders` — canonical 3-level form. Database CRD is named "mysql"
     // with catalog=MYSQL, schema=testdb. Bridge should substitute "mysql" as the database and
     // preserve the path verbatim (catalog already provides the first segment).
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     when(databaseApi.list()).thenReturn(Collections.singletonList(db("mysql", "MYSQL", "testdb")));
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "MYSQL", Arrays.asList("testdb", "orders"));
+        databaseApi, "MYSQL", Arrays.asList("testdb", "orders"));
 
     assertEquals("mysql", out.database);
     assertEquals(Arrays.asList("MYSQL", "testdb", "orders"), out.path);
@@ -121,11 +105,10 @@ class K8sGraphProviderTest {
   void catalogMatchInsertsSchemaWhenUserSkippedIt() throws SQLException {
     // User types `MYSQL.orders` — skipped the schema. Bridge inserts the schema so the slug
     // still matches `slug(mysql, [MYSQL, testdb, orders])`.
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     when(databaseApi.list()).thenReturn(Collections.singletonList(db("mysql", "MYSQL", "testdb")));
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "MYSQL", Collections.singletonList("orders"));
+        databaseApi, "MYSQL", Collections.singletonList("orders"));
 
     assertEquals("mysql", out.database);
     assertEquals(Arrays.asList("MYSQL", "testdb", "orders"), out.path);
@@ -135,11 +118,10 @@ class K8sGraphProviderTest {
   void schemaMatchPrependsCatalogWhenPresent() throws SQLException {
     // User types just `testdb.orders` (skipped the catalog). The Database has both catalog and
     // schema set, so the canonical path is [catalog, schema, ...rest].
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     when(databaseApi.list()).thenReturn(Collections.singletonList(db("mysql", "MYSQL", "testdb")));
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "testdb", Collections.singletonList("orders"));
+        databaseApi, "testdb", Collections.singletonList("orders"));
 
     assertEquals("mysql", out.database);
     assertEquals(Arrays.asList("MYSQL", "testdb", "orders"), out.path);
@@ -147,7 +129,6 @@ class K8sGraphProviderTest {
 
   @Test
   void multipleDatabasesFirstSchemaMatchWins() throws SQLException {
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     List<V1alpha1Database> all = Arrays.asList(
         db("profile-database", "PROFILE"),
         db("ads-database", "ADS"),
@@ -155,25 +136,22 @@ class K8sGraphProviderTest {
     when(databaseApi.list()).thenReturn(all);
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "ads", Collections.singletonList("ad_clicks"));
+        databaseApi, "ads", Collections.singletonList("ad_clicks"));
 
     // First match by iteration order.
     assertEquals("ads-database", out.database);
   }
 
   @Test
-  void unknownDatabaseAndSchemaPassesThrough() throws SQLException {
-    // The user-supplied identifier doesn't match anything,
-    // so we hand the original input back and let the builder produce the
-    // degenerate graph + warning downstream.
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
+  void unknownSchemaReturnsNull() throws SQLException {
+    // No catalog/schema matches → resolver returns null so the caller can pass the original
+    // input through unchanged. The builder then produces the degenerate graph + warning.
     when(databaseApi.list()).thenReturn(Collections.emptyList());
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "UNKNOWN", Collections.singletonList("foo"));
+        databaseApi, "UNKNOWN", Collections.singletonList("foo"));
 
-    assertEquals("UNKNOWN", out.database);
-    assertEquals(Collections.singletonList("foo"), out.path);
+    assertNull(out);
   }
 
   @Test
@@ -181,12 +159,10 @@ class K8sGraphProviderTest {
     V1alpha1Database malformed = new V1alpha1Database()
         .metadata(new V1ObjectMeta().name("malformed-db"));
     // spec intentionally null
-    when(databaseApi.getIfExists(anyString(), anyString())).thenReturn(null);
     when(databaseApi.list()).thenReturn(Arrays.asList(malformed, db("ads-database", "ADS")));
-    lenient();
 
     K8sGraphProvider.Resolved out = K8sGraphProvider.resolveResource(
-        databaseApi, "default", "ads", Collections.singletonList("ad_clicks"));
+        databaseApi, "ads", Collections.singletonList("ad_clicks"));
 
     // Malformed entry doesn't crash the resolution loop; the well-formed match still wins.
     assertEquals("ads-database", out.database);

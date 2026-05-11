@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import io.kubernetes.client.informer.SharedInformerFactory;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -172,7 +173,7 @@ class K8sContextTest {
     K8sContext owned = context.withOwner(owner);
 
     // Use a non-DynamicKubernetesObject (V1alpha1View)
-    com.linkedin.hoptimator.k8s.models.V1alpha1View view = new com.linkedin.hoptimator.k8s.models.V1alpha1View();
+    V1alpha1View view = new V1alpha1View();
     view.setMetadata(new V1ObjectMeta().name("test-view").namespace("ns"));
 
     owned.own(view);
@@ -188,7 +189,7 @@ class K8sContextTest {
         .kind("View").apiVersion("hoptimator.linkedin.com/v1alpha1");
     K8sContext owned = context.withOwner(owner);
 
-    com.linkedin.hoptimator.k8s.models.V1alpha1View view = new com.linkedin.hoptimator.k8s.models.V1alpha1View();
+    V1alpha1View view = new V1alpha1View();
     List<V1OwnerReference> existing = new ArrayList<>();
     existing.add(new V1OwnerReference().name("owner").uid("uid-789"));
     view.setMetadata(new V1ObjectMeta().name("test-view").namespace("ns").ownerReferences(existing));

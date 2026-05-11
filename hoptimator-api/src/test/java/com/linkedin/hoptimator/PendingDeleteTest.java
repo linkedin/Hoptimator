@@ -2,6 +2,9 @@ package com.linkedin.hoptimator;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -77,7 +80,7 @@ class PendingDeleteTest {
 
   @Test
   void targetGenericTypeIsPreserved() {
-    Source source = new Source("db", java.util.List.of("schema", "tbl"), java.util.Map.of());
+    Source source = new Source("db", List.of("schema", "tbl"), Map.of());
     PendingDelete<Source> pd = new PendingDelete<>(source);
     Source unwrapped = pd.target();
     assertEquals("tbl", unwrapped.table());
