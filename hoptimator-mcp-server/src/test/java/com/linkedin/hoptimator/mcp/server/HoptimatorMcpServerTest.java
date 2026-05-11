@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.mcp.server;
 
-import com.google.gson.Gson;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import com.google.gson.Gson;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,9 +34,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup do not need resource management")
 @ExtendWith(MockitoExtension.class)
+@SuppressFBWarnings(
+    value = "OBL_UNSATISFIED_OBLIGATION",
+    justification = "Tests stub Connection.createStatement()/prepareStatement() and "
+        + "DatabaseMetaData getter methods on mocks. The Mockito DSL "
+        + "(when(mock.createStatement()).thenReturn(...) / .thenThrow(...)) requires invoking "
+        + "the AutoCloseable-returning method on the mock; SpotBugs flags every such "
+        + "invocation. The values are mocks and there is no alternative Mockito syntax that "
+        + "avoids the AutoCloseable call site.")
 class HoptimatorMcpServerTest {
 
   @Mock

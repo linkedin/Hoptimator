@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.k8s;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
@@ -86,9 +85,7 @@ class K8sYamlApiTest {
 
   @Nested
   @ExtendWith(MockitoExtension.class)
-  @SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-      justification = "Mockito doReturn().when() stubs — framework captures the return value")
-  class RealMethodTests {
+    class RealMethodTests {
 
     @Mock
     private K8sContext mockContext;
@@ -96,17 +93,17 @@ class K8sYamlApiTest {
     @SuppressWarnings("unchecked")
     private KubernetesApiResponse<DynamicKubernetesObject> successResponse(DynamicKubernetesObject obj) {
       KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
-      lenient().doReturn(true).when(resp).isSuccess();
-      lenient().doReturn(200).when(resp).getHttpStatusCode();
-      lenient().doReturn(obj).when(resp).getObject();
+      lenient().when(resp.isSuccess()).thenReturn(true);
+      lenient().when(resp.getHttpStatusCode()).thenReturn(200);
+      lenient().when(resp.getObject()).thenReturn(obj);
       return resp;
     }
 
     @SuppressWarnings("unchecked")
     private KubernetesApiResponse<DynamicKubernetesObject> notFoundResponse() {
       KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
-      lenient().doReturn(false).when(resp).isSuccess();
-      lenient().doReturn(404).when(resp).getHttpStatusCode();
+      lenient().when(resp.isSuccess()).thenReturn(false);
+      lenient().when(resp.getHttpStatusCode()).thenReturn(404);
       return resp;
     }
 
@@ -419,9 +416,7 @@ class K8sYamlApiTest {
 
   @Nested
   @ExtendWith(MockitoExtension.class)
-  @SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-      justification = "Mockito doReturn().when() stubs — framework captures the return value")
-  class CreateWithMetadataSideEffectTests {
+    class CreateWithMetadataSideEffectTests {
 
     @Mock
     private K8sContext mockContext;
@@ -429,9 +424,9 @@ class K8sYamlApiTest {
     @SuppressWarnings("unchecked")
     private KubernetesApiResponse<DynamicKubernetesObject> successResponse(DynamicKubernetesObject obj) {
       KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
-      lenient().doReturn(true).when(resp).isSuccess();
-      lenient().doReturn(200).when(resp).getHttpStatusCode();
-      lenient().doReturn(obj).when(resp).getObject();
+      lenient().when(resp.isSuccess()).thenReturn(true);
+      lenient().when(resp.getHttpStatusCode()).thenReturn(200);
+      lenient().when(resp.getObject()).thenReturn(obj);
       return resp;
     }
 
@@ -616,9 +611,7 @@ class K8sYamlApiTest {
 
   @Nested
   @ExtendWith(MockitoExtension.class)
-  @SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-      justification = "Mockito doReturn().when() stubs — framework captures the return value")
-  class UpdateSideEffectTests {
+    class UpdateSideEffectTests {
 
     @Mock
     private K8sContext mockContext;
@@ -626,17 +619,17 @@ class K8sYamlApiTest {
     @SuppressWarnings("unchecked")
     private KubernetesApiResponse<DynamicKubernetesObject> successResponse(DynamicKubernetesObject obj) {
       KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
-      lenient().doReturn(true).when(resp).isSuccess();
-      lenient().doReturn(200).when(resp).getHttpStatusCode();
-      lenient().doReturn(obj).when(resp).getObject();
+      lenient().when(resp.isSuccess()).thenReturn(true);
+      lenient().when(resp.getHttpStatusCode()).thenReturn(200);
+      lenient().when(resp.getObject()).thenReturn(obj);
       return resp;
     }
 
     @SuppressWarnings("unchecked")
     private KubernetesApiResponse<DynamicKubernetesObject> notFoundResponse() {
       KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
-      lenient().doReturn(false).when(resp).isSuccess();
-      lenient().doReturn(404).when(resp).getHttpStatusCode();
+      lenient().when(resp.isSuccess()).thenReturn(false);
+      lenient().when(resp.getHttpStatusCode()).thenReturn(404);
       return resp;
     }
 
@@ -780,8 +773,8 @@ class K8sYamlApiTest {
     void getIfExistsThrowsForNon404ErrorResponse() throws ApiException, SQLException {
       @SuppressWarnings("unchecked")
       KubernetesApiResponse<DynamicKubernetesObject> errorResp = mock(KubernetesApiResponse.class);
-      lenient().doReturn(false).when(errorResp).isSuccess();
-      lenient().doReturn(500).when(errorResp).getHttpStatusCode();
+      lenient().when(errorResp.isSuccess()).thenReturn(false);
+      lenient().when(errorResp.getHttpStatusCode()).thenReturn(500);
       ApiException apiEx = new ApiException(500, "Server Error");
       doThrow(apiEx).when(errorResp).throwsApiException();
 

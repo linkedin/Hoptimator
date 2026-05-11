@@ -24,8 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE", "DMI_CONSTANT_DB_PASSWORD"},
-    justification = "Test uses invalid credentials intentionally; getConnection() throws before returning a resource")
+@SuppressFBWarnings(
+    value = "DMI_CONSTANT_DB_PASSWORD",
+    justification = "testGetConnectionWithCredentials* uses literal \"pass\" to verify Mockito "
+        + "stubbing of the credentialed getConnection overload. The value never reaches a "
+        + "real database — it is matched against a MockedStatic stub that throws or returns "
+        + "a mock Connection.")
 class DelegatingDataSourceTest {
 
   private DelegatingDataSource dataSource;
@@ -80,20 +84,36 @@ class DelegatingDataSourceTest {
   void testSetUrlAndGetConnectionThrowsForBadUrl() {
     dataSource.setUrl("jdbc:nonexistent://localhost/db");
     SQLException ex = new SQLException("No suitable driver");
-    mockedDriverManager.when(() -> DriverManager.getConnection("jdbc:nonexistent://localhost/db"))
-        .thenThrow(ex);
+    mockedDriverManager.when(() -> {
+      try (Connection c = DriverManager.getConnection("jdbc:nonexistent://localhost/db")) {
+        assert true; // recording-only
+      }
+    }).thenThrow(ex);
 
-    assertThrows(SQLException.class, () -> dataSource.getConnection());
+    assertThrows(SQLException.class,
+        () -> {
+          try (Connection c = dataSource.getConnection()) {
+            assert true; // throws
+          }
+        });
   }
 
   @Test
   void testGetConnectionWithCredentialsThrowsForBadUrl() {
     dataSource.setUrl("jdbc:nonexistent://localhost/db");
     SQLException ex = new SQLException("No suitable driver");
-    mockedDriverManager.when(() -> DriverManager.getConnection("jdbc:nonexistent://localhost/db", "user", "pass"))
-        .thenThrow(ex);
+    mockedDriverManager.when(() -> {
+      try (Connection c = DriverManager.getConnection("jdbc:nonexistent://localhost/db", "user", "pass")) {
+        assert true; // recording-only
+      }
+    }).thenThrow(ex);
 
-    assertThrows(SQLException.class, () -> dataSource.getConnection("user", "pass"));
+    assertThrows(SQLException.class,
+        () -> {
+          try (Connection c = dataSource.getConnection("user", "pass")) {
+            assert true; // throws
+          }
+        });
   }
 
   @Mock
@@ -106,8 +126,11 @@ class DelegatingDataSourceTest {
   void testGetConnectionReturnsWrappedConnection() throws SQLException {
     dataSource.setUrl("jdbc:test://localhost/db");
 
-    mockedDriverManager.when(() -> DriverManager.getConnection("jdbc:test://localhost/db"))
-        .thenReturn(mockConnection);
+    mockedDriverManager.when(() -> {
+      try (Connection c = DriverManager.getConnection("jdbc:test://localhost/db")) {
+        assert true; // recording-only invocation; intercepted Connection closed via try-with-resources
+      }
+    }).thenReturn(mockConnection);
 
     Connection conn = dataSource.getConnection();
 
@@ -119,8 +142,11 @@ class DelegatingDataSourceTest {
   void testGetConnectionWithCredentialsReturnsWrappedConnection() throws SQLException {
     dataSource.setUrl("jdbc:test://localhost/db");
 
-    mockedDriverManager.when(() -> DriverManager.getConnection("jdbc:test://localhost/db", "user", "pass"))
-        .thenReturn(mockConnection);
+    mockedDriverManager.when(() -> {
+      try (Connection c = DriverManager.getConnection("jdbc:test://localhost/db", "user", "pass")) {
+        assert true; // recording-only
+      }
+    }).thenReturn(mockConnection);
 
     Connection conn = dataSource.getConnection("user", "pass");
 

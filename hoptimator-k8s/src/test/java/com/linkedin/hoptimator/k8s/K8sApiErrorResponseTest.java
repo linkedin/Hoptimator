@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.util.generic.GenericKubernetesApi;
@@ -24,8 +23,6 @@ import static org.mockito.Mockito.when;
 import java.sql.SQLException;
 
 
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-    justification = "Mocked AutoCloseable and return values not needed in tests")
 @ExtendWith(MockitoExtension.class)
 class K8sApiErrorResponseTest {
 

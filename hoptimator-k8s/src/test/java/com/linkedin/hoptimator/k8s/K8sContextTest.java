@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.kubernetes.client.informer.SharedInformerFactory;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -24,13 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-    justification = "Mockito doReturn().when() stubs — framework captures the return value")
 class K8sContextTest {
 
   @Mock
@@ -258,7 +255,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
     props.setProperty(K8sContext.USER_KEY, "admin");
     props.setProperty(K8sContext.PASSWORD_KEY, "secret");
-    doReturn(props).when(mockConn).connectionProperties();
+    when(mockConn.connectionProperties()).thenReturn(props);
 
     K8sContext ctx = K8sContext.create(mockConn);
 
@@ -274,7 +271,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.NAMESPACE_KEY, "token-ns");
     props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
     props.setProperty(K8sContext.TOKEN_KEY, "my-token");
-    doReturn(props).when(mockConn).connectionProperties();
+    when(mockConn.connectionProperties()).thenReturn(props);
 
     K8sContext ctx = K8sContext.create(mockConn);
 
@@ -293,7 +290,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.IMPERSONATE_USER_KEY, "impuser");
     props.setProperty(K8sContext.IMPERSONATE_GROUP_KEY, "impgroup");
     props.setProperty(K8sContext.IMPERSONATE_GROUPS_KEY, "group1,group2");
-    doReturn(props).when(mockConn).connectionProperties();
+    when(mockConn.connectionProperties()).thenReturn(props);
 
     K8sContext ctx = K8sContext.create(mockConn);
 
@@ -311,7 +308,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.WATCH_NAMESPACE_KEY, "watch-ns");
     props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
     props.setProperty(K8sContext.TOKEN_KEY, "token");
-    doReturn(props).when(mockConn).connectionProperties();
+    when(mockConn.connectionProperties()).thenReturn(props);
 
     K8sContext ctx = K8sContext.create(mockConn);
 
@@ -325,7 +322,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.NAMESPACE_KEY, "ns");
     props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
     props.setProperty(K8sContext.TOKEN_KEY, "token");
-    doReturn(props).when(mockConn).connectionProperties();
+    when(mockConn.connectionProperties()).thenReturn(props);
 
     K8sContext ctx = K8sContext.create(mockConn);
 
@@ -344,7 +341,7 @@ class K8sContextTest {
       // No NAMESPACE_KEY - will fall through to getPodNamespace()
       props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
       props.setProperty(K8sContext.TOKEN_KEY, "token");
-      doReturn(props).when(mockConn).connectionProperties();
+      when(mockConn.connectionProperties()).thenReturn(props);
 
       K8sContext ctx = K8sContext.create(mockConn);
       assertEquals("my-pod-namespace", ctx.namespace());
@@ -368,7 +365,7 @@ class K8sContextTest {
       Properties props = new Properties();
       props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
       props.setProperty(K8sContext.TOKEN_KEY, "token");
-      doReturn(props).when(mockConn).connectionProperties();
+      when(mockConn.connectionProperties()).thenReturn(props);
 
       K8sContext ctx = K8sContext.create(mockConn);
       // Should use DEFAULT_NAMESPACE when no env var or property is set

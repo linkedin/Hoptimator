@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1NamespaceList;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -39,8 +38,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-    justification = "Mocked AutoCloseable and return values not needed in tests")
 @ExtendWith(MockitoExtension.class)
 class K8sApiTest {
 
@@ -416,8 +413,6 @@ class K8sApiTest {
 
   @Nested
   @ExtendWith(MockitoExtension.class)
-  @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-      justification = "Mocked AutoCloseable and return values not needed in tests")
   class ClusterScopedEndpointTests {
 
     @Mock

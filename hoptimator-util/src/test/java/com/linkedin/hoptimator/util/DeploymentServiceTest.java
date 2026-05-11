@@ -49,6 +49,18 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class DeploymentServiceTest {
 
+  @Mock(answer = Answers.CALLS_REAL_METHODS)
+  private MockedStatic<DeploymentService> mockedDeploymentService;
+
+  @Mock
+  private Connection mockConnection;
+
+  @Mock
+  private Deployer mockDeployer1;
+
+  @Mock
+  private Deployer mockDeployer2;
+
   /**
    * "hint" keys <b>and</b> values are required to be non-{@code null}. An
    * empty {@link Map} is considered invalid and should <b>not</b> be added
@@ -169,11 +181,6 @@ class DeploymentServiceTest {
     assertEquals("test", mixed.get("another"));
   }
 
-  @Mock
-  private Deployer mockDeployer1;
-
-  @Mock
-  private Deployer mockDeployer2;
 
   @Test
   void testCreateCallsCreateOnAllDeployers() throws SQLException {
@@ -239,9 +246,6 @@ class DeploymentServiceTest {
 
     assertTrue(result.isEmpty());
   }
-
-  @Mock
-  private Connection mockConnection;
 
   @Test
   void testProvidersReturnsSortedByPriority() {
@@ -370,12 +374,6 @@ class DeploymentServiceTest {
     assertEquals("spec-a", specs.get(0));
     assertEquals("spec-b", specs.get(1));
   }
-
-  @Mock(answer = Answers.CALLS_REAL_METHODS)
-  private MockedStatic<DeploymentService> mockedDeploymentService;
-
-  @Mock
-  private DeployerProvider mockProvider;
 
   @Test
   void testDeployersWithProvidersFiltersSubclasses() {
