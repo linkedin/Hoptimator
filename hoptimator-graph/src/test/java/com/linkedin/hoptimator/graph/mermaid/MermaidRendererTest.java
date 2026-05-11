@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator.util;
+package com.linkedin.hoptimator.graph.mermaid;
 
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -44,7 +44,7 @@ class MermaidRendererTest {
         new GraphEdge(venice, pipeline, GraphEdge.Type.DEPENDS_ON_SOURCE),
         new GraphEdge(pipeline, sink, GraphEdge.Type.DEPENDS_ON_SINK));
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(root, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(root, nodes, edges));
 
     assertTrue(mermaid.startsWith("flowchart LR"),
         "Materialized view should render top-down LR: " + mermaid);
@@ -81,7 +81,7 @@ class MermaidRendererTest {
         new GraphEdge(root, trigger, GraphEdge.Type.OWNER_OF),
         new GraphEdge(trigger, offline, GraphEdge.Type.TRIGGERS));
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(root, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(root, nodes, edges));
 
     assertTrue(mermaid.startsWith("flowchart TD"),
         "LogicalTable should render TD outer, LR inner: " + mermaid);
@@ -104,7 +104,7 @@ class MermaidRendererTest {
     Set<GraphNode> nodes = setOf(trigger, target);
     Set<GraphEdge> edges = setOf(new GraphEdge(trigger, target, GraphEdge.Type.TRIGGERS));
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(trigger, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(trigger, nodes, edges));
 
     assertTrue(mermaid.contains("(paused)"),
         "paused trigger label should be marked: " + mermaid);
@@ -119,7 +119,7 @@ class MermaidRendererTest {
     Set<GraphNode> nodes = setOf(pipe);
     Set<GraphEdge> edges = setOf();
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(pipe, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(pipe, nodes, edges));
 
     assertTrue(mermaid.contains("kind: FlinkDeployment"),
         "pipeline label missing jobKind: " + mermaid);
@@ -133,7 +133,7 @@ class MermaidRendererTest {
     Set<GraphNode> nodes = setOf(ext);
     Set<GraphEdge> edges = setOf();
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(ext, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(ext, nodes, edges));
 
     // No driver icon prefix at all when driver is unknown.
     assertTrue(!mermaid.contains("⚡"), "must not pick a default kafka icon: " + mermaid);
@@ -147,7 +147,7 @@ class MermaidRendererTest {
     Set<GraphNode> nodes = setOf(root);
     Set<GraphEdge> edges = setOf();
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(root, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(root, nodes, edges));
 
     assertEquals("flowchart LR\n  n0[\"View v1\"]\n", mermaid);
   }
@@ -163,7 +163,7 @@ class MermaidRendererTest {
     Set<GraphNode> nodes = setOf(root, k, v, m, o);
     Set<GraphEdge> edges = setOf();
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(root, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(root, nodes, edges));
 
     assertTrue(mermaid.contains("⚡") && mermaid.contains("📦")
             && mermaid.contains("🗄") && mermaid.contains("📊"),
@@ -178,7 +178,7 @@ class MermaidRendererTest {
     Set<GraphNode> nodes = setOf(trigger, target);
     Set<GraphEdge> edges = setOf(new GraphEdge(trigger, target, GraphEdge.Type.TRIGGERS));
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(trigger, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(trigger, nodes, edges));
 
     assertTrue(!mermaid.contains("cron:"), "trigger without schedule should omit cron line: " + mermaid);
   }
@@ -197,7 +197,7 @@ class MermaidRendererTest {
         new GraphEdge(view, pipeline, GraphEdge.Type.OWNER_OF),
         new GraphEdge(pipeline, sink, GraphEdge.Type.DEPENDS_ON_SINK));
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(view, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(view, nodes, edges));
 
     // n0 should appear once on the subgraph header line and never as a `n0[...]` node line.
     int subgraphHeaders = countOccurrences(mermaid, "subgraph n0[");
@@ -219,7 +219,7 @@ class MermaidRendererTest {
         new GraphEdge(view, pipeline, GraphEdge.Type.OWNER_OF),
         new GraphEdge(pipeline, sink, GraphEdge.Type.DEPENDS_ON_SINK));
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(view, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(view, nodes, edges));
 
     assertTrue(mermaid.contains("subgraph "),
         "View owning a pipeline should produce a subgraph wrapper: " + mermaid);
@@ -242,7 +242,7 @@ class MermaidRendererTest {
         new GraphEdge(b, pipe, GraphEdge.Type.DEPENDS_ON_SOURCE),
         new GraphEdge(c, pipe, GraphEdge.Type.DEPENDS_ON_SOURCE));
 
-    String mermaid = MermaidRenderer.render(new PipelineGraph(root, nodes, edges));
+    String mermaid = new MermaidRenderer().render(new PipelineGraph(root, nodes, edges));
 
     int arrowCount = countOccurrences(mermaid, " --> ");
     assertEquals(3, arrowCount, "three source arrows expected: " + mermaid);

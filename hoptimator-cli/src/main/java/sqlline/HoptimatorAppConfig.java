@@ -1,16 +1,18 @@
 package sqlline;
 
+import com.linkedin.hoptimator.GraphTarget;
 import com.linkedin.hoptimator.PipelineGraph;
 import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
+import com.linkedin.hoptimator.util.GraphService;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.ResolvedTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.k8s.PipelineGraphBuilder;
+import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.MermaidRenderer;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
@@ -358,7 +360,7 @@ public class HoptimatorAppConfig extends Application {
       }
       String kind = parts[1].toLowerCase();
       String identifier = parts[2];
-      int depth = PipelineGraphBuilder.DEFAULT_DEPTH;
+      int depth = 2;   // default mirrors PipelineGraphBuilder.DEFAULT_DEPTH
       for (int i = 3; i < parts.length - 1; i++) {
         if ("--depth".equals(parts[i])) {
           try {
@@ -371,50 +373,56 @@ public class HoptimatorAppConfig extends Application {
         }
       }
 
+      GraphTarget target = parseTarget(kind, identifier);
+      if (target == null) {
+        sqlline.error("Unknown kind: " + kind + " (expected view, logical, or table)");
+        dispatchCallback.setToFailure();
+        return;
+      }
+
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
-        K8sContext context = K8sContext.create(conn);
-        PipelineGraphBuilder builder = new PipelineGraphBuilder(context);
-        PipelineGraph graph;
-        switch (kind) {
-          case "view": {
-            String[] nsName = splitNamespaceName(identifier, context.namespace());
-            graph = builder.forView(nsName[0], nsName[1], depth);
-            break;
-          }
-          case "logical": {
-            String[] nsName = splitNamespaceName(identifier, context.namespace());
-            graph = builder.forLogicalTable(nsName[0], nsName[1], depth);
-            break;
-          }
-          case "table": {
-            // identifier shape: <database>.<path1>.<path2>...
-            String[] segments = identifier.split("\\.");
-            if (segments.length < 2) {
-              sqlline.error("table identifier must be <database>.<path>; got: " + identifier);
-              dispatchCallback.setToFailure();
-              return;
-            }
-            String database = segments[0];
-            List<String> path = Arrays.asList(Arrays.copyOfRange(segments, 1, segments.length));
-            graph = builder.forResource(database, path, depth);
-            break;
-          }
-          default:
-            sqlline.error("Unknown kind: " + kind + " (expected view, logical, or table)");
-            dispatchCallback.setToFailure();
-            return;
-        }
-        sqlline.output(MermaidRenderer.render(graph));
+        PipelineGraph graph = GraphService.buildGraph(target, depth, conn);
+        sqlline.output(GraphService.render(graph, MermaidRenderer.FORMAT));
         // For reverse lookups, a degenerate (root-only) graph means the label-selector found
         // nothing. The resource may legitimately not exist — there's no K8s CRD to 404 on.
         // Surface that as a Mermaid comment so it appears next to the spec but renderers ignore it.
-        if ("table".equals(kind) && isDegenerate(graph)) {
+        if (target instanceof GraphTarget.Resource && isDegenerate(graph)) {
           sqlline.output(degenerateGraphWarning());
         }
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
+      }
+    }
+
+    /**
+     * Translate the CLI-parsed {@code (kind, identifier)} into a {@link GraphTarget}. Returns
+     * null when the kind isn't recognized.
+     */
+    static GraphTarget parseTarget(String kind, String identifier) {
+      switch (kind) {
+        case "view": {
+          String[] nsName = splitNamespaceName(identifier, null);
+          return new GraphTarget.View(nsName[0], nsName[1]);
+        }
+        case "logical": {
+          String[] nsName = splitNamespaceName(identifier, null);
+          return new GraphTarget.LogicalTable(nsName[0], nsName[1]);
+        }
+        case "table": {
+          // identifier shape: <database>.<path1>.<path2>...
+          String[] segments = identifier.split("\\.");
+          if (segments.length < 2) {
+            throw new IllegalArgumentException(
+                "table identifier must be <database>.<path>; got: " + identifier);
+          }
+          String database = segments[0];
+          List<String> path = Arrays.asList(Arrays.copyOfRange(segments, 1, segments.length));
+          return new GraphTarget.Resource(database, path);
+        }
+        default:
+          return null;
       }
     }
 

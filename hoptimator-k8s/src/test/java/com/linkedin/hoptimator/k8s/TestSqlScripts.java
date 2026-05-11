@@ -7,7 +7,7 @@ import com.linkedin.hoptimator.jdbc.QuidemTestBase;
 
 
 @Tag("integration")
-public class TestSqlScripts extends K8sQuidemTestBase {
+public class TestSqlScripts extends QuidemTestBase {
 
   @Test
   public void k8sDdlScript() throws Exception {

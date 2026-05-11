@@ -1,4 +1,4 @@
-package com.linkedin.hoptimator.util;
+package com.linkedin.hoptimator.graph.mermaid;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -8,41 +8,47 @@ import java.util.Set;
 
 import com.linkedin.hoptimator.GraphEdge;
 import com.linkedin.hoptimator.GraphNode;
+import com.linkedin.hoptimator.GraphRenderer;
 import com.linkedin.hoptimator.PipelineGraph;
 
 
 /**
- * Renders a {@link PipelineGraph} as a Mermaid {@code flowchart} string.
+ * {@link GraphRenderer} that serializes a {@link PipelineGraph} as a Mermaid {@code flowchart}
+ * string. Registered via {@code META-INF/services/com.linkedin.hoptimator.GraphRenderer} so it's
+ * discovered through {@link com.linkedin.hoptimator.graph.GraphService}.
  *
- * <p>Visual encoding (mirrors the visualization plan):
+ * <p>Visual encoding:
  * <ul>
  *   <li>{@link GraphNode.External} — cylinder with driver-type icon prefix.</li>
- *   <li>{@link GraphNode.Pipeline} — parallelogram.</li>
- *   <li>{@link GraphNode.Job} — reverse parallelogram with jobKind/engine.</li>
+ *   <li>{@link GraphNode.Pipeline} — parallelogram, with optional kind/engine inline.</li>
  *   <li>{@link GraphNode.View} — rectangle ({@code "Materialized View"} prefix when applicable).</li>
  *   <li>{@link GraphNode.LogicalTable} — top-level subgraph wrapper; tiers nest inside as subgraphs.</li>
- *   <li>{@link GraphNode.Trigger} — rhombus with cron + paused state.</li>
+ *   <li>{@link GraphNode.Trigger} — rhombus with cron + paused state + job hints.</li>
  * </ul>
  *
  * <p>Edges:
  * <ul>
  *   <li>{@link GraphEdge.Type#DEPENDS_ON_SOURCE}, {@link GraphEdge.Type#DEPENDS_ON_SINK} — solid arrow.</li>
  *   <li>{@link GraphEdge.Type#TRIGGERS} — dotted arrow.</li>
- *   <li>{@link GraphEdge.Type#OWNER_OF} — not rendered as an arrow; drives subgraph membership instead.</li>
+ *   <li>{@link GraphEdge.Type#OWNER_OF} — drives subgraph membership instead of an arrow.</li>
  * </ul>
  *
- * <p>Orientation is chosen per root kind: {@code LR} by default, {@code TD} for LogicalTable
- * graphs (with {@code direction LR} inside the LogicalTable subgraph so inter-tier flows still
- * read left-to-right).
+ * <p>Orientation: {@code TD} for LogicalTable graphs (with {@code direction LR} inside the LT
+ * subgraph so inter-tier flows still read left-to-right); {@code LR} otherwise.
  */
-public final class MermaidRenderer {
+public final class MermaidRenderer implements GraphRenderer {
+
+  public static final String FORMAT = "mermaid";
 
   private static final Map<String, String> DRIVER_ICONS = driverIcons();
 
-  private MermaidRenderer() {
+  @Override
+  public String format() {
+    return FORMAT;
   }
 
-  public static String render(PipelineGraph graph) {
+  @Override
+  public String render(PipelineGraph graph) {
     StringBuilder sb = new StringBuilder();
     sb.append("flowchart ").append(orientation(graph)).append("\n");
 
@@ -100,10 +106,7 @@ public final class MermaidRenderer {
     sb.append(indent).append("  direction LR\n");
     rendered.add(lt);
 
-    // Group LogicalTable's owned children by the tier the External lives in (External nodes only).
-    // We have no first-class "tier" object on the External — inferred from displayName prefix
-    // matching tier database name. Simpler: render each tier subgraph based on the LogicalTable's
-    // tier map order, picking up Externals whose database matches the tier's database.
+    // Group LogicalTable's owned children into tier subgraphs based on the tier-database match.
     Map<String, String> tiers = lt.tiers();
     Map<String, Set<GraphNode>> nodesByTier = new LinkedHashMap<>();
     Set<GraphNode> nonTierChildren = new LinkedHashSet<>();
@@ -286,5 +289,4 @@ public final class MermaidRenderer {
     map.put("brooklin", "🔁");
     return map;
   }
-
 }
