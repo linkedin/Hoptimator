@@ -14,8 +14,11 @@ dependencies {
   implementation libs.kubernetes.client
 
   testFixturesImplementation libs.kubernetes.client
+  testFixturesImplementation libs.quidem
   testFixturesImplementation project(':hoptimator-api')
   testFixturesImplementation project(':hoptimator-util')
+  testFixturesImplementation project(':hoptimator-jdbc')
+  testFixturesImplementation(testFixtures(project(':hoptimator-jdbc')))
 
   // These are included in case the respective Databases are installed
   testRuntimeOnly project(':hoptimator-demodb')

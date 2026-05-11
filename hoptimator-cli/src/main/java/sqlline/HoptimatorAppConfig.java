@@ -1,12 +1,16 @@
 package sqlline;
 
+import com.linkedin.hoptimator.PipelineGraph;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.ResolvedTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.PipelineGraphBuilder;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.MermaidRenderer;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
@@ -50,6 +54,7 @@ public class HoptimatorAppConfig extends Application {
     list.add(new PipelineCommandHandler(sqlline));
     list.add(new ResolveCommandHandler(sqlline));
     list.add(new SpecifyCommandHandler(sqlline));
+    list.add(new GraphCommandHandler(sqlline));
     return list;
   }
 
@@ -283,6 +288,156 @@ public class HoptimatorAppConfig extends Application {
         sqlline.error(e);
         dispatchCallback.setToFailure();
       }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
+  /**
+   * Renders a Mermaid flowchart for a Hoptimator entity. Three forms:
+   * <pre>
+   *   !graph view &lt;name&gt;                        // optionally &lt;namespace&gt;/&lt;name&gt;
+   *   !graph logical &lt;name&gt;
+   *   !graph table &lt;database&gt;.&lt;path1&gt;.&lt;path2&gt;... // reverse lookup against the dep-guard index
+   * </pre>
+   * Optional flag: {@code --depth N} (default {@link PipelineGraphBuilder#DEFAULT_DEPTH},
+   * capped at {@link PipelineGraphBuilder#MAX_DEPTH}).
+   */
+  static final class GraphCommandHandler implements CommandHandler {
+
+    private final SqlLine sqlline;
+
+    GraphCommandHandler(SqlLine sqlline) {
+      this.sqlline = sqlline;
+    }
+
+    @Override
+    public String getName() {
+      return "graph";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Render a Mermaid pipeline graph for a view, logical table, or physical resource.";
+    }
+
+    @Override
+    public String matches(String line) {
+      if (startsWith(line, "!graph") || startsWith(line, "graph")) {
+        return line;
+      }
+      return null;
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      if (!(sqlline.getConnection() instanceof HoptimatorConnection)) {
+        sqlline.error("This connection doesn't support `!graph`.");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String[] parts = line.trim().split("\\s+");
+      // parts[0] = "!graph" (or "graph"); kind + identifier mandatory.
+      if (parts.length < 3) {
+        sqlline.error("Usage: !graph <view|logical|table> <name|database.path> [--depth N]");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String kind = parts[1].toLowerCase();
+      String identifier = parts[2];
+      int depth = PipelineGraphBuilder.DEFAULT_DEPTH;
+      for (int i = 3; i < parts.length - 1; i++) {
+        if ("--depth".equals(parts[i])) {
+          try {
+            depth = Integer.parseInt(parts[i + 1]);
+          } catch (NumberFormatException e) {
+            sqlline.error("--depth requires an integer; got: " + parts[i + 1]);
+            dispatchCallback.setToFailure();
+            return;
+          }
+        }
+      }
+
+      HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
+      try {
+        K8sContext context = K8sContext.create(conn);
+        PipelineGraphBuilder builder = new PipelineGraphBuilder(context);
+        PipelineGraph graph;
+        switch (kind) {
+          case "view": {
+            String[] nsName = splitNamespaceName(identifier, context.namespace());
+            graph = builder.forView(nsName[0], nsName[1], depth);
+            break;
+          }
+          case "logical": {
+            String[] nsName = splitNamespaceName(identifier, context.namespace());
+            graph = builder.forLogicalTable(nsName[0], nsName[1], depth);
+            break;
+          }
+          case "table": {
+            // identifier shape: <database>.<path1>.<path2>...
+            String[] segments = identifier.split("\\.");
+            if (segments.length < 2) {
+              sqlline.error("table identifier must be <database>.<path>; got: " + identifier);
+              dispatchCallback.setToFailure();
+              return;
+            }
+            String database = segments[0];
+            List<String> path = Arrays.asList(Arrays.copyOfRange(segments, 1, segments.length));
+            graph = builder.forResource(database, path, depth);
+            break;
+          }
+          default:
+            sqlline.error("Unknown kind: " + kind + " (expected view, logical, or table)");
+            dispatchCallback.setToFailure();
+            return;
+        }
+        sqlline.output(MermaidRenderer.render(graph));
+        // For reverse lookups, a degenerate (root-only) graph means the label-selector found
+        // nothing. The resource may legitimately not exist — there's no K8s CRD to 404 on.
+        // Surface that as a Mermaid comment so it appears next to the spec but renderers ignore it.
+        if ("table".equals(kind) && isDegenerate(graph)) {
+          sqlline.output(degenerateGraphWarning());
+        }
+      } catch (SQLException e) {
+        sqlline.error(e);
+        dispatchCallback.setToFailure();
+      }
+    }
+
+    /** A graph is degenerate when it contains only the root and no edges — typical of a typo or
+     * a not-yet-deployed resource. */
+    static boolean isDegenerate(PipelineGraph graph) {
+      return graph.nodes().size() == 1 && graph.edges().isEmpty();
+    }
+
+    /** Mermaid comment line warning that the resource may not exist. Comment syntax keeps the
+     * output safe to pipe into a renderer. */
+    static String degenerateGraphWarning() {
+      return "%% WARNING: no pipelines reference this resource — the identifier may not exist "
+          + "or no pipelines have been deployed against it yet.";
+    }
+
+    /** Splits {@code namespace/name} or returns {@code (defaultNamespace, name)} when no slash. */
+    static String[] splitNamespaceName(String identifier, String defaultNamespace) {
+      int idx = identifier.indexOf('/');
+      if (idx < 0) {
+        return new String[] { defaultNamespace, identifier };
+      }
+      return new String[] { identifier.substring(0, idx), identifier.substring(idx + 1) };
     }
 
     @Override

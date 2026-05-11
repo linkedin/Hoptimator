@@ -7,7 +7,7 @@ import com.linkedin.hoptimator.jdbc.QuidemTestBase;
 
 
 @Tag("integration")
-public class TestSqlScripts extends QuidemTestBase {
+public class TestSqlScripts extends K8sQuidemTestBase {
 
   @Test
   public void k8sDdlScript() throws Exception {
@@ -52,5 +52,10 @@ public class TestSqlScripts extends QuidemTestBase {
   @Test
   public void k8sDdlCreateDatabase() throws Exception {
     run("k8s-ddl-create-database.id");
+  }
+
+  @Test
+  public void k8sGraphScript() throws Exception {
+    run("k8s-graph.id");
   }
 }

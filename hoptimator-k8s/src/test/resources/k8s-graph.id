@@ -1,0 +1,67 @@
+!set outputformat mysql
+!use k8s
+
+# Integration test for the !graph quidem command. Validates that the visualizer's CLI surface
+# renders Mermaid output end-to-end against a real K8s cluster.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 1: reverse lookup against a database with no Database CRD.
+# Expected: a single-node flowchart with no driver icon (lookup returns null).
+# ─────────────────────────────────────────────────────────────────────────────
+
+flowchart LR
+  n0[("UNKNOWN.foo")]
+
+%% WARNING: no pipelines reference this resource — the identifier may not exist or no pipelines have been deployed against it yet.
+!graph table UNKNOWN.foo
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 2: reverse lookup against a known seeded database. The ads-database has
+# schema=ADS and no driver field, so no icon prefix is rendered. The graph
+# resolves to just the root node since no pipelines depend on a fake table.
+# ─────────────────────────────────────────────────────────────────────────────
+
+flowchart LR
+  n0[("ADS.does-not-exist")]
+
+%% WARNING: no pipelines reference this resource — the identifier may not exist or no pipelines have been deployed against it yet.
+!graph table ADS.does-not-exist
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 3: partial materialized view
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view ads."PAGE_VIEWS$reverse-field-order" as select MEMBER_URN as MEMBER_URN, CAMPAIGN_URN as PAGE_URN from ads.ad_clicks;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  n0[("ads-database.ADS.does-not-exist")]
+
+!graph view ads."PAGE_VIEWS$reverse-field-order"
+
+drop materialized view ads."PAGE_VIEWS$reverse-field-order";
+(0 rows modified)
+
+!update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 4: materialized view w/ join
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  n0[("ads-database.ADS.does-not-exist")]
+
+!graph table ads.audience
+
+drop materialized view ads.audience;
+(0 rows modified)
+
+!update
+

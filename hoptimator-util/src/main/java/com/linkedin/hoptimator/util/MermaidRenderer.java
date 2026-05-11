@@ -1,0 +1,290 @@
+package com.linkedin.hoptimator.util;
+
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+
+import com.linkedin.hoptimator.GraphEdge;
+import com.linkedin.hoptimator.GraphNode;
+import com.linkedin.hoptimator.PipelineGraph;
+
+
+/**
+ * Renders a {@link PipelineGraph} as a Mermaid {@code flowchart} string.
+ *
+ * <p>Visual encoding (mirrors the visualization plan):
+ * <ul>
+ *   <li>{@link GraphNode.External} — cylinder with driver-type icon prefix.</li>
+ *   <li>{@link GraphNode.Pipeline} — parallelogram.</li>
+ *   <li>{@link GraphNode.Job} — reverse parallelogram with jobKind/engine.</li>
+ *   <li>{@link GraphNode.View} — rectangle ({@code "Materialized View"} prefix when applicable).</li>
+ *   <li>{@link GraphNode.LogicalTable} — top-level subgraph wrapper; tiers nest inside as subgraphs.</li>
+ *   <li>{@link GraphNode.Trigger} — rhombus with cron + paused state.</li>
+ * </ul>
+ *
+ * <p>Edges:
+ * <ul>
+ *   <li>{@link GraphEdge.Type#DEPENDS_ON_SOURCE}, {@link GraphEdge.Type#DEPENDS_ON_SINK} — solid arrow.</li>
+ *   <li>{@link GraphEdge.Type#TRIGGERS} — dotted arrow.</li>
+ *   <li>{@link GraphEdge.Type#OWNER_OF} — not rendered as an arrow; drives subgraph membership instead.</li>
+ * </ul>
+ *
+ * <p>Orientation is chosen per root kind: {@code LR} by default, {@code TD} for LogicalTable
+ * graphs (with {@code direction LR} inside the LogicalTable subgraph so inter-tier flows still
+ * read left-to-right).
+ */
+public final class MermaidRenderer {
+
+  private static final Map<String, String> DRIVER_ICONS = driverIcons();
+
+  private MermaidRenderer() {
+  }
+
+  public static String render(PipelineGraph graph) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("flowchart ").append(orientation(graph)).append("\n");
+
+    // Stable mermaid IDs (n0, n1, ...) keyed off node identity.
+    Map<GraphNode, String> mermaidIds = assignIds(graph);
+
+    // OWNER_OF edges drive subgraph membership; collect them so we can group children inside
+    // their owner.
+    Map<GraphNode, Set<GraphNode>> ownedChildren = new LinkedHashMap<>();
+    Set<GraphNode> ownedNodes = new LinkedHashSet<>();
+    for (GraphEdge e : graph.edges()) {
+      if (e.type() == GraphEdge.Type.OWNER_OF) {
+        ownedChildren.computeIfAbsent(e.from(), k -> new LinkedHashSet<>()).add(e.to());
+        ownedNodes.add(e.to());
+      }
+    }
+
+    // Render nodes — owners get a subgraph wrapper, owned children render inside it, free
+    // nodes render at the top level.
+    Set<GraphNode> rendered = new LinkedHashSet<>();
+    for (GraphNode node : graph.nodes()) {
+      if (rendered.contains(node) || ownedNodes.contains(node)) {
+        continue;
+      }
+      if (node.kind() == GraphNode.Kind.LOGICAL_TABLE) {
+        renderLogicalTableSubgraph(sb, (GraphNode.LogicalTable) node, ownedChildren, mermaidIds, rendered, "  ");
+      } else if (ownedChildren.containsKey(node)) {
+        renderOwnerSubgraph(sb, node, ownedChildren, mermaidIds, rendered, "  ");
+      } else {
+        sb.append("  ").append(renderNode(node, mermaidIds)).append("\n");
+        rendered.add(node);
+      }
+    }
+
+    // Render arrows (everything except OWNER_OF).
+    for (GraphEdge e : graph.edges()) {
+      if (e.type() == GraphEdge.Type.OWNER_OF) {
+        continue;
+      }
+      sb.append("  ").append(mermaidIds.get(e.from()))
+          .append(arrow(e.type()))
+          .append(mermaidIds.get(e.to())).append("\n");
+    }
+    return sb.toString();
+  }
+
+  // ─── Subgraph rendering ──────────────────────────────────────────────────
+
+  private static void renderLogicalTableSubgraph(StringBuilder sb, GraphNode.LogicalTable lt,
+      Map<GraphNode, Set<GraphNode>> ownedChildren, Map<GraphNode, String> ids,
+      Set<GraphNode> rendered, String indent) {
+    String ltId = ids.get(lt);
+    sb.append(indent).append("subgraph ").append(ltId).append("[\"")
+        .append(escape(lt.displayName())).append("\"]\n");
+    sb.append(indent).append("  direction LR\n");
+    rendered.add(lt);
+
+    // Group LogicalTable's owned children by the tier the External lives in (External nodes only).
+    // We have no first-class "tier" object on the External — inferred from displayName prefix
+    // matching tier database name. Simpler: render each tier subgraph based on the LogicalTable's
+    // tier map order, picking up Externals whose database matches the tier's database.
+    Map<String, String> tiers = lt.tiers();
+    Map<String, Set<GraphNode>> nodesByTier = new LinkedHashMap<>();
+    Set<GraphNode> nonTierChildren = new LinkedHashSet<>();
+    Set<GraphNode> children = ownedChildren.getOrDefault(lt, new LinkedHashSet<>());
+
+    for (GraphNode child : children) {
+      String tier = tierFor(child, tiers);
+      if (tier != null) {
+        nodesByTier.computeIfAbsent(tier, k -> new LinkedHashSet<>()).add(child);
+      } else {
+        nonTierChildren.add(child);
+      }
+    }
+
+    // Emit a subgraph per tier, in the order the LogicalTable declares them.
+    for (String tier : tiers.keySet()) {
+      Set<GraphNode> tierNodes = nodesByTier.get(tier);
+      if (tierNodes == null) {
+        continue;
+      }
+      sb.append(indent).append("  subgraph ").append(safeId(tier))
+          .append("[\"").append(escape(tier)).append("\"]\n");
+      for (GraphNode n : tierNodes) {
+        sb.append(indent).append("    ").append(renderNode(n, ids)).append("\n");
+        rendered.add(n);
+      }
+      sb.append(indent).append("  end\n");
+    }
+
+    // Anything else owned by the LogicalTable (Pipelines, Triggers) — flat inside the wrapper.
+    for (GraphNode n : nonTierChildren) {
+      sb.append(indent).append("  ").append(renderNode(n, ids)).append("\n");
+      rendered.add(n);
+    }
+
+    sb.append(indent).append("end\n");
+  }
+
+  private static void renderOwnerSubgraph(StringBuilder sb, GraphNode owner,
+      Map<GraphNode, Set<GraphNode>> ownedChildren, Map<GraphNode, String> ids,
+      Set<GraphNode> rendered, String indent) {
+    // Mermaid rejects "Setting n0 as parent of n0" if a node id collides with the subgraph id.
+    // The owner is the subgraph (its display name is the subgraph title), so we don't emit it
+    // as a separate node — same convention LogicalTable already uses.
+    String ownerId = ids.get(owner);
+    sb.append(indent).append("subgraph ").append(ownerId).append("[\"")
+        .append(escape(owner.displayName())).append("\"]\n");
+    rendered.add(owner);
+    for (GraphNode child : ownedChildren.get(owner)) {
+      sb.append(indent).append("  ").append(renderNode(child, ids)).append("\n");
+      rendered.add(child);
+    }
+    sb.append(indent).append("end\n");
+  }
+
+  private static String tierFor(GraphNode child, Map<String, String> tiers) {
+    if (!(child instanceof GraphNode.External)) {
+      return null;
+    }
+    String db = ((GraphNode.External) child).database();
+    for (Map.Entry<String, String> e : tiers.entrySet()) {
+      if (e.getValue().equals(db)) {
+        return e.getKey();
+      }
+    }
+    return null;
+  }
+
+  // ─── Per-node mermaid syntax ─────────────────────────────────────────────
+
+  private static String renderNode(GraphNode node, Map<GraphNode, String> ids) {
+    String id = ids.get(node);
+    switch (node.kind()) {
+      case EXTERNAL: {
+        GraphNode.External ext = (GraphNode.External) node;
+        String icon = DRIVER_ICONS.getOrDefault(driverKey(ext.driver()), "");
+        String label = (icon.isEmpty() ? "" : icon + " ") + ext.displayName();
+        return id + "[(\"" + escape(label) + "\")]";
+      }
+      case PIPELINE: {
+        GraphNode.Pipeline p = (GraphNode.Pipeline) node;
+        StringBuilder lbl = new StringBuilder(p.displayName());
+        if (p.jobKind() != null) {
+          lbl.append("<br/>kind: ").append(p.jobKind());
+        }
+        if (p.engine() != null) {
+          lbl.append("<br/>engine: ").append(p.engine());
+        }
+        return id + "[/\"" + escape(lbl.toString()) + "\"/]";
+      }
+      case VIEW: {
+        return id + "[\"" + escape(node.displayName()) + "\"]";
+      }
+      case TRIGGER: {
+        GraphNode.Trigger t = (GraphNode.Trigger) node;
+        StringBuilder lbl = new StringBuilder(t.displayName());
+        if (t.schedule() != null) {
+          lbl.append("<br/>cron: ").append(t.schedule());
+        }
+        if (t.jobTemplateName() != null) {
+          lbl.append("<br/>template: ").append(t.jobTemplateName());
+        }
+        if (t.jobKind() != null) {
+          lbl.append("<br/>kind: ").append(t.jobKind());
+        }
+        if (t.jobName() != null) {
+          lbl.append("<br/>job: ").append(t.jobName());
+        }
+        if (t.containerName() != null) {
+          lbl.append("<br/>container: ").append(t.containerName());
+        }
+        if (t.paused()) {
+          lbl.append("<br/>(paused)");
+        }
+        return id + "{\"" + escape(lbl.toString()) + "\"}";
+      }
+      case LOGICAL_TABLE:
+        // LogicalTable always renders as a subgraph wrapper, never as a flat node.
+        return id + "[\"" + escape(node.displayName()) + "\"]";
+      default:
+        return id + "[\"" + escape(node.displayName()) + "\"]";
+    }
+  }
+
+  // ─── Edge syntax ─────────────────────────────────────────────────────────
+
+  private static String arrow(GraphEdge.Type type) {
+    switch (type) {
+      case TRIGGERS:
+        return " -.-> ";
+      case DEPENDS_ON_SOURCE:
+      case DEPENDS_ON_SINK:
+      default:
+        return " --> ";
+    }
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────
+
+  private static String orientation(PipelineGraph graph) {
+    return graph.root().kind() == GraphNode.Kind.LOGICAL_TABLE ? "TD" : "LR";
+  }
+
+  private static Map<GraphNode, String> assignIds(PipelineGraph graph) {
+    Map<GraphNode, String> ids = new HashMap<>();
+    int i = 0;
+    for (GraphNode n : graph.nodes()) {
+      ids.put(n, "n" + i++);
+    }
+    return ids;
+  }
+
+  private static String safeId(String raw) {
+    StringBuilder sb = new StringBuilder("s_");
+    for (char c : raw.toCharArray()) {
+      sb.append(Character.isLetterOrDigit(c) ? c : '_');
+    }
+    return sb.toString();
+  }
+
+  private static String escape(String s) {
+    if (s == null) {
+      return "";
+    }
+    return s.replace("\"", "&quot;");
+  }
+
+  private static String driverKey(String driver) {
+    return driver == null ? "" : driver.toLowerCase();
+  }
+
+  private static Map<String, String> driverIcons() {
+    Map<String, String> map = new HashMap<>();
+    // Match against the lowercased Database CRD driver field.
+    map.put("kafka", "⚡");
+    map.put("xinfra", "⚡");
+    map.put("venice", "📦");
+    map.put("mysql", "🗄");
+    map.put("openhouse", "📊");
+    map.put("brooklin", "🔁");
+    return map;
+  }
+
+}

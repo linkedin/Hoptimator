@@ -32,6 +32,15 @@ import java.util.stream.Collectors;
 
 public abstract class QuidemTestBase {
 
+  /**
+   * Extension hook — subclasses can override to register additional Quidem commands beyond
+   * the built-in {@code !describe} and {@code !spec}. Return {@code null} to fall through to
+   * the default handler.
+   */
+  protected Command parseExtraCommand(List<String> lines, List<String> content, String line) {
+    return null;
+  }
+
   protected void run(String resourceName) throws IOException, URISyntaxException {
     run(resourceName, "");
   }
@@ -70,7 +79,7 @@ public abstract class QuidemTestBase {
     }
   }
 
-  private static final class CustomCommandHandler implements CommandHandler {
+  private final class CustomCommandHandler implements CommandHandler {
     @Override
     public Command parseCommand(List<String> lines, List<String> content, final String line) {
       List<String> copy = new ArrayList<>(lines);
@@ -210,6 +219,11 @@ public abstract class QuidemTestBase {
             context.echo(copy);
           }
         };
+      }
+
+      Command extra = parseExtraCommand(lines, content, line);
+      if (extra != null) {
+        return extra;
       }
 
       if (line.startsWith("spec")) {
