@@ -100,7 +100,8 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options,
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -118,7 +119,8 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "false");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options,
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -136,7 +138,8 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options,
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -158,7 +161,8 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), null, options, new Source("mysql-db", Arrays.asList("MYSQL", "testdb", "events"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), null, options,
+        new Source("mysql-db", Arrays.asList("MYSQL", "testdb", "events"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -215,7 +219,8 @@ class K8sTriggerDeployerTest {
   void updateWithPausedOptionThrowsWhenTriggerNotFound() {
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options,
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -229,7 +234,8 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1TableTriggerSpec());
     triggers.add(existing);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -240,7 +246,8 @@ class K8sTriggerDeployerTest {
 
   @Test
   void deleteThrowsWhenTriggerNotFound() {
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -255,7 +262,8 @@ class K8sTriggerDeployerTest {
             + "metadata:\n  name: {{name}}"));
     jobTemplates.add(jobTemplate);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -273,7 +281,8 @@ class K8sTriggerDeployerTest {
     jobTemplates.add(jobTemplate);
 
     // No job.properties.* options — spec should NOT have jobProperties set
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
@@ -293,7 +302,8 @@ class K8sTriggerDeployerTest {
     Map<String, String> options = new HashMap<>();
     options.put("job.properties.parallelism", "4");
     options.put("job.properties.restart-strategy", "never");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options, new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options,
+        new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
@@ -316,7 +326,8 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put("someKey", "someValue");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "5 4 * * *", options, new Source(null, Arrays.asList("SCHEMA", "MY_TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "5 4 * * *", options,
+        new Source(null, Arrays.asList("SCHEMA", "MY_TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
@@ -339,7 +350,8 @@ class K8sTriggerDeployerTest {
     options.put("job.properties.key1", "val1");
     options.put("job.properties.key2", "val2");
     options.put("other.option", "ignored");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options, new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options,
+        new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
@@ -361,7 +373,8 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options,
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -381,7 +394,8 @@ class K8sTriggerDeployerTest {
     jobTemplates.add(jobTemplate);
 
     // No PAUSED_OPTION → should fall through to super.update()
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     // super.update() calls api.update() via K8sDeployer; FakeK8sApi.update adds to list
@@ -393,7 +407,8 @@ class K8sTriggerDeployerTest {
   @Test
   void deleteOnNonExistingTriggerThrowsSqlException() {
     // Graceful handling when trigger not found
-    Trigger trigger = new Trigger("NONEXISTENT", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("NONEXISTENT", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -413,7 +428,8 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1TableTriggerSpec().paused(true));
     triggers.add(existing);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -430,7 +446,8 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1TableTriggerSpec().paused(false));
     triggers.add(existing);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -469,7 +486,8 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
     jobTemplates.add(jobTemplate);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -493,7 +511,8 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
     jobTemplates.add(jobTemplate);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(),
+        new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -515,7 +534,8 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options, new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options,
+        new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()), null);
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
