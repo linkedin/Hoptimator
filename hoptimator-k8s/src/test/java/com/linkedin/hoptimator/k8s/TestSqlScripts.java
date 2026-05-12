@@ -1,8 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.jdbc.QuidemTestBase;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+
+import com.linkedin.hoptimator.jdbc.QuidemTestBase;
 
 
 @Tag("integration")
@@ -41,6 +42,11 @@ public class TestSqlScripts extends QuidemTestBase {
   @Test
   public void k8sTriggerOptions() throws Exception {
     run("k8s-trigger-options.id");
+  }
+
+  @Test
+  public void k8sTriggerValidation() throws Exception {
+    run("k8s-trigger-validation.id");
   }
 
   @Test

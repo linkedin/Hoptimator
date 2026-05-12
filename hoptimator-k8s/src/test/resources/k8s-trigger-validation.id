@@ -1,0 +1,32 @@
+!set outputformat mysql
+!use k8s
+
+# Pre-delete dependency guard for triggers. A trigger carries the same
+# `depends-on-<slug>` label that pipelines do (stamped from `create trigger`'s
+# target identifier), so dropping a source still referenced by a live trigger
+# is blocked with the same "active dependent(s)" message a pipeline would
+# trigger. Drops the trigger to clear the guard, then re-drops the source.
+
+create or replace table ads."triggertable" ("i" int, "s" VARCHAR);
+(0 rows modified)
+
+!update
+
+create trigger blocks_drop on ads."triggertable" as 'my-app' in 'my-mp' with (key 'value');
+(0 rows modified)
+
+!update
+
+drop table ads."triggertable";
+active dependent
+!error
+
+drop trigger blocks_drop;
+(0 rows modified)
+
+!update
+
+drop table ads."triggertable";
+(0 rows modified)
+
+!update

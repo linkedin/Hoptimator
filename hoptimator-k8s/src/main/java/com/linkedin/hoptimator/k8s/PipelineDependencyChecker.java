@@ -5,29 +5,33 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 
 import javax.annotation.Nullable;
 
 
 /**
- * Checks whether any Pipeline CRDs still depend on a resource a {@link com.linkedin.hoptimator.Deployer}
- * is about to delete.
+ * Checks whether any Pipeline or TableTrigger CRDs still depend on a resource a
+ * {@link com.linkedin.hoptimator.Deployer} is about to delete.
  *
- * <p>The lookup is a label-selector list against the Pipeline CRD group, so it is O(matches) on
- * the wire — not a full scan. Each candidate is then cross-checked against the union of the
- * {@link PipelineDependencyLabels#ANNOTATION_KEY_SOURCES sources} and
- * {@link PipelineDependencyLabels#ANNOTATION_KEY_SINK sink} annotations to rule out hash
- * collisions in the label slug and stale labels left over from a prior version of the pipeline's
- * SQL ({@link K8sApi#update}'s additive label merge can leak old {@code depends-on-*} keys).
+ * <p>Both CRDs carry the same {@code depends-on-<slug>} label and {@code depends-on-sources}/
+ * {@code depends-on-sink} annotations (stamped by {@link K8sPipelineDeployer} and
+ * {@link K8sTriggerDeployer}), so the same lookup works for either: a label-selector list against
+ * the CRD group is O(matches) on the wire, then each candidate is cross-checked against the union
+ * of the source + sink annotations to rule out hash collisions in the slug and stale labels left
+ * over from a prior version of the resource ({@link K8sApi#update}'s additive label merge can leak
+ * old {@code depends-on-*} keys).
  *
- * <p>Pipelines owned (directly) by {@code (selfOwnerKind, selfOwnerName)} are excluded from the
- * blocker list: those pipelines will be cascade-deleted alongside the parent resource, so counting
- * them as external dependents would make composite deletes (e.g. {@code LogicalTableDeployer.delete()})
+ * <p>Resources owned (directly) by {@code (selfOwnerKind, selfOwnerName)} are excluded from the
+ * blocker list: those will be cascade-deleted alongside the parent resource, so counting them as
+ * external dependents would make composite deletes (e.g. {@code LogicalTableDeployer.delete()})
  * impossible.
  */
 public final class PipelineDependencyChecker {
@@ -37,45 +41,64 @@ public final class PipelineDependencyChecker {
 
   public static void assertNoExternalDependents(K8sContext context, String database,
       List<String> path, @Nullable String selfOwnerKind, @Nullable String selfOwnerName) throws SQLException {
-    assertNoExternalDependents(new K8sApi<>(context, K8sApiEndpoints.PIPELINES),
+    assertNoExternalDependents(
+        new K8sApi<>(context, K8sApiEndpoints.PIPELINES),
+        new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS),
         database, path, selfOwnerKind, selfOwnerName);
   }
 
-  /** Variant that takes a pre-built {@link K8sApi} — used by tests to inject mocks. */
-  static void assertNoExternalDependents(K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> api,
+  /** Variant that takes pre-built {@link K8sApi}s — used by tests to inject mocks. */
+  static void assertNoExternalDependents(K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi,
+      K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> triggerApi,
       String database, List<String> path, @Nullable String selfOwnerKind,
       @Nullable String selfOwnerName) throws SQLException {
 
     String labelKey = PipelineDependencyLabels.labelKey(database, path);
     String identifier = PipelineDependencyLabels.identifier(database, path);
 
-    Collection<V1alpha1Pipeline> matches = api.select(labelKey);
-
     List<String> blockers = new ArrayList<>();
-    for (V1alpha1Pipeline p : matches) {
-      if (isSelfOwned(p, selfOwnerKind, selfOwnerName)) {
-        continue;
-      }
-      if (!annotationConfirms(p, identifier)) {
-        // Label matched but annotation doesn't — this is a slug collision or a stale label, skip it.
-        continue;
-      }
-      blockers.add(describeBlocker(p));
-    }
+    blockers.addAll(findBlockers(pipelineApi, labelKey, identifier, "pipeline",
+        selfOwnerKind, selfOwnerName));
+    blockers.addAll(findBlockers(triggerApi, labelKey, identifier, "trigger",
+        selfOwnerKind, selfOwnerName));
 
     if (!blockers.isEmpty()) {
       throw new SQLException(String.format(
-          "Cannot delete %s — %d active pipeline(s) depend on it: %s",
+          "Cannot delete %s — %d active dependent(s): %s",
           identifier, blockers.size(), String.join(", ", blockers)));
     }
   }
 
-  private static boolean isSelfOwned(V1alpha1Pipeline pipeline, @Nullable String selfOwnerKind,
+  /**
+   * Generic blocker enumeration: list resources of type {@code T} that carry the given
+   * {@code labelKey}, confirm via the depends-on annotations, and exclude self-owned children.
+   * The {@code kindLabel} is prefixed onto each blocker description so a unified error message
+   * can attribute each entry to its CRD kind.
+   */
+  private static <T extends KubernetesObject> List<String> findBlockers(K8sApi<T, ?> api,
+      String labelKey, String identifier, String kindLabel,
+      @Nullable String selfOwnerKind, @Nullable String selfOwnerName) throws SQLException {
+    Collection<T> matches = api.select(labelKey);
+    List<String> blockers = new ArrayList<>();
+    for (T obj : matches) {
+      V1ObjectMeta meta = obj.getMetadata();
+      if (isSelfOwned(meta, selfOwnerKind, selfOwnerName)) {
+        continue;
+      }
+      if (!annotationConfirms(meta, identifier)) {
+        // Label matched but annotation doesn't — slug collision or stale label, skip it.
+        continue;
+      }
+      blockers.add(kindLabel + "/" + describeBlocker(meta));
+    }
+    return blockers;
+  }
+
+  private static boolean isSelfOwned(V1ObjectMeta meta, @Nullable String selfOwnerKind,
       @Nullable String selfOwnerName) {
     if (selfOwnerKind == null || selfOwnerName == null) {
       return false;
     }
-    V1ObjectMeta meta = pipeline.getMetadata();
     if (meta == null || meta.getOwnerReferences() == null) {
       return false;
     }
@@ -87,10 +110,9 @@ public final class PipelineDependencyChecker {
     return false;
   }
 
-  private static boolean annotationConfirms(V1alpha1Pipeline pipeline, String identifier) {
-    V1ObjectMeta meta = pipeline.getMetadata();
+  private static boolean annotationConfirms(V1ObjectMeta meta, String identifier) {
     if (meta == null || meta.getAnnotations() == null) {
-      return true;   // pre-labeling pipeline — conservatively trust the label match
+      return true;   // pre-labeling resource — conservatively trust the label match
     }
     String sourcesAnno = meta.getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
     String sinkAnno = meta.getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY_SINK);
@@ -104,11 +126,10 @@ public final class PipelineDependencyChecker {
   }
 
   /**
-   * Builds a human-readable blocker description: the pipeline name, plus (when present) the top
+   * Builds a human-readable blocker description: the resource name, plus (when present) the top
    * ownerReference's {@code kind/name} so the user knows which higher-level resource owns it.
    */
-  private static String describeBlocker(V1alpha1Pipeline pipeline) {
-    V1ObjectMeta meta = pipeline.getMetadata();
+  private static String describeBlocker(V1ObjectMeta meta) {
     String name = meta == null ? "<unknown>" : meta.getName();
     String ownerSuffix = "";
     if (meta != null && meta.getOwnerReferences() != null && !meta.getOwnerReferences().isEmpty()) {
