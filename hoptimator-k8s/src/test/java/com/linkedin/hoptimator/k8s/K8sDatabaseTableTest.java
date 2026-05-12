@@ -5,7 +5,6 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.Schema;
@@ -38,11 +37,10 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 class K8sDatabaseTableTest {
 
   @Mock
@@ -259,7 +257,7 @@ class K8sDatabaseTableTest {
 
     lenient().when(mockEngineTable.forDatabase(anyString())).thenReturn(Collections.emptyList());
     Properties connProps = new Properties();
-    doReturn(connProps).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(connProps);
 
     SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
 
@@ -290,7 +288,7 @@ class K8sDatabaseTableTest {
 
     lenient().when(mockEngineTable.forDatabase(anyString())).thenReturn(Collections.emptyList());
     Properties connProps = new Properties();
-    doReturn(connProps).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(connProps);
 
     SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
 
@@ -318,7 +316,7 @@ class K8sDatabaseTableTest {
 
     lenient().when(mockEngineTable.forDatabase(anyString())).thenReturn(Collections.emptyList());
     Properties connProps = new Properties();
-    doReturn(connProps).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(connProps);
 
     SchemaPlus root = CalciteSchema.createRootSchema(true).plus();
 

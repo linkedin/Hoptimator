@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.jdbc;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -42,9 +42,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 @ExtendWith(MockitoExtension.class)
+@SuppressFBWarnings(
+    value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
+    justification = "Tests use when(mock.createStatement()/prepareStatement()).thenReturn(...) "
+        + "to stub and verify(mock).prepareStatement(...) to verify. Both are Mockito DSL "
+        + "invocations on methods whose AutoCloseable return types SpotBugs flags. There is no "
+        + "way to express these in the Mockito API without the method invocation on the mock.")
 class HoptimatorConnectionTest {
 
   @Mock
@@ -170,8 +174,6 @@ class HoptimatorConnectionTest {
   }
 
   @Test
-  @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-      justification = "Connection closed in try-with-resources")
   void testRegisterMaterializationAddsMaterialization() throws SQLException {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection conn =
@@ -186,8 +188,6 @@ class HoptimatorConnectionTest {
   }
 
   @Test
-  @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-      justification = "Connection closed in try-with-resources")
   void testResolveThrowsForNonDatabaseSchema() throws SQLException {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection conn =
@@ -198,8 +198,6 @@ class HoptimatorConnectionTest {
   }
 
   @Test
-  @SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-      justification = "Connection closed in try-with-resources")
   void resolveReturnsNonNullTypeForExistingTwoPartPath() throws SQLException {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection conn =

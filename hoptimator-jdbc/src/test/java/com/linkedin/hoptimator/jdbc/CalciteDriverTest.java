@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.jdbc;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.junit.jupiter.api.Test;
 
@@ -15,8 +14,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 class CalciteDriverTest {
 
   @Test

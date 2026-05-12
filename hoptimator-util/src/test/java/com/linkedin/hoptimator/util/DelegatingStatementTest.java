@@ -26,8 +26,13 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
+@SuppressFBWarnings(
+    value = "OBL_UNSATISFIED_OBLIGATION",
+    justification = "Tests use when(mockConnection.createStatement()).thenReturn(...) and "
+        + "when(mockStatement.executeQuery(...)).thenReturn(...). Both are Mockito stubbing "
+        + "calls on methods whose AutoCloseable return types (Statement, ResultSet) trigger OBL "
+        + "at the bytecode call site. The values are mocks and the tests verify that "
+        + "DelegatingStatement.close() actually delegates close() to them.")
 class DelegatingStatementTest {
 
   @Mock

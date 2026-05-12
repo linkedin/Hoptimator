@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.junit.jupiter.api.Test;
@@ -23,8 +22,6 @@ import static org.mockito.Mockito.verify;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 class K8sCatalogTest {
 
   @Mock

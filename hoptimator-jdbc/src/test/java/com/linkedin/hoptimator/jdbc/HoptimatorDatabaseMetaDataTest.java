@@ -36,9 +36,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 @ExtendWith(MockitoExtension.class)
+@SuppressFBWarnings(
+    value = "OBL_UNSATISFIED_OBLIGATION",
+    justification = "Tests use Mockito's when(mock.createStatement())/prepareStatement() / "
+        + "metaData.getCatalogs() stubbing pattern. Mockito's API requires invoking the method "
+        + "on the mock to register the stub, and the method's AutoCloseable return type triggers "
+        + "OBL on the bytecode call site. The values are mocks (or null during stubbing) and "
+        + "wrapping in try-with-resources at the call site does not discharge the obligation "
+        + "tracked at the stubbing line.")
 class HoptimatorDatabaseMetaDataTest {
 
   @Mock

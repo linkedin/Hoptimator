@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
@@ -29,8 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Connections in tests are closed in try-with-resources or after assertions")
 class HoptimatorDriverTest {
 
   private final HoptimatorDriver driver = new HoptimatorDriver();

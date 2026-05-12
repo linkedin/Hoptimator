@@ -9,7 +9,6 @@ import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,13 +30,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"},
-    justification = "Mockito doReturn().when() stubs — framework captures the return value")
 class K8sJobDeployerTest {
 
   @Mock
@@ -98,7 +94,7 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyWithNoTemplatesReturnsEmpty() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(new Properties());
 
     Sink sink = new Sink("sinkdb", Arrays.asList("schema", "sink_table"),
         Collections.emptyMap());
@@ -114,7 +110,7 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyRendersMatchingTemplate() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(new Properties());
 
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -136,7 +132,7 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyFiltersOutNonMatchingDatabases() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(new Properties());
 
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -157,7 +153,7 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyWithNullDatabasesMatchesAll() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(new Properties());
 
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -178,7 +174,7 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyRendersTemplateVariables() throws SQLException {
-    doReturn(new Properties()).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(new Properties());
 
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -203,7 +199,7 @@ class K8sJobDeployerTest {
   @Test
   void specifyLambdasReturnNonEmptyValues() throws SQLException {
     // Verify each key field is non-empty.
-    doReturn(new Properties()).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(new Properties());
 
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
@@ -239,7 +235,7 @@ class K8sJobDeployerTest {
     // Verify that sink options ARE merged into the environment
     Properties connProps = new Properties();
     connProps.setProperty("flinkConfig1", "value1");
-    doReturn(connProps).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(connProps);
 
     Map<String, String> sinkOptions = new HashMap<>();
     sinkOptions.put("sinkOption", "sinkVal");
@@ -264,7 +260,7 @@ class K8sJobDeployerTest {
   @Test
   void specifyConditionalRenderedTemplateNotNull() throws SQLException {
     // Verify null templates are skipped
-    doReturn(new Properties()).when(connection).connectionProperties();
+    when(connection.connectionProperties()).thenReturn(new Properties());
 
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))

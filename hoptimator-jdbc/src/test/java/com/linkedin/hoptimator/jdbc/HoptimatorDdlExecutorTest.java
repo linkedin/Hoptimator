@@ -8,7 +8,6 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlDropTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
@@ -53,8 +52,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 @ExtendWith(MockitoExtension.class)
 class HoptimatorDdlExecutorTest {
 

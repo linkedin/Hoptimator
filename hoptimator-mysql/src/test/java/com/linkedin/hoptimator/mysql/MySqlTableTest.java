@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.mysql;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -37,8 +36,6 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 class MySqlTableTest {
 
   private static final String DATABASE = "test_db";
@@ -71,8 +68,11 @@ class MySqlTableTest {
 
   private void stubSuccessfulConnection() throws SQLException {
     when(mockConnection.getMetaData()).thenReturn(mockMetaData);
-    driverManagerStatic.when(() -> DriverManager.getConnection(anyString(), anyString(), anyString()))
-        .thenReturn(mockConnection);
+    driverManagerStatic.when(() -> {
+      try (Connection c = DriverManager.getConnection(anyString(), anyString(), anyString())) {
+        assert true; // recording-only
+      }
+    }).thenReturn(mockConnection);
   }
 
   @Test
