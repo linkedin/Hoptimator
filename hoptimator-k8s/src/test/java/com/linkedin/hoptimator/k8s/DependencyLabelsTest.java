@@ -69,7 +69,8 @@ class DependencyLabelsTest {
 
   private static V1ObjectMeta stamp(java.util.List<Source> sources, Sink sink) {
     V1ObjectMeta meta = new V1ObjectMeta();
-    DependencyLabels.stamp(meta, sources, sink);
+    DependencyLabels.stamp(meta, sources,
+        sink == null ? Collections.emptyList() : Collections.singletonList(sink));
     return meta;
   }
 
@@ -91,7 +92,7 @@ class DependencyLabelsTest {
   void stampHandlesNullSink() {
     V1ObjectMeta meta = stamp(Collections.singletonList(src("db", "t")), null);
     assertEquals(1, meta.getLabels().size());
-    assertNull(meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINK));
+    assertNull(meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINKS));
   }
 
   @Test
@@ -144,7 +145,7 @@ class DependencyLabelsTest {
   @Test
   void stampSinkAnnotationCarriesSinkIdentifier() {
     V1ObjectMeta meta = stamp(Collections.emptyList(), sink("mysql", "c"));
-    assertEquals("mysql_c", meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINK));
+    assertEquals("mysql_c", meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINKS));
   }
 
   @Test

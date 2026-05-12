@@ -220,7 +220,7 @@ spec:
 
 # Drop is blocked — logical table inner pipeline depends on KAFKA/testevent
 drop table "KAFKA"."testevent";
-active pipeline(s) depend on it
+active dependent
 !error
 
 create or replace materialized view VENICE."testevent$guard" as select "KEY" as "KEY", "VALUE" as "memberId" from KAFKA."existing-topic-1";
@@ -231,7 +231,7 @@ create or replace materialized view VENICE."testevent$guard" as select "KEY" as 
 # Drop is blocked — testevent$guard's pipeline depends on VENICE/testevent,
 # which is LOGICAL.testevent's online tier.
 drop table "LOGICAL"."testevent";
-active pipeline(s) depend on it
+active dependent
 !error
 
 # Drop the dependent MV first to release the label.

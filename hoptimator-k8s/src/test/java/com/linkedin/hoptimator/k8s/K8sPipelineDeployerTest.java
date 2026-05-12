@@ -80,7 +80,7 @@ class K8sPipelineDeployerTest {
     Map<String, String> annotations = pipeline.getMetadata().getAnnotations();
 
     String sources = annotations.get(DependencyLabels.ANNOTATION_KEY_SOURCES);
-    String sink = annotations.get(DependencyLabels.ANNOTATION_KEY_SINK);
+    String sink = annotations.get(DependencyLabels.ANNOTATION_KEY_SINKS);
     assertNotNull(sources);
     assertNotNull(sink);
     assertTrue(sources.contains("kafka_topic"),

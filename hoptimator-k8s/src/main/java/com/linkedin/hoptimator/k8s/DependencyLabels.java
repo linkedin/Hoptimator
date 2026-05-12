@@ -4,12 +4,11 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-
-import javax.annotation.Nullable;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
@@ -19,8 +18,8 @@ import com.linkedin.hoptimator.Source;
 
 /**
  * Encodes a resource's dependency edges as K8s labels + annotations. Used by both
- * {@link K8sPipelineDeployer} and {@link K8sTriggerDeployer} so the dep-guard and
- * the visualizer can find dependents with a single label-selector query.
+ * {@link K8sPipelineDeployer} and {@link K8sTriggerDeployer} so the dep-guard can
+ * find dependents with a single label-selector query.
  *
  * <p>Every source and sink the resource references becomes a label:
  * {@code hoptimator.linkedin.com/depends-on-<slug>: "<database>_<pathString>"} where
@@ -31,7 +30,7 @@ import com.linkedin.hoptimator.Source;
  * <p>Two annotations preserve the directional information the labels lose:
  * <ul>
  *   <li>{@link #ANNOTATION_KEY_SOURCES} — comma-separated list of source identifiers verbatim.</li>
- *   <li>{@link #ANNOTATION_KEY_SINK} — the single sink identifier verbatim.</li>
+ *   <li>{@link #ANNOTATION_KEY_SINKS} — comma-separated list of sink identifiers verbatim.</li>
  * </ul>
  * Together they serve two purposes:
  * <ol>
@@ -45,10 +44,10 @@ import com.linkedin.hoptimator.Source;
 public final class DependencyLabels {
 
   static final String LABEL_PREFIX = "hoptimator.linkedin.com/depends-on-";
-  /** Annotation listing only source identifiers. */
+  /** Annotation listing source identifiers, comma-separated. */
   public static final String ANNOTATION_KEY_SOURCES = "hoptimator.linkedin.com/depends-on-sources";
-  /** Annotation holding the single sink identifier. */
-  public static final String ANNOTATION_KEY_SINK = "hoptimator.linkedin.com/depends-on-sink";
+  /** Annotation listing sink identifiers, comma-separated. */
+  public static final String ANNOTATION_KEY_SINKS = "hoptimator.linkedin.com/depends-on-sinks";
 
   private static final int SLUG_LENGTH = 16;   // 64 bits of SHA-256 → ~1 in 1.8e19 collisions
   private static final int MAX_LABEL_VALUE = 63;
@@ -83,30 +82,39 @@ public final class DependencyLabels {
    * existing labels/annotations on the object. Both edges matter to the guard: dropping a source
    * orphans resources that read from it; dropping a sink orphans resources that write to it.
    *
-   * <p>Sources whose {@code database()} is null are skipped — they don't have a stable identifier.
+   * <p>Sources and sinks whose {@code database()} is null are skipped — they don't have a stable
+   * identifier. Callers with a single sink should pass {@link Collections#singletonList}.
    */
-  public static void stamp(V1ObjectMeta meta, Collection<Source> sources, @Nullable Sink sink) {
+  public static void stamp(V1ObjectMeta meta, Collection<Source> sources, Collection<Sink> sinks) {
     Map<String, String> labels = meta.getLabels() != null ? meta.getLabels() : new HashMap<>();
     Map<String, String> annotations = meta.getAnnotations() != null ? meta.getAnnotations() : new HashMap<>();
-    Set<String> sourceIds = new LinkedHashSet<>();
-    for (Source src : sources) {
-      if (src == null || src.database() == null) {
-        continue;
-      }
-      String id = identifier(src.database(), src.path());
-      labels.put(labelKey(src.database(), src.path()), truncate(id));
-      sourceIds.add(id);
-    }
+    Set<String> sourceIds = collectIdentifiers(sources, labels);
+    Set<String> sinkIds = collectIdentifiers(sinks, labels);
     if (!sourceIds.isEmpty()) {
       annotations.put(ANNOTATION_KEY_SOURCES, String.join(",", sourceIds));
     }
-    if (sink != null && sink.database() != null) {
-      String id = identifier(sink.database(), sink.path());
-      labels.put(labelKey(sink.database(), sink.path()), truncate(id));
-      annotations.put(ANNOTATION_KEY_SINK, id);
+    if (!sinkIds.isEmpty()) {
+      annotations.put(ANNOTATION_KEY_SINKS, String.join(",", sinkIds));
     }
     meta.setLabels(labels);
     meta.setAnnotations(annotations);
+  }
+
+  private static Set<String> collectIdentifiers(Collection<? extends Source> deps,
+      Map<String, String> labels) {
+    Set<String> ids = new LinkedHashSet<>();
+    if (deps == null) {
+      return ids;
+    }
+    for (Source dep : deps) {
+      if (dep == null || dep.database() == null) {
+        continue;
+      }
+      String id = identifier(dep.database(), dep.path());
+      labels.put(labelKey(dep.database(), dep.path()), truncate(id));
+      ids.add(id);
+    }
+    return ids;
   }
 
   /** Parses the collision-guard annotation back into the set of identifiers it encoded. */

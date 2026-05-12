@@ -540,7 +540,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
       triggerOptions.put(Trigger.PAUSED_OPTION, "true");
     }
     // When the offline tier feeds an online tier (reverse-ETL), the trigger has a downstream
-    // sink — record it directly on the Trigger so the dep-guard and visualizer pick it up.
+    // sink — record it directly on the Trigger so the dep-guard can pick it up.
     Sink sink = onlineSource == null ? null
         : new Sink(onlineSource.database(), onlineSource.path(), onlineSource.options());
     UserJob userJob = new UserJob(ownerContext.namespace(), jobTemplate.getMetadata().getName());

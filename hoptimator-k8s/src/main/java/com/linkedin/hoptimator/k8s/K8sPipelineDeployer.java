@@ -46,7 +46,8 @@ class K8sPipelineDeployer extends K8sDeployer<V1alpha1Pipeline, V1alpha1Pipeline
   @Override
   protected V1alpha1Pipeline toK8sObject() throws SQLException {
     V1ObjectMeta meta = new V1ObjectMeta().name(name);
-    DependencyLabels.stamp(meta, sources, sink);
+    DependencyLabels.stamp(meta, sources,
+        sink == null ? Collections.emptyList() : Collections.singletonList(sink));
     return new V1alpha1Pipeline().kind(K8sApiEndpoints.PIPELINES.kind())
         .apiVersion(K8sApiEndpoints.PIPELINES.apiVersion())
         .metadata(meta)

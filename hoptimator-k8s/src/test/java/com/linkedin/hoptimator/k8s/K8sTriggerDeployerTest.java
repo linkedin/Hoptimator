@@ -150,7 +150,7 @@ class K8sTriggerDeployerTest {
   void updateWithPausedOptionAlsoStampsDependsOnLabelsWhenDatabaseSet() throws SQLException {
     // The partial-update path (paused-only) used to skip toK8sObject and never refresh the
     // depends-on metadata. Pin down that re-applying the LogicalTable through this path now
-    // stamps the labels/annotation so visualization (and the dep-guard reverse lookup) works.
+    // stamps the labels/annotation
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("mytrigger"))
         .spec(new V1alpha1TableTriggerSpec().paused(true));
@@ -207,7 +207,7 @@ class K8sTriggerDeployerTest {
     assertTrue(existing.getMetadata().getLabels().containsKey(sinkLabel),
         "sink-side depends-on label must be stamped: " + existing.getMetadata().getLabels());
     assertEquals(sinkIdentifier,
-        existing.getMetadata().getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINK),
+        existing.getMetadata().getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINKS),
         "depends-on-sink annotation must record the sink identifier verbatim");
   }
 

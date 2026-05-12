@@ -81,7 +81,7 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     Source source = trigger.source();
     DependencyLabels.stamp(meta,
         source != null ? Collections.singletonList(source) : Collections.emptyList(),
-        trigger.sink());
+        trigger.sink() != null ? Collections.singletonList(trigger.sink()) : Collections.emptyList());
   }
 
   @Override
@@ -123,7 +123,7 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     // trigger carries a Sink, we additionally stamp the sink.
     DependencyLabels.stamp(meta,
         source != null ? Collections.singletonList(source) : Collections.emptyList(),
-        trigger.sink());
+        trigger.sink() != null ? Collections.singletonList(trigger.sink()) : Collections.emptyList());
     String template = jobTemplate.getSpec().getYaml();
     String rendered = new Template.SimpleTemplate(template).render(env);
     Map<String, String> jobProps = new HashMap<>();

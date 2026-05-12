@@ -22,7 +22,7 @@ import javax.annotation.Nullable;
  * {@link com.linkedin.hoptimator.Deployer} is about to delete.
  *
  * <p>Both CRDs carry the same {@code depends-on-<slug>} label and {@code depends-on-sources}/
- * {@code depends-on-sink} annotations (stamped by {@link K8sPipelineDeployer} and
+ * {@code depends-on-sinks} annotations (stamped by {@link K8sPipelineDeployer} and
  * {@link K8sTriggerDeployer}), so the same lookup works for either: a label-selector list against
  * the CRD group is O(matches) on the wire, then each candidate is cross-checked against the union
  * of the source + sink annotations to rule out hash collisions in the slug and stale labels left
@@ -115,14 +115,14 @@ public final class DependencyChecker {
       return true;   // pre-labeling resource — conservatively trust the label match
     }
     String sourcesAnno = meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SOURCES);
-    String sinkAnno = meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINK);
-    if (sourcesAnno == null && sinkAnno == null) {
+    String sinksAnno = meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINKS);
+    if (sourcesAnno == null && sinksAnno == null) {
       return true;   // same — no annotations to cross-check against
     }
     if (sourcesAnno != null && DependencyLabels.parseAnnotation(sourcesAnno).contains(identifier)) {
       return true;
     }
-    return identifier.equals(sinkAnno);
+    return sinksAnno != null && DependencyLabels.parseAnnotation(sinksAnno).contains(identifier);
   }
 
   /**
