@@ -5,6 +5,7 @@ import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.IgnoreCaseLookup;
 import org.apache.calcite.schema.lookup.LikePattern;
+import org.apache.calcite.schema.lookup.Lookup;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -33,7 +34,7 @@ class MySqlDriverTest {
       protected AbstractSchema createMySqlRootSchema(Properties properties) {
         return new AbstractSchema() {
           @Override
-          public org.apache.calcite.schema.lookup.Lookup<Schema> subSchemas() {
+          public Lookup<Schema> subSchemas() {
             return new IgnoreCaseLookup<>() {
               @Override public Schema get(String name) {
                 return null;

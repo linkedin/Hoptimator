@@ -1,6 +1,10 @@
 package sqlline;
 
+import com.linkedin.hoptimator.graph.GraphTarget;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
+import com.linkedin.hoptimator.util.GraphService;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
@@ -50,6 +54,7 @@ public class HoptimatorAppConfig extends Application {
     list.add(new PipelineCommandHandler(sqlline));
     list.add(new ResolveCommandHandler(sqlline));
     list.add(new SpecifyCommandHandler(sqlline));
+    list.add(new GraphCommandHandler(sqlline));
     return list;
   }
 
@@ -283,6 +288,162 @@ public class HoptimatorAppConfig extends Application {
         sqlline.error(e);
         dispatchCallback.setToFailure();
       }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
+  /**
+   * Renders a Mermaid flowchart for a Hoptimator entity. Forms:
+   * <pre>
+   *   !graph view &lt;name&gt;                          // optionally &lt;namespace&gt;/&lt;name&gt;
+   *   !graph logical &lt;name&gt;
+   *   !graph table &lt;schema&gt;.&lt;table&gt;               // 2-level identifier
+   *   !graph table &lt;catalog&gt;.&lt;schema&gt;.&lt;table&gt;     // 3-level (JDBC-style) identifier
+   * </pre>
+   * Optional flag: {@code --depth N} (default 2).
+   */
+  static final class GraphCommandHandler implements CommandHandler {
+
+    private final SqlLine sqlline;
+
+    GraphCommandHandler(SqlLine sqlline) {
+      this.sqlline = sqlline;
+    }
+
+    @Override
+    public String getName() {
+      return "graph";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Render a Mermaid pipeline graph for a view, logical table, or physical resource.";
+    }
+
+    @Override
+    public String matches(String line) {
+      if (startsWith(line, "!graph") || startsWith(line, "graph")) {
+        return line;
+      }
+      return null;
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      if (!(sqlline.getConnection() instanceof HoptimatorConnection)) {
+        sqlline.error("This connection doesn't support `!graph`.");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String[] parts = line.trim().split("\\s+");
+      // parts[0] = "!graph" (or "graph"); kind + identifier mandatory.
+      if (parts.length < 3) {
+        sqlline.error("Usage: !graph <view|logical|table> <name|database.path> [--depth N]");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String kind = parts[1].toLowerCase();
+      String identifier = parts[2];
+      int depth = 2;
+      for (int i = 3; i < parts.length - 1; i++) {
+        if ("--depth".equals(parts[i])) {
+          try {
+            depth = Integer.parseInt(parts[i + 1]);
+          } catch (NumberFormatException e) {
+            sqlline.error("--depth requires an integer; got: " + parts[i + 1]);
+            dispatchCallback.setToFailure();
+            return;
+          }
+        }
+      }
+
+      GraphTarget target = parseTarget(kind, identifier);
+      if (target == null) {
+        sqlline.error("Unknown kind: " + kind + " (expected view, logical, or table)");
+        dispatchCallback.setToFailure();
+        return;
+      }
+
+      HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
+      try {
+        PipelineGraph graph = GraphService.buildGraph(target, depth, conn);
+        sqlline.output(GraphService.render(graph, MermaidRenderer.FORMAT));
+        // For reverse lookups, a degenerate (root-only) graph means the label-selector found
+        // nothing. The resource may legitimately not exist.
+        // Surface that as a Mermaid comment so it appears next to the spec but renderers ignore it.
+        if (target instanceof GraphTarget.Resource && isDegenerate(graph)) {
+          sqlline.output(degenerateGraphWarning());
+        }
+      } catch (SQLException e) {
+        sqlline.error(e);
+        dispatchCallback.setToFailure();
+      }
+    }
+
+    /**
+     * Translate the CLI-parsed {@code (kind, identifier)} into a {@link GraphTarget}. Returns
+     * null when the kind isn't recognized.
+     */
+    static GraphTarget parseTarget(String kind, String identifier) {
+      switch (kind) {
+        case "view": {
+          String[] nsName = splitNamespaceName(identifier, null);
+          return new GraphTarget.View(nsName[0], nsName[1]);
+        }
+        case "logical": {
+          String[] nsName = splitNamespaceName(identifier, null);
+          return new GraphTarget.LogicalTable(nsName[0], nsName[1]);
+        }
+        case "table": {
+          // identifier shape: <database>.<path1>.<path2>...
+          String[] segments = identifier.split("\\.");
+          if (segments.length < 2) {
+            throw new IllegalArgumentException(
+                "table identifier must be <database>.<path>; got: " + identifier);
+          }
+          String database = segments[0];
+          List<String> path = Arrays.asList(Arrays.copyOfRange(segments, 1, segments.length));
+          return new GraphTarget.Resource(database, path);
+        }
+        default:
+          return null;
+      }
+    }
+
+    /** A graph is degenerate when it contains only the root and no edges — typical of a typo or
+     * a not-yet-deployed resource. */
+    static boolean isDegenerate(PipelineGraph graph) {
+      return graph.nodes().size() == 1 && graph.edges().isEmpty();
+    }
+
+    /** Mermaid comment line warning that the resource may not exist. Comment syntax keeps the
+     * output safe to pipe into a renderer. */
+    static String degenerateGraphWarning() {
+      return "%% WARNING: no pipelines reference this resource — the identifier may not exist "
+          + "or no pipelines have been deployed against it yet.";
+    }
+
+    /** Splits {@code namespace/name} or returns {@code (defaultNamespace, name)} when no slash. */
+    static String[] splitNamespaceName(String identifier, String defaultNamespace) {
+      int idx = identifier.indexOf('/');
+      if (idx < 0) {
+        return new String[] { defaultNamespace, identifier };
+      }
+      return new String[] { identifier.substring(0, idx), identifier.substring(idx + 1) };
     }
 
     @Override

@@ -18,6 +18,7 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -422,7 +423,7 @@ class K8sConnectorTest {
     SchemaPlus root = CalciteSchema.createRootSchema(false).plus();
     SchemaPlus parent = root;
     for (String part : source.path().subList(0, source.path().size() - 1)) {
-      parent = parent.add(part, new org.apache.calcite.schema.impl.AbstractSchema());
+      parent = parent.add(part, new AbstractSchema());
     }
     parent.add(source.table(), table);
 

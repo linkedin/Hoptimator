@@ -17,4 +17,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void logicalTableOfflineDdlScript() throws Exception {
     run("logical-offline-ddl.id");
   }
+
+  @Test
+  public void logicalTableGraphScript() throws Exception {
+    run("logical-graph.id");
+  }
 }

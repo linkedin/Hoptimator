@@ -17,4 +17,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void mysqlDdlCreateTableScript() throws Exception {
     run("mysql-ddl-create-table.id");
   }
+
+  @Test
+  public void mysqlGraphScript() throws Exception {
+    run("mysql-graph.id");
+  }
 }

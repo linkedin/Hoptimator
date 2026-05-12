@@ -1,33 +1,11 @@
 plugins {
   id 'java'
-  id 'java-test-fixtures'
   id 'maven-publish'
 }
 
 dependencies {
   implementation project(':hoptimator-api')
-  implementation project(':hoptimator-avro')
-  implementation project(':hoptimator-jdbc')
-  implementation project(':hoptimator-util')
-  implementation libs.avro
-  implementation libs.calcite.server
-  implementation libs.kubernetes.client
-
-  testFixturesImplementation libs.kubernetes.client
-  testFixturesImplementation libs.quidem
-  testFixturesImplementation project(':hoptimator-api')
-  testFixturesImplementation project(':hoptimator-util')
-  testFixturesImplementation project(':hoptimator-jdbc')
-  testFixturesImplementation(testFixtures(project(':hoptimator-jdbc')))
-
-  // These are included in case the respective Databases are installed
-  testRuntimeOnly project(':hoptimator-demodb')
-  testRuntimeOnly project(':hoptimator-mysql')
-
-  testCompileOnly libs.findbugs.annotations
-
-  testImplementation(testFixtures(project(':hoptimator-jdbc')))
-  testRuntimeOnly libs.slf4j.simple
+  implementation libs.cron.utils
 }
 
 publishing {
@@ -52,12 +30,12 @@ publishing {
   publications {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
-      artifactId = 'hoptimator-k8s'
+      artifactId = 'hoptimator-graph'
       version = System.getenv('VERSION')
       from components.java
       pom {
-        name = 'LinkedIn Hoptimator'
-        description = 'Multi-hop declarative data pipelines'
+        name = 'hoptimator-graph'
+        description = 'Pipeline graph rendering — SPI-driven providers and renderers'
         url = 'https://github.com/linkedin/Hoptimator'
         licenses {
           license {

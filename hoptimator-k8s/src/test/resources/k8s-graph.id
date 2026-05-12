@@ -1,0 +1,251 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 1: reverse lookup against a database with no Database CRD.
+# Expected: a single-node flowchart with no driver icon (lookup returns null).
+# ─────────────────────────────────────────────────────────────────────────────
+
+flowchart LR
+  n0[("FOO")]
+%% WARNING: no pipelines reference this resource — the identifier may not exist or no pipelines have been deployed against it yet.
+!graph table UNKNOWN.FOO
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 2: reverse lookup against a known seeded database. The ads-database has
+# schema=ADS and no driver field, so no icon prefix is rendered. The graph
+# resolves to just the root node since no pipelines depend on a fake table.
+# ─────────────────────────────────────────────────────────────────────────────
+
+flowchart LR
+  n0[("ADS.does-not-exist")]
+%% WARNING: no pipelines reference this resource — the identifier may not exist or no pipelines have been deployed against it yet.
+!graph table ADS.does-not-exist
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 3: partial materialized view
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view ADS."PAGE_VIEWS$reverse-field-order" as select MEMBER_URN as MEMBER_URN, CAMPAIGN_URN as PAGE_URN from ADS.AD_CLICKS;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"ads-pageviews-reverse-field-order<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("ADS.AD_CLICKS")]
+  n3[("ADS.PAGE_VIEWS")]
+  n2 --> n1
+  n1 --> n3
+!graph view ads.PAGE_VIEWS$reverse-field-order
+
+flowchart LR
+  n0[("ADS.AD_CLICKS")]
+  n1[/"ads-pageviews-reverse-field-order<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.PAGE_VIEWS")]
+  n0 --> n1
+  n1 --> n2
+!graph table ADS.AD_CLICKS
+
+flowchart LR
+  n0[("ADS.PAGE_VIEWS")]
+  n1[/"ads-pageviews-reverse-field-order<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.AD_CLICKS")]
+  n2 --> n1
+  n1 --> n0
+!graph table ADS.PAGE_VIEWS
+
+flowchart LR
+  n0[("ADS.PAGE_VIEWS$reverse-field-order")]
+%% WARNING: no pipelines reference this resource — the identifier may not exist or no pipelines have been deployed against it yet.
+!graph table ADS.PAGE_VIEWS$reverse-field-order
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 4: materialized view w/ join
+# Also tests combined graph with multiple views from the test above
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view ADS.MULTI as select first_name, last_name from ads.page_views natural join PROFILE.MEMBERS;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"ads-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("ADS.PAGE_VIEWS")]
+  n3[("PROFILE.MEMBERS")]
+  n4[("ADS.MULTI")]
+  n2 --> n1
+  n3 --> n1
+  n1 --> n4
+!graph view ADS.MULTI
+
+flowchart LR
+  n0[("PROFILE.MEMBERS")]
+  n1[/"ads-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.PAGE_VIEWS")]
+  n3[("ADS.MULTI")]
+  n2 --> n1
+  n0 --> n1
+  n1 --> n3
+!graph table PROFILE.MEMBERS
+
+flowchart LR
+  n0[("ADS.PAGE_VIEWS")]
+  n1[/"ads-pageviews-reverse-field-order<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.AD_CLICKS")]
+  n3[/"ads-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n4[("PROFILE.MEMBERS")]
+  n5[("ADS.MULTI")]
+  n2 --> n1
+  n1 --> n0
+  n0 --> n3
+  n4 --> n3
+  n3 --> n5
+!graph table ADS.PAGE_VIEWS
+
+flowchart LR
+  n0[("ADS.MULTI")]
+  n1[/"ads-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.PAGE_VIEWS")]
+  n3[("PROFILE.MEMBERS")]
+  n4[/"ads-pageviews-reverse-field-order<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n5[("ADS.AD_CLICKS")]
+  n2 --> n1
+  n3 --> n1
+  n1 --> n0
+  n5 --> n4
+  n4 --> n2
+!graph table ADS.MULTI
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 5: Depth checks
+# ─────────────────────────────────────────────────────────────────────────────
+
+# No expected change because depth 1 is bidirectional from source and sink
+flowchart LR
+  n0[("ADS.PAGE_VIEWS")]
+  n1[/"ads-pageviews-reverse-field-order<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.AD_CLICKS")]
+  n3[/"ads-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n4[("PROFILE.MEMBERS")]
+  n5[("ADS.MULTI")]
+  n2 --> n1
+  n1 --> n0
+  n0 --> n3
+  n4 --> n3
+  n3 --> n5
+!graph table ADS.PAGE_VIEWS --depth 1
+
+flowchart LR
+  n0[("ADS.MULTI")]
+  n1[/"ads-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.PAGE_VIEWS")]
+  n3[("PROFILE.MEMBERS")]
+  n2 --> n1
+  n3 --> n1
+  n1 --> n0
+!graph table ADS.MULTI --depth 1
+
+flowchart LR
+  n0[("ADS.MULTI")]
+%% WARNING: no pipelines reference this resource — the identifier may not exist or no pipelines have been deployed against it yet.
+!graph table ADS.MULTI --depth 0
+
+drop materialized view ADS.MULTI;
+(0 rows modified)
+
+!update
+
+drop materialized view ADS."PAGE_VIEWS$reverse-field-order";
+(0 rows modified)
+
+!update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 6: MV-on-MV inlining produces fan-out from the physical source.
+# AUDIENCE2 and AUDIENCE3 are defined to read from AUDIENCE, but Calcite
+# inlines AUDIENCE's body so the resulting pipelines all read directly
+# from ADS.AD_CLICKS. The graph reflects operational truth (post-inline),
+# not user intent, so `!graph table ADS.AD_CLICKS` fans out to 3 pipelines.
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view ADS.AUDIENCE as select MEMBER_URN as MEMBER_URN, CAMPAIGN_URN as PAGE_URN from ADS.AD_CLICKS;
+(0 rows modified)
+
+!update
+
+create or replace materialized view ADS.AUDIENCE2 as select PAGE_URN from ADS.AUDIENCE;
+(0 rows modified)
+
+!update
+
+create or replace materialized view ADS.AUDIENCE3 as select PAGE_URN from ADS.AUDIENCE;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"ads-audience2<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("ADS.AD_CLICKS")]
+  n3[("ADS.AUDIENCE2")]
+  n2 --> n1
+  n1 --> n3
+!graph view ADS.AUDIENCE2
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"ads-audience3<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("ADS.AD_CLICKS")]
+  n3[("ADS.AUDIENCE3")]
+  n2 --> n1
+  n1 --> n3
+!graph view ADS.AUDIENCE3
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"ads-audience<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("ADS.AD_CLICKS")]
+  n3[("ADS.AUDIENCE")]
+  n2 --> n1
+  n1 --> n3
+!graph view ADS.AUDIENCE
+
+flowchart LR
+  n0[("ADS.AD_CLICKS")]
+  n1[/"ads-audience<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("ADS.AUDIENCE")]
+  n3[/"ads-audience2<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n4[("ADS.AUDIENCE2")]
+  n5[/"ads-audience3<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n6[("ADS.AUDIENCE3")]
+  n0 --> n1
+  n1 --> n2
+  n0 --> n3
+  n3 --> n4
+  n0 --> n5
+  n5 --> n6
+!graph table ADS.AD_CLICKS
+
+drop materialized view ADS.AUDIENCE3;
+(0 rows modified)
+
+!update
+
+drop materialized view ADS.AUDIENCE2;
+(0 rows modified)
+
+!update
+
+drop materialized view ADS.AUDIENCE;
+(0 rows modified)
+
+!update

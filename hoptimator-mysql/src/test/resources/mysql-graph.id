@@ -1,0 +1,45 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3-level catalog/schema/table identifiers. mysql Database CRD has
+# catalog=MYSQL; pipelines stamp source paths as
+# [MYSQL, <schema>, <table>]. !graph table needs to resolve the catalog
+# name back to the CRD name so the slug matches.
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view mysql."testdb"."users$partial" as select "user_id" from mysql."testdb"."orders";
+(0 rows modified)
+
+!update
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"mysql-testdb-users-partial<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("MYSQL.testdb.orders")]
+  n3[("MYSQL.testdb.users")]
+  n2 --> n1
+  n1 --> n3
+!graph view MYSQL.testdb.users$partial
+
+flowchart LR
+  n0[("MYSQL.testdb.orders")]
+  n1[/"mysql-testdb-users-partial<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("MYSQL.testdb.users")]
+  n0 --> n1
+  n1 --> n2
+!graph table MYSQL.testdb.orders
+
+flowchart LR
+  n0[("MYSQL.testdb.users")]
+  n1[/"mysql-testdb-users-partial<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("MYSQL.testdb.orders")]
+  n2 --> n1
+  n1 --> n0
+!graph table MYSQL.testdb.users
+
+drop materialized view "MYSQL"."testdb"."users$partial";
+(0 rows modified)
+
+!update
