@@ -229,7 +229,11 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     String cronSchedule = create.cron != null
         ? ((SqlLiteral) create.cron).getValueAs(String.class) : null;
     UserJob job = new UserJob(jobNamespace, jobName);
-    Trigger trigger = new Trigger(name, job, targetPath, cronSchedule, options);
+    // Resolve the underlying database name the target table belongs to so the deployer can
+    // stamp depends-on labels: same identifier shape as Pipelines, so the dep-guard finds the
+    // trigger when somebody tries to drop the source it points at.
+    Source source = new Source(databaseOf(target), targetPath, Collections.emptyMap());
+    Trigger trigger = new Trigger(name, job, cronSchedule, options, source);
 
     Collection<Deployer> deployers = null;
     try {
@@ -253,6 +257,26 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
       throw new DdlException(create, e.getMessage(), e);
     }
+  }
+
+  /**
+   * Best-effort lookup of the database name that owns a Calcite Table. Mirrors what the
+   * {@code DROP TABLE} path does (lines 432–437) so triggers and tables agree on the same
+   * {@code (database, path)} identifier, which is what the dep-guard's depends-on labels are
+   * keyed on. Returns {@code null} for table types that don't carry a database (e.g. ad-hoc
+   * Calcite views) — depends-on labels are skipped in that case, so the trigger simply won't
+   * participate in the dep-guard.
+   */
+  private static String databaseOf(Table target) {
+    if (target instanceof HoptimatorJdbcTable) {
+      HoptimatorJdbcSchema jdbcSchema =
+          (HoptimatorJdbcSchema) ((HoptimatorJdbcTable) target).jdbcTable().jdbcSchema;
+      return jdbcSchema.databaseName();
+    }
+    if (target instanceof TemporaryTable) {
+      return ((TemporaryTable) target).databaseName();
+    }
+    return null;
   }
 
   // N.B. originally copy-pasted from Apache Calcite
@@ -307,7 +331,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     String name = drop.name.names.get(0);
 
-    Trigger trigger = new Trigger(name, null, new ArrayList<>(), null, new HashMap<>());
+    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null);
 
     Collection<Deployer> deployers = null;
     try {
@@ -344,7 +368,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, String.valueOf(paused));
-    Trigger trigger = new Trigger(name, null, new ArrayList<>(), null, options);
+    Trigger trigger = new Trigger(name, null, null, options, null);
 
     Collection<Deployer> deployers = null;
     try {

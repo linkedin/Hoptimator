@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
@@ -98,8 +100,7 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -117,8 +118,7 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "false");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -136,8 +136,7 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -148,11 +147,75 @@ class K8sTriggerDeployerTest {
   }
 
   @Test
+  void updateWithPausedOptionAlsoStampsDependsOnLabelsWhenDatabaseSet() throws SQLException {
+    // The partial-update path (paused-only) used to skip toK8sObject and never refresh the
+    // depends-on metadata. Pin down that re-applying the LogicalTable through this path now
+    // stamps the labels/annotation so visualization (and the dep-guard reverse lookup) works.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().paused(true));
+    triggers.add(existing);
+
+    Map<String, String> options = new HashMap<>();
+    options.put(Trigger.PAUSED_OPTION, "true");
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), null, options, new Source("mysql-db", Arrays.asList("MYSQL", "testdb", "events"), Collections.emptyMap()));
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+
+    deployer.update();
+
+    String expectedLabel = PipelineDependencyLabels.labelKey(
+        "mysql-db", Arrays.asList("MYSQL", "testdb", "events"));
+    String expectedIdentifier = PipelineDependencyLabels.identifier(
+        "mysql-db", Arrays.asList("MYSQL", "testdb", "events"));
+    assertNotNull(existing.getMetadata().getLabels(), "labels must be set after partial update");
+    assertTrue(existing.getMetadata().getLabels().containsKey(expectedLabel),
+        "depends-on label must be stamped on the partial-update path: " + existing.getMetadata().getLabels());
+    assertNotNull(existing.getMetadata().getAnnotations(), "annotations must be set");
+    assertEquals(expectedIdentifier,
+        existing.getMetadata().getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES));
+  }
+
+  @Test
+  void updateStampsSinkLabelWhenTriggerCarriesASink() throws SQLException {
+    // Bridging-tier triggers (LogicalTableDeployer's offline→online flow) carry a Sink in
+    // addition to their source. Pin that the partial-update path stamps both source and sink
+    // depends-on labels so the dep-guard reverse lookup finds the trigger from either end.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().paused(true));
+    triggers.add(existing);
+
+    Map<String, String> options = new HashMap<>();
+    options.put(Trigger.PAUSED_OPTION, "true");
+    Source source = new Source("hdfs-db", Arrays.asList("HDFS", "events"), Collections.emptyMap());
+    Sink sink = new Sink("venice-db", Arrays.asList("VENICE", "events"), Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), null, options, source, sink);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    deployer.update();
+
+    String sourceLabel = PipelineDependencyLabels.labelKey(
+        "hdfs-db", Arrays.asList("HDFS", "events"));
+    String sinkLabel = PipelineDependencyLabels.labelKey(
+        "venice-db", Arrays.asList("VENICE", "events"));
+    String sinkIdentifier = PipelineDependencyLabels.identifier(
+        "venice-db", Arrays.asList("VENICE", "events"));
+
+    assertTrue(existing.getMetadata().getLabels().containsKey(sourceLabel),
+        "source-side depends-on label must be stamped: " + existing.getMetadata().getLabels());
+    assertTrue(existing.getMetadata().getLabels().containsKey(sinkLabel),
+        "sink-side depends-on label must be stamped: " + existing.getMetadata().getLabels());
+    assertEquals(sinkIdentifier,
+        existing.getMetadata().getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY_SINK),
+        "depends-on-sink annotation must record the sink identifier verbatim");
+  }
+
+  @Test
   void updateWithPausedOptionThrowsWhenTriggerNotFound() {
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -166,8 +229,7 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1TableTriggerSpec());
     triggers.add(existing);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -178,8 +240,7 @@ class K8sTriggerDeployerTest {
 
   @Test
   void deleteThrowsWhenTriggerNotFound() {
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -194,8 +255,7 @@ class K8sTriggerDeployerTest {
             + "metadata:\n  name: {{name}}"));
     jobTemplates.add(jobTemplate);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -213,8 +273,7 @@ class K8sTriggerDeployerTest {
     jobTemplates.add(jobTemplate);
 
     // No job.properties.* options — spec should NOT have jobProperties set
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
@@ -234,8 +293,7 @@ class K8sTriggerDeployerTest {
     Map<String, String> options = new HashMap<>();
     options.put("job.properties.parallelism", "4");
     options.put("job.properties.restart-strategy", "never");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options, new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
@@ -258,8 +316,7 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put("someKey", "someValue");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "MY_TABLE"), "5 4 * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "5 4 * * *", options, new Source(null, Arrays.asList("SCHEMA", "MY_TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
@@ -282,8 +339,7 @@ class K8sTriggerDeployerTest {
     options.put("job.properties.key1", "val1");
     options.put("job.properties.key2", "val2");
     options.put("other.option", "ignored");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options, new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();
@@ -305,8 +361,7 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob(null, "myjob"), "0 * * * *", options, new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -326,8 +381,7 @@ class K8sTriggerDeployerTest {
     jobTemplates.add(jobTemplate);
 
     // No PAUSED_OPTION → should fall through to super.update()
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     // super.update() calls api.update() via K8sDeployer; FakeK8sApi.update adds to list
@@ -339,8 +393,7 @@ class K8sTriggerDeployerTest {
   @Test
   void deleteOnNonExistingTriggerThrowsSqlException() {
     // Graceful handling when trigger not found
-    Trigger trigger = new Trigger("NONEXISTENT", new UserJob(null, "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("NONEXISTENT", new UserJob(null, "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
 
@@ -360,8 +413,7 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1TableTriggerSpec().paused(true));
     triggers.add(existing);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -378,8 +430,7 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1TableTriggerSpec().paused(false));
     triggers.add(existing);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"),
-        Arrays.asList("schema", "table"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "myjob"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("schema", "table"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -399,7 +450,7 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "false");
-    Trigger trigger = new Trigger("MY_TRIGGER", null, new ArrayList<>(), null, options);
+    Trigger trigger = new Trigger("MY_TRIGGER", null, null, options, new Source(null, new ArrayList<>(), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -418,8 +469,7 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
     jobTemplates.add(jobTemplate);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -443,8 +493,7 @@ class K8sTriggerDeployerTest {
         .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
     jobTemplates.add(jobTemplate);
 
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", Collections.emptyMap());
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", Collections.emptyMap(), new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
@@ -466,8 +515,7 @@ class K8sTriggerDeployerTest {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, "true");
-    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"),
-        Arrays.asList("SCHEMA", "TABLE"), "0 * * * *", options);
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *", options, new Source(null, Arrays.asList("SCHEMA", "TABLE"), Collections.emptyMap()));
 
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     List<String> specs = deployer.specify();

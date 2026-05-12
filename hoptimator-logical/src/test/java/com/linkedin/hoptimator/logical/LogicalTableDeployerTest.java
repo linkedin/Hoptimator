@@ -5,11 +5,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.function.Consumer;
 
+import com.linkedin.hoptimator.jdbc.ValidationService;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -87,7 +89,7 @@ class LogicalTableDeployerTest {
   MockedStatic<HoptimatorDriver> hoptimatorDriverMock;
 
   @Mock
-  MockedStatic<com.linkedin.hoptimator.jdbc.ValidationService> validationServiceMock;
+  MockedStatic<ValidationService> validationServiceMock;
 
   @Mock
   K8sLogicalTableDeployer mockCrdDeployer;
@@ -144,7 +146,7 @@ class LogicalTableDeployerTest {
 
       @Override
       void deployPipelineBundle(String fromTier, String toTier,
-          Map<String, com.linkedin.hoptimator.k8s.models.V1alpha1Database> tierDatabases,
+          Map<String, V1alpha1Database> tierDatabases,
           Map<String, Source> tierSources,
           K8sContext ownerContext, boolean update) {
         // No-op in CRD-focused tests — pipeline deployment is tested separately.
@@ -973,10 +975,10 @@ class LogicalTableDeployerTest {
 
     // testSource() has path [logical, testevent]; offline tier's Database has schema=OFFLINE.
     // Expect the trigger to target the offline physical schema, not the logical one.
-    assertEquals("OFFLINE", capture.trigger.schema(),
-        "Trigger schema must point at the offline tier's physical schema");
-    assertEquals("testevent", capture.trigger.table(),
-        "Trigger table must be the logical table name");
+    assertEquals("OFFLINE", capture.trigger.source().schema(),
+        "Trigger source must point at the offline tier's physical schema");
+    assertEquals("testevent", capture.trigger.source().table(),
+        "Trigger source table must be the logical table name");
   }
 
   @Test
@@ -1054,7 +1056,7 @@ class LogicalTableDeployerTest {
     doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
 
     // CREATE TABLE WITH ("ab.cd" "customValue", "job.properties.online.name" "testevent-online")
-    Map<String, String> sourceOptions = new java.util.HashMap<>();
+    Map<String, String> sourceOptions = new HashMap<>();
     sourceOptions.put("ab.cd", "customValue");
     sourceOptions.put("job.properties.online.name", "testevent-online");
     Source src = new Source("logical", Arrays.asList("logical", "testevent"), sourceOptions);
