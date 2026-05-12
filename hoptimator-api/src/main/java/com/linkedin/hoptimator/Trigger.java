@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator;
 
+import javax.annotation.Nullable;
 import java.util.Map;
 
 
@@ -14,19 +15,13 @@ public class Trigger implements Deployable {
   private final Source source;
   private final Sink sink;
 
-  public Trigger(String name, UserJob job, String cronSchedule, Map<String, String> options,
-      Source source) {
-    this(name, job, cronSchedule, options, source, null);
-  }
-
   /**
-   * Variant accepting an optional downstream sink. Set by {@code LogicalTableDeployer} on
-   * bridging-tier triggers so the visualizer can render the directional flow
-   * {@code source -.-> trigger -.-> sink}, and so the dep-guard finds the sink-side
-   * dependency. {@code null} for user-created triggers (no declared sink).
+   * Contains an optional downstream sink for triggers that operate between a source
+   * sink (think ETL/rETL).
+   * TODO: need to collapse the "job.properties.online.table.name" logic into a sink for adhoc triggers
    */
   public Trigger(String name, UserJob job, String cronSchedule, Map<String, String> options,
-      Source source, Sink sink) {
+      Source source, @Nullable Sink sink) {
     this.name = name;
     this.job = job;
     this.cronSchedule = cronSchedule;
@@ -58,7 +53,7 @@ public class Trigger implements Deployable {
   }
 
   /** Downstream sink the trigger's job writes to, or {@code null} when the trigger has no declared sink. */
-  public Sink sink() {
+  public @Nullable Sink sink() {
     return sink;
   }
 

@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.k8s;
 
-import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
@@ -12,6 +11,7 @@ import com.linkedin.hoptimator.util.Template;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -81,28 +81,15 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
       meta = new V1ObjectMeta();
       target.metadata(meta);
     }
-    Map<String, String> labels = meta.getLabels() != null ? meta.getLabels() : new HashMap<>();
-    Map<String, String> annotations = meta.getAnnotations() != null ? meta.getAnnotations() : new HashMap<>();
     Source source = trigger.source();
-    if (source != null && source.database() != null) {
-      String labelKey = PipelineDependencyLabels.labelKey(source.database(), source.path());
-      String identifier = PipelineDependencyLabels.identifier(source.database(), source.path());
-      labels.put(labelKey, identifier.length() <= 63 ? identifier : identifier.substring(0, 63));
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, identifier);
-    }
-    Sink sink = trigger.sink();
-    if (sink != null) {
-      String sinkLabelKey = PipelineDependencyLabels.labelKey(sink.database(), sink.path());
-      String sinkIdentifier = PipelineDependencyLabels.identifier(sink.database(), sink.path());
-      labels.put(sinkLabelKey,
-          sinkIdentifier.length() <= 63 ? sinkIdentifier : sinkIdentifier.substring(0, 63));
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SINK, sinkIdentifier);
-    }
+    DependencyLabels.stamp(meta,
+        source != null ? Collections.singletonList(source) : Collections.emptyList(),
+        trigger.sink());
     if (trigger.job() != null) {
+      Map<String, String> annotations = meta.getAnnotations() != null ? meta.getAnnotations() : new HashMap<>();
       annotations.put(JOB_TEMPLATE_ANNOTATION, trigger.job().name());
+      meta.setAnnotations(annotations);
     }
-    meta.setLabels(labels);
-    meta.setAnnotations(annotations);
   }
 
   @Override
@@ -135,28 +122,20 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
         .with("schema", source != null ? source.schema() : null)
         .with(properties);
     V1alpha1JobTemplate jobTemplate = jobTemplateApi.get(jobNamespace, jobName);
+    V1ObjectMeta meta = new V1ObjectMeta().name(triggerName);
     Map<String, String> labels = new HashMap<>();
     labels.put("view", viewName); // a corresponding view object may or may not exist.
-    Map<String, String> annotations = new HashMap<>();
+    meta.setLabels(labels);
     // Stamp depends-on labels so the visualizer (and the dep-guard) can find triggers via
     // label selector. The Trigger's source is the upstream table the job reads from. When the
     // trigger carries a Sink (set by LogicalTableDeployer for bridging triggers), we
     // additionally stamp the sink — that's what makes reverse-ETL flows render as connectors.
-    if (source != null && source.database() != null) {
-      String labelKey = PipelineDependencyLabels.labelKey(source.database(), source.path());
-      String identifier = PipelineDependencyLabels.identifier(source.database(), source.path());
-      labels.put(labelKey, identifier.length() <= 63 ? identifier : identifier.substring(0, 63));
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, identifier);
-    }
-    Sink sink = trigger.sink();
-    if (sink != null) {
-      String sinkLabelKey = PipelineDependencyLabels.labelKey(sink.database(), sink.path());
-      String sinkIdentifier = PipelineDependencyLabels.identifier(sink.database(), sink.path());
-      labels.put(sinkLabelKey,
-          sinkIdentifier.length() <= 63 ? sinkIdentifier : sinkIdentifier.substring(0, 63));
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SINK, sinkIdentifier);
-    }
+    DependencyLabels.stamp(meta,
+        source != null ? Collections.singletonList(source) : Collections.emptyList(),
+        trigger.sink());
+    Map<String, String> annotations = meta.getAnnotations() != null ? meta.getAnnotations() : new HashMap<>();
     annotations.put(JOB_TEMPLATE_ANNOTATION, trigger.job().name());
+    meta.setAnnotations(annotations);
     String template = jobTemplate.getSpec().getYaml();
     String rendered = new Template.SimpleTemplate(template).render(env);
     Map<String, String> jobProps = new HashMap<>();
@@ -175,10 +154,6 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     }
     if (trigger.options().containsKey(Trigger.PAUSED_OPTION)) {
       spec.paused("true".equals(trigger.options().get(Trigger.PAUSED_OPTION)));
-    }
-    V1ObjectMeta meta = new V1ObjectMeta().name(triggerName).labels(labels);
-    if (annotations != null) {
-      meta.setAnnotations(annotations);
     }
     return new V1alpha1TableTrigger()
         .kind(K8sApiEndpoints.TABLE_TRIGGERS.kind())

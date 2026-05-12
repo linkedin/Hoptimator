@@ -62,11 +62,11 @@ class K8sPipelineDeployerTest {
 
     assertEquals(3, labels.size(), "should have one label per source + one for the sink");
     assertTrue(labels.containsKey(
-        PipelineDependencyLabels.labelKey("kafka1", Collections.singletonList("topic-a"))));
+        DependencyLabels.labelKey("kafka1", Collections.singletonList("topic-a"))));
     assertTrue(labels.containsKey(
-        PipelineDependencyLabels.labelKey("kafka2", Collections.singletonList("topic-b"))));
+        DependencyLabels.labelKey("kafka2", Collections.singletonList("topic-b"))));
     assertTrue(labels.containsKey(
-        PipelineDependencyLabels.labelKey("mysql", Collections.singletonList("outbox"))));
+        DependencyLabels.labelKey("mysql", Collections.singletonList("outbox"))));
   }
 
   @Test
@@ -79,8 +79,8 @@ class K8sPipelineDeployerTest {
     V1alpha1Pipeline pipeline = deployer.toK8sObject();
     Map<String, String> annotations = pipeline.getMetadata().getAnnotations();
 
-    String sources = annotations.get(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
-    String sink = annotations.get(PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+    String sources = annotations.get(DependencyLabels.ANNOTATION_KEY_SOURCES);
+    String sink = annotations.get(DependencyLabels.ANNOTATION_KEY_SINK);
     assertNotNull(sources);
     assertNotNull(sink);
     assertTrue(sources.contains("kafka_topic"),

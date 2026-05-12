@@ -18,7 +18,7 @@ class TriggerTest {
     UserJob userJob = new UserJob("ns", "jobName");
     Map<String, String> options = Map.of("paused", "true");
     Source source = new Source("db", List.of("schema", "table"), Collections.emptyMap());
-    Trigger trigger = new Trigger("myTrigger", userJob, "0 * * * *", options, source);
+    Trigger trigger = new Trigger("myTrigger", userJob, "0 * * * *", options, source, null);
 
     assertEquals("myTrigger", trigger.name());
     assertEquals(userJob, trigger.job());
@@ -33,7 +33,7 @@ class TriggerTest {
 
   @Test
   void testNullSourceAccessor() {
-    Trigger trigger = new Trigger("t", null, null, Map.of(), null);
+    Trigger trigger = new Trigger("t", null, null, Map.of(), null, null);
     assertNull(trigger.source());
     assertNull(trigger.sink());
   }
@@ -41,13 +41,13 @@ class TriggerTest {
   @Test
   void testToString() {
     Source source = new Source("db", List.of("a", "b"), Collections.emptyMap());
-    Trigger trigger = new Trigger("myTrig", null, null, Map.of(), source);
+    Trigger trigger = new Trigger("myTrig", null, null, Map.of(), source, null);
     assertEquals("Trigger[myTrig, a.b]", trigger.toString());
   }
 
   @Test
   void testToStringWithoutSource() {
-    Trigger trigger = new Trigger("myTrig", null, null, Map.of(), null);
+    Trigger trigger = new Trigger("myTrig", null, null, Map.of(), null, null);
     assertEquals("Trigger[myTrig, <unbound>]", trigger.toString());
   }
 }

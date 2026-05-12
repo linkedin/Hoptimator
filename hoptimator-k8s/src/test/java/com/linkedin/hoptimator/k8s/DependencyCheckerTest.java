@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-class PipelineDependencyCheckerTest {
+class DependencyCheckerTest {
 
   @Mock
   private K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi;
@@ -58,7 +58,7 @@ class PipelineDependencyCheckerTest {
     }
     if (annotationValue != null) {
       Map<String, String> annotations = new HashMap<>();
-      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, annotationValue);
+      annotations.put(DependencyLabels.ANNOTATION_KEY_SOURCES, annotationValue);
       meta.setAnnotations(annotations);
     }
     return meta;
@@ -66,7 +66,7 @@ class PipelineDependencyCheckerTest {
 
   /** Default both APIs to empty so each test only stubs the side it cares about. */
   private void emptyByDefault() throws SQLException {
-    String labelKey = PipelineDependencyLabels.labelKey(DB, PATH);
+    String labelKey = DependencyLabels.labelKey(DB, PATH);
     lenient().when(pipelineApi.select(labelKey)).thenReturn(Collections.emptyList());
     lenient().when(triggerApi.select(labelKey)).thenReturn(Collections.emptyList());
   }
@@ -75,18 +75,18 @@ class PipelineDependencyCheckerTest {
   void passesWhenNoMatches() throws SQLException {
     emptyByDefault();
 
-    assertDoesNotThrow(() -> PipelineDependencyChecker.assertNoExternalDependents(
+    assertDoesNotThrow(() -> DependencyChecker.assertNoExternalDependents(
         pipelineApi, triggerApi, DB, PATH, null, null));
   }
 
   @Test
   void blocksOnExternalPipeline() throws SQLException {
     emptyByDefault();
-    when(pipelineApi.select(PipelineDependencyLabels.labelKey(DB, PATH)))
+    when(pipelineApi.select(DependencyLabels.labelKey(DB, PATH)))
         .thenReturn(Collections.singletonList(pipeline("ext-pipe", "View", "owner", IDENTIFIER)));
 
     SQLException ex = assertThrows(SQLException.class,
-        () -> PipelineDependencyChecker.assertNoExternalDependents(
+        () -> DependencyChecker.assertNoExternalDependents(
             pipelineApi, triggerApi, DB, PATH, null, null));
     assertTrue(ex.getMessage().contains("ext-pipe"));
     assertTrue(ex.getMessage().contains(IDENTIFIER));
@@ -97,11 +97,11 @@ class PipelineDependencyCheckerTest {
   @Test
   void blocksOnExternalTrigger() throws SQLException {
     emptyByDefault();
-    when(triggerApi.select(PipelineDependencyLabels.labelKey(DB, PATH)))
+    when(triggerApi.select(DependencyLabels.labelKey(DB, PATH)))
         .thenReturn(Collections.singletonList(trigger("backfill", "LogicalTable", "lt-name", IDENTIFIER)));
 
     SQLException ex = assertThrows(SQLException.class,
-        () -> PipelineDependencyChecker.assertNoExternalDependents(
+        () -> DependencyChecker.assertNoExternalDependents(
             pipelineApi, triggerApi, DB, PATH, null, null));
     assertTrue(ex.getMessage().contains("trigger/backfill"),
         "blocker should be tagged with its CRD kind so the user knows what to look at: "
@@ -113,34 +113,34 @@ class PipelineDependencyCheckerTest {
   @Test
   void skipsSelfOwnedPipeline() throws SQLException {
     emptyByDefault();
-    when(pipelineApi.select(PipelineDependencyLabels.labelKey(DB, PATH)))
+    when(pipelineApi.select(DependencyLabels.labelKey(DB, PATH)))
         .thenReturn(Collections.singletonList(pipeline("owned-pipe", "LogicalTable", "self-name", IDENTIFIER)));
 
-    assertDoesNotThrow(() -> PipelineDependencyChecker.assertNoExternalDependents(
+    assertDoesNotThrow(() -> DependencyChecker.assertNoExternalDependents(
         pipelineApi, triggerApi, DB, PATH, "LogicalTable", "self-name"));
   }
 
   @Test
   void skipsSelfOwnedTrigger() throws SQLException {
     emptyByDefault();
-    when(triggerApi.select(PipelineDependencyLabels.labelKey(DB, PATH)))
+    when(triggerApi.select(DependencyLabels.labelKey(DB, PATH)))
         .thenReturn(Collections.singletonList(trigger("owned-trigger", "LogicalTable", "self-name", IDENTIFIER)));
 
     // Triggers spawned by the same LogicalTable cascade-delete with the parent — they must not
     // count as external dependents or you can't drop the LT at all.
-    assertDoesNotThrow(() -> PipelineDependencyChecker.assertNoExternalDependents(
+    assertDoesNotThrow(() -> DependencyChecker.assertNoExternalDependents(
         pipelineApi, triggerApi, DB, PATH, "LogicalTable", "self-name"));
   }
 
   @Test
   void blocksOnExternalWhenSomeAreSelfOwned() throws SQLException {
     emptyByDefault();
-    when(pipelineApi.select(PipelineDependencyLabels.labelKey(DB, PATH))).thenReturn(Arrays.asList(
+    when(pipelineApi.select(DependencyLabels.labelKey(DB, PATH))).thenReturn(Arrays.asList(
         pipeline("owned-pipe", "LogicalTable", "self-name", IDENTIFIER),
         pipeline("external-pipe", "View", "other-owner", IDENTIFIER)));
 
     SQLException ex = assertThrows(SQLException.class,
-        () -> PipelineDependencyChecker.assertNoExternalDependents(
+        () -> DependencyChecker.assertNoExternalDependents(
             pipelineApi, triggerApi, DB, PATH, "LogicalTable", "self-name"));
     assertTrue(ex.getMessage().contains("external-pipe"));
     assertFalse(ex.getMessage().contains("owned-pipe"), "self-owned pipeline must not be listed");
@@ -151,11 +151,11 @@ class PipelineDependencyCheckerTest {
     emptyByDefault();
     // Pipeline labels collide on the slug (which is what api.select matched on) but the
     // annotation reveals the actual identifier is different — so this should NOT block.
-    when(pipelineApi.select(PipelineDependencyLabels.labelKey(DB, PATH)))
+    when(pipelineApi.select(DependencyLabels.labelKey(DB, PATH)))
         .thenReturn(Collections.singletonList(pipeline("colliding-pipe", "View", "owner",
             "some-other-database/some-other-path")));
 
-    assertDoesNotThrow(() -> PipelineDependencyChecker.assertNoExternalDependents(
+    assertDoesNotThrow(() -> DependencyChecker.assertNoExternalDependents(
         pipelineApi, triggerApi, DB, PATH, null, null));
   }
 
@@ -164,11 +164,11 @@ class PipelineDependencyCheckerTest {
     emptyByDefault();
     // A pipeline with the matching label but no depends-on annotation (pre-labeling migration
     // case, or future code path that didn't write the annotation) is still treated as a blocker.
-    when(pipelineApi.select(PipelineDependencyLabels.labelKey(DB, PATH)))
+    when(pipelineApi.select(DependencyLabels.labelKey(DB, PATH)))
         .thenReturn(Collections.singletonList(pipeline("legacy-pipe", "View", "owner", null)));
 
     SQLException ex = assertThrows(SQLException.class,
-        () -> PipelineDependencyChecker.assertNoExternalDependents(
+        () -> DependencyChecker.assertNoExternalDependents(
             pipelineApi, triggerApi, DB, PATH, null, null));
     assertTrue(ex.getMessage().contains("legacy-pipe"));
   }
@@ -176,11 +176,11 @@ class PipelineDependencyCheckerTest {
   @Test
   void errorMessageIncludesOwnerKindAndName() throws SQLException {
     emptyByDefault();
-    when(pipelineApi.select(PipelineDependencyLabels.labelKey(DB, PATH)))
+    when(pipelineApi.select(DependencyLabels.labelKey(DB, PATH)))
         .thenReturn(Collections.singletonList(pipeline("ext-pipe", "View", "owner", IDENTIFIER)));
 
     SQLException ex = assertThrows(SQLException.class,
-        () -> PipelineDependencyChecker.assertNoExternalDependents(
+        () -> DependencyChecker.assertNoExternalDependents(
             pipelineApi, triggerApi, DB, PATH, null, null));
     assertTrue(ex.getMessage().contains("View/owner"),
         "error should name the owning View so the user knows what to unhook: " + ex.getMessage());
@@ -189,14 +189,14 @@ class PipelineDependencyCheckerTest {
   @Test
   void errorMessageListsAllBlockersAcrossKinds() throws SQLException {
     emptyByDefault();
-    when(pipelineApi.select(PipelineDependencyLabels.labelKey(DB, PATH))).thenReturn(Arrays.asList(
+    when(pipelineApi.select(DependencyLabels.labelKey(DB, PATH))).thenReturn(Arrays.asList(
         pipeline("p1", "View", "owner1", IDENTIFIER),
         pipeline("p2", "View", "owner2", IDENTIFIER)));
-    when(triggerApi.select(PipelineDependencyLabels.labelKey(DB, PATH))).thenReturn(
+    when(triggerApi.select(DependencyLabels.labelKey(DB, PATH))).thenReturn(
         Collections.singletonList(trigger("t1", "LogicalTable", "lt-name", IDENTIFIER)));
 
     SQLException ex = assertThrows(SQLException.class,
-        () -> PipelineDependencyChecker.assertNoExternalDependents(
+        () -> DependencyChecker.assertNoExternalDependents(
             pipelineApi, triggerApi, DB, PATH, null, null));
     assertTrue(ex.getMessage().contains("pipeline/p1"));
     assertTrue(ex.getMessage().contains("pipeline/p2"));

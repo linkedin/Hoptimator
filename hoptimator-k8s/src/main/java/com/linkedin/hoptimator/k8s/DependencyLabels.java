@@ -4,23 +4,29 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Collection;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
+
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 
 
 /**
- * Computes the labels and annotations that encode a Pipeline CRD's dependency edges.
+ * Encodes a resource's dependency edges as K8s labels + annotations. Used by both
+ * {@link K8sPipelineDeployer} and {@link K8sTriggerDeployer} so the dep-guard and
+ * the visualizer can find dependents with a single label-selector query.
  *
- * <p>Every source and sink a pipeline references is recorded as a label:
+ * <p>Every source and sink the resource references becomes a label:
  * {@code hoptimator.linkedin.com/depends-on-<slug>: "<database>_<pathString>"} where
  * {@code <slug>} is a deterministic hash derived from {@code database + "_" + pathString}.
  * The hash keeps label keys within Kubernetes's 63-character name limit for arbitrary paths,
- * and lets {@code K8sApi.select} filter pipelines by dependency on the server.
+ * and lets {@code K8sApi.select} filter by dependency on the server.
  *
  * <p>Two annotations preserve the directional information the labels lose:
  * <ul>
@@ -32,11 +38,11 @@ import com.linkedin.hoptimator.Source;
  *   <li><b>Collision guard</b> for the delete-time dependency checker — a label match is only
  *       trusted when the resource appears in either annotation, so slug collisions and stale
  *       labels (from {@link K8sApi#update}'s additive label merge) can't produce false positives.</li>
- *   <li><b>Direction recovery</b> for visualization — the renderer draws source → pipeline → sink
+ *   <li><b>Direction recovery</b> for visualization — the renderer draws source → resource → sink
  *       arrows from the split.</li>
  * </ol>
  */
-public final class PipelineDependencyLabels {
+public final class DependencyLabels {
 
   static final String LABEL_PREFIX = "hoptimator.linkedin.com/depends-on-";
   /** Annotation listing only source identifiers. */
@@ -47,7 +53,7 @@ public final class PipelineDependencyLabels {
   private static final int SLUG_LENGTH = 16;   // 64 bits of SHA-256 → ~1 in 1.8e19 collisions
   private static final int MAX_LABEL_VALUE = 63;
 
-  private PipelineDependencyLabels() {
+  private DependencyLabels() {
   }
 
   /**
@@ -67,46 +73,40 @@ public final class PipelineDependencyLabels {
     return sb.toString();
   }
 
-  /** Label key a Pipeline carries if it depends on the given resource. */
+  /** Label key a resource carries if it depends on the given source/sink. */
   public static String labelKey(String database, Iterable<String> path) {
     return LABEL_PREFIX + slug(database, path);
   }
 
   /**
-   * Labels to stamp on a Pipeline CRD — one entry per source <em>and</em> the sink. Both edges
-   * matter to the guard: dropping a source orphans pipelines that read from it; dropping a sink
-   * orphans pipelines that write to it.
+   * Stamps the depends-on labels and directional annotations onto {@code meta}, merging with any
+   * existing labels/annotations on the object. Both edges matter to the guard: dropping a source
+   * orphans resources that read from it; dropping a sink orphans resources that write to it.
    *
-   * <p>Keys are the same as {@link #labelKey}. Values are the readable identifier, truncated
-   * to 63 chars if necessary (the annotation preserves the untruncated form). Values are
-   * for debugging purposes only.
+   * <p>Sources whose {@code database()} is null are skipped — they don't have a stable identifier.
    */
-  public static Map<String, String> labelsFor(Collection<Source> sources, Sink sink) {
-    Map<String, String> labels = new LinkedHashMap<>();
+  public static void stamp(V1ObjectMeta meta, Collection<Source> sources, @Nullable Sink sink) {
+    Map<String, String> labels = meta.getLabels() != null ? meta.getLabels() : new HashMap<>();
+    Map<String, String> annotations = meta.getAnnotations() != null ? meta.getAnnotations() : new HashMap<>();
+    Set<String> sourceIds = new LinkedHashSet<>();
     for (Source src : sources) {
-      labels.put(labelKey(src.database(), src.path()), truncate(identifier(src.database(), src.path())));
+      if (src == null || src.database() == null) {
+        continue;
+      }
+      String id = identifier(src.database(), src.path());
+      labels.put(labelKey(src.database(), src.path()), truncate(id));
+      sourceIds.add(id);
     }
-    if (sink != null) {
-      labels.put(labelKey(sink.database(), sink.path()), truncate(identifier(sink.database(), sink.path())));
+    if (!sourceIds.isEmpty()) {
+      annotations.put(ANNOTATION_KEY_SOURCES, String.join(",", sourceIds));
     }
-    return labels;
-  }
-
-  /** Comma-separated list of source identifiers (no sink). Empty string if no sources. */
-  public static String sourcesAnnotation(Collection<Source> sources) {
-    Set<String> ids = new LinkedHashSet<>();
-    for (Source src : sources) {
-      ids.add(identifier(src.database(), src.path()));
+    if (sink != null && sink.database() != null) {
+      String id = identifier(sink.database(), sink.path());
+      labels.put(labelKey(sink.database(), sink.path()), truncate(id));
+      annotations.put(ANNOTATION_KEY_SINK, id);
     }
-    return String.join(",", ids);
-  }
-
-  /** Single sink identifier, or {@code null} if there is no sink. */
-  public static String sinkAnnotation(Sink sink) {
-    if (sink == null) {
-      return null;
-    }
-    return identifier(sink.database(), sink.path());
+    meta.setLabels(labels);
+    meta.setAnnotations(annotations);
   }
 
   /** Parses the collision-guard annotation back into the set of identifiers it encoded. */

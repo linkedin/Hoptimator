@@ -233,7 +233,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     // stamp depends-on labels: same identifier shape as Pipelines, so the dep-guard finds the
     // trigger when somebody tries to drop the source it points at.
     Source source = new Source(databaseOf(target), targetPath, Collections.emptyMap());
-    Trigger trigger = new Trigger(name, job, cronSchedule, options, source);
+    Trigger trigger = new Trigger(name, job, cronSchedule, options, source, null);
 
     Collection<Deployer> deployers = null;
     try {
@@ -261,11 +261,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   /**
    * Best-effort lookup of the database name that owns a Calcite Table. Mirrors what the
-   * {@code DROP TABLE} path does (lines 432–437) so triggers and tables agree on the same
-   * {@code (database, path)} identifier, which is what the dep-guard's depends-on labels are
-   * keyed on. Returns {@code null} for table types that don't carry a database (e.g. ad-hoc
-   * Calcite views) — depends-on labels are skipped in that case, so the trigger simply won't
-   * participate in the dep-guard.
+   * {@code DROP TABLE} path does so triggers and tables agree on the same
+   * {@code (database, path)} identifier.
    */
   private static String databaseOf(Table target) {
     if (target instanceof HoptimatorJdbcTable) {
@@ -331,7 +328,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     String name = drop.name.names.get(0);
 
-    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null);
+    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null, null);
 
     Collection<Deployer> deployers = null;
     try {
@@ -368,7 +365,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, String.valueOf(paused));
-    Trigger trigger = new Trigger(name, null, null, options, null);
+    Trigger trigger = new Trigger(name, null, null, options, null, null);
 
     Collection<Deployer> deployers = null;
     try {

@@ -3,9 +3,7 @@ package com.linkedin.hoptimator.k8s;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
@@ -19,7 +17,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
 /**
  * Deploys a Pipeline object. Stamps {@code depends-on-*} labels and a {@code depends-on}
  * collision-guard annotation describing which sources/sink the pipeline references, so
- * {@link PipelineDependencyChecker} can look up dependents by label selector at delete time.
+ * {@link DependencyChecker} can look up dependents by label selector at delete time.
  *
  * <p>{@link K8sApi#update} merges labels additively, so stale {@code depends-on-*} labels from
  * a previous version of the pipeline's SQL can linger. Correctness is preserved by the
@@ -48,20 +46,7 @@ class K8sPipelineDeployer extends K8sDeployer<V1alpha1Pipeline, V1alpha1Pipeline
   @Override
   protected V1alpha1Pipeline toK8sObject() throws SQLException {
     V1ObjectMeta meta = new V1ObjectMeta().name(name);
-    Map<String, String> labels = PipelineDependencyLabels.labelsFor(sources, sink);
-    if (!labels.isEmpty()) {
-      meta.setLabels(new HashMap<>(labels));
-      Map<String, String> annotations = new HashMap<>();
-      String sourcesAnno = PipelineDependencyLabels.sourcesAnnotation(sources);
-      if (!sourcesAnno.isEmpty()) {
-        annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES, sourcesAnno);
-      }
-      String sinkAnno = PipelineDependencyLabels.sinkAnnotation(sink);
-      if (sinkAnno != null) {
-        annotations.put(PipelineDependencyLabels.ANNOTATION_KEY_SINK, sinkAnno);
-      }
-      meta.setAnnotations(annotations);
-    }
+    DependencyLabels.stamp(meta, sources, sink);
     return new V1alpha1Pipeline().kind(K8sApiEndpoints.PIPELINES.kind())
         .apiVersion(K8sApiEndpoints.PIPELINES.apiVersion())
         .metadata(meta)

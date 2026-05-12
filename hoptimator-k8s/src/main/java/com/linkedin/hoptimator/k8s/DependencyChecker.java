@@ -34,9 +34,9 @@ import javax.annotation.Nullable;
  * external dependents would make composite deletes (e.g. {@code LogicalTableDeployer.delete()})
  * impossible.
  */
-public final class PipelineDependencyChecker {
+public final class DependencyChecker {
 
-  private PipelineDependencyChecker() {
+  private DependencyChecker() {
   }
 
   public static void assertNoExternalDependents(K8sContext context, String database,
@@ -53,8 +53,8 @@ public final class PipelineDependencyChecker {
       String database, List<String> path, @Nullable String selfOwnerKind,
       @Nullable String selfOwnerName) throws SQLException {
 
-    String labelKey = PipelineDependencyLabels.labelKey(database, path);
-    String identifier = PipelineDependencyLabels.identifier(database, path);
+    String labelKey = DependencyLabels.labelKey(database, path);
+    String identifier = DependencyLabels.identifier(database, path);
 
     List<String> blockers = new ArrayList<>();
     blockers.addAll(findBlockers(pipelineApi, labelKey, identifier, "pipeline",
@@ -114,12 +114,12 @@ public final class PipelineDependencyChecker {
     if (meta == null || meta.getAnnotations() == null) {
       return true;   // pre-labeling resource — conservatively trust the label match
     }
-    String sourcesAnno = meta.getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY_SOURCES);
-    String sinkAnno = meta.getAnnotations().get(PipelineDependencyLabels.ANNOTATION_KEY_SINK);
+    String sourcesAnno = meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SOURCES);
+    String sinkAnno = meta.getAnnotations().get(DependencyLabels.ANNOTATION_KEY_SINK);
     if (sourcesAnno == null && sinkAnno == null) {
       return true;   // same — no annotations to cross-check against
     }
-    if (sourcesAnno != null && PipelineDependencyLabels.parseAnnotation(sourcesAnno).contains(identifier)) {
+    if (sourcesAnno != null && DependencyLabels.parseAnnotation(sourcesAnno).contains(identifier)) {
       return true;
     }
     return identifier.equals(sinkAnno);

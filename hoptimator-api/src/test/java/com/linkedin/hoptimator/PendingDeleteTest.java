@@ -67,7 +67,7 @@ class PendingDeleteTest {
   @Test
   void toStringOmitsSelfOwnerWhenOnlyOneFieldSet() {
     // The toString contract says self= appears only when both kind and name are non-null.
-    // (The K8sPipelineDependencyChecker.isSelfOwned guard also requires both.)
+    // (The DependencyChecker.isSelfOwned guard also requires both.)
     PendingDelete<String> kindOnly = new PendingDelete<>("t", "LogicalTable", null);
     assertFalse(kindOnly.toString().contains("self="));
 

@@ -26,7 +26,7 @@ public class K8sValidatorProvider implements ValidatorProvider {
       Object target = pd.target();
       if (target instanceof Source) {
         return Collections.singletonList(
-            new K8sPipelineDependencyValidator((Source) target, pd.selfOwnerKind(), pd.selfOwnerName()));
+            new K8sDependencyValidator((Source) target, pd.selfOwnerKind(), pd.selfOwnerName()));
       }
     }
     return Collections.emptyList();
