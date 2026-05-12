@@ -19,9 +19,6 @@ import java.util.Properties;
 
 public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1TableTriggerList> {
 
-  /** Annotation carrying the JobTemplate name (e.g. {@code retl-job-template}) used to render this trigger. */
-  static final String JOB_TEMPLATE_ANNOTATION = "hoptimator.linkedin.com/job-template";
-
   private final K8sContext context;
   private final Trigger trigger;
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> triggerApi;
@@ -67,7 +64,7 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
       spec.setPaused(targetPaused);
       // Refresh dependency-tracking labels and annotation here too — without this, the partial
       // update path (used when the LogicalTable is re-applied) would leave triggers with stale
-      // or missing depends-on metadata, breaking the visualizer's reverse lookup.
+      // or missing depends-on metadata.
       stampDependencyMetadata(existingTrigger);
       triggerApi.update(existingTrigger);
       return;
@@ -85,11 +82,6 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     DependencyLabels.stamp(meta,
         source != null ? Collections.singletonList(source) : Collections.emptyList(),
         trigger.sink());
-    if (trigger.job() != null) {
-      Map<String, String> annotations = meta.getAnnotations() != null ? meta.getAnnotations() : new HashMap<>();
-      annotations.put(JOB_TEMPLATE_ANNOTATION, trigger.job().name());
-      meta.setAnnotations(annotations);
-    }
   }
 
   @Override
@@ -126,16 +118,12 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     Map<String, String> labels = new HashMap<>();
     labels.put("view", viewName); // a corresponding view object may or may not exist.
     meta.setLabels(labels);
-    // Stamp depends-on labels so the visualizer (and the dep-guard) can find triggers via
+    // Stamp depends-on labels so the dep-guard can find triggers via
     // label selector. The Trigger's source is the upstream table the job reads from. When the
-    // trigger carries a Sink (set by LogicalTableDeployer for bridging triggers), we
-    // additionally stamp the sink — that's what makes reverse-ETL flows render as connectors.
+    // trigger carries a Sink, we additionally stamp the sink.
     DependencyLabels.stamp(meta,
         source != null ? Collections.singletonList(source) : Collections.emptyList(),
         trigger.sink());
-    Map<String, String> annotations = meta.getAnnotations() != null ? meta.getAnnotations() : new HashMap<>();
-    annotations.put(JOB_TEMPLATE_ANNOTATION, trigger.job().name());
-    meta.setAnnotations(annotations);
     String template = jobTemplate.getSpec().getYaml();
     String rendered = new Template.SimpleTemplate(template).render(env);
     Map<String, String> jobProps = new HashMap<>();

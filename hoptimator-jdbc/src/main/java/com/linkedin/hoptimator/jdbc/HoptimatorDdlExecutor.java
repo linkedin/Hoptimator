@@ -229,9 +229,6 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     String cronSchedule = create.cron != null
         ? ((SqlLiteral) create.cron).getValueAs(String.class) : null;
     UserJob job = new UserJob(jobNamespace, jobName);
-    // Resolve the underlying database name the target table belongs to so the deployer can
-    // stamp depends-on labels: same identifier shape as Pipelines, so the dep-guard finds the
-    // trigger when somebody tries to drop the source it points at.
     Source source = new Source(databaseOf(target), targetPath, Collections.emptyMap());
     Trigger trigger = new Trigger(name, job, cronSchedule, options, source, null);
 
