@@ -24,20 +24,20 @@ import static org.mockito.ArgumentMatchers.nullable;
 
 
 /**
- * Unit tests for {@link K8sPipelineDependencyValidator}. The validator is a thin adapter that
- * forwards to {@link PipelineDependencyChecker#assertNoExternalDependents} — these tests use
- * {@link MockedStatic} on both K8sContext and PipelineDependencyChecker to verify that source
+ * Unit tests for {@link K8sDependencyValidator}. The validator is a thin adapter that
+ * forwards to {@link DependencyChecker#assertNoExternalDependents} — these tests use
+ * {@link MockedStatic} on both K8sContext and DependencyChecker to verify that source
  * fields and self-owner fields are forwarded correctly, and that thrown SQLException becomes a
  * validation issue rather than propagating.
  */
 @ExtendWith(MockitoExtension.class)
-class K8sPipelineDependencyValidatorTest {
+class K8sDependencyValidatorTest {
 
   @Mock
   private MockedStatic<K8sContext> contextStatic;
 
   @Mock
-  private MockedStatic<PipelineDependencyChecker> checkerStatic;
+  private MockedStatic<DependencyChecker> checkerStatic;
 
   @Mock
   private Connection connection;
@@ -53,8 +53,8 @@ class K8sPipelineDependencyValidatorTest {
   void validateForwardsSourceFieldsAndSelfOwnerToChecker() {
     contextStatic.when(() -> K8sContext.create(connection)).thenReturn(context);
 
-    K8sPipelineDependencyValidator validator =
-        new K8sPipelineDependencyValidator(source(), "LogicalTable", "my-table");
+    K8sDependencyValidator validator =
+        new K8sDependencyValidator(source(), "LogicalTable", "my-table");
     Validator.Issues issues = new Validator.Issues("test");
 
     validator.validate(issues, connection);
@@ -65,7 +65,7 @@ class K8sPipelineDependencyValidatorTest {
     ArgumentCaptor<String> kindCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<String> nameCaptor = ArgumentCaptor.forClass(String.class);
 
-    checkerStatic.verify(() -> PipelineDependencyChecker.assertNoExternalDependents(
+    checkerStatic.verify(() -> DependencyChecker.assertNoExternalDependents(
         eq(context), dbCaptor.capture(), pathCaptor.capture(),
         kindCaptor.capture(), nameCaptor.capture()));
 
@@ -81,15 +81,15 @@ class K8sPipelineDependencyValidatorTest {
   void validatePassesNullSelfOwnerWhenUnset() {
     contextStatic.when(() -> K8sContext.create(connection)).thenReturn(context);
 
-    K8sPipelineDependencyValidator validator =
-        new K8sPipelineDependencyValidator(source(), null, null);
+    K8sDependencyValidator validator =
+        new K8sDependencyValidator(source(), null, null);
     Validator.Issues issues = new Validator.Issues("test");
 
     validator.validate(issues, connection);
 
     ArgumentCaptor<String> kindCaptor = ArgumentCaptor.forClass(String.class);
     ArgumentCaptor<String> nameCaptor = ArgumentCaptor.forClass(String.class);
-    checkerStatic.verify(() -> PipelineDependencyChecker.assertNoExternalDependents(
+    checkerStatic.verify(() -> DependencyChecker.assertNoExternalDependents(
         eq(context), nullable(String.class), nullable(List.class),
         kindCaptor.capture(), nameCaptor.capture()));
 
@@ -101,13 +101,13 @@ class K8sPipelineDependencyValidatorTest {
   @SuppressWarnings("unchecked")
   void validateRecordsCheckerSqlExceptionAsIssue() {
     contextStatic.when(() -> K8sContext.create(connection)).thenReturn(context);
-    checkerStatic.when(() -> PipelineDependencyChecker.assertNoExternalDependents(
+    checkerStatic.when(() -> DependencyChecker.assertNoExternalDependents(
             nullable(K8sContext.class), nullable(String.class), nullable(List.class),
             nullable(String.class), nullable(String.class)))
         .thenThrow(new SQLException("3 active pipeline(s) depend on it: p1, p2, p3"));
 
-    K8sPipelineDependencyValidator validator =
-        new K8sPipelineDependencyValidator(source(), null, null);
+    K8sDependencyValidator validator =
+        new K8sDependencyValidator(source(), null, null);
     Validator.Issues issues = new Validator.Issues("test");
 
     validator.validate(issues, connection);

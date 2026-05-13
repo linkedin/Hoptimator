@@ -104,12 +104,12 @@ create or replace materialized view KAFKA."create-table-test$guard" as select * 
 
 # Source-side guard: existing-topic-2 is a source of the MV's pipeline.
 drop table KAFKA."existing-topic-2";
-active pipeline(s) depend on it
+active dependent
 !error
 
 # Sink-side guard: create-table-test is the partial-view sink of the MV's pipeline.
 drop table KAFKA."create-table-test";
-active pipeline(s) depend on it
+active dependent
 !error
 
 # Drop the dependent MV first; its pipeline (and both labels) go away.

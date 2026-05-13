@@ -62,15 +62,15 @@ class K8sPipelineDeployerTest {
 
     assertEquals(3, labels.size(), "should have one label per source + one for the sink");
     assertTrue(labels.containsKey(
-        PipelineDependencyLabels.labelKey("kafka1", Collections.singletonList("topic-a"))));
+        DependencyLabels.labelKey("kafka1", Collections.singletonList("topic-a"))));
     assertTrue(labels.containsKey(
-        PipelineDependencyLabels.labelKey("kafka2", Collections.singletonList("topic-b"))));
+        DependencyLabels.labelKey("kafka2", Collections.singletonList("topic-b"))));
     assertTrue(labels.containsKey(
-        PipelineDependencyLabels.labelKey("mysql", Collections.singletonList("outbox"))));
+        DependencyLabels.labelKey("mysql", Collections.singletonList("outbox"))));
   }
 
   @Test
-  void stampsCollisionGuardAnnotation() throws SQLException {
+  void stampsDirectionalAnnotations() throws SQLException {
     K8sPipelineDeployer deployer = new K8sPipelineDeployer(
         "p1", List.of("spec"), "SELECT 1",
         Collections.singletonList(src("kafka", "topic")),
@@ -79,9 +79,12 @@ class K8sPipelineDeployerTest {
     V1alpha1Pipeline pipeline = deployer.toK8sObject();
     Map<String, String> annotations = pipeline.getMetadata().getAnnotations();
 
-    String annotation = annotations.get(PipelineDependencyLabels.ANNOTATION_KEY);
-    assertNotNull(annotation);
-    assertTrue(annotation.contains("kafka_topic"));
-    assertTrue(annotation.contains("mysql_outbox"));
+    String sources = annotations.get(DependencyLabels.ANNOTATION_KEY_SOURCES);
+    String sink = annotations.get(DependencyLabels.ANNOTATION_KEY_SINKS);
+    assertNotNull(sources);
+    assertNotNull(sink);
+    assertTrue(sources.contains("kafka_topic"),
+        "sources annotation should list the kafka source: " + sources);
+    assertEquals("mysql_outbox", sink, "sink annotation holds the single identifier verbatim");
   }
 }

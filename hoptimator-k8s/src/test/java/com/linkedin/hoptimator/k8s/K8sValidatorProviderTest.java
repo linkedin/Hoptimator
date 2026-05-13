@@ -29,7 +29,7 @@ class K8sValidatorProviderTest {
     Collection<Validator> validators = provider.validators(pd, null);
 
     assertEquals(1, validators.size());
-    assertInstanceOf(K8sPipelineDependencyValidator.class, validators.iterator().next());
+    assertInstanceOf(K8sDependencyValidator.class, validators.iterator().next());
   }
 
   @Test
@@ -42,7 +42,7 @@ class K8sValidatorProviderTest {
     Collection<Validator> validators = provider.validators(pd, null);
 
     assertEquals(1, validators.size());
-    assertInstanceOf(K8sPipelineDependencyValidator.class, validators.iterator().next());
+    assertInstanceOf(K8sDependencyValidator.class, validators.iterator().next());
   }
 
   @Test

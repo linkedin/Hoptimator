@@ -28,6 +28,7 @@ import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.PendingDelete;
+import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.UserJob;
 import com.linkedin.hoptimator.Validated;
@@ -517,6 +518,8 @@ public class LogicalTableDeployer implements Deployer, Validated {
     Source offlineSource = tierSources.get(LogicalTier.OFFLINE.tierName());
     String offlineDatabase = offlineSource.database();
 
+    Source onlineSource = tierSources.get(LogicalTier.ONLINE.tierName());
+
     V1alpha1JobTemplate jobTemplate = findMatchingJobTemplate(ownerContext, offlineDatabase);
     if (jobTemplate == null) {
       return;
@@ -536,8 +539,12 @@ public class LogicalTableDeployer implements Deployer, Validated {
     if (existing == null) {
       triggerOptions.put(Trigger.PAUSED_OPTION, "true");
     }
+    // When the offline tier feeds an online tier (reverse-ETL), the trigger has a downstream
+    // sink — record it directly on the Trigger so the dep-guard can pick it up.
+    Sink sink = onlineSource == null ? null
+        : new Sink(onlineSource.database(), onlineSource.path(), onlineSource.options());
     UserJob userJob = new UserJob(ownerContext.namespace(), jobTemplate.getMetadata().getName());
-    Trigger trigger = new Trigger(triggerName, userJob, offlineSource.path(), null, triggerOptions);
+    Trigger trigger = new Trigger(triggerName, userJob, null, triggerOptions, offlineSource, sink);
 
     K8sTriggerDeployer triggerDeployer = createTriggerDeployer(trigger, ownerContext);
     triggerDeployers.add(triggerDeployer);

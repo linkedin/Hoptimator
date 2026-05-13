@@ -30,7 +30,7 @@ public class K8sPipelineBundle implements Deployer {
 
   /**
    * {@code sources} and {@code sink} are stamped as {@code depends-on-*}
-   * labels on the Pipeline CRD so the delete-time guard in {@link PipelineDependencyChecker}
+   * labels on the Pipeline CRD so the delete-time guard in {@link DependencyChecker}
    * can find this pipeline by label selector.
    */
   public K8sPipelineBundle(String name, List<String> pipelineSpecs, String sql,

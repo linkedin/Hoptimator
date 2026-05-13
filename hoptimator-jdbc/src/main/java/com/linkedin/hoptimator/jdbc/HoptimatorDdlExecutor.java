@@ -229,7 +229,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     String cronSchedule = create.cron != null
         ? ((SqlLiteral) create.cron).getValueAs(String.class) : null;
     UserJob job = new UserJob(jobNamespace, jobName);
-    Trigger trigger = new Trigger(name, job, targetPath, cronSchedule, options);
+    Source source = new Source(databaseOf(target), targetPath, Collections.emptyMap());
+    Trigger trigger = new Trigger(name, job, cronSchedule, options, source, null);
 
     Collection<Deployer> deployers = null;
     try {
@@ -253,6 +254,23 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       }
       throw new DdlException(create, e.getMessage(), e);
     }
+  }
+
+  /**
+   * Best-effort lookup of the database name that owns a Calcite Table. Mirrors what the
+   * {@code DROP TABLE} path does so triggers and tables agree on the same
+   * {@code (database, path)} identifier.
+   */
+  private static String databaseOf(Table target) {
+    if (target instanceof HoptimatorJdbcTable) {
+      HoptimatorJdbcSchema jdbcSchema =
+          (HoptimatorJdbcSchema) ((HoptimatorJdbcTable) target).jdbcTable().jdbcSchema;
+      return jdbcSchema.databaseName();
+    }
+    if (target instanceof TemporaryTable) {
+      return ((TemporaryTable) target).databaseName();
+    }
+    return null;
   }
 
   // N.B. originally copy-pasted from Apache Calcite
@@ -307,7 +325,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     String name = drop.name.names.get(0);
 
-    Trigger trigger = new Trigger(name, null, new ArrayList<>(), null, new HashMap<>());
+    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null, null);
 
     Collection<Deployer> deployers = null;
     try {
@@ -344,7 +362,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     Map<String, String> options = new HashMap<>();
     options.put(Trigger.PAUSED_OPTION, String.valueOf(paused));
-    Trigger trigger = new Trigger(name, null, new ArrayList<>(), null, options);
+    Trigger trigger = new Trigger(name, null, null, options, null, null);
 
     Collection<Deployer> deployers = null;
     try {
