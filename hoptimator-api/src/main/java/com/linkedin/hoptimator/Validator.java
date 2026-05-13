@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator;
 
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -52,8 +53,8 @@ public interface Validator extends Validated {
     }
 
     @Override
-    public void validate(Issues issues) {
-      t.validate(issues.child(t.getClass().getSimpleName()));
+    public void validate(Issues issues, Connection connection) {
+      t.validate(issues.child(t.getClass().getSimpleName()), connection);
     }
   }
 

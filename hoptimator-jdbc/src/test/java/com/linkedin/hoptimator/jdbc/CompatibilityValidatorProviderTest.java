@@ -23,7 +23,7 @@ class CompatibilityValidatorProviderTest {
   void testValidatorsReturnsTwoValidatorsForSchemaPlus() {
     CompatibilityValidatorProvider provider = new CompatibilityValidatorProvider();
 
-    Collection<Validator> validators = provider.validators(mockSchema);
+    Collection<Validator> validators = provider.validators(mockSchema, null);
 
     assertEquals(2, validators.size());
   }
@@ -32,7 +32,7 @@ class CompatibilityValidatorProviderTest {
   void testValidatorsReturnsEmptyForNonSchemaPlus() {
     CompatibilityValidatorProvider provider = new CompatibilityValidatorProvider();
 
-    Collection<Validator> validators = provider.validators("not-a-schema");
+    Collection<Validator> validators = provider.validators("not-a-schema", null);
 
     assertTrue(validators.isEmpty());
   }
@@ -41,7 +41,7 @@ class CompatibilityValidatorProviderTest {
   void testValidatorsReturnsEmptyForNull() {
     CompatibilityValidatorProvider provider = new CompatibilityValidatorProvider();
 
-    Collection<Validator> validators = provider.validators(null);
+    Collection<Validator> validators = provider.validators(null, null);
 
     assertTrue(validators.isEmpty());
   }

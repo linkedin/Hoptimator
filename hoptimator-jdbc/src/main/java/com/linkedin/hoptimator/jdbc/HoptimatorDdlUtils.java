@@ -296,7 +296,7 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
     // Validate the DDL statement.
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create);
+    ValidationService.validateOrThrow(create, conn);
 
     // Extract query SQL (rename columns if a column list was provided) and plan the query.
     // This is done first — before schema/conflict checks — so that:
@@ -374,10 +374,10 @@ public final class HoptimatorDdlUtils {
 
       // Validate the hook and its deployers.
       logger.info("Validating materialized view {}", viewName);
-      ValidationService.validateOrThrow(hook);
+      ValidationService.validateOrThrow(hook, conn);
       deployers = DeploymentService.deployers(hook, conn);
       logger.info("Validating deployable resources for materialized view {}", viewName);
-      ValidationService.validateOrThrow(deployers);
+      ValidationService.validateOrThrow(deployers, conn);
       logger.info("Validated materialized view {}", viewName);
 
       // Execute (create/update) or collect specs (specify).
@@ -442,7 +442,7 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create);
+    ValidationService.validateOrThrow(create, conn);
 
     // TODO: Add support for populating new tables from a query as a one-time operation.
     if (create.query != null) {
@@ -573,10 +573,10 @@ public final class HoptimatorDdlUtils {
     boolean success = false;
     try {
       logger.info("Validating new table {}", source);
-      ValidationService.validateOrThrow(source);
+      ValidationService.validateOrThrow(source, conn);
       deployers = DeploymentService.deployers(source, conn);
       logger.info("Validating deployable resources for table {}", tableName);
-      ValidationService.validateOrThrow(deployers);
+      ValidationService.validateOrThrow(deployers, conn);
 
       if (mode == DdlMode.UPDATE) {
         logger.info("Deploying update table {}", source);
@@ -638,7 +638,7 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create);
+    ValidationService.validateOrThrow(create, conn);
 
     if (create.name.names.size() > 1) {
       throw new SQLException("Database names cannot be compound identifiers.");
@@ -651,9 +651,9 @@ public final class HoptimatorDdlUtils {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Validating database {}", name);
-      ValidationService.validateOrThrow(database);
+      ValidationService.validateOrThrow(database, conn);
       deployers = DeploymentService.deployers(database, conn);
-      ValidationService.validateOrThrow(deployers);
+      ValidationService.validateOrThrow(deployers, conn);
 
       List<String> specs = mode.executeDeployers(deployers, conn);
       if (mode.mutable()) {
@@ -890,6 +890,39 @@ public final class HoptimatorDdlUtils {
       return registerTemporaryTable(tierSchema, tableName, rowType, databaseName);
     } else {
       return registerTemporaryTable(rootSchema, tableName, rowType, databaseName);
+    }
+  }
+
+  /**
+   * Removes {@code tableName} from the tier schema identified by {@code (catalog, schema)}, the
+   * inverse of {@link #registerTemporaryTableInSchema}. Silent no-op if the catalog, schema or
+   * table entry does not exist (e.g. the connection was opened after the table was already gone)
+   * — remove must never fail a user-visible DROP that has already succeeded at the backend.
+   */
+  public static void removeTableFromSchema(HoptimatorConnection conn,
+      @Nullable String catalog, @Nullable String schema, String tableName) {
+    if (conn == null) {
+      return;
+    }
+    SchemaPlus rootSchema = conn.calciteConnection().getRootSchema();
+    SchemaPlus target;
+    if (catalog != null) {
+      SchemaPlus catalogSchemaPlus = rootSchema.subSchemas().get(catalog);
+      if (catalogSchemaPlus == null) {
+        return;
+      }
+      if (schema == null) {
+        target = catalogSchemaPlus;
+      } else {
+        target = catalogSchemaPlus.subSchemas().get(schema);
+      }
+    } else if (schema != null) {
+      target = rootSchema.subSchemas().get(schema);
+    } else {
+      target = rootSchema;
+    }
+    if (target != null && target.tables().get(tableName) != null) {
+      target.removeTable(tableName);
     }
   }
 }

@@ -6,7 +6,6 @@ import com.linkedin.venice.controllerapi.D2ServiceDiscoveryResponse;
 import com.linkedin.venice.controllerapi.MultiStoreResponse;
 import com.linkedin.venice.exceptions.ErrorType;
 import com.linkedin.venice.security.SSLFactory;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.schema.lookup.Lookup;
@@ -31,8 +30,6 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 class ClusterSchemaTest {
 
   @Mock
@@ -197,7 +194,7 @@ class ClusterSchemaTest {
       @Override
       protected ControllerClient createControllerClient(String cluster, Optional<SSLFactory> sslFactory) {
         // verify the non-localhost branch would be reached (url does not contain localhost)
-        assertTrue(!properties.getProperty("router.url").contains("localhost"));
+        assertFalse(properties.getProperty("router.url").contains("localhost"));
         return mockControllerClient;
       }
     };

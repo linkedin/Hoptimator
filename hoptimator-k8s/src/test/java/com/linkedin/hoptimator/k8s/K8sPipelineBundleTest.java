@@ -9,8 +9,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -42,9 +46,10 @@ class K8sPipelineBundleTest {
   private K8sPipelineBundle makeBundleWithMocks(String name, List<String> pipelineSpecs) {
     K8sPipelineDeployer capturedPipelineDeployer = pipelineDeployer;
     K8sYamlDeployerImpl capturedYamlDeployer = yamlDeployer;
-    return new K8sPipelineBundle(name, pipelineSpecs, "INSERT INTO sink SELECT * FROM source", context) {
+    return new K8sPipelineBundle(name, pipelineSpecs, "INSERT INTO sink SELECT * FROM source", Collections.emptyList(), null, context) {
       @Override
-      K8sPipelineDeployer createPipelineDeployer(String n, List<String> specs, String sql, K8sContext ctx) {
+      K8sPipelineDeployer createPipelineDeployer(String n, List<String> specs, String sql,
+          Collection<Source> sources, Sink sink, K8sContext ctx) {
         return capturedPipelineDeployer;
       }
 

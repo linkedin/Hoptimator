@@ -78,6 +78,7 @@ class K8sApiErrorResponseTest {
   }
 
   @Test
+  @SuppressWarnings("unchecked")
   void updateThrowsWhenResponseIsErrorStatusOnFinalUpdate() throws ApiException {
     V1alpha1Pipeline pipeline = makePipeline("bad-pipeline", "test-ns");
     V1alpha1Pipeline existing = makePipeline("bad-pipeline", "test-ns");

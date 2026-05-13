@@ -4,7 +4,8 @@ plugins {
 }
 
 dependencies {
-  // plz keep it this way
+  // This package should have minimal dependencies
+  compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
 }
 
 publishing {

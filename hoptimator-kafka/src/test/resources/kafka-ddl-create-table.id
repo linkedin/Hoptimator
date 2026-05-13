@@ -84,7 +84,41 @@ spec:
     segment.bytes: 1073741824
 !specify create-table-test
 
-# Clean up - drop table
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependency guard: a Kafka topic referenced by an MV's pipeline — as either a
+# source or a sink — cannot be dropped until the dependent MV is removed.
+# Exercises the label-based check that protects Kafka topic drops that would
+# orphan an active downstream pipeline.
+#
+# A single MV exercises both edges. The MV is a partial view
+# (KAFKA."create-table-test$guard") whose implicit sink falls back to
+# create-table-test, and reads from existing-topic-2.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Pipeline reads from existing-topic-2 (source) and writes to create-table-test
+# (partial-view sink). Its Pipeline CRD gets a depends-on-* label per edge.
+create or replace materialized view KAFKA."create-table-test$guard" as select * from KAFKA."existing-topic-2";
+(0 rows modified)
+
+!update
+
+# Source-side guard: existing-topic-2 is a source of the MV's pipeline.
+drop table KAFKA."existing-topic-2";
+active pipeline(s) depend on it
+!error
+
+# Sink-side guard: create-table-test is the partial-view sink of the MV's pipeline.
+drop table KAFKA."create-table-test";
+active pipeline(s) depend on it
+!error
+
+# Drop the dependent MV first; its pipeline (and both labels) go away.
+drop materialized view KAFKA."create-table-test$guard";
+(0 rows modified)
+
+!update
+
+# Now sink drop should succeed
 drop table KAFKA."create-table-test";
 (0 rows modified)
 

@@ -8,7 +8,6 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.ThrowingFunction;
 import com.linkedin.hoptimator.util.DeploymentService;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -33,8 +33,6 @@ import static org.mockito.Mockito.verify;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(value = {"OBL_UNSATISFIED_OBLIGATION"},
-    justification = "Mock objects created in stubbing setup don't need resource management")
 class K8sMaterializedViewDeployerTest {
 
   @Mock
@@ -75,7 +73,7 @@ class K8sMaterializedViewDeployerTest {
 
       @Override
       K8sPipelineBundle createPipelineBundle(String name, List<String> pipelineSpecs, String sql,
-          K8sContext viewContext) {
+          Collection<Source> sources, Sink sink, K8sContext viewContext) {
         return capturedBundle;
       }
     };

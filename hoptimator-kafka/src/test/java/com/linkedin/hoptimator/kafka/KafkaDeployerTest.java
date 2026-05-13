@@ -568,7 +568,7 @@ class KafkaDeployerTest {
 
   private Validator.Issues collectIssues(KafkaDeployer deployer) {
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
     return issues;
   }
 

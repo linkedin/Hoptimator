@@ -2,11 +2,14 @@ package com.linkedin.hoptimator.k8s;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 
 
 /**
@@ -25,16 +28,22 @@ public class K8sPipelineBundle implements Deployer {
   private final K8sPipelineDeployer pipelineDeployer;
   private final List<Deployer> deployers = new ArrayList<>();
 
+  /**
+   * {@code sources} and {@code sink} are stamped as {@code depends-on-*}
+   * labels on the Pipeline CRD so the delete-time guard in {@link PipelineDependencyChecker}
+   * can find this pipeline by label selector.
+   */
   public K8sPipelineBundle(String name, List<String> pipelineSpecs, String sql,
-      K8sContext ownerContext) {
+      Collection<Source> sources, Sink sink, K8sContext ownerContext) {
     this.name = name;
     this.pipelineSpecs = pipelineSpecs;
     this.ownerContext = ownerContext;
-    this.pipelineDeployer = createPipelineDeployer(name, pipelineSpecs, sql, ownerContext);
+    this.pipelineDeployer = createPipelineDeployer(name, pipelineSpecs, sql, sources, sink, ownerContext);
   }
 
-  K8sPipelineDeployer createPipelineDeployer(String n, List<String> specs, String sql, K8sContext ctx) {
-    return new K8sPipelineDeployer(n, specs, sql, ctx);
+  K8sPipelineDeployer createPipelineDeployer(String n, List<String> specs, String sql,
+      Collection<Source> sources, Sink sink, K8sContext ctx) {
+    return new K8sPipelineDeployer(n, specs, sql, sources, sink, ctx);
   }
 
   K8sYamlDeployerImpl createYamlDeployerImpl(K8sContext pipelineContext, List<String> specs) {

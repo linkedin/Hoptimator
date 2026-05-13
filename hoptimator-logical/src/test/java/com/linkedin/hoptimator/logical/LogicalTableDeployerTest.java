@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.logical;
 
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -9,6 +8,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
 import org.junit.jupiter.api.Test;
@@ -16,8 +16,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
 
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
@@ -29,6 +27,7 @@ import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.DeployerUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.K8sApi;
@@ -54,18 +53,25 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+
+import org.mockito.InOrder;
 
 
 /**
  * Unit tests for {@link LogicalTableDeployer}.
  */
 @ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 class LogicalTableDeployerTest {
 
   @Mock
@@ -79,6 +85,9 @@ class LogicalTableDeployerTest {
 
   @Mock
   MockedStatic<HoptimatorDriver> hoptimatorDriverMock;
+
+  @Mock
+  MockedStatic<com.linkedin.hoptimator.jdbc.ValidationService> validationServiceMock;
 
   @Mock
   K8sLogicalTableDeployer mockCrdDeployer;
@@ -108,9 +117,9 @@ class LogicalTableDeployerTest {
 
   private static K8sContext mockContext() {
     K8sContext ctx = mock(K8sContext.class);
-    when(ctx.namespace()).thenReturn("default");
-    when(ctx.withOwner(any())).thenReturn(ctx);
-    when(ctx.withLabel(anyString(), anyString())).thenReturn(ctx);
+    lenient().when(ctx.namespace()).thenReturn("default");
+    lenient().when(ctx.withOwner(any())).thenReturn(ctx);
+    lenient().when(ctx.withLabel(anyString(), anyString())).thenReturn(ctx);
     return ctx;
   }
 
@@ -228,17 +237,148 @@ class LogicalTableDeployerTest {
         LogicalTableDeployer.pipelineName("events", "nearline", "online"));
   }
 
-  // delete() / specify() tests
+  // delete() / DependencyGuarded / specify() tests
+
+  /** Builds a 2-tier deployer with mocked CRD deployer and a pre-populated fake Database API. */
+  private LogicalTableDeployer deployerWithApis(Properties props, List<V1alpha1Database> dbs) {
+    FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(new ArrayList<>(dbs));
+    return new LogicalTableDeployer(testSource(), props, mockContext(), dbApi) {
+      @Override
+      K8sLogicalTableDeployer createLogicalTableDeployer(
+          String crdName, String databaseLabel, Map<String, String> tierMap) {
+        return mockCrdDeployer;
+      }
+    };
+  }
 
   @Test
-  void deleteThrowsSQLFeatureNotSupportedException() {
-    Properties props = new Properties();
-    props.setProperty("nearline", "kafka-db");
-    props.setProperty("online", "venice-db");
+  void deleteThrowsWhenCrdDeleteFails() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(
+        twoTierProps("kafka-db", "venice-db"),
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
-    LogicalTableDeployer deployer = new LogicalTableDeployer(makeSource("mydb", "myTable"), props, null);
-    SQLFeatureNotSupportedException e = assertThrows(SQLFeatureNotSupportedException.class, deployer::delete);
-    assertTrue(e.getMessage().contains("Logical table deletion is not yet supported"));
+    doThrow(new SQLException("crd gone")).when(mockCrdDeployer).delete();
+
+    SQLException ex = assertThrows(SQLException.class, deployer::delete);
+    assertTrue(ex.getMessage().contains("crd gone"));
+    verify(mockCrdDeployer).delete();
+    // Tier deployers must not run when the CRD delete itself fails.
+    deploymentServiceMock.verify(
+        () -> DeploymentService.deployers(any(), any()), never());
+  }
+
+  @Test
+  void deleteSwallowsTierDeleteFailuresAndContinues() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(
+        twoTierProps("kafka-db", "venice-db"),
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+
+    // Two tier deployers: first throws, second succeeds. The overall delete must return cleanly.
+    Deployer failing = mock(Deployer.class);
+    Deployer succeeding = mock(Deployer.class);
+    doThrow(new SQLException("kafka delete failed")).when(failing).delete();
+
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(Collections.singletonList(failing), Collections.singletonList(succeeding));
+
+    // Must NOT throw despite the failing tier.
+    deployer.delete();
+
+    verify(mockCrdDeployer).delete();
+    verify(failing).delete();
+    verify(succeeding).delete();
+  }
+
+  /**
+   * Executes {@code body} with {@link HoptimatorDdlUtils} statics stubbed, then gives the
+   * supplied verifier a handle on the mock to assert side effects.
+   *
+   * <p>Uses try-with-resources rather than the project-standard {@code @Mock MockedStatic}
+   * field because sibling tests in this class rely on the real static methods of
+   * {@code HoptimatorDdlUtils} (via {@code ensureTierRowTypesRegistered} and friends); a
+   * class-level mock would intercept them and break unrelated tests.
+   */
+  private void withMockedDdlUtils(Runnable body, Consumer<MockedStatic<HoptimatorDdlUtils>> verifier) {
+    try (MockedStatic<HoptimatorDdlUtils> utilsMock = mockStatic(HoptimatorDdlUtils.class)) {
+      body.run();
+      verifier.accept(utilsMock);
+    }
+  }
+
+  @Test
+  void deleteRemovesTierEntriesFromConnectionSchema() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(
+        twoTierProps("kafka-db", "venice-db"),
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+
+    Deployer tierDeployer = mock(Deployer.class);
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(Collections.singletonList(tierDeployer));
+
+    withMockedDdlUtils(() -> {
+      try {
+        deployer.delete();
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
+      }
+    }, utilsMock -> {
+      // Inverse of the registerTemporaryTableInSchema calls that ran at create time — one
+      // call per tier source (null catalog, non-null schema = tier "KAFKA" / "VENICE").
+      utilsMock.verify(() -> HoptimatorDdlUtils.removeTableFromSchema(
+          any(), any(), eq("KAFKA"), any()));
+      utilsMock.verify(() -> HoptimatorDdlUtils.removeTableFromSchema(
+          any(), any(), eq("VENICE"), any()));
+    });
+  }
+
+  @Test
+  void deleteKeepsSchemaEntryForTierWhoseDeleteFailed() throws SQLException {
+    // Two tiers: the first (kafka-db → KAFKA) fails to delete; the second succeeds.
+    // The failed tier's schema entry must NOT be removed; the succeeded tier's must be.
+    LogicalTableDeployer deployer = deployerWithApis(
+        twoTierProps("kafka-db", "venice-db"),
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+
+    Deployer failingTier = mock(Deployer.class);
+    Deployer succeedingTier = mock(Deployer.class);
+    doThrow(new SQLException("kafka delete failed")).when(failingTier).delete();
+
+    // DeploymentService.deployers is invoked once per tier — order follows tierSources.
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(Collections.singletonList(failingTier),
+            Collections.singletonList(succeedingTier));
+
+    withMockedDdlUtils(() -> {
+      try {
+        deployer.delete();
+      } catch (SQLException e) {
+        throw new RuntimeException(e);
+      }
+    }, utilsMock -> {
+      // KAFKA failed → its schema entry must NOT be removed.
+      utilsMock.verify(() -> HoptimatorDdlUtils.removeTableFromSchema(
+          any(), any(), eq("KAFKA"), any()), never());
+      // VENICE succeeded → its schema entry is removed.
+      utilsMock.verify(() -> HoptimatorDdlUtils.removeTableFromSchema(
+          any(), any(), eq("VENICE"), any()));
+    });
+  }
+
+  @Test
+  void deleteRunsCrdDeleteBeforeTierDeletes() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(
+        twoTierProps("kafka-db", "venice-db"),
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+
+    Deployer tierDeployer = mock(Deployer.class);
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(Collections.singletonList(tierDeployer));
+
+    deployer.delete();
+
+    InOrder inOrder = inOrder(mockCrdDeployer, tierDeployer);
+    inOrder.verify(mockCrdDeployer).delete();
+    inOrder.verify(tierDeployer, atLeastOnce()).delete();
   }
 
   // CRD model construction tests
@@ -516,7 +656,7 @@ class LogicalTableDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi)
-        .validate(issues);
+        .validate(issues, null);
 
     assertTrue(issues.valid());
   }
@@ -527,7 +667,7 @@ class LogicalTableDeployerTest {
     new LogicalTableDeployer(
         testSource(), twoTierProps("missing-db", "also-missing"),
         mockContext(), new FakeK8sApi<>(new ArrayList<>()))
-        .validate(issues);
+        .validate(issues, null);
 
     assertFalse(issues.valid());
   }
@@ -548,9 +688,9 @@ class LogicalTableDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
         makeSource("logical", "testevent"), oneTierProps, ctx, dbApi)
-        .validate(issues);
+        .validate(issues, null);
 
-    verify(mockValidatedDeployer).validate(issues);
+    verify(mockValidatedDeployer).validate(issues, null);
     assertTrue(issues.valid());
   }
 
@@ -594,7 +734,7 @@ class LogicalTableDeployerTest {
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
         makeSource("logical", "testevent"), oneTierProps, ctx, dbApi)
-        .validate(issues);
+        .validate(issues, null);
 
     assertFalse(issues.valid());
   }

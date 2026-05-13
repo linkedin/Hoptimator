@@ -1,33 +1,64 @@
 package com.linkedin.hoptimator.k8s;
 
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
-import java.sql.SQLException;
-import java.util.List;
 
 
-/** Deploys a Pipeline object. */
+/**
+ * Deploys a Pipeline object. Stamps {@code depends-on-*} labels and a {@code depends-on}
+ * collision-guard annotation describing which sources/sink the pipeline references, so
+ * {@link PipelineDependencyChecker} can look up dependents by label selector at delete time.
+ *
+ * <p>{@link K8sApi#update} merges labels additively, so stale {@code depends-on-*} labels from
+ * a previous version of the pipeline's SQL can linger. Correctness is preserved by the
+ * annotation, which is rewritten in full on every update: the checker rejects any label-only
+ * match whose annotation doesn't list the target identifier. In return, we avoid the extra
+ * round trip that in-place label stripping would require.
+ */
 class K8sPipelineDeployer extends K8sDeployer<V1alpha1Pipeline, V1alpha1PipelineList> {
 
   private final String name;
   private final String yaml;
   private final String sql;
+  private final Collection<Source> sources;
+  private final Sink sink;
 
-  K8sPipelineDeployer(String name, List<String> specs, String sql, K8sContext context) {
+  K8sPipelineDeployer(String name, List<String> specs, String sql,
+      Collection<Source> sources, Sink sink, K8sContext context) {
     super(context, K8sApiEndpoints.PIPELINES);
     this.name = name;
     this.yaml = String.join("\n---\n", specs);
     this.sql = sql;
+    this.sources = sources == null ? Collections.emptyList() : sources;
+    this.sink = sink;
   }
 
   @Override
   protected V1alpha1Pipeline toK8sObject() throws SQLException {
+    V1ObjectMeta meta = new V1ObjectMeta().name(name);
+    Map<String, String> labels = PipelineDependencyLabels.labelsFor(sources, sink);
+    if (!labels.isEmpty()) {
+      meta.setLabels(new HashMap<>(labels));
+      Map<String, String> annotations = new HashMap<>();
+      annotations.put(PipelineDependencyLabels.ANNOTATION_KEY,
+          PipelineDependencyLabels.annotationFor(sources, sink));
+      meta.setAnnotations(annotations);
+    }
     return new V1alpha1Pipeline().kind(K8sApiEndpoints.PIPELINES.kind())
         .apiVersion(K8sApiEndpoints.PIPELINES.apiVersion())
-        .metadata(new V1ObjectMeta().name(name))
+        .metadata(meta)
         .spec(new V1alpha1PipelineSpec().sql(sql).yaml(yaml));
   }
 }

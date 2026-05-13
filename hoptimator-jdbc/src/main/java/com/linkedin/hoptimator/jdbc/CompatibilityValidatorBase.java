@@ -6,6 +6,8 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.lookup.LikePattern;
 
+import java.sql.Connection;
+
 
 /** Base class for shared schema evolution validators.  */
 abstract class CompatibilityValidatorBase implements Validator {
@@ -17,7 +19,7 @@ abstract class CompatibilityValidatorBase implements Validator {
   }
 
   @Override
-  public void validate(Issues issues) {
+  public void validate(Issues issues, Connection connection) {
     try {
       CalciteSchema originalSchema = schema.unwrap(CalciteSchema.class);
       if (originalSchema == null || originalSchema.schema == null) {

@@ -41,7 +41,7 @@ class AvroTableValidatorTest {
 
     AvroTableValidator validator = new AvroTableValidator(schema);
     Validator.Issues issues = new Validator.Issues("test");
-    validator.validate(issues);
+    validator.validate(issues, null);
 
     assertTrue(issues.valid(), "ClassCastException should be silently caught");
   }
@@ -53,7 +53,7 @@ class AvroTableValidatorTest {
     AvroTableValidator validator = new AvroTableValidator(schema);
     Validator.Issues issues = new Validator.Issues("test");
 
-    assertThrows(IllegalArgumentException.class, () -> validator.validate(issues));
+    assertThrows(IllegalArgumentException.class, () -> validator.validate(issues, null));
   }
 
   @Test
@@ -99,7 +99,7 @@ class AvroTableValidatorTest {
 
     AvroTableValidator validator = new AvroTableValidator(schema);
     Validator.Issues issues = new Validator.Issues("root");
-    validator.validate(issues);
+    validator.validate(issues, null);
 
     assertFalse(issues.valid(),
         "Incompatible schema (INT→VARCHAR) should produce validation errors");
@@ -137,7 +137,7 @@ class AvroTableValidatorTest {
 
     AvroTableValidator validator = new AvroTableValidator(schema);
     Validator.Issues issues = new Validator.Issues("root");
-    validator.validate(issues);
+    validator.validate(issues, null);
 
     assertTrue(issues.valid(), "Compatible schemas should pass validation without errors");
   }

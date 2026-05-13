@@ -849,6 +849,75 @@ class K8sYamlApiTest {
       assertNotNull(capturedLabels);
       assertTrue(capturedLabels.containsKey("existing"), "Should contain existing label");
     }
+
+    @Test
+    void updateExistingPreservesExistingAnnotationsOverNewOnes() throws SQLException {
+      // obj.setMetadata(existing.getObject().getMetadata()) — existing metadata replaces obj's.
+      // After update, existing labels are present on the object passed to dynApi.update().
+      DynamicKubernetesObject existingObj = new DynamicKubernetesObject();
+      existingObj.setApiVersion("v1");
+      existingObj.setKind("ConfigMap");
+      Map<String, String> existingAnnotations = new HashMap<>();
+      existingAnnotations.put("key", "existing-value");
+      existingObj.setMetadata(new V1ObjectMeta().name("target").namespace("ns").annotations(existingAnnotations));
+
+      DynamicKubernetesApi dynApi = mock(DynamicKubernetesApi.class);
+      doReturn(dynApi).when(mockContext).dynamic(anyString(), anyString());
+      doReturn(successResponse(existingObj)).when(dynApi).get(anyString(), anyString());
+      doReturn(successResponse(existingObj)).when(dynApi).update(any(DynamicKubernetesObject.class));
+
+      K8sYamlApi api = new K8sYamlApi(mockContext);
+      DynamicKubernetesObject obj = new DynamicKubernetesObject();
+      obj.setApiVersion("v1");
+      obj.setKind("ConfigMap");
+      // obj starts with different annotation value for same key
+      Map<String, String> newAnnotations = new HashMap<>();
+      newAnnotations.put("key", "new-value");
+      obj.setMetadata(new V1ObjectMeta().name("target").namespace("ns").annotations(newAnnotations));
+
+      api.update(obj);
+
+      // After update, obj's metadata = existingObj's metadata
+      // The existing label value should be present since existing metadata replaces obj's metadata
+      ArgumentCaptor<DynamicKubernetesObject> captor = ArgumentCaptor.forClass(DynamicKubernetesObject.class);
+      verify(dynApi, times(1)).update(captor.capture());
+      Map<String, String> capturedAnnotations = captor.getValue().getMetadata().getAnnotations();
+      assertNotNull(capturedAnnotations);
+      assertEquals("existing-value", capturedAnnotations.get("key"));
+    }
+
+    @Test
+    void updateExistingWithDisjointAnnotationsKeepsExisting() throws SQLException {
+      // Mirrors updateExistingObjectWithNewLabelsOnlyPreservesAll for annotations: when local and
+      // existing carry different keys, existing's annotation ends up on the captured update payload.
+      DynamicKubernetesObject existingObj = new DynamicKubernetesObject();
+      existingObj.setApiVersion("v1");
+      existingObj.setKind("ConfigMap");
+      Map<String, String> existingAnnotations = new HashMap<>();
+      existingAnnotations.put("from-cluster", "e-val");
+      existingObj.setMetadata(new V1ObjectMeta().name("target").namespace("ns").annotations(existingAnnotations));
+
+      DynamicKubernetesApi dynApi = mock(DynamicKubernetesApi.class);
+      doReturn(dynApi).when(mockContext).dynamic(anyString(), anyString());
+      doReturn(successResponse(existingObj)).when(dynApi).get(anyString(), anyString());
+      doReturn(successResponse(existingObj)).when(dynApi).update(any(DynamicKubernetesObject.class));
+
+      K8sYamlApi api = new K8sYamlApi(mockContext);
+      DynamicKubernetesObject obj = new DynamicKubernetesObject();
+      obj.setApiVersion("v1");
+      obj.setKind("ConfigMap");
+      Map<String, String> newAnnotations = new HashMap<>();
+      newAnnotations.put("from-local", "a-val");
+      obj.setMetadata(new V1ObjectMeta().name("target").namespace("ns").annotations(newAnnotations));
+
+      api.update(obj);
+
+      ArgumentCaptor<DynamicKubernetesObject> captor = ArgumentCaptor.forClass(DynamicKubernetesObject.class);
+      verify(dynApi, times(1)).update(captor.capture());
+      Map<String, String> capturedAnnotations = captor.getValue().getMetadata().getAnnotations();
+      assertNotNull(capturedAnnotations);
+      assertTrue(capturedAnnotations.containsKey("from-cluster"), "Should contain existing annotation");
+    }
   }
 
   private K8sYamlApi createRealApi() {

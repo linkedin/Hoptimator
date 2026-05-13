@@ -154,7 +154,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     final KubernetesApiResponse<T> resp;
     if (existing.isSuccess()) {
 
-      // Ensure labels are additive.
+      // Ensure labels, annotations, and owners are additive.
       Map<String, String> labels = new HashMap<>();
       if (existing.getObject().getMetadata().getLabels() != null) {
         labels.putAll(existing.getObject().getMetadata().getLabels());
@@ -163,6 +163,15 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
         labels.putAll(obj.getMetadata().getLabels());
       }
       obj.getMetadata().setLabels(labels);
+
+      Map<String, String> annotations = new HashMap<>();
+      if (existing.getObject().getMetadata().getAnnotations() != null) {
+        annotations.putAll(existing.getObject().getMetadata().getAnnotations());
+      }
+      if (obj.getMetadata().getAnnotations() != null) {
+        annotations.putAll(obj.getMetadata().getAnnotations());
+      }
+      obj.getMetadata().setAnnotations(annotations);
 
       List<V1OwnerReference> owners = new LinkedList<>();
       if (existing.getObject().getMetadata().getOwnerReferences() != null) {

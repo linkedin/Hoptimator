@@ -1,10 +1,10 @@
 package com.linkedin.hoptimator.mysql;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
@@ -116,7 +116,7 @@ class MySqlDeployerTest {
 
   private Validator.Issues collectIssues(MySqlDeployer deployer) {
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
     return issues;
   }
 
@@ -406,7 +406,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Database & table names are required"));
@@ -418,7 +418,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Invalid database name"));
@@ -430,7 +430,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Invalid table name"));
@@ -442,7 +442,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Invalid database name"));
@@ -469,7 +469,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("No KEY_ fields found"));
@@ -504,7 +504,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Cannot modify KEY fields"));
@@ -531,7 +531,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Invalid column name"));
@@ -547,7 +547,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid());
     assertTrue(issues.toString().contains("Failed to get schema for table"));
@@ -568,7 +568,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertTrue(issues.valid(), "Expected 64-char identifier to be valid");
   }
@@ -581,7 +581,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertFalse(issues.valid(), "Expected 65-char identifier to be invalid");
     assertTrue(issues.toString().contains("Invalid table name"),
@@ -601,7 +601,7 @@ class MySqlDeployerTest {
 
     MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
     Validator.Issues issues = new Validator.Issues("test");
-    deployer.validate(issues);
+    deployer.validate(issues, null);
 
     assertTrue(issues.valid(), "Expected no errors for valid new table, got: " + issues);
   }
@@ -1311,4 +1311,5 @@ class MySqlDeployerTest {
     assertTrue(createDbSql.contains("`test_db`"),
         "Expected backtick-escaped db name in CREATE DATABASE SQL, got: " + createDbSql);
   }
+
 }

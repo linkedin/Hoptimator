@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collections;
@@ -53,7 +54,7 @@ public class KafkaDeployer implements Deployer, Validated {
   }
 
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, Connection connection) {
     String topicName = source.table();
     // null default = option was not specified by user, skip validation for that option
     Integer partitions = DeployerUtils.parseIntOption(source.options(), "partitions", null);
