@@ -78,7 +78,7 @@ spec:
       name: {{name}}-trigger
     spec:
       schema: KAFKA
-      table: {{offline.table.name}}
+      table: {{path}}
       jobProperties: {{job.properties}}
       yaml: |
         apiVersion: batch/v1

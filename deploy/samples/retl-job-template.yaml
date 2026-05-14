@@ -20,7 +20,7 @@ spec:
               - name: TABLE_TRIGGER_NAME
                 value: "{{trigger}}"
               - name: SOURCE_TABLE_NAME
-                value: "{{offline.table.name}}"
+                value: "{{path}}"
               - name: ONLINE_TABLE_NAME
                 value: "{{job.properties.online.table.name}}"
             command: ["bash",  "-c", "echo {{name}}-trigger fired at `date`"]
