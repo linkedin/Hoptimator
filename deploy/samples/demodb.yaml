@@ -12,6 +12,17 @@ spec:
 apiVersion: hoptimator.linkedin.com/v1alpha1
 kind: Database
 metadata:
+  name: ads-catalog-database
+spec:
+  catalog: ADS_CATALOG
+  url: jdbc:demodb://names=ads
+  dialect: Calcite
+
+---
+
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
   name: profile-database
 spec:
   schema: PROFILE

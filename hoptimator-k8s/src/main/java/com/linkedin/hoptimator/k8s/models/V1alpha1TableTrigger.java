@@ -31,7 +31,7 @@ import java.io.IOException;
  * Trigger for a specific table.
  */
 @ApiModel(description = "Trigger for a specific table.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-21T19:10:45.166Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-14T22:46:35.638Z[Etc/UTC]")
 public class V1alpha1TableTrigger implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

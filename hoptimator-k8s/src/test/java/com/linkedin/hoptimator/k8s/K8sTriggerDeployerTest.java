@@ -523,6 +523,78 @@ class K8sTriggerDeployerTest {
         "super.update() must have run toK8sObject() — expected a CRD with spec.table='TABLE'");
   }
 
+  // ───────── toK8sObject() catalog rendering tests ─────────
+
+  @Test
+  void toK8sObjectSetsSpecCatalogForThreePartPath() throws SQLException {
+    // Scenario: CREATE TRIGGER ... ON openhouse.mydb.mytable — the source path has 3 elements,
+    // so source.catalog() returns "OPENHOUSE" and spec.catalog must be set.
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *",
+        Collections.emptyMap(),
+        new Source(null, Arrays.asList("OPENHOUSE", "MYDB", "MYTABLE"), Collections.emptyMap()),
+        null);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    assertTrue(specs.get(0).contains("catalog: OPENHOUSE"),
+        "spec.catalog=OPENHOUSE must be present in rendered YAML — got: " + specs.get(0));
+    assertTrue(specs.get(0).contains("schema: MYDB"),
+        "spec.schema=MYDB must be present — got: " + specs.get(0));
+    assertTrue(specs.get(0).contains("table: MYTABLE"),
+        "spec.table=MYTABLE must be present — got: " + specs.get(0));
+  }
+
+  @Test
+  void toK8sObjectOmitsSpecCatalogForTwoPartPath() throws SQLException {
+    // Scenario: CREATE TRIGGER ... ON ads.ad_clicks — the source path has 2 elements,
+    // so source.catalog() is null and spec.catalog must not appear in the rendered YAML.
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml("template: {{name}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *",
+        Collections.emptyMap(),
+        new Source(null, Arrays.asList("ADS", "AD_CLICKS"), Collections.emptyMap()),
+        null);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    assertFalse(specs.get(0).contains("catalog:"),
+        "spec.catalog must not appear for a 2-part path — got: " + specs.get(0));
+  }
+
+  @Test
+  void toK8sObjectBindsCatalogAsTemplateVariable() throws SQLException {
+    // Verify {{catalog}} is bound in the template environment for 3-part paths.
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml(
+            "fqn: {{catalog}}.{{schema}}.{{table}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *",
+        Collections.emptyMap(),
+        new Source(null, Arrays.asList("OPENHOUSE", "MYDB", "MYTABLE"), Collections.emptyMap()),
+        null);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    assertTrue(specs.get(0).contains("fqn: OPENHOUSE.MYDB.MYTABLE"),
+        "{{catalog}}.{{schema}}.{{table}} must render to OPENHOUSE.MYDB.MYTABLE — got: " + specs.get(0));
+  }
+
   // ───────── toK8sObject() paused rendering test ─────────
 
   @Test

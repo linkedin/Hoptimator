@@ -112,6 +112,7 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
         .with("schedule", trigger.cronSchedule())
         .with("table", source != null ? source.table() : null)
         .with("schema", source != null ? source.schema() : null)
+        .with("catalog", source != null ? source.catalog() : null)
         .with(properties);
     V1alpha1JobTemplate jobTemplate = jobTemplateApi.get(jobNamespace, jobName);
     V1ObjectMeta meta = new V1ObjectMeta().name(triggerName);
@@ -133,6 +134,7 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
       }
     });
     V1alpha1TableTriggerSpec spec = new V1alpha1TableTriggerSpec()
+        .catalog(source != null ? source.catalog() : null)
         .schema(source != null ? source.schema() : null)
         .table(source != null ? source.table() : null)
         .schedule(trigger.cronSchedule())
