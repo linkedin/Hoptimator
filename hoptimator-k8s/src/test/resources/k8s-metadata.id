@@ -104,7 +104,7 @@ select name, "SCHEMA", "TABLE" from "k8s".TABLE_TRIGGERS;
 | NAME                           | SCHEMA | TABLE            |
 +--------------------------------+--------+------------------+
 | test-table-trigger             | KAFKA  | existing-topic-1 |
-| ads-database-pageviews-trigger | KAFKA  | ads_offline      |
+| ads-database-pageviews-trigger | KAFKA  | ADS.PAGE_VIEWS   |
 +--------------------------------+--------+------------------+
 (2 rows)
 

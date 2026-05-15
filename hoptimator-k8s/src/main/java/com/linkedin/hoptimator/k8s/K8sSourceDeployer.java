@@ -44,6 +44,7 @@ class K8sSourceDeployer extends K8sYamlDeployer {
             .with("catalog", source.catalog())
             .with("schema", source.schema())
             .with("table", source.table())
+            .with("path", source.pathString())
             .with(source.options())
             .with(JOB_PROPERTIES_PREFIX, getJobPropertiesFromOptions(source.options()))
             .with(DeploymentService.parseHints(connection.connectionProperties()));

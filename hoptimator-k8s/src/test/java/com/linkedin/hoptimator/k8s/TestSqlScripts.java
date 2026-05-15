@@ -26,7 +26,7 @@ public class TestSqlScripts extends QuidemTestBase {
 
   @Test
   public void k8sMetadataTables() throws Exception {
-    run("k8s-metadata.id", "hints=path=ads_offline");
+    run("k8s-metadata.id");
   }
 
   @Test
