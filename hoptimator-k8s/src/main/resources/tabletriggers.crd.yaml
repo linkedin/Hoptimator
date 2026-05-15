@@ -30,6 +30,9 @@ spec:
               description: TableTrigger spec.
               type: object
               properties:
+                catalog:
+                  description: The catalog the table belongs to, e.g. OPENHOUSE. Optional; present only for 3-part identifiers.
+                  type: string
                 schema:
                   description: The schema the table belongs to, e.g. KAFKA.
                   type: string
@@ -80,6 +83,10 @@ spec:
         type: boolean
         description: Whether trigger is paused.
         jsonPath: .spec.paused
+      - name: CATALOG
+        type: string
+        description: Catalog name.
+        jsonPath: .spec.catalog
       - name: SCHEMA
         type: string
         description: Schema name.

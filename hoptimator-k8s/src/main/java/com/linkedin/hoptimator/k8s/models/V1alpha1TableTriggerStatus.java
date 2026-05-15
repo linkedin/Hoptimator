@@ -32,7 +32,7 @@ import java.util.Map;
  * TableTrigger status.
  */
 @ApiModel(description = "TableTrigger status.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-21T19:10:45.166Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-14T22:46:35.638Z[Etc/UTC]")
 public class V1alpha1TableTriggerStatus {
   public static final String SERIALIZED_NAME_JOBS = "jobs";
   @SerializedName(SERIALIZED_NAME_JOBS)
