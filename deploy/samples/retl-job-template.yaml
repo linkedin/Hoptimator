@@ -4,7 +4,7 @@ metadata:
   name: retl-job-template
   namespace: default
 spec:
-  databases: ["profile-database"]
+  databases: ["ads-catalog-database"]
   yaml: |
     apiVersion: batch/v1
     kind: Job

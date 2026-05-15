@@ -20,6 +20,6 @@ kind: Database
 metadata:
   name: logical-offline
 spec:
-  url: jdbc:logical://nearline=ads-database;offline=profile-database
+  url: jdbc:logical://nearline=ads-database;offline=ads-catalog-database
   schema: LOGICAL_OFFLINE
   dialect: Calcite

@@ -61,54 +61,62 @@ select name, failed from "k8s".pipelines order by name;
 !ok
 
 select name, failed from "k8s".pipeline_elements order by name;
-+---------------------------------------------+--------+
-| NAME                                        | FAILED |
-+---------------------------------------------+--------+
-| FlinkSessionJob/ads-database-audience2      | false  |
-| FlinkSessionJob/ads-database-pages          | false  |
-| TableTrigger/ads-database-pageviews-trigger | false  |
-+---------------------------------------------+--------+
-(3 rows)
++----------------------------------------+--------+
+| NAME                                   | FAILED |
++----------------------------------------+--------+
+| FlinkSessionJob/ads-database-audience2 | false  |
+| FlinkSessionJob/ads-database-pages     | false  |
++----------------------------------------+--------+
+(2 rows)
 
 !ok
 
 select * from "k8s".pipeline_element_map order by element_name, pipeline_name;
-+---------------------------------------------+---------------+
-| ELEMENT_NAME                                | PIPELINE_NAME |
-+---------------------------------------------+---------------+
-| FlinkSessionJob/ads-database-audience2      | ads-audience2 |
-| FlinkSessionJob/ads-database-pages          | ads-pages     |
-| TableTrigger/ads-database-pageviews-trigger | ads-audience2 |
-| TableTrigger/ads-database-pageviews-trigger | ads-pages     |
-+---------------------------------------------+---------------+
-(4 rows)
++----------------------------------------+---------------+
+| ELEMENT_NAME                           | PIPELINE_NAME |
++----------------------------------------+---------------+
+| FlinkSessionJob/ads-database-audience2 | ads-audience2 |
+| FlinkSessionJob/ads-database-pages     | ads-pages     |
++----------------------------------------+---------------+
+(2 rows)
 
 !ok
 
 select pl.name as pipeline_name, pe.element_name, pe.failed as element_failed from "k8s".pipelines pl inner join (select t2.element_name, t1.failed, t2.pipeline_name from "k8s".pipeline_elements t1 inner join "k8s".pipeline_element_map t2 on t1.
 name = t2.element_name) pe on pl.name = pe.pipeline_name order by pipeline_name, element_name;
-+---------------+---------------------------------------------+----------------+
-| PIPELINE_NAME | ELEMENT_NAME                                | ELEMENT_FAILED |
-+---------------+---------------------------------------------+----------------+
-| ads-audience2 | FlinkSessionJob/ads-database-audience2      | false          |
-| ads-audience2 | TableTrigger/ads-database-pageviews-trigger | false          |
-| ads-pages     | FlinkSessionJob/ads-database-pages          | false          |
-| ads-pages     | TableTrigger/ads-database-pageviews-trigger | false          |
-+---------------+---------------------------------------------+----------------+
-(4 rows)
-
-!ok
-
-select name, "SCHEMA", "TABLE" from "k8s".TABLE_TRIGGERS;
-+--------------------------------+--------+------------------+
-| NAME                           | SCHEMA | TABLE            |
-+--------------------------------+--------+------------------+
-| test-table-trigger             | KAFKA  | existing-topic-1 |
-| ads-database-pageviews-trigger | KAFKA  | ADS.PAGE_VIEWS   |
-+--------------------------------+--------+------------------+
++---------------+----------------------------------------+----------------+
+| PIPELINE_NAME | ELEMENT_NAME                           | ELEMENT_FAILED |
++---------------+----------------------------------------+----------------+
+| ads-audience2 | FlinkSessionJob/ads-database-audience2 | false          |
+| ads-pages     | FlinkSessionJob/ads-database-pages     | false          |
++---------------+----------------------------------------+----------------+
 (2 rows)
 
 !ok
+
+# Scanning a 3-part identifier (ads_catalog.ads.ad_clicks) routes through the
+# ads-source-trigger-template (bound to ads-catalog-database), which renders a
+# TableTrigger whose `table` is the dot-joined source path.
+create or replace materialized view ads.clicks as select * from ads_catalog.ads.ad_clicks;
+(0 rows modified)
+
+!update
+
+select name, "SCHEMA", "TABLE" from "k8s".TABLE_TRIGGERS order by name;
++---------------------------------------+--------+---------------------------+
+| NAME                                  | SCHEMA | TABLE                     |
++---------------------------------------+--------+---------------------------+
+| ads-catalog-database-adclicks-trigger | KAFKA  | ADS_CATALOG.ADS.AD_CLICKS |
+| test-table-trigger                    | KAFKA  | existing-topic-1          |
++---------------------------------------+--------+---------------------------+
+(2 rows)
+
+!ok
+
+drop materialized view ads.clicks;
+(0 rows modified)
+
+!update
 
 drop materialized view ads.pages;
 (0 rows modified)
