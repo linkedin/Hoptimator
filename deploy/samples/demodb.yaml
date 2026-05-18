@@ -15,6 +15,7 @@ metadata:
   name: ads-catalog-database
 spec:
   catalog: ADS_CATALOG
+  schema: ADS
   url: jdbc:demodb://names=ads
   dialect: Calcite
 
@@ -68,7 +69,7 @@ metadata:
   name: ads-source-trigger-template
 spec:
   databases:
-    - ads-database
+    - ads-catalog-database
   methods:
     - Scan
   yaml: |
@@ -78,7 +79,7 @@ spec:
       name: {{name}}-trigger
     spec:
       schema: KAFKA
-      table: {{offline.table.name}}
+      table: {{path}}
       jobProperties: {{job.properties}}
       yaml: |
         apiVersion: batch/v1

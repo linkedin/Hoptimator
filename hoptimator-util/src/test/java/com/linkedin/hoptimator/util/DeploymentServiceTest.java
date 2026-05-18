@@ -162,10 +162,9 @@ class DeploymentServiceTest {
 
     // Test values with dots and underscores (common in property names)
     Map<String, String> dotted = DeploymentService.parseHints(new Properties() {{
-      put(HINT_OPTION, "kafka.source.properties.group.id=my_group,offline.table.name=ads_offline");
+      put(HINT_OPTION, "kafka.source.properties.group.id=my_group");
     }});
     assertEquals("my_group", dotted.get("kafka.source.properties.group.id"));
-    assertEquals("ads_offline", dotted.get("offline.table.name"));
   }
 
   /**

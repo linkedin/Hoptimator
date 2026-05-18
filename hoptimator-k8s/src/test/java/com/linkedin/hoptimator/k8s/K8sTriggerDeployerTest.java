@@ -595,6 +595,52 @@ class K8sTriggerDeployerTest {
         "{{catalog}}.{{schema}}.{{table}} must render to OPENHOUSE.MYDB.MYTABLE — got: " + specs.get(0));
   }
 
+  // ───────── toK8sObject() path derivation tests ─────────
+
+  @Test
+  void toK8sObjectDerivesPathFromSourceForThreePartPath() throws SQLException {
+    // {{path}} should default to source.pathString() when no explicit option is set.
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml(
+            "offlineTable: {{path}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *",
+        Collections.emptyMap(),
+        new Source(null, Arrays.asList("OPENHOUSE", "MYDB", "MYTABLE"), Collections.emptyMap()),
+        null);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    assertTrue(specs.get(0).contains("offlineTable: OPENHOUSE.MYDB.MYTABLE"),
+        "{{path}} must default to source.pathString() — got: " + specs.get(0));
+  }
+
+  @Test
+  void toK8sObjectDerivesPathFromSourceForTwoPartPath() throws SQLException {
+    // Same default applies for 2-part paths.
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml(
+            "offlineTable: {{path}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *",
+        Collections.emptyMap(),
+        new Source(null, Arrays.asList("ADS", "AD_CLICKS"), Collections.emptyMap()),
+        null);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    assertTrue(specs.get(0).contains("offlineTable: ADS.AD_CLICKS"),
+        "{{path}} must default to source.pathString() — got: " + specs.get(0));
+  }
+
   // ───────── toK8sObject() paused rendering test ─────────
 
   @Test

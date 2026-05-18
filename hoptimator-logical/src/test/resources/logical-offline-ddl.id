@@ -5,19 +5,20 @@
 # Test 1: CREATE TABLE on a logical table with an offline tier auto-creates
 # a paused TableTrigger via LogicalTableDeployer.deployImplicitTrigger().
 # ─────────────────────────────────────────────────────────────────────────────
-create or replace table "LOGICAL_OFFLINE"."MEMBERS" ("ID" bigint, "NAME" varchar);
+create or replace table "LOGICAL_OFFLINE"."AD_CLICKS" ("ID" bigint, "NAME" varchar);
 (0 rows modified)
 
 !update
 
 # The trigger CRD must exist with the canonical "logical-<table>-offline-trigger" name,
-# pointing at the offline tier's physical schema (PROFILE), and must start paused=true.
-select name, schema, "TABLE", paused from "k8s".table_triggers where name = 'logical-members-offline-trigger';
-+---------------------------------+---------+---------+--------+
-| NAME                            | SCHEMA  | TABLE   | PAUSED |
-+---------------------------------+---------+---------+--------+
-| logical-members-offline-trigger | PROFILE | MEMBERS | true   |
-+---------------------------------+---------+---------+--------+
+# pointing at the offline tier's physical catalog+schema (ADS_CATALOG.ADS, from
+# ads-catalog-database). The trigger must start paused=true.
+select name, catalog, schema, "TABLE", paused from "k8s".table_triggers where name = 'logical-adclicks-offline-trigger';
++----------------------------------+-------------+--------+-----------+--------+
+| NAME                             | CATALOG     | SCHEMA | TABLE     | PAUSED |
++----------------------------------+-------------+--------+-----------+--------+
+| logical-adclicks-offline-trigger | ADS_CATALOG | ADS    | AD_CLICKS | true   |
++----------------------------------+-------------+--------+-----------+--------+
 (1 row)
 
 !ok
@@ -25,12 +26,12 @@ select name, schema, "TABLE", paused from "k8s".table_triggers where name = 'log
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 2: RESUME TRIGGER unpauses the implicit trigger.
 # ─────────────────────────────────────────────────────────────────────────────
-resume trigger "logical-members-offline-trigger";
+resume trigger "logical-adclicks-offline-trigger";
 (0 rows modified)
 
 !update
 
-select paused from "k8s".table_triggers where name = 'logical-members-offline-trigger';
+select paused from "k8s".table_triggers where name = 'logical-adclicks-offline-trigger';
 +--------+
 | PAUSED |
 +--------+
@@ -45,12 +46,12 @@ select paused from "k8s".table_triggers where name = 'logical-members-offline-tr
 # (K8sTriggerDeployer.update() resolves paused from the existing CRD when the
 # caller doesn't set PAUSED_OPTION.)
 # ─────────────────────────────────────────────────────────────────────────────
-create or replace table "LOGICAL_OFFLINE"."MEMBERS" ("ID" bigint, "NAME" varchar, "EXTRA" varchar);
+create or replace table "LOGICAL_OFFLINE"."AD_CLICKS" ("ID" bigint, "NAME" varchar, "EXTRA" varchar);
 (0 rows modified)
 
 !update
 
-select paused from "k8s".table_triggers where name = 'logical-members-offline-trigger';
+select paused from "k8s".table_triggers where name = 'logical-adclicks-offline-trigger';
 +--------+
 | PAUSED |
 +--------+
@@ -63,12 +64,12 @@ select paused from "k8s".table_triggers where name = 'logical-members-offline-tr
 # ─────────────────────────────────────────────────────────────────────────────
 # Test 4: PAUSE TRIGGER re-pauses it.
 # ─────────────────────────────────────────────────────────────────────────────
-pause trigger "logical-members-offline-trigger";
+pause trigger "logical-adclicks-offline-trigger";
 (0 rows modified)
 
 !update
 
-select paused from "k8s".table_triggers where name = 'logical-members-offline-trigger';
+select paused from "k8s".table_triggers where name = 'logical-adclicks-offline-trigger';
 +--------+
 | PAUSED |
 +--------+
@@ -78,7 +79,7 @@ select paused from "k8s".table_triggers where name = 'logical-members-offline-tr
 
 !ok
 
-drop table "LOGICAL_OFFLINE"."MEMBERS";
+drop table "LOGICAL_OFFLINE"."AD_CLICKS";
 (0 rows modified)
 
 !update

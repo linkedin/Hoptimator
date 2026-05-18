@@ -110,6 +110,7 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
         .with("trigger", triggerName)
         .with("job", jobName)
         .with("schedule", trigger.cronSchedule())
+        .with("path", source != null ? source.pathString() : null)
         .with("table", source != null ? source.table() : null)
         .with("schema", source != null ? source.schema() : null)
         .with("catalog", source != null ? source.catalog() : null)

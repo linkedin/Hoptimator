@@ -4,7 +4,7 @@ metadata:
   name: retl-job-template
   namespace: default
 spec:
-  databases: ["profile-database"]
+  databases: ["ads-catalog-database"]
   yaml: |
     apiVersion: batch/v1
     kind: Job
@@ -20,7 +20,7 @@ spec:
               - name: TABLE_TRIGGER_NAME
                 value: "{{trigger}}"
               - name: SOURCE_TABLE_NAME
-                value: "{{offline.table.name}}"
+                value: "{{path}}"
               - name: ONLINE_TABLE_NAME
                 value: "{{job.properties.online.table.name}}"
             command: ["bash",  "-c", "echo {{name}}-trigger fired at `date`"]
