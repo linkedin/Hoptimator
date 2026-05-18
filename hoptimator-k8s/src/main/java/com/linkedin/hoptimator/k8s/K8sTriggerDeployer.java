@@ -7,10 +7,13 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 import com.linkedin.hoptimator.util.Template;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 
 import java.sql.SQLException;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,6 +48,11 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     String canonicalName = K8sUtils.canonicalizeName(trigger.name());
     V1alpha1TableTrigger existingTrigger = triggerApi.getIfExists(context.namespace(), canonicalName);
 
+    if (trigger.options().containsKey(Trigger.FIRE_OPTION)) {
+      fire(existingTrigger);
+      return;
+    }
+
     Boolean targetPaused = null;
     if (trigger.options().containsKey(Trigger.PAUSED_OPTION)) {
       targetPaused = Boolean.TRUE.toString().equals(trigger.options().get(Trigger.PAUSED_OPTION));
@@ -70,6 +78,48 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
       return;
     }
     super.update();
+  }
+
+  /** Applies a FIRE intent: rejects on in-flight, merges WITH options into spec.jobProperties
+   *  (mirroring CREATE TRIGGER's prefix-stripping), then bumps status.timestamp so the
+   *  TableTriggerReconciler materialises a fresh Job. */
+  private void fire(V1alpha1TableTrigger existingTrigger) throws SQLException {
+    if (existingTrigger == null) {
+      throw new SQLException("Trigger " + trigger.name() + " not found.");
+    }
+    V1alpha1TableTriggerStatus status = existingTrigger.getStatus();
+    if (status != null && status.getTimestamp() != null
+        && (status.getWatermark() == null || status.getTimestamp().isAfter(status.getWatermark()))) {
+      throw new SQLException("Trigger " + trigger.name() + " has an in-flight execution (timestamp="
+          + status.getTimestamp() + ", watermark=" + status.getWatermark()
+          + "). Wait for it to complete, or pause/resume to abort.");
+    }
+
+    V1alpha1TableTriggerSpec spec = existingTrigger.getSpec();
+    if (spec == null) {
+      spec = new V1alpha1TableTriggerSpec();
+      existingTrigger.spec(spec);
+    }
+    Map<String, String> jobProps = spec.getJobProperties() != null
+        ? new HashMap<>(spec.getJobProperties())
+        : new HashMap<>();
+    trigger.options().forEach((key, value) -> {
+      if (Trigger.FIRE_OPTION.equals(key)) {
+        return;
+      }
+      if (key.startsWith("job.properties.")) {
+        jobProps.put(key.substring("job.properties.".length()), value);
+      } else {
+        jobProps.put(key, value);
+      }
+    });
+    spec.jobProperties(jobProps);
+    triggerApi.update(existingTrigger);
+
+    V1alpha1TableTriggerStatus newStatus = status != null ? status : new V1alpha1TableTriggerStatus();
+    newStatus.setTimestamp(OffsetDateTime.now(ZoneOffset.UTC));
+    existingTrigger.setStatus(newStatus);
+    triggerApi.updateStatus(existingTrigger, newStatus);
   }
 
   private void stampDependencyMetadata(V1alpha1TableTrigger target) {

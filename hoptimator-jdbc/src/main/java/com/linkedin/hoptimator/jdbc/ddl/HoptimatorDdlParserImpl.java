@@ -6889,9 +6889,17 @@ public class HoptimatorDdlParserImpl extends SqlAbstractParserImpl implements Ho
 
   final public SqlFire SqlFireTrigger(Span s) throws ParseException {
     final SqlIdentifier id;
+    SqlNodeList optionList = null;
     jj_consume_token(TRIGGER);
     id = CompoundIdentifier();
-        {if (true) return new SqlFireTrigger(s.end(this), id);}
+    switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+    case WITH:
+      optionList = Options();
+      break;
+    default:
+      ;
+    }
+        {if (true) return new SqlFireTrigger(s.end(this), id, optionList);}
     throw new Error("Missing return statement in function");
   }
 

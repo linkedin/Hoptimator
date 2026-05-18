@@ -31,6 +31,7 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlDropTrigger;
+import com.linkedin.hoptimator.jdbc.ddl.SqlFireTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
@@ -309,6 +310,41 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code RESUME TRIGGER} command. */
   public void execute(SqlResumeTrigger resume, CalcitePrepare.Context context) {
     updateTriggerPausedState(resume, resume.name, false);
+  }
+
+  /** Executes a {@code FIRE TRIGGER name [WITH (k v, ...)]} command.
+   *  Options are merged into the trigger's job properties and the fire intent
+   *  is passed to the deployer via {@link Trigger#FIRE_OPTION}; the deployer is
+   *  responsible for in-flight rejection and bumping the trigger's timestamp. */
+  public void execute(SqlFireTrigger fire, CalcitePrepare.Context context) {
+    logger.info("Validating statement: {}", fire);
+    try {
+      ValidationService.validateOrThrow(fire, connection);
+    } catch (SQLException e) {
+      throw new DdlException(fire, e.getMessage(), e);
+    }
+
+    if (fire.name.names.size() > 1) {
+      throw new DdlException(fire, "Triggers cannot belong to a schema or database.");
+    }
+    String name = fire.name.names.get(0);
+
+    Map<String, String> options = HoptimatorDdlUtils.options(fire.options);
+    options.put(Trigger.FIRE_OPTION, "true");
+    Trigger trigger = new Trigger(name, null, null, options, null, null);
+
+    Collection<Deployer> deployers = null;
+    try {
+      logger.info("Firing trigger {} with {} option(s)", name, options.size() - 1);
+      deployers = DeploymentService.deployers(trigger, connection);
+      DeploymentService.update(deployers);
+      logger.info("FIRE TRIGGER {} completed", name);
+    } catch (Exception e) {
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+      }
+      throw new DdlException(fire, e.getMessage(), e);
+    }
   }
 
   /** Executes a {@code DROP TRIGGER} command. */
