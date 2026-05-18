@@ -2,7 +2,7 @@
 !use k8s
 
 # Create a trigger we can fire.
-create trigger testfire on ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
+create trigger testfire on ads_catalog.ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
 (0 rows modified)
 
 !update
@@ -34,7 +34,7 @@ drop trigger testfire;
 !update
 
 # FIRE with WITH options: options should be merged into spec.jobProperties.
-create trigger testfirewith on ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
+create trigger testfirewith on ads_catalog.ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
 (0 rows modified)
 
 !update
