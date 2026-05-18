@@ -486,11 +486,13 @@ SqlFire SqlFireTable(Span s) :
 SqlFire SqlFireTrigger(Span s) :
 {
     final SqlIdentifier id;
+    SqlNodeList options = null;
 }
 {
     <TRIGGER> id = CompoundIdentifier()
+    [ options = Options() ]
     {
-        return new SqlFireTrigger(s.end(this), id);
+        return new SqlFireTrigger(s.end(this), id, options);
     }
 }
 

@@ -8,6 +8,10 @@ public class Trigger implements Deployable {
 
   public static final String PAUSED_OPTION = "paused";
 
+  /** Marker option used by FIRE TRIGGER to signal a fire intent through DeploymentService.
+   *  Recognised by deployers (see K8sTriggerDeployer) to short-circuit normal update. */
+  public static final String FIRE_OPTION = "fire";
+
   private final String name;
   private final UserJob job;
   private final String cronSchedule;

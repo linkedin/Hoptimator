@@ -10,7 +10,11 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -661,5 +665,131 @@ class K8sTriggerDeployerTest {
     assertFalse(specs.isEmpty());
     assertTrue(specs.get(0).contains("paused: true"),
         "spec.paused=true must be present in rendered YAML when PAUSED_OPTION=true — got: " + specs.get(0));
+  }
+
+  // ───────── update() FIRE_OPTION (fire-trigger) tests ─────────
+
+  private Trigger fireTrigger(Map<String, String> extraOptions) {
+    Map<String, String> options = new HashMap<>(extraOptions);
+    options.put(Trigger.FIRE_OPTION, "true");
+    return new Trigger("MY_TRIGGER", null, null, options, null, null);
+  }
+
+  @Test
+  void updateWithFireOptionBumpsTimestampOnExistingTrigger() throws SQLException {
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec());
+    triggers.add(existing);
+
+    OffsetDateTime before = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    deployer.update();
+
+    assertNotNull(existing.getStatus(), "status must be set after FIRE");
+    assertNotNull(existing.getStatus().getTimestamp(), "status.timestamp must be set");
+    assertTrue(existing.getStatus().getTimestamp().isAfter(before),
+        "status.timestamp must be advanced past pre-fire time");
+  }
+
+  @Test
+  void updateWithFireOptionMergesJobPropertiesStrippingPrefix() throws SQLException {
+    // Pre-existing jobProperty value must be retained, and new WITH option (with
+    // job.properties. prefix) must be merged in with the prefix stripped — symmetric
+    // with the CREATE TRIGGER deployer behaviour.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec()
+            .jobProperties(new HashMap<>(Collections.singletonMap("existing", "v0"))));
+    triggers.add(existing);
+
+    Map<String, String> opts = new HashMap<>();
+    opts.put("job.properties.backfill.start.time", "2026-04-01");
+    opts.put("job.properties.backfill.end.time", "2026-04-08");
+
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(opts), mockContext);
+    deployer.update();
+
+    Map<String, String> jobProps = existing.getSpec().getJobProperties();
+    assertEquals("v0", jobProps.get("existing"), "pre-existing jobProperty must be retained");
+    assertEquals("2026-04-01", jobProps.get("backfill.start.time"),
+        "WITH option must be merged with job.properties. prefix stripped");
+    assertEquals("2026-04-08", jobProps.get("backfill.end.time"));
+    assertFalse(jobProps.containsKey(Trigger.FIRE_OPTION),
+        "FIRE marker must not leak into jobProperties");
+  }
+
+  @Test
+  void updateWithFireOptionRejectsWhenInFlight() {
+    // status.timestamp set, watermark null → in-flight Job already in progress.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec())
+        .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now(ZoneOffset.UTC)));
+    triggers.add(existing);
+
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    SQLException ex = assertThrows(SQLException.class, deployer::update,
+        "FIRE on an in-flight trigger must throw");
+    assertTrue(ex.getMessage().contains("in-flight"),
+        "exception must mention in-flight: " + ex.getMessage());
+  }
+
+  @Test
+  void updateWithFireOptionAllowsRefireAfterWatermarkCaughtUp() throws SQLException {
+    // status.timestamp == status.watermark → previous fire completed; new FIRE allowed.
+    OffsetDateTime t = OffsetDateTime.now(ZoneOffset.UTC).minusMinutes(5);
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec())
+        .status(new V1alpha1TableTriggerStatus().timestamp(t).watermark(t));
+    triggers.add(existing);
+
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    deployer.update();
+
+    assertTrue(existing.getStatus().getTimestamp().isAfter(t),
+        "refire must advance status.timestamp past the previous fire");
+  }
+
+  @Test
+  void updateWithFireOptionThrowsWhenTriggerNotFound() {
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    SQLException ex = assertThrows(SQLException.class, deployer::update);
+    assertTrue(ex.getMessage().contains("not found"),
+        "exception must mention not-found: " + ex.getMessage());
+  }
+
+  @Test
+  void updateWithFireOptionCreatesSpecIfNull() throws SQLException {
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(null);
+    triggers.add(existing);
+
+    K8sTriggerDeployer deployer = makeDeployer(
+        fireTrigger(Collections.singletonMap("job.properties.k", "v")), mockContext);
+    deployer.update();
+
+    assertNotNull(existing.getSpec(), "spec must be initialised by FIRE when previously null");
+    assertEquals("v", existing.getSpec().getJobProperties().get("k"));
+  }
+
+  @Test
+  void updateWithFireOptionKeepsUnprefixedOptionsVerbatim() throws SQLException {
+    // Unprefixed keys land in spec.jobProperties as-is — symmetric with CREATE which
+    // accepts both forms.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec());
+    triggers.add(existing);
+
+    K8sTriggerDeployer deployer = makeDeployer(
+        fireTrigger(Collections.singletonMap("backfill.start.time", "2026-04-01")), mockContext);
+    deployer.update();
+
+    assertEquals("2026-04-01",
+        existing.getSpec().getJobProperties().get("backfill.start.time"),
+        "unprefixed FIRE option must land in jobProperties verbatim");
   }
 }

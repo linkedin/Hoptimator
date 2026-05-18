@@ -50,6 +50,11 @@ public class TestSqlScripts extends QuidemTestBase {
   }
 
   @Test
+  public void k8sTriggerFire() throws Exception {
+    run("k8s-trigger-fire.id");
+  }
+
+  @Test
   public void k8sDdlCreateDatabase() throws Exception {
     run("k8s-ddl-create-database.id");
   }
