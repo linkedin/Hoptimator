@@ -37,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -85,7 +86,6 @@ class KafkaTopicReconcilerTest {
     assertTrue(result.isRequeue());
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void testReconcileCreatesNewTopic() throws Exception {
     V1alpha1KafkaTopic topic = buildKafkaTopic("my-topic", 5, 3);
@@ -93,9 +93,9 @@ class KafkaTopicReconcilerTest {
 
     // Admin describe throws UnknownTopicOrPartitionException (topic doesn't exist yet)
     DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
-    KafkaFuture<Map<String, TopicDescription>> allFuture = mock(KafkaFuture.class);
+    KafkaFuture<?> allFuture = mock(KafkaFuture.class);
     when(allFuture.get()).thenThrow(new ExecutionException(new UnknownTopicOrPartitionException("not found")));
-    when(describeResult.allTopicNames()).thenReturn(allFuture);
+    doReturn(allFuture).when(describeResult).allTopicNames();
     when(mockAdmin.describeTopics(anyCollection())).thenReturn(describeResult);
 
     // CreateTopics succeeds

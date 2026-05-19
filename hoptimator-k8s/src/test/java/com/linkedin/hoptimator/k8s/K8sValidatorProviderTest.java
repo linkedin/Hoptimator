@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -18,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class K8sValidatorProviderTest {
 
   private static Source testSource() {
-    return new Source("kafka1", java.util.List.of("KAFKA", "my-topic"), Map.of());
+    return new Source("kafka1", List.of("KAFKA", "my-topic"), Map.of());
   }
 
   @Test

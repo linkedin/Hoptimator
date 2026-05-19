@@ -35,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -192,11 +193,10 @@ class ViewReconcilerTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void controllerCreatesControllerFromContext() {
     SharedInformerFactory mockInformerFactory = mock(SharedInformerFactory.class);
-    SharedIndexInformer<V1alpha1View> mockInformer = mock(SharedIndexInformer.class);
-    when(mockInformerFactory.getExistingSharedIndexInformer(V1alpha1View.class)).thenReturn(mockInformer);
+    SharedIndexInformer<?> mockInformer = mock(SharedIndexInformer.class);
+    doReturn(mockInformer).when(mockInformerFactory).getExistingSharedIndexInformer(V1alpha1View.class);
     K8sContext mockContext = mock(K8sContext.class);
     when(mockContext.informerFactory()).thenReturn(mockInformerFactory);
 

@@ -90,18 +90,16 @@ class K8sYamlApiTest {
     @Mock
     private K8sContext mockContext;
 
-    @SuppressWarnings("unchecked")
-    private KubernetesApiResponse<DynamicKubernetesObject> successResponse(DynamicKubernetesObject obj) {
-      KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
+    private KubernetesApiResponse<?> successResponse(DynamicKubernetesObject obj) {
+      KubernetesApiResponse<?> resp = mock(KubernetesApiResponse.class);
       lenient().when(resp.isSuccess()).thenReturn(true);
       lenient().when(resp.getHttpStatusCode()).thenReturn(200);
-      lenient().when(resp.getObject()).thenReturn(obj);
+      lenient().doReturn(obj).when(resp).getObject();
       return resp;
     }
 
-    @SuppressWarnings("unchecked")
-    private KubernetesApiResponse<DynamicKubernetesObject> notFoundResponse() {
-      KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
+    private KubernetesApiResponse<?> notFoundResponse() {
+      KubernetesApiResponse<?> resp = mock(KubernetesApiResponse.class);
       lenient().when(resp.isSuccess()).thenReturn(false);
       lenient().when(resp.getHttpStatusCode()).thenReturn(404);
       return resp;
@@ -421,12 +419,11 @@ class K8sYamlApiTest {
     @Mock
     private K8sContext mockContext;
 
-    @SuppressWarnings("unchecked")
-    private KubernetesApiResponse<DynamicKubernetesObject> successResponse(DynamicKubernetesObject obj) {
-      KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
+    private KubernetesApiResponse<?> successResponse(DynamicKubernetesObject obj) {
+      KubernetesApiResponse<?> resp = mock(KubernetesApiResponse.class);
       lenient().when(resp.isSuccess()).thenReturn(true);
       lenient().when(resp.getHttpStatusCode()).thenReturn(200);
-      lenient().when(resp.getObject()).thenReturn(obj);
+      lenient().doReturn(obj).when(resp).getObject();
       return resp;
     }
 
@@ -616,18 +613,16 @@ class K8sYamlApiTest {
     @Mock
     private K8sContext mockContext;
 
-    @SuppressWarnings("unchecked")
-    private KubernetesApiResponse<DynamicKubernetesObject> successResponse(DynamicKubernetesObject obj) {
-      KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
+    private KubernetesApiResponse<?> successResponse(DynamicKubernetesObject obj) {
+      KubernetesApiResponse<?> resp = mock(KubernetesApiResponse.class);
       lenient().when(resp.isSuccess()).thenReturn(true);
       lenient().when(resp.getHttpStatusCode()).thenReturn(200);
-      lenient().when(resp.getObject()).thenReturn(obj);
+      lenient().doReturn(obj).when(resp).getObject();
       return resp;
     }
 
-    @SuppressWarnings("unchecked")
-    private KubernetesApiResponse<DynamicKubernetesObject> notFoundResponse() {
-      KubernetesApiResponse<DynamicKubernetesObject> resp = mock(KubernetesApiResponse.class);
+    private KubernetesApiResponse<?> notFoundResponse() {
+      KubernetesApiResponse<?> resp = mock(KubernetesApiResponse.class);
       lenient().when(resp.isSuccess()).thenReturn(false);
       lenient().when(resp.getHttpStatusCode()).thenReturn(404);
       return resp;
@@ -771,8 +766,7 @@ class K8sYamlApiTest {
 
     @Test
     void getIfExistsThrowsForNon404ErrorResponse() throws ApiException, SQLException {
-      @SuppressWarnings("unchecked")
-      KubernetesApiResponse<DynamicKubernetesObject> errorResp = mock(KubernetesApiResponse.class);
+      KubernetesApiResponse<?> errorResp = mock(KubernetesApiResponse.class);
       lenient().when(errorResp.isSuccess()).thenReturn(false);
       lenient().when(errorResp.getHttpStatusCode()).thenReturn(500);
       ApiException apiEx = new ApiException(500, "Server Error");

@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.lenient;
@@ -72,7 +73,7 @@ class SubscriptionReconcilerTest {
   private Database mockDatabase;
 
   @Mock
-  private GenericKubernetesApi<V1alpha1Subscription, ?> mockSubscriptionApi;
+  private GenericKubernetesApi<?, ?> mockSubscriptionApi;
 
   @Mock
   private KubernetesApiResponse<V1alpha1Subscription> mockUpdateStatusResponse;
@@ -113,10 +114,9 @@ class SubscriptionReconcilerTest {
   }
 
   // ── Helper: stub the apiFor(SUBSCRIPTION).updateStatus(...).onFailure(...) chain
-  @SuppressWarnings("unchecked")
   private void stubUpdateStatus() throws ApiException {
-    when(operator.apiFor(anyString())).thenReturn((GenericKubernetesApi) mockSubscriptionApi);
-    when(mockSubscriptionApi.updateStatus(any(), any())).thenReturn(mockUpdateStatusResponse);
+    doReturn(mockSubscriptionApi).when(operator).apiFor(anyString());
+    doReturn(mockUpdateStatusResponse).when(mockSubscriptionApi).updateStatus(any(), any());
     when(mockUpdateStatusResponse.onFailure(any())).thenReturn(mockUpdateStatusResponse);
   }
 
@@ -314,7 +314,6 @@ class SubscriptionReconcilerTest {
 
   // .status.attributes field
   @Test
-  @SuppressWarnings("unchecked")
   void fetchAttributesFromStatusAttributesField() throws Exception {
     V1alpha1Subscription sub = buildSubscription("ns", "my-sub", "SELECT 1");
     V1alpha1SubscriptionStatus status = new V1alpha1SubscriptionStatus();
@@ -347,13 +346,13 @@ class SubscriptionReconcilerTest {
 
     DynamicKubernetesApi mockDynApi = mock(DynamicKubernetesApi.class);
     when(operator.apiFor(any(DynamicKubernetesObject.class))).thenReturn(mockDynApi);
-    KubernetesApiResponse<DynamicKubernetesObject> mockResp = mock(KubernetesApiResponse.class);
-    when(mockDynApi.get(anyString(), anyString())).thenReturn(mockResp);
-    when(mockResp.onFailure(any())).thenReturn(mockResp);
+    KubernetesApiResponse<?> mockResp = mock(KubernetesApiResponse.class);
+    doReturn(mockResp).when(mockDynApi).get(anyString(), anyString());
+    doReturn(mockResp).when(mockResp).onFailure(any());
     when(mockResp.isSuccess()).thenReturn(true);
     DynamicKubernetesObject dynObj = new DynamicKubernetesObject(raw);
     dynObj.setMetadata(new V1ObjectMeta().name("cm1").namespace("ns"));
-    when(mockResp.getObject()).thenReturn(dynObj);
+    doReturn(dynObj).when(mockResp).getObject();
 
     stubUpdateStatus();
 
@@ -365,7 +364,6 @@ class SubscriptionReconcilerTest {
 
   // .status.jobStatus field
   @Test
-  @SuppressWarnings("unchecked")
   void fetchAttributesFromStatusJobStatusField() throws Exception {
     V1alpha1Subscription sub = buildSubscription("ns", "my-sub", "SELECT 1");
     V1alpha1SubscriptionStatus status = new V1alpha1SubscriptionStatus();
@@ -397,13 +395,13 @@ class SubscriptionReconcilerTest {
 
     DynamicKubernetesApi mockDynApi = mock(DynamicKubernetesApi.class);
     when(operator.apiFor(any(DynamicKubernetesObject.class))).thenReturn(mockDynApi);
-    KubernetesApiResponse<DynamicKubernetesObject> mockResp = mock(KubernetesApiResponse.class);
-    when(mockDynApi.get(anyString(), anyString())).thenReturn(mockResp);
-    when(mockResp.onFailure(any())).thenReturn(mockResp);
+    KubernetesApiResponse<?> mockResp = mock(KubernetesApiResponse.class);
+    doReturn(mockResp).when(mockDynApi).get(anyString(), anyString());
+    doReturn(mockResp).when(mockResp).onFailure(any());
     when(mockResp.isSuccess()).thenReturn(true);
     DynamicKubernetesObject dynObj = new DynamicKubernetesObject(raw);
     dynObj.setMetadata(new V1ObjectMeta().name("flink-job").namespace("ns"));
-    when(mockResp.getObject()).thenReturn(dynObj);
+    doReturn(dynObj).when(mockResp).getObject();
 
     stubUpdateStatus();
 
@@ -415,7 +413,6 @@ class SubscriptionReconcilerTest {
 
   // API call fails → empty attributes
   @Test
-  @SuppressWarnings("unchecked")
   void fetchAttributesReturnsEmptyWhenApiFails() throws Exception {
     V1alpha1Subscription sub = buildSubscription("ns", "my-sub", "SELECT 1");
     V1alpha1SubscriptionStatus status = new V1alpha1SubscriptionStatus();
@@ -434,9 +431,9 @@ class SubscriptionReconcilerTest {
 
     DynamicKubernetesApi mockDynApi = mock(DynamicKubernetesApi.class);
     when(operator.apiFor(any(DynamicKubernetesObject.class))).thenReturn(mockDynApi);
-    KubernetesApiResponse<DynamicKubernetesObject> mockResp = mock(KubernetesApiResponse.class);
-    when(mockDynApi.get(anyString(), anyString())).thenReturn(mockResp);
-    when(mockResp.onFailure(any())).thenReturn(mockResp);
+    KubernetesApiResponse<?> mockResp = mock(KubernetesApiResponse.class);
+    doReturn(mockResp).when(mockDynApi).get(anyString(), anyString());
+    doReturn(mockResp).when(mockResp).onFailure(any());
     when(mockResp.isSuccess()).thenReturn(false);
 
     stubUpdateStatus();
@@ -449,12 +446,10 @@ class SubscriptionReconcilerTest {
 
   // Returns non-null Controller
   @Test
-  @SuppressWarnings("unchecked")
   void controllerReturnsNonNull() {
     SharedInformerFactory mockInformerFactory = mock(SharedInformerFactory.class);
-    SharedIndexInformer<V1alpha1Subscription> mockInformer = mock(SharedIndexInformer.class);
-    when(mockInformerFactory.getExistingSharedIndexInformer(V1alpha1Subscription.class))
-        .thenReturn(mockInformer);
+    SharedIndexInformer<?> mockInformer = mock(SharedIndexInformer.class);
+    doReturn(mockInformer).when(mockInformerFactory).getExistingSharedIndexInformer(V1alpha1Subscription.class);
     when(operator.informerFactory()).thenReturn(mockInformerFactory);
 
     Controller controller = SubscriptionReconciler.controller(operator, plannerFactory,
@@ -497,7 +492,6 @@ class SubscriptionReconcilerTest {
 
   // .status direct fields (no attributes/jobStatus)
   @Test
-  @SuppressWarnings("unchecked")
   void fetchAttributesFromStatusDirectFields() throws Exception {
     V1alpha1Subscription sub = buildSubscription("ns", "my-sub", "SELECT 1");
     V1alpha1SubscriptionStatus status = new V1alpha1SubscriptionStatus();
@@ -529,13 +523,13 @@ class SubscriptionReconcilerTest {
 
     DynamicKubernetesApi mockDynApi = mock(DynamicKubernetesApi.class);
     when(operator.apiFor(any(DynamicKubernetesObject.class))).thenReturn(mockDynApi);
-    KubernetesApiResponse<DynamicKubernetesObject> mockResp = mock(KubernetesApiResponse.class);
-    when(mockDynApi.get(anyString(), anyString())).thenReturn(mockResp);
-    when(mockResp.onFailure(any())).thenReturn(mockResp);
+    KubernetesApiResponse<?> mockResp = mock(KubernetesApiResponse.class);
+    doReturn(mockResp).when(mockDynApi).get(anyString(), anyString());
+    doReturn(mockResp).when(mockResp).onFailure(any());
     when(mockResp.isSuccess()).thenReturn(true);
     DynamicKubernetesObject dynObj = new DynamicKubernetesObject(raw);
     dynObj.setMetadata(new V1ObjectMeta().name("topic1").namespace("ns"));
-    when(mockResp.getObject()).thenReturn(dynObj);
+    doReturn(dynObj).when(mockResp).getObject();
 
     stubUpdateStatus();
 
@@ -815,7 +809,6 @@ class SubscriptionReconcilerTest {
 
   // guessAttributes() — non-primitive JSON value is NOT included
   @Test
-  @SuppressWarnings("unchecked")
   void guessAttributesExcludesNonPrimitiveValues() throws Exception {
     V1alpha1Subscription sub = buildSubscription("ns", "my-sub", "SELECT 1");
     V1alpha1SubscriptionStatus status = new V1alpha1SubscriptionStatus();
@@ -854,13 +847,13 @@ class SubscriptionReconcilerTest {
 
     DynamicKubernetesApi mockDynApi = mock(DynamicKubernetesApi.class);
     when(operator.apiFor(any(DynamicKubernetesObject.class))).thenReturn(mockDynApi);
-    KubernetesApiResponse<DynamicKubernetesObject> mockResp = mock(KubernetesApiResponse.class);
-    when(mockDynApi.get(anyString(), anyString())).thenReturn(mockResp);
-    when(mockResp.onFailure(any())).thenReturn(mockResp);
+    KubernetesApiResponse<?> mockResp = mock(KubernetesApiResponse.class);
+    doReturn(mockResp).when(mockDynApi).get(anyString(), anyString());
+    doReturn(mockResp).when(mockResp).onFailure(any());
     when(mockResp.isSuccess()).thenReturn(true);
     DynamicKubernetesObject dynObj = new DynamicKubernetesObject(raw);
     dynObj.setMetadata(new V1ObjectMeta().name("cm1").namespace("ns"));
-    when(mockResp.getObject()).thenReturn(dynObj);
+    doReturn(dynObj).when(mockResp).getObject();
 
     stubUpdateStatus();
 

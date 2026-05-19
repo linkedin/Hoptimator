@@ -46,6 +46,7 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -412,11 +413,10 @@ class TableTriggerReconcilerTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void controllerCreatesControllerFromContext() {
     SharedInformerFactory mockInformerFactory = mock(SharedInformerFactory.class);
-    SharedIndexInformer<V1alpha1TableTrigger> mockInformer = mock(SharedIndexInformer.class);
-    when(mockInformerFactory.getExistingSharedIndexInformer(V1alpha1TableTrigger.class)).thenReturn(mockInformer);
+    SharedIndexInformer<?> mockInformer = mock(SharedIndexInformer.class);
+    doReturn(mockInformer).when(mockInformerFactory).getExistingSharedIndexInformer(V1alpha1TableTrigger.class);
     K8sContext mockContext = mock(K8sContext.class);
     when(mockContext.informerFactory()).thenReturn(mockInformerFactory);
 

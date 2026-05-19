@@ -155,7 +155,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testGetSchemasExpandsCatalogWhenSchemaNull() throws SQLException {
     ResultSet mockRs = mock(ResultSet.class);
     when(mockRs.next()).thenReturn(true, false);
@@ -168,13 +167,13 @@ class HoptimatorDatabaseMetaDataTest {
     when(mockPreparedStatement.executeQuery()).thenReturn(mockRs);
 
     SchemaPlus mockRootSchema = mock(SchemaPlus.class);
-    Lookup<SchemaPlus> mockRootSubSchemas = mock(Lookup.class);
+    Lookup<?> mockRootSubSchemas = mock(Lookup.class);
     SchemaPlus mockCatalogSchema = mock(SchemaPlus.class);
-    Lookup<SchemaPlus> mockCatalogSubSchemas = mock(Lookup.class);
+    Lookup<?> mockCatalogSubSchemas = mock(Lookup.class);
 
     when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
     doReturn(mockRootSubSchemas).when(mockRootSchema).subSchemas();
-    when(mockRootSubSchemas.get("myCatalog")).thenReturn(mockCatalogSchema);
+    doReturn(mockCatalogSchema).when(mockRootSubSchemas).get("myCatalog");
     doReturn(mockCatalogSubSchemas).when(mockCatalogSchema).subSchemas();
     doReturn(Set.of("subSchema1")).when(mockCatalogSubSchemas).getNames(any());
 
@@ -187,7 +186,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testGetSchemasExpandsCatalogWithNullSubSchema() throws SQLException {
     ResultSet mockRs = mock(ResultSet.class);
     when(mockRs.next()).thenReturn(true, false);
@@ -199,11 +197,11 @@ class HoptimatorDatabaseMetaDataTest {
     when(mockPreparedStatement.executeQuery()).thenReturn(mockRs);
 
     SchemaPlus mockRootSchema = mock(SchemaPlus.class);
-    Lookup<SchemaPlus> mockRootSubSchemas = mock(Lookup.class);
+    Lookup<?> mockRootSubSchemas = mock(Lookup.class);
 
     when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
     doReturn(mockRootSubSchemas).when(mockRootSchema).subSchemas();
-    when(mockRootSubSchemas.get("missingCatalog")).thenReturn(null);
+    doReturn(null).when(mockRootSubSchemas).get("missingCatalog");
 
     ResultSet rs = metaData.getSchemas(null, null);
 
@@ -265,7 +263,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testGetTablesReturnsResultSet() throws SQLException {
     // Mock getSchemas to return one schema row
     ResultSet mockSchemaRs = mock(ResultSet.class);
@@ -281,20 +278,20 @@ class HoptimatorDatabaseMetaDataTest {
     SchemaPlus mockRootSchema = mock(SchemaPlus.class);
     SchemaPlus mockCatalogSchema = mock(SchemaPlus.class);
     SchemaPlus mockDbSchema = mock(SchemaPlus.class);
-    Lookup<SchemaPlus> mockRootSubSchemas = mock(Lookup.class);
-    Lookup<SchemaPlus> mockCatSubSchemas = mock(Lookup.class);
-    Lookup<Table> mockTablesLookup = mock(Lookup.class);
+    Lookup<?> mockRootSubSchemas = mock(Lookup.class);
+    Lookup<?> mockCatSubSchemas = mock(Lookup.class);
+    Lookup<?> mockTablesLookup = mock(Lookup.class);
 
     when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
     doReturn(mockRootSubSchemas).when(mockRootSchema).subSchemas();
-    when(mockRootSubSchemas.get("myCat")).thenReturn(mockCatalogSchema);
+    doReturn(mockCatalogSchema).when(mockRootSubSchemas).get("myCat");
     doReturn(mockCatSubSchemas).when(mockCatalogSchema).subSchemas();
-    when(mockCatSubSchemas.get("mySchema")).thenReturn(mockDbSchema);
+    doReturn(mockDbSchema).when(mockCatSubSchemas).get("mySchema");
     doReturn(mockTablesLookup).when(mockDbSchema).tables();
     doReturn(Set.of("table1")).when(mockTablesLookup).getNames(any());
 
     Table mockTable = mock(Table.class);
-    when(mockTablesLookup.get("table1")).thenReturn(mockTable);
+    doReturn(mockTable).when(mockTablesLookup).get("table1");
     when(mockTable.getJdbcTableType()).thenReturn(Schema.TableType.TABLE);
 
     ResultSet rs = metaData.getTables("myCat", "mySchema", null, null);
@@ -308,7 +305,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testGetTablesWithTypeFilter() throws SQLException {
     ResultSet mockSchemaRs = mock(ResultSet.class);
     when(mockSchemaRs.next()).thenReturn(true, false);
@@ -322,20 +318,20 @@ class HoptimatorDatabaseMetaDataTest {
     SchemaPlus mockRootSchema = mock(SchemaPlus.class);
     SchemaPlus mockCatalogSchema = mock(SchemaPlus.class);
     SchemaPlus mockDbSchema = mock(SchemaPlus.class);
-    Lookup<SchemaPlus> mockRootSub = mock(Lookup.class);
-    Lookup<SchemaPlus> mockCatSub = mock(Lookup.class);
-    Lookup<Table> mockTables = mock(Lookup.class);
+    Lookup<?> mockRootSub = mock(Lookup.class);
+    Lookup<?> mockCatSub = mock(Lookup.class);
+    Lookup<?> mockTables = mock(Lookup.class);
 
     when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
     doReturn(mockRootSub).when(mockRootSchema).subSchemas();
-    when(mockRootSub.get("cat")).thenReturn(mockCatalogSchema);
+    doReturn(mockCatalogSchema).when(mockRootSub).get("cat");
     doReturn(mockCatSub).when(mockCatalogSchema).subSchemas();
-    when(mockCatSub.get("sch")).thenReturn(mockDbSchema);
+    doReturn(mockDbSchema).when(mockCatSub).get("sch");
     doReturn(mockTables).when(mockDbSchema).tables();
     doReturn(Set.of("t1")).when(mockTables).getNames(any());
 
     Table mockTable = mock(Table.class);
-    when(mockTables.get("t1")).thenReturn(mockTable);
+    doReturn(mockTable).when(mockTables).get("t1");
     when(mockTable.getJdbcTableType()).thenReturn(Schema.TableType.VIEW);
 
     // Filter by TABLE type only - should exclude VIEW
@@ -346,7 +342,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testGetTablesWithMatchingTypeFilter() throws SQLException {
     ResultSet mockSchemaRs = mock(ResultSet.class);
     when(mockSchemaRs.next()).thenReturn(true, false);
@@ -360,20 +355,20 @@ class HoptimatorDatabaseMetaDataTest {
     SchemaPlus mockRootSchema = mock(SchemaPlus.class);
     SchemaPlus mockCatalogSchema = mock(SchemaPlus.class);
     SchemaPlus mockDbSchema = mock(SchemaPlus.class);
-    Lookup<SchemaPlus> mockRootSub = mock(Lookup.class);
-    Lookup<SchemaPlus> mockCatSub = mock(Lookup.class);
-    Lookup<Table> mockTables = mock(Lookup.class);
+    Lookup<?> mockRootSub = mock(Lookup.class);
+    Lookup<?> mockCatSub = mock(Lookup.class);
+    Lookup<?> mockTables = mock(Lookup.class);
 
     when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
     doReturn(mockRootSub).when(mockRootSchema).subSchemas();
-    when(mockRootSub.get("cat")).thenReturn(mockCatalogSchema);
+    doReturn(mockCatalogSchema).when(mockRootSub).get("cat");
     doReturn(mockCatSub).when(mockCatalogSchema).subSchemas();
-    when(mockCatSub.get("sch")).thenReturn(mockDbSchema);
+    doReturn(mockDbSchema).when(mockCatSub).get("sch");
     doReturn(mockTables).when(mockDbSchema).tables();
     doReturn(Set.of("t1")).when(mockTables).getNames(any());
 
     Table mockTable = mock(Table.class);
-    when(mockTables.get("t1")).thenReturn(mockTable);
+    doReturn(mockTable).when(mockTables).get("t1");
     when(mockTable.getJdbcTableType()).thenReturn(Schema.TableType.TABLE);
 
     // Filter by TABLE type - should include
@@ -447,7 +442,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testGetTablesWithViewTypeFilterIncludesViewExcludesTable() throws SQLException {
     // Tests that types=["VIEW"] only returns view tables
     ResultSet mockSchemaRs = mock(ResultSet.class);
@@ -462,20 +456,20 @@ class HoptimatorDatabaseMetaDataTest {
     SchemaPlus mockRootSchema = mock(SchemaPlus.class);
     SchemaPlus mockCatalogSchema = mock(SchemaPlus.class);
     SchemaPlus mockDbSchema = mock(SchemaPlus.class);
-    Lookup<SchemaPlus> mockRootSub = mock(Lookup.class);
-    Lookup<SchemaPlus> mockCatSub = mock(Lookup.class);
-    Lookup<Table> mockTables = mock(Lookup.class);
+    Lookup<?> mockRootSub = mock(Lookup.class);
+    Lookup<?> mockCatSub = mock(Lookup.class);
+    Lookup<?> mockTables = mock(Lookup.class);
 
     when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
     doReturn(mockRootSub).when(mockRootSchema).subSchemas();
-    when(mockRootSub.get("cat")).thenReturn(mockCatalogSchema);
+    doReturn(mockCatalogSchema).when(mockRootSub).get("cat");
     doReturn(mockCatSub).when(mockCatalogSchema).subSchemas();
-    when(mockCatSub.get("sch")).thenReturn(mockDbSchema);
+    doReturn(mockDbSchema).when(mockCatSub).get("sch");
     doReturn(mockTables).when(mockDbSchema).tables();
     doReturn(Set.of("v1")).when(mockTables).getNames(any());
 
     Table mockView = mock(Table.class);
-    when(mockTables.get("v1")).thenReturn(mockView);
+    doReturn(mockView).when(mockTables).get("v1");
     when(mockView.getJdbcTableType()).thenReturn(Schema.TableType.VIEW);
 
     // Filter by VIEW — should include the view
@@ -489,7 +483,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testGetTablesSchemaPatternFiltersNonMatchingSchemas() throws SQLException {
     // Tests that non-matching schemaPattern yields empty result
     ResultSet mockSchemaRs = mock(ResultSet.class);
@@ -506,7 +499,6 @@ class HoptimatorDatabaseMetaDataTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testGetTablesWithNullTypesIncludesBothTablesAndViews() throws SQLException {
     // types=null means all types — tests the `types != null && types.length > 0` condition
     ResultSet mockSchemaRs = mock(ResultSet.class);
@@ -521,20 +513,20 @@ class HoptimatorDatabaseMetaDataTest {
     SchemaPlus mockRootSchema = mock(SchemaPlus.class);
     SchemaPlus mockCatalogSchema = mock(SchemaPlus.class);
     SchemaPlus mockDbSchema = mock(SchemaPlus.class);
-    Lookup<SchemaPlus> mockRootSub = mock(Lookup.class);
-    Lookup<SchemaPlus> mockCatSub = mock(Lookup.class);
-    Lookup<Table> mockTables = mock(Lookup.class);
+    Lookup<?> mockRootSub = mock(Lookup.class);
+    Lookup<?> mockCatSub = mock(Lookup.class);
+    Lookup<?> mockTables = mock(Lookup.class);
 
     when(mockCalciteConnection.getRootSchema()).thenReturn(mockRootSchema);
     doReturn(mockRootSub).when(mockRootSchema).subSchemas();
-    when(mockRootSub.get("cat")).thenReturn(mockCatalogSchema);
+    doReturn(mockCatalogSchema).when(mockRootSub).get("cat");
     doReturn(mockCatSub).when(mockCatalogSchema).subSchemas();
-    when(mockCatSub.get("sch")).thenReturn(mockDbSchema);
+    doReturn(mockDbSchema).when(mockCatSub).get("sch");
     doReturn(mockTables).when(mockDbSchema).tables();
     doReturn(Set.of("t1")).when(mockTables).getNames(any());
 
     Table mockTable = mock(Table.class);
-    when(mockTables.get("t1")).thenReturn(mockTable);
+    doReturn(mockTable).when(mockTables).get("t1");
     when(mockTable.getJdbcTableType()).thenReturn(Schema.TableType.VIEW);
 
     // types=null — VIEW should still be included

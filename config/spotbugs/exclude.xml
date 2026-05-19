@@ -27,4 +27,14 @@
     <Class name="~.*PipelineRules.*"/>
     <Bug code="CT"/>
   </Match>
+
+    <!--
+        Mockito's doReturn(x).when(mock).method() idiom syntactically invokes mock.method() with the
+        return value ignored. SpotBugs flags this as a no-side-effect call whose result is discarded,
+        even though Mockito intercepts the invocation to record the stub. False positive in test code.
+    -->
+  <Match>
+    <Source name="~.*Test\.java"/>
+    <Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"/>
+  </Match>
 </FindBugsFilter>

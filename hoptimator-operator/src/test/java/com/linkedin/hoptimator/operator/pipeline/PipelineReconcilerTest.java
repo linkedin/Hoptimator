@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -176,11 +177,10 @@ class PipelineReconcilerTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void controllerCreatesControllerFromContext() {
     SharedInformerFactory mockInformerFactory = mock(SharedInformerFactory.class);
-    SharedIndexInformer<V1alpha1Pipeline> mockInformer = mock(SharedIndexInformer.class);
-    when(mockInformerFactory.getExistingSharedIndexInformer(V1alpha1Pipeline.class)).thenReturn(mockInformer);
+    SharedIndexInformer<?> mockInformer = mock(SharedIndexInformer.class);
+    doReturn(mockInformer).when(mockInformerFactory).getExistingSharedIndexInformer(V1alpha1Pipeline.class);
     K8sContext mockContext = mock(K8sContext.class);
     when(mockContext.informerFactory()).thenReturn(mockInformerFactory);
 

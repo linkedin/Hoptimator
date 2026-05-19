@@ -51,6 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -940,7 +941,7 @@ class LogicalTableDeployerTest {
     deployerWithJobTemplates(testSource(), props, mockContext(), dbApi, jobTemplates, capture)
         .create();
 
-    assertEquals(null, capture.trigger,
+    assertNull(capture.trigger,
         "No offline tier → implicit trigger must not be created");
   }
 
@@ -957,7 +958,7 @@ class LogicalTableDeployerTest {
     deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
         mockContext(), dbApi, jobTemplates, capture).create();
 
-    assertEquals(null, capture.trigger,
+    assertNull(capture.trigger,
         "No JobTemplate declares the offline DB → implicit trigger must be skipped");
   }
 
