@@ -1,6 +1,10 @@
 package sqlline;
 
+import com.linkedin.hoptimator.graph.GraphNode;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
+import com.linkedin.hoptimator.jdbc.GraphService;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
@@ -50,6 +54,7 @@ public class HoptimatorAppConfig extends Application {
     list.add(new PipelineCommandHandler(sqlline));
     list.add(new ResolveCommandHandler(sqlline));
     list.add(new SpecifyCommandHandler(sqlline));
+    list.add(new GraphCommandHandler(sqlline));
     return list;
   }
 
@@ -283,6 +288,114 @@ public class HoptimatorAppConfig extends Application {
         sqlline.error(e);
         dispatchCallback.setToFailure();
       }
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
+  /**
+   * Renders a Mermaid flowchart for a Hoptimator entity. Forms:
+   * <pre>
+   *   !graph &lt;schema&gt;.&lt;table&gt;                  // 2-level identifier (case-sensitive)
+   *   !graph &lt;catalog&gt;.&lt;schema&gt;.&lt;table&gt;  // 3-level identifier (case-sensitive)
+   * </pre>
+   * Optional flag: {@code --depth N} (default 2).
+   */
+  static final class GraphCommandHandler implements CommandHandler {
+
+    private final SqlLine sqlline;
+
+    GraphCommandHandler(SqlLine sqlline) {
+      this.sqlline = sqlline;
+    }
+
+    @Override
+    public String getName() {
+      return "graph";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Render a Mermaid pipeline graph for a view, logical table, or physical resource.";
+    }
+
+    @Override
+    public String matches(String line) {
+      if (startsWith(line, "!graph") || startsWith(line, "graph")) {
+        return line;
+      }
+      return null;
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      if (!(sqlline.getConnection() instanceof HoptimatorConnection)) {
+        sqlline.error("This connection doesn't support `!graph`.");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String[] parts = line.trim().split("\\s+");
+      // parts[0] = "!graph" (or "graph"); identifier mandatory.
+      if (parts.length < 2) {
+        sqlline.error("Usage: !graph <schema.name> [--depth N]");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String identifier = parts[1];
+      int depth = 2;
+      for (int i = 2; i < parts.length - 1; i++) {
+        if ("--depth".equals(parts[i])) {
+          try {
+            depth = Integer.parseInt(parts[i + 1]);
+          } catch (NumberFormatException e) {
+            sqlline.error("--depth requires an integer; got: " + parts[i + 1]);
+            dispatchCallback.setToFailure();
+            return;
+          }
+        }
+      }
+
+      HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
+      try {
+        PipelineGraph graph = GraphService.buildGraph(identifier, depth, conn);
+        sqlline.output(GraphService.render(graph, MermaidRenderer.FORMAT));
+        // Resource targets root at an External node. A degenerate (root-only) Resource graph at
+        // depth >= 1 means the label-selector found nothing — the identifier resolved to a real
+        // schema, but no pipeline references it. Suppress the warning at depth <= 0 since the
+        // root-only output is the depth bound's effect, not absence of pipelines.
+        if (depth >= 1 && graph.root() instanceof GraphNode.External && isDegenerate(graph)) {
+          sqlline.output(degenerateGraphWarning());
+        }
+      } catch (SQLException e) {
+        sqlline.error(e);
+        dispatchCallback.setToFailure();
+      }
+    }
+
+    /** A graph is degenerate when it contains only the root and no edges — typical of a typo or
+     * a not-yet-deployed resource. */
+    static boolean isDegenerate(PipelineGraph graph) {
+      return graph.nodes().size() == 1 && graph.edges().isEmpty();
+    }
+
+    /** Mermaid comment line warning that the resource may not exist. Comment syntax keeps the
+     * output safe to pipe into a renderer. */
+    static String degenerateGraphWarning() {
+      return "%% WARNING: no pipelines reference this resource — the identifier may not exist "
+          + "or no pipelines have been deployed against it yet.";
     }
 
     @Override

@@ -5,7 +5,7 @@
 # Test 1: CREATE TABLE on a logical table with an offline tier auto-creates
 # a paused TableTrigger via LogicalTableDeployer.deployImplicitTrigger().
 # ─────────────────────────────────────────────────────────────────────────────
-create or replace table "LOGICAL_OFFLINE"."AD_CLICKS" ("ID" bigint, "NAME" varchar);
+create or replace table "LOGICAL-OFFLINE"."AD_CLICKS" ("ID" bigint, "NAME" varchar);
 (0 rows modified)
 
 !update
@@ -46,7 +46,7 @@ select paused from "k8s".table_triggers where name = 'logical-adclicks-offline-t
 # (K8sTriggerDeployer.update() resolves paused from the existing CRD when the
 # caller doesn't set PAUSED_OPTION.)
 # ─────────────────────────────────────────────────────────────────────────────
-create or replace table "LOGICAL_OFFLINE"."AD_CLICKS" ("ID" bigint, "NAME" varchar, "EXTRA" varchar);
+create or replace table "LOGICAL-OFFLINE"."AD_CLICKS" ("ID" bigint, "NAME" varchar, "EXTRA" varchar);
 (0 rows modified)
 
 !update
@@ -79,7 +79,7 @@ select paused from "k8s".table_triggers where name = 'logical-adclicks-offline-t
 
 !ok
 
-drop table "LOGICAL_OFFLINE"."AD_CLICKS";
+drop table "LOGICAL-OFFLINE"."AD_CLICKS";
 (0 rows modified)
 
 !update

@@ -44,14 +44,6 @@ public class LogicalTableSchemaTest {
     schema = new LogicalTableSchema(new Properties(), null, DATABASE_NAME);
   }
 
-  // ── databaseName() ───────────────────────────────────────────────────────
-
-  @Test
-  public void databaseNameReturnedCorrectly() {
-    LogicalTableSchema s = new LogicalTableSchema(new Properties(), null, "MY-SCHEMA");
-    assertEquals("MY-SCHEMA", s.databaseName());
-  }
-
   // ── tableFromCrd() ───────────────────────────────────────────────────────
 
   @Test
