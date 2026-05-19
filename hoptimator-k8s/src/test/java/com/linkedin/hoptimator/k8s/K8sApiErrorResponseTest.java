@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -78,16 +79,15 @@ class K8sApiErrorResponseTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void updateThrowsWhenResponseIsErrorStatusOnFinalUpdate() throws ApiException {
     V1alpha1Pipeline pipeline = makePipeline("bad-pipeline", "test-ns");
     V1alpha1Pipeline existing = makePipeline("bad-pipeline", "test-ns");
     existing.getMetadata().setResourceVersion("rv1");
 
-    KubernetesApiResponse<V1alpha1Pipeline> existingResp = mock(KubernetesApiResponse.class);
+    KubernetesApiResponse<?> existingResp = mock(KubernetesApiResponse.class);
     when(existingResp.isSuccess()).thenReturn(true);
-    when(existingResp.getObject()).thenReturn(existing);
-    when(mockErrApi.get(eq("test-ns"), eq("bad-pipeline"))).thenReturn(existingResp);
+    doReturn(existing).when(existingResp).getObject();
+    doReturn(existingResp).when(mockErrApi).get(eq("test-ns"), eq("bad-pipeline"));
 
     ApiException apiEx = new ApiException(500, "Internal Server Error");
     when(mockErrApi.update(any(V1alpha1Pipeline.class))).thenReturn(mockErrResponse);

@@ -96,8 +96,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<String> schemas = gson.fromJson(text, List.class);
+        List<?> schemas = gson.fromJson(text, List.class);
         assertNotNull(schemas, "Schemas is null");
         assertFalse(schemas.isEmpty(), "Schemas are empty");
         System.out.println("Schemas: " + schemas);
@@ -128,8 +127,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> schemas = gson.fromJson(text, List.class);
+        List<?> schemas = gson.fromJson(text, List.class);
         assertNotNull(schemas, "Schemas is null");
         assertFalse(schemas.isEmpty(), "Schemas are empty");
         System.out.println("Schemas in MYSQL catalog: " + schemas);
@@ -156,8 +154,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> tables = gson.fromJson(text, List.class);
+        List<?> tables = gson.fromJson(text, List.class);
         assertFalse(tables.isEmpty());
         System.out.println("Tables: " + tables);
     }
@@ -185,8 +182,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> tables = gson.fromJson(text, List.class);
+        List<?> tables = gson.fromJson(text, List.class);
         assertFalse(tables.isEmpty());
         System.out.println("Tables in ADS schema: " + tables);
     }
@@ -214,8 +210,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> tables = gson.fromJson(text, List.class);
+        List<?> tables = gson.fromJson(text, List.class);
         assertFalse(tables.isEmpty());
         System.out.println("Tables in MYSQL catalog: " + tables);
     }
@@ -244,8 +239,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> tables = gson.fromJson(text, List.class);
+        List<?> tables = gson.fromJson(text, List.class);
         assertFalse(tables.isEmpty());
         System.out.println("Tables in MYSQL.testdb: " + tables);
     }
@@ -271,8 +265,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> pipelines = gson.fromJson(text, List.class);
+        List<?> pipelines = gson.fromJson(text, List.class);
         System.out.println("Pipelines: " + pipelines);
     }
 
@@ -323,8 +316,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> tableDefinitions = gson.fromJson(text, List.class);
+        List<?> tableDefinitions = gson.fromJson(text, List.class);
         assertFalse(tableDefinitions.isEmpty());
         System.out.println("Table definitions for AD_CLICKS: " + tableDefinitions);
     }
@@ -376,8 +368,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> planResults = gson.fromJson(text, List.class);
+        List<?> planResults = gson.fromJson(text, List.class);
         assertFalse(planResults.isEmpty());
         System.out.println("Plan results: " + planResults);
     }
@@ -405,8 +396,7 @@ class HoptimatorMcpServerTest {
         assertFalse(text.isEmpty(), "Text is empty");
         assertFalse(text.contains("ERROR"));
 
-        @SuppressWarnings("unchecked")
-        List<Object> queryResults = gson.fromJson(text, List.class);
+        List<?> queryResults = gson.fromJson(text, List.class);
         assertFalse(queryResults.isEmpty());
         System.out.println("Query results: " + queryResults);
     }

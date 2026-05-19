@@ -33,6 +33,7 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -198,13 +199,12 @@ class HoptimatorJdbcTableTest {
   }
 
   @Test
-  @SuppressWarnings("unchecked")
   void testAsQueryableDelegatesToJdbcTable() {
     QueryProvider mockProvider = mock(QueryProvider.class);
     SchemaPlus mockSchema = mock(SchemaPlus.class);
     Queryable<?> mockQueryable = mock(Queryable.class);
 
-    when(mockJdbcTable.asQueryable(any(), any(), any())).thenReturn((Queryable) mockQueryable);
+    doReturn(mockQueryable).when(mockJdbcTable).asQueryable(any(), any(), any());
 
     Queryable<Object> result = table.asQueryable(mockProvider, mockSchema, "tableName");
 

@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -90,11 +91,10 @@ class AvroTableValidatorTest {
     CalciteSchema calciteSchema = CalciteSchema.createRootSchema(false, false, "root", innerSchema);
 
     // Mock the SchemaPlus: tables() returns newTable; unwrap returns the CalciteSchema with originalTable
-    @SuppressWarnings("unchecked")
-    Lookup<Table> tableLookup = mock(Lookup.class);
-    when(tableLookup.getNames(any())).thenReturn(Set.of("MY_TABLE"));
-    when(tableLookup.get("MY_TABLE")).thenReturn(newTable);
-    when(schema.tables()).thenReturn(tableLookup);
+    Lookup<?> tableLookup = mock(Lookup.class);
+    doReturn(Set.of("MY_TABLE")).when(tableLookup).getNames(any());
+    doReturn(newTable).when(tableLookup).get("MY_TABLE");
+    doReturn(tableLookup).when(schema).tables();
     when(schema.unwrap(CalciteSchema.class)).thenReturn(calciteSchema);
 
     AvroTableValidator validator = new AvroTableValidator(schema);
@@ -128,11 +128,10 @@ class AvroTableValidatorTest {
     };
     CalciteSchema calciteSchema = CalciteSchema.createRootSchema(false, false, "root", innerSchema);
 
-    @SuppressWarnings("unchecked")
-    Lookup<Table> tableLookup = mock(Lookup.class);
-    when(tableLookup.getNames(any())).thenReturn(Set.of("MY_TABLE"));
-    when(tableLookup.get("MY_TABLE")).thenReturn(sameTable);
-    when(schema.tables()).thenReturn(tableLookup);
+    Lookup<?> tableLookup = mock(Lookup.class);
+    doReturn(Set.of("MY_TABLE")).when(tableLookup).getNames(any());
+    doReturn(sameTable).when(tableLookup).get("MY_TABLE");
+    doReturn(tableLookup).when(schema).tables();
     when(schema.unwrap(CalciteSchema.class)).thenReturn(calciteSchema);
 
     AvroTableValidator validator = new AvroTableValidator(schema);

@@ -274,7 +274,6 @@ class K8sDatabaseTableTest {
     assertNotNull(root.subSchemas().get("TESTSCH"));
   }
 
-  @SuppressWarnings("unchecked")
   @Test
   void addDatabasesWithCatalog() throws Exception {
     List<V1alpha1Database> databases = new ArrayList<>();

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
@@ -9,6 +10,7 @@ import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -1189,8 +1191,7 @@ class HoptimatorDdlUtilsTest {
           .add("TEST_JDBC_DB", new TestDatabaseSchema("test-jdbc-db"));
 
       // Create a mock HoptimatorJdbcTable and register it
-      com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable jdbcTable =
-          mock(com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable.class);
+      HoptimatorJdbcTable jdbcTable = mock(HoptimatorJdbcTable.class);
       jdbcDbSchema.add("physicalTable", jdbcTable);
 
       // replace=false, ifNotExists=false, but we're trying to overwrite a HoptimatorJdbcTable
@@ -1592,8 +1593,7 @@ class HoptimatorDdlUtilsTest {
     }
   }
 
-  static class TestDatabaseSchema extends AbstractSchema
-      implements com.linkedin.hoptimator.Database {
+  static class TestDatabaseSchema extends AbstractSchema implements Database {
     private final String name;
 
     TestDatabaseSchema(String name) {
@@ -1628,7 +1628,7 @@ class HoptimatorDdlUtilsTest {
 
       HoptimatorDdlUtils.removeTableFromSchema(connection, null, null, "ROOT_TMP");
 
-      assertEquals(null, rootSchema.tables().get("ROOT_TMP"));
+      assertNull(rootSchema.tables().get("ROOT_TMP"));
     }
   }
 
@@ -1649,7 +1649,7 @@ class HoptimatorDdlUtilsTest {
 
       HoptimatorDdlUtils.removeTableFromSchema(connection, null, "KAFKA", "my_topic");
 
-      assertEquals(null, tierSchema.tables().get("my_topic"));
+      assertNull(tierSchema.tables().get("my_topic"));
     }
   }
 
@@ -1669,7 +1669,7 @@ class HoptimatorDdlUtilsTest {
 
       HoptimatorDdlUtils.removeTableFromSchema(connection, "CAT", "DB", "t");
 
-      assertEquals(null, dbSchema.tables().get("t"));
+      assertNull(dbSchema.tables().get("t"));
     }
   }
 
