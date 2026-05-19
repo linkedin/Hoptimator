@@ -1,0 +1,16 @@
+!set outputformat mysql
+!use k8s
+
+create flink streaming job "my-etl-job" as 'INSERT INTO sink SELECT * FROM source' WITH ("checkpointing.interval" '10000');
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: SqlJob
+metadata:
+  name: my-etl-job
+spec:
+  configs:
+    checkpointing.interval: '10000'
+  dialect: Flink
+  executionMode: Streaming
+  sql:
+  - INSERT INTO sink SELECT * FROM source
+!specify my-etl-job

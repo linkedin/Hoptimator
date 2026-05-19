@@ -24,9 +24,11 @@ import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.DatabaseDeployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.SqlJobDeployable;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateJob;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.util.DeploymentService;
@@ -673,6 +675,69 @@ public final class HoptimatorDdlUtils {
   }
 
   /**
+   * Shared implementation of the {@code CREATE JOB} pipeline for both real deployment
+   * and dry-run (SPECIFY) modes.
+   *
+   * @param conn   the JDBC connection
+   * @param create the parsed DDL node
+   * @param mode   whether to CREATE, UPDATE, or SPECIFY
+   * @return a SpecifyResult (specs are empty for CREATE/UPDATE, YAML for SPECIFY)
+   * @throws SQLException on validation or deployment errors
+   */
+  static SpecifyResult processCreateJob(HoptimatorConnection conn,
+      SqlCreateJob create, DdlMode mode) throws SQLException {
+    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+
+    logger.info("Validating statement: {}", create);
+    ValidationService.validateOrThrow(create);
+
+    if (create.name.names.size() > 1) {
+      throw new SQLException("Job names cannot be compound identifiers.");
+    }
+    String name = create.name.names.get(0);
+    String sqlBody = ((SqlLiteral) create.sqlBody).getValueAs(String.class);
+
+    // Split SQL body on semicolons into individual statements
+    List<String> sqlStatements = new ArrayList<>();
+    for (String stmt : sqlBody.split(";")) {
+      String trimmed = stmt.trim();
+      if (!trimmed.isEmpty()) {
+        sqlStatements.add(trimmed);
+      }
+    }
+    if (sqlStatements.isEmpty()) {
+      throw new SQLException("Job " + name + " has no SQL statements.");
+    }
+
+    Map<String, String> jobOptions = options(create.options);
+    SqlJobDeployable job = new SqlJobDeployable(name, create.dialect, create.executionMode,
+        sqlStatements, jobOptions);
+
+    Collection<Deployer> deployers = null;
+    try {
+      logger.info("Validating job {}", name);
+      ValidationService.validateOrThrow(job);
+      deployers = DeploymentService.deployers(job, conn);
+      ValidationService.validateOrThrow(deployers);
+
+      List<String> specs = mode.executeDeployers(deployers, conn);
+      if (mode.mutable()) {
+        logger.info("Deployed job {}", name);
+      } else {
+        DeploymentService.restore(deployers);
+      }
+      return new SpecifyResult(specs, null, Collections.singletonList(name));
+    } catch (SQLException | RuntimeException e) {
+      logger.info("Failed to deploy job {}", name);
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+        logger.info("Restored deployable resources for job {}", name);
+      }
+      throw e;
+    }
+  }
+
+  /**
    * Returns the YAML specs that would be created for any supported SQL statement —
    * {@code CREATE TABLE}, {@code CREATE MATERIALIZED VIEW}, or {@code INSERT INTO}.
    *
@@ -696,6 +761,10 @@ public final class HoptimatorDdlUtils {
 
     if (sqlNode instanceof SqlCreateDatabase) {
       return processCreateDatabase(conn, (SqlCreateDatabase) sqlNode, DdlMode.SPECIFY);
+    }
+
+    if (sqlNode instanceof SqlCreateJob) {
+      return processCreateJob(conn, (SqlCreateJob) sqlNode, DdlMode.SPECIFY);
     }
 
     if (sqlNode instanceof SqlCreateTable) {

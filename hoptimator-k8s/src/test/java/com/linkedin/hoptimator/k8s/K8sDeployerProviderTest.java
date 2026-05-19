@@ -6,6 +6,7 @@ import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.SqlJobDeployable;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.View;
 import org.junit.jupiter.api.Test;
@@ -112,6 +113,18 @@ class K8sDeployerProviderTest {
 
     assertEquals(1, deployers.size());
     assertInstanceOf(K8sDatabaseDeployer.class, deployers.iterator().next());
+  }
+
+  @Test
+  void deployersForSqlJobDeployableReturnsSqlJobDeployer() {
+    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    K8sDeployerProvider provider = new K8sDeployerProvider();
+    SqlJobDeployable sqlJob = mock(SqlJobDeployable.class);
+
+    Collection<Deployer> deployers = provider.deployers(sqlJob, connection);
+
+    assertEquals(1, deployers.size());
+    assertInstanceOf(K8sSqlJobDeployer.class, deployers.iterator().next());
   }
 
   @Test

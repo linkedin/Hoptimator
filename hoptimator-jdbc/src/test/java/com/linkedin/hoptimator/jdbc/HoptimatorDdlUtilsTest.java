@@ -7,6 +7,7 @@ import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.ThrowingFunction;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateJob;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -1589,6 +1590,100 @@ class HoptimatorDdlUtilsTest {
       assertTrue(result.specs.isEmpty(), "specifyFromSql should route CREATE DATABASE to processCreateDatabase");
       assertNotNull(result.viewPath);
       assertEquals("testdb", result.viewPath.get(0));
+    }
+  }
+
+  // ── processCreateJob tests ──────────────────────────────────────────────────
+
+  @Test
+  void processCreateJobSpecifyModeReturnsEmptySpecsWhenNoDeployersRegistered()
+      throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SqlCreateJob create = (SqlCreateJob) HoptimatorDriver.parseQuery(conn,
+          "CREATE FLINK STREAMING JOB \"my-job\" AS 'INSERT INTO sink SELECT * FROM source'");
+
+      // No deployer providers are registered in the test env, so specs should be empty
+      HoptimatorDdlUtils.SpecifyResult result =
+          HoptimatorDdlUtils.processCreateJob(conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      assertNotNull(result);
+      assertNotNull(result.specs);
+      assertTrue(result.specs.isEmpty(), "Expected empty spec list when no deployers registered");
+    }
+  }
+
+  @Test
+  void processCreateJobSpecifyModeViewPathContainsJobName() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SqlCreateJob create = (SqlCreateJob) HoptimatorDriver.parseQuery(conn,
+          "CREATE JOB \"my-job\" AS 'INSERT INTO sink SELECT * FROM source'");
+
+      HoptimatorDdlUtils.SpecifyResult result =
+          HoptimatorDdlUtils.processCreateJob(conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      assertNotNull(result.viewPath);
+      assertFalse(result.viewPath.isEmpty());
+      assertEquals("my-job", result.viewPath.get(0));
+    }
+  }
+
+  @Test
+  void processCreateJobThrowsForCompoundJobName() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SqlIdentifier compoundName =
+          new SqlIdentifier(Arrays.asList("catalog", "my-job"), SqlParserPos.ZERO);
+      // Anonymous subclass is required because SqlCreateJob's constructor is protected
+      SqlCreateJob create = new SqlCreateJob(
+          SqlParserPos.ZERO, false, false, compoundName,
+          SqlLiteral.createCharString("SELECT 1", SqlParserPos.ZERO),
+          null, null, null) { };
+
+      SQLException ex = assertThrows(SQLException.class,
+          () -> HoptimatorDdlUtils.processCreateJob(
+              conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY));
+      assertTrue(ex.getMessage().contains("compound"),
+          "Expected 'compound' error but got: " + ex.getMessage());
+    }
+  }
+
+  @Test
+  void processCreateJobThrowsForEmptySqlBody() throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SqlIdentifier name = new SqlIdentifier("my-job", SqlParserPos.ZERO);
+      // Anonymous subclass is required because SqlCreateJob's constructor is protected
+      SqlCreateJob create = new SqlCreateJob(
+          SqlParserPos.ZERO, false, false, name,
+          SqlLiteral.createCharString("   ", SqlParserPos.ZERO),
+          null, null, null) { };
+
+      assertThrows(SQLException.class,
+          () -> HoptimatorDdlUtils.processCreateJob(
+              conn, create, HoptimatorDdlUtils.DdlMode.SPECIFY));
+    }
+  }
+
+  @Test
+  void specifyFromSqlForCreateJobReturnsEmptySpecsWhenNoDeployersRegistered()
+      throws Exception {
+    HoptimatorDriver driver = new HoptimatorDriver();
+    try (HoptimatorConnection conn =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      HoptimatorDdlUtils.SpecifyResult result = HoptimatorDdlUtils.specifyFromSql(
+          "CREATE FLINK STREAMING JOB \"test-job\" AS 'INSERT INTO sink SELECT * FROM source'", conn);
+
+      assertNotNull(result);
+      assertNotNull(result.specs);
+      assertTrue(result.specs.isEmpty(), "specifyFromSql should route CREATE JOB to processCreateJob");
+      assertNotNull(result.viewPath);
+      assertEquals("test-job", result.viewPath.get(0));
     }
   }
 

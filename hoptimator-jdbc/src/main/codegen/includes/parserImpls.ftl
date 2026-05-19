@@ -334,6 +334,35 @@ SqlCreate SqlCreateTrigger(Span s, boolean replace) :
     }
 }
 
+SqlCreate SqlCreateJob(Span s, boolean replace) :
+{
+    final boolean ifNotExists;
+    final SqlIdentifier id;
+    final SqlNode sqlBody;
+    String dialect = null;
+    String executionMode = null;
+    SqlNodeList optionList = null;
+}
+{
+    [ <FLINK> { dialect = "Flink"; } ]
+    (
+        <STREAMING> { executionMode = "Streaming"; }
+    |
+        <BATCH> { executionMode = "Batch"; }
+    |
+        { }
+    )
+    <JOB> ifNotExists = IfNotExistsOpt()
+    id = CompoundIdentifier()
+    <AS>
+    sqlBody = StringLiteral()
+    [ optionList = Options() ]
+    {
+        return new SqlCreateJob(s.end(this), replace, ifNotExists, id, sqlBody,
+            dialect, executionMode, optionList);
+    }
+}
+
 SqlCreate SqlCreateDatabase(Span s, boolean replace) :
 {
     final boolean ifNotExists;

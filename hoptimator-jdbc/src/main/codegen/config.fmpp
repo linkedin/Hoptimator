@@ -34,6 +34,7 @@ data: {
       "org.apache.calcite.sql.ddl.SqlDdlNodes"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateFunction"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlCreateJob"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable"
       "com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger"
@@ -67,6 +68,10 @@ data: {
       "REFRESH"
       "PAUSE"
       "RESUME"
+      "JOB"
+      "FLINK"
+      "STREAMING"
+      "BATCH"
     ]
 
     # List of non-reserved keywords to add;
@@ -86,12 +91,17 @@ data: {
       "REFRESH"
       "PAUSE"
       "RESUME"
+      "JOB"
+      "FLINK"
+      "STREAMING"
+      "BATCH"
     ]
 
     # List of methods for parsing extensions to "CREATE [OR REPLACE]" calls.
     # Each must accept arguments "(SqlParserPos pos, boolean replace)".
     # Example: "SqlCreateForeignSchema".
     createStatementParserMethods: [
+      "SqlCreateJob"
       "SqlCreateDatabase"
       "SqlCreateMaterializedView"
       "SqlCreateTrigger"

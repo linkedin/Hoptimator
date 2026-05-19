@@ -58,4 +58,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void k8sDdlCreateDatabase() throws Exception {
     run("k8s-ddl-create-database.id");
   }
+
+  @Test
+  public void k8sDdlCreateJob() throws Exception {
+    run("k8s-ddl-create-job.id");
+  }
 }
