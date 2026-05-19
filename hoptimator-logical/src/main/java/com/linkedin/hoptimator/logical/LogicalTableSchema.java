@@ -16,13 +16,13 @@ import org.apache.calcite.util.LazyReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
+import com.linkedin.hoptimator.util.planner.LogicalSchemaMarker;
 
 
 /**
@@ -32,7 +32,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
  * sets to the database/schema name at creation time. Row type resolution is performed
  * lazily inside each {@link LogicalTable} on first access — not eagerly here.
  */
-public class LogicalTableSchema extends AbstractSchema implements Database {
+public class LogicalTableSchema extends AbstractSchema implements LogicalSchemaMarker {
 
   private static final Logger log = LoggerFactory.getLogger(LogicalTableSchema.class);
 
@@ -54,11 +54,6 @@ public class LogicalTableSchema extends AbstractSchema implements Database {
     this.resolvedTier = properties != null
         ? properties.getProperty(LogicalTableDriver.TIER_PROPERTY) : null;
     this.logicalTableApi = logicalTableApi;
-  }
-
-  @Override
-  public String databaseName() {
-    return databaseName;
   }
 
   @Override

@@ -4,6 +4,7 @@ import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
@@ -16,6 +17,8 @@ import org.apache.calcite.schema.lookup.LoadingCacheLookup;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.util.LazyReference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import javax.sql.DataSource;
@@ -26,10 +29,15 @@ import java.util.Set;
 
 public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
 
+  private static final Logger LOG = LoggerFactory.getLogger(HoptimatorJdbcSchema.class);
+
   private final String database;
+  private final String catalog;
+  private final String schema;
   private final List<Engine> engines;
   private final HoptimatorJdbcConvention convention;
   private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
+  private final LazyReference<Boolean> logical = new LazyReference<>();
 
   public static HoptimatorJdbcSchema create(String database, String catalog, String schema, DataSource dataSource,
       SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
@@ -42,8 +50,42 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
       HoptimatorJdbcConvention convention, List<Engine> engines) {
     super(dataSource, dialect, convention, catalog, schema);
     this.database = database;
+    this.catalog = catalog;
+    this.schema = schema;
     this.engines = engines;
     this.convention = convention;
+  }
+
+  /**
+   * Returns true when the downstream JDBC adapter surfaces a {@link LogicalSchemaMarker}-tagged
+   * schema at the configured catalog/schema path. Walks the downstream on first call and caches
+   * the result; the cost is one JDBC connection open per {@code HoptimatorJdbcSchema} lifetime.
+   * Drivers that surface logical tables participate by having their inner Calcite schema implement
+   * the marker.
+   */
+  public boolean isLogical() {
+    return logical.getOrCompute(this::detectLogical);
+  }
+
+  private Boolean detectLogical() {
+    try (Connection downstream = getDataSource().getConnection()) {
+      CalciteConnection cc = downstream.unwrap(CalciteConnection.class);
+      SchemaPlus root = cc.getRootSchema();
+      if (root == null) {
+        return false;
+      }
+      SchemaPlus sub = root;
+      if (catalog != null) {
+        sub = sub.subSchemas().get(catalog);
+      }
+      if (sub != null && schema != null) {
+        sub = sub.subSchemas().get(schema);
+      }
+      return sub != null && sub.unwrap(LogicalSchemaMarker.class) != null;
+    } catch (Exception e) {
+      LOG.info("Could not determine isLogical for database {}", database, e);
+      return false;
+    }
   }
 
   @Override

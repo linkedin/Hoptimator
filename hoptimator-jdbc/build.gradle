@@ -18,6 +18,7 @@ dependencies {
   testFixturesImplementation libs.quidem
   testFixturesImplementation libs.calcite.core
   testFixturesImplementation project(':hoptimator-api')
+  testFixturesImplementation project(':hoptimator-graph')
   testFixturesImplementation project(':hoptimator-util')
   testFixturesImplementation libs.junit.jupiter.api
 
