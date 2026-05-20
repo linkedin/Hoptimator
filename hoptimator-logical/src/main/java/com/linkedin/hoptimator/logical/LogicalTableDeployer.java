@@ -61,6 +61,9 @@ import com.linkedin.hoptimator.jdbc.ValidationService;
  *   <li>Creating a {@code LogicalTable} CRD via {@link K8sLogicalTableDeployer}.</li>
  *   <li>Creating implicit inter-tier Pipeline CRDs owned by the LogicalTable CRD.</li>
  * </ol>
+ *
+ * TODO: this deployer is specific to k8s at this point in time, this should be refactored to be
+ * deployment agnostic as possible, k8s specific pieces belong in the hoptimator-k8s module.
  */
 public class LogicalTableDeployer implements Deployer, Validated {
 
