@@ -1,0 +1,53 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Validate graph handling works for independent triggers
+# ─────────────────────────────────────────────────────────────────────────────
+
+create trigger testsimple on profile.members as 'my-app' in 'my-mp' with (key 'value');
+(0 rows modified)
+
+!update
+
+flowchart LR
+  n0[("PROFILE.MEMBERS")]
+  n1{"testsimple<br/>template: my-app<br/>container: hello"}
+  n0 -.-> n1
+!graph PROFILE.MEMBERS
+
+pause trigger testsimple;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  n0[("PROFILE.MEMBERS")]
+  n1{"testsimple<br/>template: my-app<br/>container: hello<br/>(paused)"}
+  n0 -.-> n1
+!graph PROFILE.MEMBERS
+
+drop trigger testsimple;
+(0 rows modified)
+
+!update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Validate cron triggers
+# ─────────────────────────────────────────────────────────────────────────────
+
+create trigger cronTrigger ON profile.members AS 'my-app' in 'my-mp' SCHEDULED '0 * * * *';
+(0 rows modified)
+
+!update
+
+flowchart LR
+  n0[("PROFILE.MEMBERS")]
+  n1{"crontrigger<br/>cron: every hour<br/>template: my-app<br/>container: hello"}
+  n0 -.-> n1
+!graph PROFILE.MEMBERS
+
+drop trigger cronTrigger;
+(0 rows modified)
+
+!update

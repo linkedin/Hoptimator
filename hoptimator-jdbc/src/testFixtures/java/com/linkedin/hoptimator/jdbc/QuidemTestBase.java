@@ -11,6 +11,9 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Assertions;
 
+import com.linkedin.hoptimator.graph.PipelineGraph;
+import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
+
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
@@ -23,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -212,6 +216,59 @@ public abstract class QuidemTestBase {
         };
       }
 
+      if (line.startsWith("graph")) {
+        return new AbstractCommand() {
+          @Override
+          public void execute(Context context, boolean execute) throws Exception {
+            if (execute) {
+              Connection connection = context.connection();
+              if (!(connection instanceof HoptimatorConnection)) {
+                throw new IllegalArgumentException("This connection doesn't support `!graph`.");
+              }
+              HoptimatorConnection conn = (HoptimatorConnection) connection;
+              String[] parts = line.trim().split("\\s+");
+              if (parts.length < 2) {
+                throw new IllegalArgumentException(
+                    "Usage: !graph <schema.name> [--depth N]");
+              }
+              String identifier = parts[1];
+              int depth = 2;
+              for (int i = 2; i < parts.length - 1; i++) {
+                if ("--depth".equals(parts[i])) {
+                  depth = Integer.parseInt(parts[i + 1]);
+                }
+              }
+
+              try {
+                PipelineGraph graph = GraphService.buildGraph(identifier, depth, conn);
+                String mermaid = GraphService.render(graph, MermaidRenderer.FORMAT);
+                // Strip a trailing newline so the line list matches what's in the .id file (Quidem
+                // splits the captured content on newlines without a trailing blank).
+                if (mermaid.endsWith("\n")) {
+                  mermaid = mermaid.substring(0, mermaid.length() - 1);
+                }
+                // Resource targets root at an External node. A degenerate Resource graph means
+                // the schema resolved but no pipeline references the leaf — same behavior as the
+                // sqlline `!graph` command.
+                if (depth >= 1 && graph.root() instanceof com.linkedin.hoptimator.graph.GraphNode.External
+                    && graph.nodes().size() == 1 && graph.edges().isEmpty()) {
+                  mermaid = mermaid + "\n%% WARNING: no pipelines reference this resource — the "
+                      + "identifier may not exist or no pipelines have been deployed against it yet.";
+                }
+                context.echo(Arrays.asList(mermaid.split("\n")));
+              } catch (SQLException e) {
+                // Identifier didn't resolve, or some other lookup failure — echo the message
+                // so the .id script can pin the error text verbatim.
+                context.echo(Arrays.asList(("Error: " + e.getMessage()).split("\n")));
+              }
+            } else {
+              context.echo(content);
+            }
+            context.echo(copy);
+          }
+        };
+      }
+
       if (line.startsWith("spec")) {
         return new AbstractCommand() {
           @Override
@@ -239,4 +296,5 @@ public abstract class QuidemTestBase {
       return null;
     }
   }
+
 }

@@ -99,7 +99,7 @@ right bootstrap servers and topic name. Connectors are produced by the
 catalog adapter for each database, embedded in the YAML that
 [TableTemplates](#tabletemplates-and-jobtemplates) and
 [JobTemplates](#tabletemplates-and-jobtemplates) emit, and can be customized
-via [hints](#hints).
+via [hints](#configuration-and-hints).
 
 Connectors do not require an `Engine` to function. The typical flow is:
 Hoptimator generates a `FlinkSessionJob` (or similar) with the connector

@@ -42,6 +42,7 @@ import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.k8s.K8sPipelineBundle;
 import com.linkedin.hoptimator.k8s.K8sTriggerDeployer;
 import com.linkedin.hoptimator.k8s.K8sUtils;
+import com.linkedin.hoptimator.k8s.LogicalTableNames;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.util.DeploymentService;
@@ -60,11 +61,13 @@ import com.linkedin.hoptimator.jdbc.ValidationService;
  *   <li>Creating a {@code LogicalTable} CRD via {@link K8sLogicalTableDeployer}.</li>
  *   <li>Creating implicit inter-tier Pipeline CRDs owned by the LogicalTable CRD.</li>
  * </ol>
+ *
+ * TODO: this deployer is specific to k8s at this point in time, this should be refactored to be
+ * deployment agnostic as possible, k8s specific pieces belong in the hoptimator-k8s module.
  */
 public class LogicalTableDeployer implements Deployer, Validated {
 
   private static final Logger log = LoggerFactory.getLogger(LogicalTableDeployer.class);
-  private static final String LOGICAL_TRIGGER_NAME = "logical-%s-offline-trigger";
 
   private final Source source;
   private final Properties tierProps;
@@ -187,7 +190,6 @@ public class LogicalTableDeployer implements Deployer, Validated {
    */
   private void deployAll(boolean update) throws SQLException {
     Map<String, String> tierMap = buildTierMap();
-    Map<String, V1alpha1Database> tierDatabases = resolveTiers();
     Map<String, Source> tierSources = buildTierSources();
     try {
       deployTierResources(tierSources);
@@ -198,7 +200,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
           ? logicalTableDeployer.updateAndReference()
           : logicalTableDeployer.createAndReference();
       K8sContext ownerContext = context.withOwner(ownerRef);
-      deployImplicitPipelines(tierMap, tierDatabases, tierSources, ownerContext, update);
+      deployImplicitPipelines(tierMap, tierSources, ownerContext, update);
       deployImplicitTrigger(tierMap, tierSources, ownerContext);
     } catch (Exception e) {
       if (e instanceof SQLException) {
@@ -446,15 +448,14 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * Creates or updates implicit inter-tier pipeline CRDs.
    * Each created bundle is tracked in {@link #pipelineDeployers}.
    */
-  private void deployImplicitPipelines(Map<String, String> tierMap,
-      Map<String, V1alpha1Database> tierDatabases, Map<String, Source> tierSources,
+  private void deployImplicitPipelines(Map<String, String> tierMap, Map<String, Source> tierSources,
       K8sContext ownerContext, boolean update) throws SQLException {
     if (tierMap.containsKey(LogicalTier.NEARLINE.tierName()) && tierMap.containsKey(LogicalTier.ONLINE.tierName())) {
-      deployPipelineBundle(LogicalTier.NEARLINE.tierName(), LogicalTier.ONLINE.tierName(), tierDatabases, tierSources,
+      deployPipelineBundle(LogicalTier.NEARLINE.tierName(), LogicalTier.ONLINE.tierName(), tierSources,
           ownerContext, update);
     }
     if (tierMap.containsKey(LogicalTier.NEARLINE.tierName()) && tierMap.containsKey(LogicalTier.OFFLINE.tierName())) {
-      deployPipelineBundle(LogicalTier.NEARLINE.tierName(), LogicalTier.OFFLINE.tierName(), tierDatabases, tierSources,
+      deployPipelineBundle(LogicalTier.NEARLINE.tierName(), LogicalTier.OFFLINE.tierName(), tierSources,
           ownerContext, update);
     }
   }
@@ -463,8 +464,8 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * Deploys a single implicit pipeline between two tiers using the full pipeline planner,
    * producing a proper {@link Job} with correct SQL, fieldMap, and connector configs.
    */
-  void deployPipelineBundle(String fromTier, String toTier, Map<String, V1alpha1Database> tierDatabases,
-      Map<String, Source> tierSources, K8sContext ownerContext, boolean update) throws SQLException {
+  void deployPipelineBundle(String fromTier, String toTier, Map<String, Source> tierSources,
+      K8sContext ownerContext, boolean update) throws SQLException {
     String tableName = source.table();
     String pipelineName = pipelineName(tableName, fromTier, toTier);
     Source fromSource = tierSources.get(fromTier);
@@ -503,7 +504,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   /** Returns the canonical pipeline name for an implicit inter-tier pipeline. */
   static String pipelineName(String tableName, String fromTier, String toTier) {
-    return "logical-" + K8sUtils.canonicalizeName(tableName) + "-" + fromTier + "-to-" + toTier;
+    return LogicalTableNames.pipelineName(tableName, fromTier, toTier);
   }
 
   /**
@@ -525,7 +526,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
       return;
     }
 
-    String triggerName = String.format(LOGICAL_TRIGGER_NAME, K8sUtils.canonicalizeName(source.table()));
+    String triggerName = LogicalTableNames.triggerName(source.table());
 
     V1alpha1TableTrigger existing = null;
     try {

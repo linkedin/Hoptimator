@@ -23,7 +23,8 @@ Start with **[Getting started](getting-started/index.md)**:
 See the **[User guide](user-guide/index.md)**:
 
 - [SQL CLI](user-guide/sql-cli.md) — sqlline-based interactive shell with
-  `!pipeline`, `!specify`, `!resolve` for inspecting plans before they deploy.
+  `!pipeline`, `!specify`, `!resolve` for inspecting plans before they
+  deploy, and `!graph` for visualizing what's already running.
 - [JDBC driver](user-guide/jdbc.md) — `jdbc:hoptimator://` for Java apps,
   with full connection-property reference.
 - [MCP server](user-guide/mcp-server.md) — Model Context Protocol server
@@ -64,6 +65,8 @@ See **[Extending Hoptimator](extending/index.md)**:
   via `Validator` and `ValidatorProvider`.
 - [Config providers](extending/config-providers.md) — custom
   `ConfigProvider` SPI.
+- [Pipeline graph SPIs](extending/index.md) — `GraphProvider` (alternate backing store) and
+  `GraphRenderer` (alternate output format).
 - [Templates and configuration](kubernetes/templates.md) — authoring
   `TableTemplate` and `JobTemplate` (lives in the Kubernetes guide).
 

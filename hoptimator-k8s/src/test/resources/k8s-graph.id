@@ -1,0 +1,232 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 1: reverse lookup against an identifier whose schema doesn't exist in this
+# connection. Surfaces as an error rather than a degenerate graph — the resolver
+# walks the path through Calcite's schema tree and "UNKNOWN" isn't a sub-schema.
+# ─────────────────────────────────────────────────────────────────────────────
+
+Error: Identifier UNKNOWN.FOO does not exist: schema segment 'UNKNOWN' not found in this connection.
+!graph UNKNOWN.FOO
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 2: known schema, unknown table. PROFILE resolves to a Database in the
+# catalog, but does-not-exist isn't a Table — surfaces as an error rather than
+# an empty graph + warning. (The no-pipelines warning is reserved for tables
+# that exist but happen to have no referencing pipelines.)
+# ─────────────────────────────────────────────────────────────────────────────
+
+Error: Identifier PROFILE.does-not-exist does not exist: table 'does-not-exist' not found in schema PROFILE.
+!graph PROFILE.does-not-exist
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 3: partial materialized view
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view PROFILE."COMPANIES$graph-test" as select COMPANY_URN as COMPANY_URN, MEMBER_URN as COMPANY_NAME from PROFILE.MEMBERS;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"profile-companies-graph-test<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("PROFILE.MEMBERS")]
+  n3[("PROFILE.COMPANIES")]
+  n2 --> n1
+  n1 --> n3
+!graph PROFILE.COMPANIES$graph-test
+
+flowchart LR
+  n0[("PROFILE.MEMBERS")]
+  n1[/"profile-companies-graph-test<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("PROFILE.COMPANIES")]
+  n0 --> n1
+  n1 --> n2
+!graph PROFILE.MEMBERS
+
+flowchart LR
+  n0[("PROFILE.COMPANIES")]
+  n1[/"profile-companies-graph-test<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("PROFILE.MEMBERS")]
+  n2 --> n1
+  n1 --> n0
+!graph PROFILE.COMPANIES
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 4: materialized view w/ join
+# Also tests combined graph with multiple views from the test above
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view PROFILE.MULTI as select first_name, last_name from PROFILE.COMPANIES natural join PROFILE.MEMBERS;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"profile-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("PROFILE.COMPANIES")]
+  n3[("PROFILE.MEMBERS")]
+  n4[("PROFILE.MULTI")]
+  n2 --> n1
+  n3 --> n1
+  n1 --> n4
+!graph PROFILE.MULTI
+
+flowchart LR
+  n0[("PROFILE.MEMBERS")]
+  n1[/"profile-companies-graph-test<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("PROFILE.COMPANIES")]
+  n3[/"profile-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n4[("PROFILE.MULTI")]
+  n0 --> n1
+  n1 --> n2
+  n2 --> n3
+  n0 --> n3
+  n3 --> n4
+!graph PROFILE.MEMBERS
+
+flowchart LR
+  n0[("PROFILE.COMPANIES")]
+  n1[/"profile-companies-graph-test<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("PROFILE.MEMBERS")]
+  n3[/"profile-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n4[("PROFILE.MULTI")]
+  n2 --> n1
+  n1 --> n0
+  n0 --> n3
+  n2 --> n3
+  n3 --> n4
+!graph PROFILE.COMPANIES
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 5: Depth checks
+# ─────────────────────────────────────────────────────────────────────────────
+
+# No expected change because depth 1 is bidirectional from source and sink
+flowchart LR
+  n0[("PROFILE.COMPANIES")]
+  n1[/"profile-companies-graph-test<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("PROFILE.MEMBERS")]
+  n3[/"profile-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n4[("PROFILE.MULTI")]
+  n2 --> n1
+  n1 --> n0
+  n0 --> n3
+  n2 --> n3
+  n3 --> n4
+!graph PROFILE.COMPANIES --depth 1
+
+flowchart LR
+  n0[("PROFILE.COMPANIES")]
+!graph PROFILE.COMPANIES --depth 0
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"profile-multi<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("PROFILE.COMPANIES")]
+  n3[("PROFILE.MEMBERS")]
+  n4[("PROFILE.MULTI")]
+  n2 --> n1
+  n3 --> n1
+  n1 --> n4
+!graph PROFILE.MULTI --depth 1
+
+drop materialized view PROFILE.MULTI;
+(0 rows modified)
+
+!update
+
+drop materialized view PROFILE."COMPANIES$graph-test";
+(0 rows modified)
+
+!update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 6: MV-on-MV inlining produces fan-out from the physical source.
+# AUDIENCE2 and AUDIENCE3 are defined to read from AUDIENCE, but Calcite
+# inlines AUDIENCE's body so the resulting pipelines all read directly
+# from PROFILE.MEMBERS. The graph reflects operational truth (post-inline),
+# not user intent, so `!graph PROFILE.MEMBERS` fans out to 3 pipelines.
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace materialized view PROFILE.AUDIENCE as select COMPANY_URN as COMPANY_URN, MEMBER_URN as COMPANY_NAME from PROFILE.MEMBERS;
+(0 rows modified)
+
+!update
+
+create or replace materialized view PROFILE.AUDIENCE2 as select COMPANY_URN from PROFILE.AUDIENCE;
+(0 rows modified)
+
+!update
+
+create or replace materialized view PROFILE.AUDIENCE3 as select COMPANY_URN from PROFILE.AUDIENCE;
+(0 rows modified)
+
+!update
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"profile-audience2<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("PROFILE.MEMBERS")]
+  n3[("PROFILE.AUDIENCE2")]
+  n2 --> n1
+  n1 --> n3
+!graph PROFILE.AUDIENCE2
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"profile-audience3<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("PROFILE.MEMBERS")]
+  n3[("PROFILE.AUDIENCE3")]
+  n2 --> n1
+  n1 --> n3
+!graph PROFILE.AUDIENCE3
+
+flowchart LR
+  subgraph n0["Materialized View"]
+    n1[/"profile-audience<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  end
+  n2[("PROFILE.MEMBERS")]
+  n3[("PROFILE.AUDIENCE")]
+  n2 --> n1
+  n1 --> n3
+!graph PROFILE.AUDIENCE
+
+flowchart LR
+  n0[("PROFILE.MEMBERS")]
+  n1[/"profile-audience<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("PROFILE.AUDIENCE")]
+  n3[/"profile-audience2<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n4[("PROFILE.AUDIENCE2")]
+  n5[/"profile-audience3<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n6[("PROFILE.AUDIENCE3")]
+  n0 --> n1
+  n1 --> n2
+  n0 --> n3
+  n3 --> n4
+  n0 --> n5
+  n5 --> n6
+!graph PROFILE.MEMBERS
+
+drop materialized view PROFILE.AUDIENCE3;
+(0 rows modified)
+
+!update
+
+drop materialized view PROFILE.AUDIENCE2;
+(0 rows modified)
+
+!update
+
+drop materialized view PROFILE.AUDIENCE;
+(0 rows modified)
+
+!update

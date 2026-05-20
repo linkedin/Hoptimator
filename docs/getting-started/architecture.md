@@ -142,24 +142,25 @@ the pipeline.
 
 The repo is split into focused modules. The ones you'll touch most often:
 
-| Module                            | Role                                                                 |
-| --------------------------------- | -------------------------------------------------------------------- |
-| `hoptimator-api`                  | The interfaces. `Deployer`, `Engine`, `Connector`, `View`, etc.      |
-| `hoptimator-jdbc`                 | Calcite-based JDBC driver. Catalog, parser, planner integration.    |
-| `hoptimator-jdbc-driver`          | Lightweight wrapper that exposes the driver to standard JDBC code.   |
-| `hoptimator-cli`                  | The `./hoptimator` SQL CLI (sqlline + custom commands).              |
-| `hoptimator-mcp-server`           | MCP server that wraps the JDBC driver for AI agents and IDEs.        |
-| `hoptimator-util`                 | Planner rules, deployment service, template engine.                  |
-| `hoptimator-k8s`                  | Default Deployers, the catalog/operator glue, all CRDs.              |
-| `hoptimator-operator`             | The reconciler loop and its main entry point.                        |
-| `hoptimator-flink-runner`         | The runtime that executes Flink SQL jobs produced by the planner.    |
-| `hoptimator-flink-adapter`        | Flink-side adapter for catalog awareness.                            |
-| `hoptimator-kafka` / `-kafka-controller` | Kafka catalog and controller integration.                     |
-| `hoptimator-venice`               | Venice catalog adapter.                                              |
-| `hoptimator-mysql`                | MySQL catalog adapter.                                               |
-| `hoptimator-logical`              | LogicalTable support — one logical entity, multiple physical tiers.  |
-| `hoptimator-demodb`               | In-memory demo source used by the quickstart.                        |
-| `hoptimator-avro`                 | Avro schema utilities used by the catalog/connectors.                |
+| Module                                   | Role                                                                |
+|------------------------------------------|---------------------------------------------------------------------|
+| `hoptimator-api`                         | The interfaces. `Deployer`, `Engine`, `Connector`, `View`, etc.     |
+| `hoptimator-jdbc`                        | Calcite-based JDBC driver. Catalog, parser, planner integration.    |
+| `hoptimator-jdbc-driver`                 | Lightweight wrapper that exposes the driver to standard JDBC code.  |
+| `hoptimator-cli`                         | The `./hoptimator` SQL CLI (sqlline + custom commands).             |
+| `hoptimator-mcp-server`                  | MCP server that wraps the JDBC driver for AI agents and IDEs.       |
+| `hoptimator-util`                        | Planner rules, deployment service, template engine.                 |
+| `hoptimator-k8s`                         | Default Deployers, the catalog/operator glue, all CRDs.             |
+| `hoptimator-operator`                    | The reconciler loop and its main entry point.                       |
+| `hoptimator-flink-runner`                | The runtime that executes Flink SQL jobs produced by the planner.   |
+| `hoptimator-flink-adapter`               | Flink-side adapter for catalog awareness.                           |
+| `hoptimator-kafka` / `-kafka-controller` | Kafka catalog and controller integration.                           |
+| `hoptimator-venice`                      | Venice catalog adapter.                                             |
+| `hoptimator-mysql`                       | MySQL catalog adapter.                                              |
+| `hoptimator-logical`                     | LogicalTable support — one logical entity, multiple physical tiers. |
+| `hoptimator-graph`                       | Pipeline graph renderers. Ships the Mermaid backend for `!graph`.   |
+| `hoptimator-demodb`                      | In-memory demo source used by the quickstart.                       |
+| `hoptimator-avro`                        | Avro schema utilities used by the catalog/connectors.               |
 
 A handful of modules (`hoptimator-catalog`, `hoptimator-models`,
 `hoptimator-planner`) are in the tree but marked for deletion; new
@@ -179,6 +180,11 @@ contributions should not target them.
   `DeployerProvider`. Kubernetes is the default but not a hard requirement;
   the bundled `K8sSourceDeployer` and `K8sJobDeployer` are themselves
   examples. Anything that knows how to materialize a spec will do.
+- **A new visualization format or graph backend**: implement `GraphRenderer`
+  for a new output format (DOT, JSON, an interactive HTML view, …) or
+  `GraphProvider` to build the dependency graph from somewhere other than
+  Kubernetes. The bundled Mermaid renderer (`hoptimator-graph`) and K8s
+  provider (`hoptimator-k8s`) are reference impls.
 - **Different cluster configuration**: usually a `ConfigProvider` change
   rather than code.
 

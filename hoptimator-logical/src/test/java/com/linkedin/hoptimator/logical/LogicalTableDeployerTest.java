@@ -49,6 +49,7 @@ import com.linkedin.hoptimator.util.DeploymentService;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -147,9 +148,7 @@ class LogicalTableDeployerTest {
 
       @Override
       void deployPipelineBundle(String fromTier, String toTier,
-          Map<String, V1alpha1Database> tierDatabases,
-          Map<String, Source> tierSources,
-          K8sContext ownerContext, boolean update) {
+          Map<String, Source> tierSources, K8sContext ownerContext, boolean update) {
         // No-op in CRD-focused tests — pipeline deployment is tested separately.
       }
     };
@@ -684,7 +683,7 @@ class LogicalTableDeployerTest {
     Properties oneTierProps = new Properties();
     oneTierProps.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
-        new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE")));
+        new FakeK8sApi<>(Collections.singletonList(makeDb("nearline-db", "NEARLINE")));
 
     K8sContext ctx = mock(K8sContext.class);
 
@@ -716,7 +715,7 @@ class LogicalTableDeployerTest {
 
     assertFalse(deployers.isEmpty());
     assertEquals(1, deployers.size());
-    assertTrue(deployers.iterator().next() instanceof LogicalTableDeployer);
+    assertInstanceOf(LogicalTableDeployer.class, deployers.iterator().next());
   }
 
   @Test
@@ -732,7 +731,7 @@ class LogicalTableDeployerTest {
     Properties oneTierProps = new Properties();
     oneTierProps.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
-        new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE")));
+        new FakeK8sApi<>(Collections.singletonList(makeDb("nearline-db", "NEARLINE")));
 
     Validator.Issues issues = new Validator.Issues("test");
     new LogicalTableDeployer(
@@ -759,7 +758,7 @@ class LogicalTableDeployerTest {
   void specifyWithOfflineTierOnlyDoesNotAttemptPipeline() throws Exception {
     // OFFLINE-only (no NEARLINE) — no pipeline pairs are triggered since pipelines require NEARLINE.
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
-        new FakeK8sApi<>(Arrays.asList(makeDb("offline-db", "OFFLINE")));
+        new FakeK8sApi<>(Collections.singletonList(makeDb("offline-db", "OFFLINE")));
 
     Properties props = new Properties();
     props.setProperty(LogicalTier.OFFLINE.tierName(), "offline-db");
@@ -779,7 +778,7 @@ class LogicalTableDeployerTest {
     Properties props = twoTierProps("nearline-db", "offline-db");
 
     deploymentServiceMock.when(() -> DeploymentService.specify(any(Source.class), any()))
-        .thenReturn(Arrays.asList("tier-spec-yaml"));
+        .thenReturn(List.of("tier-spec-yaml"));
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
         .thenReturn(Collections.emptyList());
 
@@ -857,9 +856,7 @@ class LogicalTableDeployerTest {
 
       @Override
       void deployPipelineBundle(String fromTier, String toTier,
-          Map<String, V1alpha1Database> tierDatabases,
-          Map<String, Source> tierSources,
-          K8sContext ownerContext, boolean update) {
+          Map<String, Source> tierSources, K8sContext ownerContext, boolean update) {
         // No-op in trigger-focused tests.
       }
 
@@ -914,7 +911,7 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+        Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
     doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
@@ -931,7 +928,7 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("online-db", "ONLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+        Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
     Properties props = new Properties();
     props.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
     props.setProperty(LogicalTier.ONLINE.tierName(), "online-db");
@@ -951,7 +948,7 @@ class LogicalTableDeployerTest {
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     // JobTemplate exists but declares a different database.
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("other-template", "some-other-db")));
+        Collections.singletonList(makeJobTemplate("other-template", "some-other-db")));
     doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
@@ -967,7 +964,7 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+        Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
     doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
@@ -987,7 +984,7 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+        Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
     doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
@@ -1005,10 +1002,10 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+        Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
 
     // Seed a pre-existing trigger CRD matching the canonical implicit trigger name.
-    List<V1alpha1TableTrigger> existing = new ArrayList<>(Arrays.asList(
+    List<V1alpha1TableTrigger> existing = new ArrayList<>(Collections.singletonList(
         new V1alpha1TableTrigger()
             .metadata(new V1ObjectMeta().name("logical-testevent-offline-trigger"))));
 
@@ -1033,7 +1030,7 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+        Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
 
     doReturn(new V1OwnerReference()).when(mockCrdDeployer).updateAndReference();
 
@@ -1053,7 +1050,7 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+        Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
     doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
 
     // CREATE TABLE WITH ("ab.cd" "customValue", "job.properties.online.name" "testevent-online")
@@ -1077,7 +1074,7 @@ class LogicalTableDeployerTest {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
-        Arrays.asList(makeJobTemplate("retl-offline", "offline-db")));
+        Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
     doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
