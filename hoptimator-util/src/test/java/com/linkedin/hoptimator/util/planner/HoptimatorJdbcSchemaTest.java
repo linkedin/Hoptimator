@@ -359,6 +359,72 @@ class HoptimatorJdbcSchemaTest {
     verify(mockDataSource, times(1)).getConnection();
   }
 
+  // Transient connection failures must NOT poison the cache — a flaky moment can't lock the
+  // resolver into routing LOGICAL.MEMBERS to Resource for the schema's lifetime. The first call
+  // returns false (best-effort), and the second retries.
+  @Test
+  void testIsLogicalRetriesAfterTransientFailure() throws Exception {
+    SchemaPlus downstreamRoot = Frameworks.createRootSchema(true);
+    downstreamRoot.add("LOGICAL", new MarkerSchema());
+
+    Connection healthyConn = mock(Connection.class);
+    CalciteConnection cc = mock(CalciteConnection.class);
+    when(cc.getRootSchema()).thenReturn(downstreamRoot);
+    when(healthyConn.unwrap(CalciteConnection.class)).thenReturn(cc);
+
+    // First call: getConnection() throws — transient. Second call: succeeds.
+    when(mockDataSource.getConnection())
+        .thenThrow(new SQLException("transient blip"))
+        .thenReturn(healthyConn);
+
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+    HoptimatorJdbcSchema schema = new HoptimatorJdbcSchema(
+        "myDb", null, "LOGICAL", mockDataSource,
+        AnsiSqlDialect.DEFAULT, convention, Collections.emptyList());
+
+    assertFalse(schema.isLogical(), "first call surfaces non-logical when connection fails");
+    assertTrue(schema.isLogical(), "second call must retry and discover the marker");
+  }
+
+  // Permanent "downstream isn't Calcite" should cache as non-logical (no retry storms). Distinct
+  // from the transient case above: SQLException from unwrap() reflects a fixed driver property.
+  @Test
+  void testIsLogicalCachesNonCalciteDownstream() throws Exception {
+    Connection dsConnection = mock(Connection.class);
+    when(mockDataSource.getConnection()).thenReturn(dsConnection);
+    when(dsConnection.unwrap(CalciteConnection.class))
+        .thenThrow(new SQLException("not a CalciteConnection"));
+
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+    HoptimatorJdbcSchema schema = new HoptimatorJdbcSchema(
+        "myDb", "MYCATALOG", "MYSCHEMA", mockDataSource,
+        AnsiSqlDialect.DEFAULT, convention, Collections.emptyList());
+
+    assertFalse(schema.isLogical());
+    assertFalse(schema.isLogical());
+    verify(mockDataSource, times(1)).getConnection();
+  }
+
+  // Null root from getRootSchema() — explicit early-return branch in detectLogical().
+  @Test
+  void testIsLogicalReturnsFalseWhenDownstreamRootIsNull() throws Exception {
+    Connection dsConnection = mock(Connection.class);
+    CalciteConnection cc = mock(CalciteConnection.class);
+    when(mockDataSource.getConnection()).thenReturn(dsConnection);
+    when(dsConnection.unwrap(CalciteConnection.class)).thenReturn(cc);
+    when(cc.getRootSchema()).thenReturn(null);
+
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+    HoptimatorJdbcSchema schema = new HoptimatorJdbcSchema(
+        "myDb", null, "LOGICAL", mockDataSource,
+        AnsiSqlDialect.DEFAULT, convention, Collections.emptyList());
+
+    assertFalse(schema.isLogical());
+  }
+
   @Test
   void testTablesGetReturnsNullForMissingTableAfterLoad() throws Exception {
     Connection dsConnection = mock(Connection.class);

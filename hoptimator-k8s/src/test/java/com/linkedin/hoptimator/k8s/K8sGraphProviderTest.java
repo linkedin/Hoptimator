@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.linkedin.hoptimator.graph.GraphTarget;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -81,5 +82,16 @@ class K8sGraphProviderTest {
         new GraphTarget.Resource("ads-database", List.of("ADS", "AD_CLICKS")), 1, connection);
 
     verify(builder).forResource(eq("ads-database"), eq(List.of("ADS", "AD_CLICKS")), eq(1));
+  }
+
+  @Test
+  void forTargetThrowsOnNullConnection() {
+    // K8sContext.create can't derive a context from null; turn that into a clear SQLException
+    // rather than letting an NPE propagate from the helper.
+    K8sGraphProvider provider = new K8sGraphProvider();
+    SQLException ex = assertThrows(SQLException.class,
+        () -> provider.forTarget(new GraphTarget.View("v"), 1, null));
+    assertTrue(ex.getMessage().contains("non-null"),
+        "error should explain the requirement: " + ex.getMessage());
   }
 }

@@ -53,7 +53,7 @@ final class CronHumanizer {
     }
     try {
       return DESCRIPTOR.describe(PARSER.parse(cron.trim()));
-    } catch (RuntimeException e) {
+    } catch (IllegalArgumentException e) {
       // CronParser throws IllegalArgumentException for unrecognized expressions (Quartz 6-field
       // forms, vendor-specific syntax, etc.). Fall back to the raw form rather than swallow the
       // user's intent behind a wrong phrase.

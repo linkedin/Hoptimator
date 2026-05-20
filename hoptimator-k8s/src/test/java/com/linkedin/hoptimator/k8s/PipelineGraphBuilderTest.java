@@ -225,6 +225,155 @@ class PipelineGraphBuilderTest {
         "LogicalTable should own its tier externals + 2 pipelines + 1 trigger; got: " + ownerEdges);
   }
 
+  // ─── Test: direction filter doesn't leak unrelated siblings ──────────────
+
+  @Test
+  void forResourceDirectionFilterDoesNotLeakUnrelatedSiblings() throws SQLException {
+    // Three pipelines wired so a flipped direction check would visibly leak. From the user's
+    // reverse-lookup on B, only X (writes to B) and Y (reads from B) are part of B's neighborhood.
+    // Z reads from A — A is a transitive upstream of B (via X), but Z is X's sibling, not B's
+    // ancestor. The direction-aware traversal must not pull Z in.
+    //
+    //   X: A --> B
+    //   Y: B --> C
+    //   Z: A --> D       <-- must NOT appear in B's reverse lookup
+    V1alpha1Pipeline x = pipelineWithSourcesAndSink(
+        "x", "uid-x", "Job",
+        List.of("dbA_X.A"),
+        "dbB_Y.B");
+    V1alpha1Pipeline y = pipelineWithSourcesAndSink(
+        "y", "uid-y", "Job",
+        List.of("dbB_Y.B"),
+        "dbC_Z.C");
+    V1alpha1Pipeline z = pipelineWithSourcesAndSink(
+        "z", "uid-z", "Job",
+        List.of("dbA_X.A"),
+        "dbD_W.D");
+
+    PipelineGraphBuilder builder = builder(list(), list(x, y, z), list(), list());
+
+    PipelineGraph graph = builder.forResource("dbB", List.of("Y", "B"), 3);
+
+    boolean hasX = graph.nodes().stream().anyMatch(n ->
+        n instanceof GraphNode.Pipeline && "x".equals(((GraphNode.Pipeline) n).name()));
+    boolean hasY = graph.nodes().stream().anyMatch(n ->
+        n instanceof GraphNode.Pipeline && "y".equals(((GraphNode.Pipeline) n).name()));
+    boolean hasZ = graph.nodes().stream().anyMatch(n ->
+        n instanceof GraphNode.Pipeline && "z".equals(((GraphNode.Pipeline) n).name()));
+    assertTrue(hasX, "X writes to B — must appear via upstream walk");
+    assertTrue(hasY, "Y reads from B — must appear via downstream walk");
+    assertFalse(hasZ,
+        "Z shares only an upstream-of-upstream resource with B — must NOT leak through the "
+            + "direction filter");
+  }
+
+  // ─── ownedBy edge cases ──────────────────────────────────────────────────
+
+  @Test
+  void forLogicalTableIncludesPipelineViaOwnerNameFallback() throws SQLException {
+    // Etcd restore (or any operation that recreates the LogicalTable with a fresh UID) leaves
+    // owned Pipelines pointing at the prior UID. ownedBy()'s name fallback exists to keep the
+    // ownership relationship intact in that case — the visualizer must still draw the OWNER_OF
+    // edge so the graph doesn't go silently empty after a restore.
+    V1alpha1LogicalTable lt = logicalTable("ns", "events", "current-uid", linked(
+        "nearline", "kafka-db",
+        "online", "venice-db"));
+
+    V1alpha1Pipeline pipeline = pipelineWithSourcesAndSink(
+        "logical-events-nearline-to-online", "stale-uid-from-prior-incarnation", "LogicalTable",
+        List.of("kafka-db_kafka-db.events"),
+        "venice-db_venice-db.events");
+
+    PipelineGraphBuilder builder = builder(list(), list(pipeline), list(lt), list());
+
+    PipelineGraph graph = builder.forLogicalTable("events");
+
+    long ownerEdges = graph.edges().stream()
+        .filter(e -> e.type() == GraphEdge.Type.OWNER_OF && e.from().equals(graph.root())
+            && e.to() instanceof GraphNode.Pipeline)
+        .count();
+    assertEquals(1, ownerEdges,
+        "name-fallback in ownedBy() must keep the OWNER_OF edge across a UID change");
+  }
+
+  @Test
+  void forLogicalTableSkipsPipelineWithWrongOwnerKind() throws SQLException {
+    // A pipeline coincidentally named like a LogicalTable's inter-tier pipeline but actually
+    // owned by a different kind (e.g. a Job CRD) must NOT be claimed as the LogicalTable's child.
+    // ownedBy()'s kind check is the guard.
+    V1alpha1LogicalTable lt = logicalTable("ns", "events", "lt-uid", linked(
+        "nearline", "kafka-db",
+        "online", "venice-db"));
+
+    V1alpha1Pipeline impostor = pipelineWithSourcesAndSink(
+        "logical-events-nearline-to-online", "lt-uid", "Job",  // kind=Job, not LogicalTable
+        List.of("kafka-db_kafka-db.events"),
+        "venice-db_venice-db.events");
+
+    PipelineGraphBuilder builder = builder(list(), list(impostor), list(lt), list());
+
+    PipelineGraph graph = builder.forLogicalTable("events");
+
+    long ownerEdges = graph.edges().stream()
+        .filter(e -> e.type() == GraphEdge.Type.OWNER_OF && e.to() instanceof GraphNode.Pipeline)
+        .count();
+    assertEquals(0, ownerEdges,
+        "wrong-kind owner-ref must not be claimed as the LogicalTable's child");
+  }
+
+  // ─── Null-metadata defenses ──────────────────────────────────────────────
+
+  @Test
+  void forLogicalTableHandlesMissingUidAndSpec() throws SQLException {
+    // CRD shapes pulled from K8s can have a partially-populated metadata block (e.g. missing
+    // UID before the apiserver assigns one) or a null spec mid-reconciliation. The visualizer
+    // must surface the LogicalTable root rather than NPE'ing on the missing fields. Owned
+    // children won't be discoverable (no UID for owner-ref check, no tableName for name
+    // deduction), so the graph is root-only, but it renders.
+    V1alpha1LogicalTable lt = new V1alpha1LogicalTable();
+    lt.setMetadata(new V1ObjectMeta().namespace("ns").name("events"));  // no UID
+    // spec left null
+
+    PipelineGraphBuilder builder = builder(list(), list(), list(lt), list());
+
+    PipelineGraph graph = builder.forLogicalTable("events");
+
+    assertEquals(GraphNode.Kind.LOGICAL_TABLE, graph.root().kind());
+    assertEquals(1, graph.nodes().size(),
+        "root-only graph expected when LogicalTable lacks UID/spec; got: " + graph.nodes());
+  }
+
+  @Test
+  void forLogicalTableSkipsTierWithNullDatabaseBinding() throws SQLException {
+    // A tier declared without a resolved database binding (e.g. partially-applied LogicalTable
+    // mid-reconciliation) must not propagate into the GraphNode.LogicalTable tier map as null —
+    // downstream renderers key on the database value and would silently malform the subgraph.
+    V1alpha1LogicalTable lt = new V1alpha1LogicalTable();
+    V1ObjectMeta meta = new V1ObjectMeta().namespace("ns").name("events").uid("uid");
+    lt.setMetadata(meta);
+    V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
+    spec.setTableName("events");
+    Map<String, V1alpha1LogicalTableSpecTiers> tiers = new LinkedHashMap<>();
+    V1alpha1LogicalTableSpecTiers nullBindingTier = new V1alpha1LogicalTableSpecTiers();
+    // .database not set — null binding
+    tiers.put("nearline", nullBindingTier);
+    V1alpha1LogicalTableSpecTiers boundTier = new V1alpha1LogicalTableSpecTiers();
+    boundTier.setDatabase("venice-db");
+    tiers.put("online", boundTier);
+    spec.setTiers(tiers);
+    lt.setSpec(spec);
+
+    PipelineGraphBuilder builder = builder(list(), list(), list(lt), list());
+
+    PipelineGraph graph = builder.forLogicalTable("events");
+
+    GraphNode.LogicalTable root = (GraphNode.LogicalTable) graph.root();
+    assertFalse(root.tiers().containsKey("nearline"),
+        "tier with null database binding must be dropped, not propagated as null");
+    assertEquals("venice-db", root.tiers().get("online"),
+        "bound tier should survive the filtering");
+  }
+
   // ─── Test: trigger pointing at an arbitrary table (not LogicalTable-owned) ─
 
   @Test
@@ -400,6 +549,51 @@ class PipelineGraphBuilderTest {
   void inferEngineUnknownEngineReturnsNull() {
     // No flink/beam/spark keyword anywhere — caller renders without an engine line.
     assertNull(PipelineGraphBuilder.inferEngine("CustomKind", null));
+  }
+
+  @Test
+  void inferEngineFlinkOnlyKindReturnsFlink() {
+    // FlinkSessionJob with no Beam mention anywhere — pure Flink. Distinct from the beam-on-flink
+    // branch, which requires either the kind or the YAML to mention Beam.
+    assertEquals("Flink", PipelineGraphBuilder.inferEngine("FlinkSessionJob",
+        "spec:\n  parallelism: 4\n"));
+  }
+
+  @Test
+  void extractFirstContainerNameReturnsNullForNullOrEmpty() {
+    assertNull(PipelineGraphBuilder.extractFirstContainerName(null));
+    assertNull(PipelineGraphBuilder.extractFirstContainerName(""));
+  }
+
+  @Test
+  void extractFirstContainerNameReturnsNullWhenContainersKeyMissing() {
+    // Trigger YAML without a containers: section (e.g. a Job spec that uses a podTemplate ref).
+    String yaml = "apiVersion: batch/v1\nkind: Job\nmetadata:\n  name: my-job\n";
+    assertNull(PipelineGraphBuilder.extractFirstContainerName(yaml));
+  }
+
+  @Test
+  void extractFirstContainerNamePicksFirstEntry() {
+    // Two containers — return the first one. The trigger renderer surfaces this as the executable
+    // identity in the trigger label.
+    String yaml = "spec:\n  containers:\n    - name: main\n      image: foo:bar\n    - name: sidecar\n      image: baz:qux\n";
+    assertEquals("main", PipelineGraphBuilder.extractFirstContainerName(yaml));
+  }
+
+  @Test
+  void extractFirstContainerNameHandlesCompactIndentation() {
+    // YAML serializers vary on indent — 2-space vs 4-space under containers:. The regex must
+    // tolerate both rather than silently returning null.
+    String compact = "containers:\n- name: only\n  image: x\n";
+    assertEquals("only", PipelineGraphBuilder.extractFirstContainerName(compact));
+  }
+
+  @Test
+  void extractFirstContainerNameSkipsFieldsBeforeContainers() {
+    // Some other "name:" field appears earlier in the doc (e.g. metadata.name). Restricting the
+    // search to after the "containers:" marker is what prevents it from being picked up.
+    String yaml = "metadata:\n  name: outer\nspec:\n  containers:\n    - name: inner\n";
+    assertEquals("inner", PipelineGraphBuilder.extractFirstContainerName(yaml));
   }
 
   @Test

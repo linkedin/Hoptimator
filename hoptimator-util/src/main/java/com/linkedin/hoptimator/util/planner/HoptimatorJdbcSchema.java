@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Set;
 
@@ -37,7 +38,7 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   private final List<Engine> engines;
   private final HoptimatorJdbcConvention convention;
   private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
-  private final LazyReference<Boolean> logical = new LazyReference<>();
+  private volatile Boolean cachedLogical;
 
   public static HoptimatorJdbcSchema create(String database, String catalog, String schema, DataSource dataSource,
       SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
@@ -62,14 +63,46 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
    * the result; the cost is one JDBC connection open per {@code HoptimatorJdbcSchema} lifetime.
    * Drivers that surface logical tables participate by having their inner Calcite schema implement
    * the marker.
+   *
+   * <p>A transient JDBC failure (e.g. downstream temporarily unreachable) is <i>not</i> cached —
+   * subsequent calls retry — so a flaky moment can't poison the resolver's view of the database
+   * for the schema's lifetime. Only a definitive determination ("the marker is/isn't present")
+   * is memoized.
    */
   public boolean isLogical() {
-    return logical.getOrCompute(this::detectLogical);
+    Boolean cached = cachedLogical;
+    if (cached != null) {
+      return cached;
+    }
+    try {
+      boolean determined = detectLogical();
+      cachedLogical = determined;
+      return determined;
+    } catch (SQLException e) {
+      // Cache deliberately left unset — the next caller retries.
+      LOG.warn("Transient failure determining isLogical for database {}; treating as non-logical "
+          + "for this call and will retry on next access", database, e);
+      return false;
+    }
   }
 
-  private Boolean detectLogical() {
+  /**
+   * @throws SQLException when the downstream connection can't be acquired; the caller
+   *     translates that into a non-cached "not logical" outcome so a transient blip doesn't
+   *     poison the resolver. A driver that simply doesn't implement {@link CalciteConnection} is
+   *     a permanent characteristic and is cached as non-logical instead of being treated as a
+   *     failure.
+   */
+  private Boolean detectLogical() throws SQLException {
     try (Connection downstream = getDataSource().getConnection()) {
-      CalciteConnection cc = downstream.unwrap(CalciteConnection.class);
+      CalciteConnection cc;
+      try {
+        cc = downstream.unwrap(CalciteConnection.class);
+      } catch (SQLException e) {
+        // Permanent: this driver doesn't surface a CalciteConnection at all. Cache as non-logical
+        // so we don't keep re-asking.
+        return false;
+      }
       SchemaPlus root = cc.getRootSchema();
       if (root == null) {
         return false;
@@ -81,10 +114,16 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
       if (sub != null && schema != null) {
         sub = sub.subSchemas().get(schema);
       }
-      return sub != null && sub.unwrap(LogicalSchemaMarker.class) != null;
-    } catch (Exception e) {
-      LOG.info("Could not determine isLogical for database {}", database, e);
-      return false;
+      if (sub == null) {
+        return false;
+      }
+      // SchemaPlus.unwrap throws ClassCastException for non-matching types — that's the dominant
+      // "looked and isn't logical" outcome, not a crash.
+      try {
+        return sub.unwrap(LogicalSchemaMarker.class) != null;
+      } catch (ClassCastException e) {
+        return false;
+      }
     }
   }
 

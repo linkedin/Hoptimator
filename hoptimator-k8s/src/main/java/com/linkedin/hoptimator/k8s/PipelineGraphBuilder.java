@@ -17,6 +17,9 @@ import java.util.regex.Pattern;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.linkedin.hoptimator.graph.GraphEdge;
 import com.linkedin.hoptimator.graph.GraphNode;
 import com.linkedin.hoptimator.graph.PipelineGraph;
@@ -48,6 +51,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
  * so the recursion always terminates.
  */
 public final class PipelineGraphBuilder {
+
+  private static final Logger LOG = LoggerFactory.getLogger(PipelineGraphBuilder.class);
 
   private final K8sApi<V1alpha1View, V1alpha1ViewList> viewApi;
   private final K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi;
@@ -227,7 +232,14 @@ public final class PipelineGraphBuilder {
       return out;
     }
     for (Map.Entry<String, V1alpha1LogicalTableSpecTiers> e : spec.getTiers().entrySet()) {
-      out.put(e.getKey(), e.getValue() == null ? null : e.getValue().getDatabase());
+      // Skip tiers with no resolved database — the downstream renderer's tier lookup keys on the
+      // database value, so a null binding can't be matched and would silently become a malformed
+      // subgraph. Better to drop the malformed entry and surface the rest of the LogicalTable.
+      String tierDb = e.getValue() == null ? null : e.getValue().getDatabase();
+      if (tierDb == null) {
+        continue;
+      }
+      out.put(e.getKey(), tierDb);
     }
     return out;
   }
@@ -248,10 +260,10 @@ public final class PipelineGraphBuilder {
   }
 
   /**
-   * Cheap engine inference from the job kind + raw YAML. Used for non-{@code SqlJob} job kinds
-   * (e.g. {@code FlinkSessionJob}, {@code SparkApplication}) where the engine is encoded in the
-   * kind name. For {@code SqlJob}, use {@link #extractSqlJobField} on {@code spec.dialect}
-   * directly — the engine is a structured spec field, not something to infer.
+   * Cheap engine inference from the job kind. Used for non-{@code SqlJob} job kinds (e.g.
+   * {@code FlinkSessionJob} where the engine is encoded in the kind name.
+   * For {@code SqlJob}, use {@link #extractSqlJobField} on {@code spec.dialect} directly —
+   * the engine is a structured spec field, not something to infer.
    */
   static String inferEngine(String jobKind, String yaml) {
     if (jobKind == null) {
@@ -623,6 +635,11 @@ public final class PipelineGraphBuilder {
       // Identifier shape: <database>_<dot.joined.path>. Split on the first underscore.
       int idx = identifier.indexOf('_');
       if (idx < 0) {
+        // Missing the separator — likely a stale or hand-edited depends-on annotation. Surface as
+        // a degraded External (database == identifier, empty path) so we render *something*, but
+        // log so operators can spot the corruption in production.
+        LOG.warn("depends-on identifier {} is malformed (missing '_' database/path separator); "
+            + "rendering as degraded External with no path", identifier);
         return externalNode(identifier, Collections.emptyList());
       }
       String database = identifier.substring(0, idx);
@@ -637,7 +654,7 @@ public final class PipelineGraphBuilder {
       String yaml = pipeline.getSpec() == null ? null : pipeline.getSpec().getYaml();
       String jobKind = extractJobKind(yaml);
       // SqlJob carries dialect/executionMode as structured spec fields — prefer those over
-      // name-based inference. Other job kinds (FlinkSessionJob, SparkApplication, etc.) encode
+      // name-based inference. Other job kinds (FlinkSessionJob, etc.) encode
       // the engine in the kind name itself, so inferEngine handles them.
       String engine;
       String executionMode;

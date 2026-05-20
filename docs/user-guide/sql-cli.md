@@ -33,8 +33,8 @@ See [JDBC driver](jdbc.md) for the full URL syntax.
 ## Built-in commands
 
 Standard sqlline commands all work (`!help`, `!quit`, `!run`, `!record`,
-…) along with the catalog-introspection ones below. Hoptimator adds the
-last four for inspecting plans and pipelines.
+…) along with the catalog-introspection ones below. Hoptimator also adds
+commands to inspect plans, pipelines, and the deployed graph.
 
 | Command       | What it does                                                                  |
 | ------------- | ----------------------------------------------------------------------------- |
@@ -44,9 +44,11 @@ last four for inspecting plans and pipelines.
 | `!resolve`    | Print the schema and source/sink connector configs Hoptimator would use for a table. |
 | `!pipeline`   | Print the auto-generated pipeline SQL for a SELECT or CREATE MATERIALIZED VIEW statement. |
 | `!specify`    | Print every Kubernetes spec the statement would deploy. The dry-run for `CREATE MATERIALIZED VIEW`. |
+| `!graph`      | Render the deployed dependency graph rooted at an identifier as a Mermaid diagram. |
 
-`!resolve`, `!pipeline`, and `!specify` do not modify any state. Use them to
-sanity-check a plan before you let the JDBC driver actually deploy it.
+`!resolve`, `!pipeline`, `!specify`, and `!graph` do not modify any state.
+Use them to sanity-check a plan before you let the JDBC driver actually
+deploy it (and to inspect what's already running).
 
 ### `!resolve <schema.table>`
 
@@ -114,6 +116,61 @@ spec:
 If you'd `kubectl apply` the output, you'd get the same result as actually
 running the `CREATE MATERIALIZED VIEW`. This is the safest way to review what
 a statement will do before you run it.
+
+### `!graph <identifier> [--depth N]`
+
+```sql
+0: Hoptimator> !graph ADS.AUDIENCE
+flowchart LR
+    subgraph n0["Materialized View"]
+        n1[/"ads-audience
+kind: SqlJob
+engine: Flink
+mode: Streaming"/]
+end
+    n2[("ADS.PAGE_VIEWS")]
+    n3[("PROFILE.MEMBERS")]
+    n4[("ADS.AUDIENCE")]
+    n2 --> n1
+    n3 --> n1
+    n1 --> n4
+```
+Rendered:
+```mermaid
+flowchart LR
+    subgraph n0["Materialized View"]
+        n1[/"ads-audience
+kind: SqlJob
+engine: Flink
+mode: Streaming"/]
+    end
+    n2[("ADS.PAGE_VIEWS")]
+    n3[("PROFILE.MEMBERS")]
+    n4[("ADS.AUDIENCE")]
+    n2 --> n1
+    n3 --> n1
+    n1 --> n4
+```
+
+Renders the deployed dependency graph rooted at `<identifier>` as Mermaid.
+Identifier resolution  runs against Calcite's catalog, so the same names you use in SQL work here:
+
+- A materialized view (`ADS.AUDIENCE`) renders the view's compiled pipeline
+  with its direct sources and sink.
+- A logical table (`LOGICAL.events`) renders the inter-tier pipelines,
+  any owned triggers, and the per-tier physical resources grouped into
+  tier subgraphs.
+- A physical resource (`KAFKA.events`) traverses the depends-on dependency
+  index up to `--depth` hops in each direction — pipelines that read or
+  write it, and recursively their other endpoints.
+
+`--depth N` only applies to physical-resource targets; view and logical-table
+graphs are intentionally single-hop ("what this view does," not the full
+upstream chain). For the chain, run `!graph` on a source identifier.
+
+Rendering backends are pluggable. Mermaid is the default and the only one
+shipped today; additional renderers can register via the
+`GraphRenderer` SPI — see [Extending Hoptimator](../extending/index.md).
 
 ## Running SQL
 

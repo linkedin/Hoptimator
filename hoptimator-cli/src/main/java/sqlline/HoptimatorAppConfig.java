@@ -356,8 +356,16 @@ public class HoptimatorAppConfig extends Application {
       }
       String identifier = parts[1];
       int depth = 2;
-      for (int i = 2; i < parts.length - 1; i++) {
+      // Walk through the remaining tokens. Flags consume their value (i += 1); anything else is
+      // an unknown positional and surfaces as an error rather than getting silently dropped.
+      int i = 2;
+      while (i < parts.length) {
         if ("--depth".equals(parts[i])) {
+          if (i + 1 >= parts.length) {
+            sqlline.error("--depth requires an integer value");
+            dispatchCallback.setToFailure();
+            return;
+          }
           try {
             depth = Integer.parseInt(parts[i + 1]);
           } catch (NumberFormatException e) {
@@ -365,6 +373,12 @@ public class HoptimatorAppConfig extends Application {
             dispatchCallback.setToFailure();
             return;
           }
+          i += 2;
+        } else {
+          sqlline.error("Unknown argument to !graph: " + parts[i]
+              + ". Usage: !graph <schema.name> [--depth N]");
+          dispatchCallback.setToFailure();
+          return;
         }
       }
 

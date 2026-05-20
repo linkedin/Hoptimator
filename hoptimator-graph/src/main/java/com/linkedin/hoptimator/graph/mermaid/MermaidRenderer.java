@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import com.linkedin.hoptimator.graph.GraphEdge;
@@ -182,7 +183,10 @@ public final class MermaidRenderer implements GraphRenderer {
     }
     String db = ((GraphNode.External) child).database();
     for (Map.Entry<String, String> e : tiers.entrySet()) {
-      if (e.getValue().equals(db)) {
+      // Null-safe: LogicalTable tier maps can carry null databases for tiers declared without a
+      // resolved binding. Objects.equals treats null==null as a match (caller side) and avoids
+      // NPE when only one side is null.
+      if (Objects.equals(e.getValue(), db)) {
         return e.getKey();
       }
     }
@@ -196,7 +200,7 @@ public final class MermaidRenderer implements GraphRenderer {
     switch (node.kind()) {
       case EXTERNAL: {
         GraphNode.External ext = (GraphNode.External) node;
-        return id + "[(\"" + ext.displayName() + "\")]";
+        return id + "[(\"" + escape(ext.displayName()) + "\")]";
       }
       case PIPELINE: {
         GraphNode.Pipeline p = (GraphNode.Pipeline) node;
@@ -223,7 +227,7 @@ public final class MermaidRenderer implements GraphRenderer {
         }
         if (t.jobTemplateName() != null) {
           lbl.append("<br/>template: ").append(t.jobTemplateName());
-      }
+        }
         if (t.containerName() != null) {
           lbl.append("<br/>container: ").append(t.containerName());
         }

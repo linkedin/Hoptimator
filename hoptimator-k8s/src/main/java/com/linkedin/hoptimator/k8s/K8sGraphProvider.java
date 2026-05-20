@@ -31,6 +31,10 @@ public class K8sGraphProvider implements GraphProvider {
   @Override
   public PipelineGraph forTarget(GraphTarget target, int depth, Connection connection)
       throws SQLException {
+    if (connection == null) {
+      throw new SQLException("K8sGraphProvider.forTarget requires a non-null JDBC connection; "
+          + "K8sContext can't be derived from null.");
+    }
     K8sContext context = K8sContext.create(connection);
     PipelineGraphBuilder builder = createBuilder(context);
     if (target instanceof GraphTarget.View) {
