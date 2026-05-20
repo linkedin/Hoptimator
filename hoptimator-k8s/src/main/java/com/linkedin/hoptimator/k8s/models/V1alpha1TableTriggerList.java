@@ -32,7 +32,7 @@ import java.util.List;
  * TableTriggerList is a list of TableTrigger
  */
 @ApiModel(description = "TableTriggerList is a list of TableTrigger")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-14T22:46:35.638Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-19T19:18:59.968Z[Etc/UTC]")
 public class V1alpha1TableTriggerList implements io.kubernetes.client.common.KubernetesListObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)
