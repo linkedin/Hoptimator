@@ -2,6 +2,7 @@ package sqlline;
 
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ class GraphCommandHandlerTest {
 
   @Test
   void isDegenerateTrueForRootOnlyGraph() {
-    GraphNode.External root = new GraphNode.External("db", Arrays.asList("table"));
+    GraphNode.External root = new GraphNode.External("db", List.of("table"));
     Set<GraphNode> nodes = singleton(root);
     Set<GraphEdge> edges = empty();
 
@@ -36,8 +37,8 @@ class GraphCommandHandlerTest {
 
   @Test
   void isDegenerateFalseWhenEdgesExist() {
-    GraphNode.External root = new GraphNode.External("db", Arrays.asList("a"));
-    GraphNode.Pipeline pipe = new GraphNode.Pipeline("p", null, null);
+    GraphNode.External root = new GraphNode.External("db", List.of("a"));
+    GraphNode.Pipeline pipe = new GraphNode.Pipeline("p", null, null, null);
     Set<GraphNode> nodes = pair(root, pipe);
     Set<GraphEdge> edges = oneEdge(new GraphEdge(root, pipe, GraphEdge.Type.DEPENDS_ON_SOURCE));
 

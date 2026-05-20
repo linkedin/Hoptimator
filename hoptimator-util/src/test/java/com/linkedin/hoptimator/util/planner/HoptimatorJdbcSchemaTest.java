@@ -212,8 +212,8 @@ class HoptimatorJdbcSchemaTest {
 
     assertNotNull(names);
     assertFalse(names.isEmpty(), "getNames() must return a non-empty set when tables exist");
-    assertTrue(names.contains("TABLE_A") || names.size() >= 1,
-        "at least one table name must appear in getNames() result");
+    assertTrue(names.contains("TABLE_A"),
+        "TABLE_A name must appear in getNames() result");
   }
 
   /** Marker-tagged schema standing in for {@code LogicalTableSchema} in tests. */

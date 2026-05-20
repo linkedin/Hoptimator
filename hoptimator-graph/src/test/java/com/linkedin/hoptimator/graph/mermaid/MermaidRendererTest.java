@@ -1,8 +1,10 @@
 package com.linkedin.hoptimator.graph.mermaid;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -13,6 +15,7 @@ import com.linkedin.hoptimator.graph.GraphNode;
 import com.linkedin.hoptimator.graph.PipelineGraph;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -33,7 +36,7 @@ class MermaidRendererTest {
         Arrays.asList("KAFKA", "events"));
     GraphNode.External venice = new GraphNode.External("venice-prod",
         Arrays.asList("VENICE", "profile"));
-    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience", null, null);
+    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience", null, null, null);
     GraphNode.External sink = new GraphNode.External("ads",
         Arrays.asList("VENICE", "audience"));
 
@@ -49,7 +52,7 @@ class MermaidRendererTest {
     assertTrue(mermaid.startsWith("flowchart LR"),
         "Materialized view should render top-down LR: " + mermaid);
     // OWNER_OF must drive the subgraph wrapper, not an arrow.
-    assertTrue(!mermaid.contains("--OWNER_OF"), "OWNER_OF must not surface as an arrow");
+    assertFalse(mermaid.contains("--OWNER_OF"), "OWNER_OF must not surface as an arrow");
     // The view's owned pipeline lives inside the View's subgraph wrapper.
     assertTrue(mermaid.contains("subgraph "), "owners get subgraph wrappers");
   }
@@ -91,7 +94,7 @@ class MermaidRendererTest {
     assertTrue(mermaid.contains("offline"), "offline tier subgraph missing: " + mermaid);
     // Trigger arrow uses dotted edge.
     assertTrue(mermaid.contains(" -.-> "), "trigger edge should be dotted: " + mermaid);
-    // Don't pin the exact phrasing — that's cron-utils' contract. Just verify the schedule
+    // Don't pin the exact phrasing — that's cron-utils contract. Just verify the schedule
     // makes it onto the trigger label in humanized form rather than the raw cron string.
     assertTrue(mermaid.contains("cron: ") && mermaid.contains("6") && mermaid.contains("hour"),
         "trigger label should expose the cron schedule humanized: " + mermaid);
@@ -100,7 +103,7 @@ class MermaidRendererTest {
   @Test
   void rendersTriggerPausedSuffix() {
     GraphNode.Trigger trigger = new GraphNode.Trigger("t1", "@hourly", true, null, null);
-    GraphNode.External target = new GraphNode.External("db", Arrays.asList("path"));
+    GraphNode.External target = new GraphNode.External("db", List.of("path"));
     Set<GraphNode> nodes = setOf(trigger, target);
     Set<GraphEdge> edges = setOf(new GraphEdge(trigger, target, GraphEdge.Type.TRIGGERS));
 
@@ -114,7 +117,7 @@ class MermaidRendererTest {
   void rendersJobKindAndEngineInsidePipelineLabel() {
     // Pipeline carries optional jobKind/engine pulled from the underlying job artifact — those
     // surface inline in the Pipeline node label so the user sees the execution shape at a glance.
-    GraphNode.Pipeline pipe = new GraphNode.Pipeline("p1", "FlinkDeployment", "Flink");
+    GraphNode.Pipeline pipe = new GraphNode.Pipeline("p1", "FlinkDeployment", "Flink", null);
     Set<GraphNode> nodes = setOf(pipe);
     Set<GraphEdge> edges = setOf();
 
@@ -142,13 +145,13 @@ class MermaidRendererTest {
   void triggerWithoutScheduleOmitsCron() {
     // Triggers may be event-driven (no cron). Label should not show a "cron:" prefix in that case.
     GraphNode.Trigger trigger = new GraphNode.Trigger("t1", null, false, null, null);
-    GraphNode.External target = new GraphNode.External("db", Arrays.asList("path"));
+    GraphNode.External target = new GraphNode.External("db", List.of("path"));
     Set<GraphNode> nodes = setOf(trigger, target);
     Set<GraphEdge> edges = setOf(new GraphEdge(trigger, target, GraphEdge.Type.TRIGGERS));
 
     String mermaid = new MermaidRenderer().render(new PipelineGraph(trigger, nodes, edges));
 
-    assertTrue(!mermaid.contains("cron:"), "trigger without schedule should omit cron line: " + mermaid);
+    assertFalse(mermaid.contains("cron:"), "trigger without schedule should omit cron line: " + mermaid);
   }
 
   @Test
@@ -157,8 +160,8 @@ class MermaidRendererTest {
     // collides with a node id inside it. Pin down the invariant: when an owner gets a subgraph
     // wrapper, its mermaid id must appear only as the subgraph header — never as a node line.
     GraphNode.View view = new GraphNode.View("audience", true);
-    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience-pipe", null, null);
-    GraphNode.External sink = new GraphNode.External("ads", Arrays.asList("realized"));
+    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience-pipe", null, null, null);
+    GraphNode.External sink = new GraphNode.External("ads", List.of("realized"));
 
     Set<GraphNode> nodes = setOf(view, pipeline, sink);
     Set<GraphEdge> edges = setOf(
@@ -179,8 +182,8 @@ class MermaidRendererTest {
     // When a non-LogicalTable node owns children (e.g. a View owning its realizing pipeline),
     // the owner gets a subgraph wrapper with the children inside.
     GraphNode.View view = new GraphNode.View("audience", true);
-    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience-pipe", null, null);
-    GraphNode.External sink = new GraphNode.External("ads", Arrays.asList("realized"));
+    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("audience-pipe", null, null, null);
+    GraphNode.External sink = new GraphNode.External("ads", List.of("realized"));
 
     Set<GraphNode> nodes = setOf(view, pipeline, sink);
     Set<GraphEdge> edges = setOf(
@@ -202,10 +205,10 @@ class MermaidRendererTest {
   @Test
   void multipleSourcesAllConnectToTheSamePipeline() {
     GraphNode.View root = new GraphNode.View("fanin", true);
-    GraphNode.Pipeline pipe = new GraphNode.Pipeline("fanin-pipe", null, null);
-    GraphNode.External a = new GraphNode.External("db1", Arrays.asList("a"));
-    GraphNode.External b = new GraphNode.External("db2", Arrays.asList("b"));
-    GraphNode.External c = new GraphNode.External("db3", Arrays.asList("c"));
+    GraphNode.Pipeline pipe = new GraphNode.Pipeline("fanin-pipe", null, null, null);
+    GraphNode.External a = new GraphNode.External("db1", List.of("a"));
+    GraphNode.External b = new GraphNode.External("db2", List.of("b"));
+    GraphNode.External c = new GraphNode.External("db3", List.of("c"));
 
     Set<GraphNode> nodes = setOf(root, pipe, a, b, c);
     Set<GraphEdge> edges = setOf(
@@ -233,9 +236,7 @@ class MermaidRendererTest {
   @SafeVarargs
   private static <T> Set<T> setOf(T... items) {
     Set<T> set = new LinkedHashSet<>();
-    for (T item : items) {
-      set.add(item);
-    }
+    Collections.addAll(set, items);
     return set;
   }
 }

@@ -38,8 +38,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
  *
  * <p>Three entry points:
  * <ul>
- *   <li>{@link #forView(String, int)} — graph rooted at a {@link V1alpha1View}.</li>
- *   <li>{@link #forLogicalTable(String, int)} — graph rooted at a {@link V1alpha1LogicalTable}.</li>
+ *   <li>{@link #forView(String)} — graph rooted at a {@link V1alpha1View}.</li>
+ *   <li>{@link #forLogicalTable(String)} — graph rooted at a {@link V1alpha1LogicalTable}.</li>
  *   <li>{@link #forResource(String, List, int)} — reverse lookup; graph rooted at an external resource.</li>
  * </ul>
  *
@@ -74,34 +74,35 @@ public final class PipelineGraphBuilder {
 
   // ─── Public entry points ─────────────────────────────────────────────────
 
-  public PipelineGraph forView(String name, int depth) throws SQLException {
+  public PipelineGraph forView(String name) throws SQLException {
     // Accept SQL-side identifiers (e.g. {@code VENICE.test-store$insert-partial}) — the CRD is
     // stored under a canonicalized name (lowercase, {@code _} stripped, {@code $} → {@code -},
     // dot-separated parts joined with {@code -}). Canonicalization is idempotent, so passing the
     // already-canonical CRD name still works.
     String crdName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
     V1alpha1View view = viewApi.get(crdName);
+    if (view.getSpec() == null) {
+      throw new SQLException("view " + crdName + " not found");
+    }
     boolean materialized = Boolean.TRUE.equals(view.getSpec().getMaterialized());
     GraphNode.View root = new GraphNode.View(crdName, materialized);
 
-    int cappedDepth = cap(depth);
-    Traversal t = new Traversal(cappedDepth);
+    Traversal t = new Traversal();
     t.addNode(root);
 
-    // Materialized views have a Pipeline owned by the View CRD whose sink matches the view's
-    // canonicalized path. Discover it via owner-reference scan over Pipelines in the namespace,
-    // and expand each — but do NOT walk further upstream. When the resolver tags an identifier
-    // as a View, the user expects "what this view does" (its pipeline + the resources it reads
-    // and writes directly), not a transitive chain to whatever produces its inputs. For the
-    // chain view, run !graph on the source identifier instead — Resource targets honor depth.
+    // Materialized views own a Pipeline with the same CRD name (see K8sMaterializedViewDeployer).
+    // Look it up directly — avoids a namespace-wide LIST. The owner-ref check still runs to defend
+    // against a coincidentally-named pipeline that isn't actually owned by this view (e.g. stale
+    // pipeline from a recreated view CRD with a fresh UID). Expansion is single-hop: "what this
+    // view does," not the full upstream chain — for that, run !graph on a source identifier
+    // (Resource targets honor depth).
     if (materialized) {
       String viewUid = view.getMetadata() == null ? null : view.getMetadata().getUid();
-      for (V1alpha1Pipeline pipeline : pipelineApi.list()) {
-        if (ownedBy(pipeline.getMetadata(), "View", crdName, viewUid)) {
-          GraphNode.Pipeline pipeNode = t.expandPipelineDirected(pipeline, Direction.UPSTREAM, 0);
-          if (pipeNode != null) {
-            t.addEdge(new GraphEdge(root, pipeNode, GraphEdge.Type.OWNER_OF));
-          }
+      V1alpha1Pipeline pipeline = pipelineApi.getIfExists(crdName);
+      if (pipeline != null && ownedBy(pipeline.getMetadata(), "View", crdName, viewUid)) {
+        GraphNode.Pipeline pipeNode = t.expandPipelineDirected(pipeline, Direction.UPSTREAM, 0);
+        if (pipeNode != null) {
+          t.addEdge(new GraphEdge(root, pipeNode, GraphEdge.Type.OWNER_OF));
         }
       }
     }
@@ -109,7 +110,7 @@ public final class PipelineGraphBuilder {
     return t.build(root);
   }
 
-  public PipelineGraph forLogicalTable(String name, int depth) throws SQLException {
+  public PipelineGraph forLogicalTable(String name) throws SQLException {
     // Same canonicalization as forView — accept SQL-side identifiers and resolve to the
     // canonicalized CRD name.
     String crdName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
@@ -117,23 +118,36 @@ public final class PipelineGraphBuilder {
     Map<String, String> tierMap = tierMap(lt.getSpec());
     GraphNode.LogicalTable root = new GraphNode.LogicalTable(crdName, tierMap);
 
-    Traversal t = new Traversal(cap(depth));
+    Traversal t = new Traversal();
     t.addNode(root);
 
     String ltUid = lt.getMetadata() == null ? null : lt.getMetadata().getUid();
-    String ltName = crdName;
+    String tableName = lt.getSpec() == null ? null : lt.getSpec().getTableName();
 
-    // Implicit inter-tier pipelines: discovered by scanning all pipelines whose ownerReferences
-    // point to this LogicalTable. Each gets an OWNER_OF edge from the LogicalTable so the
-    // renderer nests them inside the LogicalTable subgraph. Pipeline expansion adds the actual
-    // tier-physical externals — we group those into tier subgraphs in a second pass below.
-    // Same scoping rule as forView: don't recurse beyond the owned pipelines' immediate
-    // neighbors. The chain view belongs to !graph on the source identifier (a Resource target).
-    for (V1alpha1Pipeline pipeline : pipelineApi.list()) {
-      if (ownedBy(pipeline.getMetadata(), "LogicalTable", ltName, ltUid)) {
-        GraphNode.Pipeline pipeNode = t.expandPipelineDirected(pipeline, Direction.UPSTREAM, 0);
-        if (pipeNode != null) {
-          t.addEdge(new GraphEdge(root, pipeNode, GraphEdge.Type.OWNER_OF));
+    // Implicit inter-tier pipelines: the LogicalTable deployer names them via
+    // {@link LogicalTableNames#pipelineName} — derive every (from, to) candidate from the tier
+    // list and probe each by name. The deployer only actually creates a subset of pairs (today:
+    // nearline→online, nearline→offline), so most candidate GETs miss with 404 — that's fine, and
+    // it keeps the visualizer decoupled from the deployer's pair-selection rules: whatever the
+    // deployer actually creates is what we render. Owner-ref check defends against a coincidentally
+    // -named pipeline owned by something else (or a stale CRD with a different UID). Expansion is
+    // single-hop — for the chain view, run !graph on a source identifier (Resource targets honor
+    // depth).
+    if (tableName != null) {
+      List<String> tierNames = new ArrayList<>(tierMap.keySet());
+      for (String fromTier : tierNames) {
+        for (String toTier : tierNames) {
+          if (fromTier.equals(toTier)) {
+            continue;
+          }
+          String candidate = LogicalTableNames.pipelineName(tableName, fromTier, toTier);
+          V1alpha1Pipeline pipeline = pipelineApi.getIfExists(candidate);
+          if (pipeline != null && ownedBy(pipeline.getMetadata(), "LogicalTable", crdName, ltUid)) {
+            GraphNode.Pipeline pipeNode = t.expandPipelineDirected(pipeline, Direction.UPSTREAM, 0);
+            if (pipeNode != null) {
+              t.addEdge(new GraphEdge(root, pipeNode, GraphEdge.Type.OWNER_OF));
+            }
+          }
         }
       }
     }
@@ -149,11 +163,14 @@ public final class PipelineGraphBuilder {
       }
     }
 
-    // Owned triggers — same scan against the trigger API. Bridging triggers (those with both a
-    // source and a sink annotation) render as `source -.-> trigger -.-> sink`. Single-node
-    // triggers (Shape A) render with whichever endpoint is set.
-    for (V1alpha1TableTrigger trigger : triggerApi.list()) {
-      if (ownedBy(trigger.getMetadata(), "LogicalTable", ltName, ltUid)) {
+    // Owned trigger: the LogicalTable deployer creates at most one trigger per table
+    // ({@link LogicalTableNames#triggerName}), gated on an offline tier being present. We probe
+    // unconditionally — a 404 simply means there's no offline tier in this table's spec, which is
+    // exactly the absence we want to render.
+    if (tableName != null) {
+      String triggerCandidate = LogicalTableNames.triggerName(tableName);
+      V1alpha1TableTrigger trigger = triggerApi.getIfExists(triggerCandidate);
+      if (trigger != null && ownedBy(trigger.getMetadata(), "LogicalTable", crdName, ltUid)) {
         GraphNode.Trigger tNode = triggerNode(trigger);
         t.addNode(tNode);
         t.addEdge(new GraphEdge(root, tNode, GraphEdge.Type.OWNER_OF));
@@ -167,8 +184,8 @@ public final class PipelineGraphBuilder {
   public PipelineGraph forResource(String database, List<String> path, int depth) throws SQLException {
     GraphNode.External root = externalNode(database, path);
 
-    int cappedDepth = cap(depth);
-    Traversal t = new Traversal(cappedDepth);
+    int cappedDepth = Math.max(depth, 0);
+    Traversal t = new Traversal();
     t.addNode(root);
     // Reverse-lookup mode: walk in both directions from the root, but each recursion preserves
     // its own direction (upstream stays upstream, downstream stays downstream) so unrelated
@@ -180,10 +197,6 @@ public final class PipelineGraphBuilder {
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
-
-  private static int cap(int depth) {
-    return Math.max(depth, 0);
-  }
 
   private static boolean ownedBy(V1ObjectMeta meta, String ownerKind, String ownerName, String ownerUid) {
     if (meta == null || meta.getOwnerReferences() == null) {
@@ -223,7 +236,7 @@ public final class PipelineGraphBuilder {
    * Pull the workhorse {@code kind:} out of the rendered job YAML inside
    * {@code V1alpha1PipelineSpec.yaml}. The yaml stream interleaves data resources (KafkaTopic,
    * VeniceStore, etc.) with the actual execution artifact. We pick the first kind whose name
-   * ends in {@code Job} — covers FlinkSessionJob, FlinkBeamSqlJob, BeamSqlJob, batch/v1 Job,
+   * ends in {@code Job} — covers FlinkSessionJob, SqlJob, EtlJob, batch/v1 Job,
    * etc. without having to maintain an allowlist. Returns null if no Job-suffixed kind is found.
    */
   static String extractJobKind(String yaml) {
@@ -234,7 +247,12 @@ public final class PipelineGraphBuilder {
     return m.find() ? m.group(1) : null;
   }
 
-  /** Cheap engine inference from the job kind + raw YAML. Returns null when uncertain. */
+  /**
+   * Cheap engine inference from the job kind + raw YAML. Used for non-{@code SqlJob} job kinds
+   * (e.g. {@code FlinkSessionJob}, {@code SparkApplication}) where the engine is encoded in the
+   * kind name. For {@code SqlJob}, use {@link #extractSqlJobField} on {@code spec.dialect}
+   * directly — the engine is a structured spec field, not something to infer.
+   */
   static String inferEngine(String jobKind, String yaml) {
     if (jobKind == null) {
       return null;
@@ -255,6 +273,32 @@ public final class PipelineGraphBuilder {
       return "Spark";
     }
     return null;
+  }
+
+  /**
+   * Pull a scalar field from the {@code spec:} block of the {@code SqlJob} doc in a rendered
+   * pipeline YAML. The rendered YAML interleaves data resources (KafkaTopic, VeniceStore, …) with
+   * the SqlJob, so we scope the search to the slice after {@code kind: SqlJob} and before the
+   * next document boundary. Returns null when the YAML doesn't contain a SqlJob or the field is
+   * absent. Intended for the CRD's typed-enum fields ({@code dialect}, {@code executionMode}),
+   * which the deployer always writes as bare scalars.
+   */
+  static String extractSqlJobField(String yaml, String fieldName) {
+    if (yaml == null || yaml.isEmpty() || fieldName == null) {
+      return null;
+    }
+    Matcher kindMatcher = Pattern.compile("(?m)^kind:\\s*SqlJob\\s*$").matcher(yaml);
+    if (!kindMatcher.find()) {
+      return null;
+    }
+    String tail = yaml.substring(kindMatcher.start());
+    int boundary = tail.indexOf("\n---");
+    if (boundary >= 0) {
+      tail = tail.substring(0, boundary);
+    }
+    Matcher fieldMatcher = Pattern.compile("(?m)^\\s+" + Pattern.quote(fieldName) + ":\\s*(\\S+)\\s*$")
+        .matcher(tail);
+    return fieldMatcher.find() ? fieldMatcher.group(1) : null;
   }
 
   private static GraphNode.Trigger triggerNode(V1alpha1TableTrigger trigger) {
@@ -328,21 +372,24 @@ public final class PipelineGraphBuilder {
 
   /** Pull the trigger's source identifier from the {@code depends-on-sources} annotation. */
   private static String triggerSourceIdentifier(V1alpha1TableTrigger trigger) {
-    String value = annotationValue(trigger, DependencyLabels.ANNOTATION_KEY_SOURCES);
-    if (value == null || value.isEmpty()) {
-      return null;
-    }
-    Set<String> ids = DependencyLabels.parseAnnotation(value);
-    return ids.isEmpty() ? null : ids.iterator().next();
+    return firstAnnotationIdentifier(trigger, DependencyLabels.ANNOTATION_KEY_SOURCES);
   }
 
   /** Pull the trigger's sink identifier from the {@code depends-on-sinks} annotation. Today a
    *  trigger has at most one sink, so we return the first; if/when triggers carry multiple sinks
    *  this needs to grow into an iteration. */
   private static String triggerSinkIdentifier(V1alpha1TableTrigger trigger) {
-    Set<String> sinks = DependencyLabels.parseAnnotation(
-        annotationValue(trigger, DependencyLabels.ANNOTATION_KEY_SINKS));
-    return sinks.isEmpty() ? null : sinks.iterator().next();
+    return firstAnnotationIdentifier(trigger, DependencyLabels.ANNOTATION_KEY_SINKS);
+  }
+
+  /**
+   * First identifier parsed from a {@code depends-on-*} annotation on the trigger, or null when
+   * the annotation is missing/empty. {@link DependencyLabels#parseAnnotation(String)} treats null
+   * inputs as empty, so no caller-side null guard is needed.
+   */
+  private static String firstAnnotationIdentifier(V1alpha1TableTrigger trigger, String annotationKey) {
+    Set<String> ids = DependencyLabels.parseAnnotation(annotationValue(trigger, annotationKey));
+    return ids.isEmpty() ? null : ids.iterator().next();
   }
 
   private static String annotationValue(V1alpha1TableTrigger trigger, String key) {
@@ -385,15 +432,10 @@ public final class PipelineGraphBuilder {
   enum Direction { UPSTREAM, DOWNSTREAM }
 
   private final class Traversal {
-    private final int maxDepth;
     private final Map<String, GraphNode> nodes = new LinkedHashMap<>();
     private final Set<GraphEdge> edges = new LinkedHashSet<>();
     private final Set<String> expandedResources = new HashSet<>();
     private final Set<String> expandedPipelines = new HashSet<>();
-
-    Traversal(int maxDepth) {
-      this.maxDepth = maxDepth;
-    }
 
     void addNode(GraphNode node) {
       nodes.putIfAbsent(node.id(), node);
@@ -516,7 +558,7 @@ public final class PipelineGraphBuilder {
      * and schedules transitive expansion from the other endpoints. Returns the Pipeline node
      * so the caller can attach owner-of edges.
      */
-    GraphNode.Pipeline expandPipeline(V1alpha1Pipeline pipeline, GraphNode rootContext) throws SQLException {
+    GraphNode.Pipeline expandPipeline(V1alpha1Pipeline pipeline) {
       String pipeId = pipelineId(pipeline);
       if (pipeId == null || !expandedPipelines.add(pipeId)) {
         return null;
@@ -554,7 +596,7 @@ public final class PipelineGraphBuilder {
      */
     GraphNode.Pipeline expandPipelineDirected(V1alpha1Pipeline pipeline, Direction direction,
         int remainingDepth) throws SQLException {
-      GraphNode.Pipeline pipeNode = expandPipeline(pipeline, null);
+      GraphNode.Pipeline pipeNode = expandPipeline(pipeline);
       if (pipeNode == null) {
         return null;
       }
@@ -577,7 +619,7 @@ public final class PipelineGraphBuilder {
       return pipeNode;
     }
 
-    private GraphNode.External externalFromIdentifier(String identifier) throws SQLException {
+    private GraphNode.External externalFromIdentifier(String identifier) {
       // Identifier shape: <database>_<dot.joined.path>. Split on the first underscore.
       int idx = identifier.indexOf('_');
       if (idx < 0) {
@@ -594,8 +636,19 @@ public final class PipelineGraphBuilder {
       String name = pipeline.getMetadata() == null ? "<unknown>" : pipeline.getMetadata().getName();
       String yaml = pipeline.getSpec() == null ? null : pipeline.getSpec().getYaml();
       String jobKind = extractJobKind(yaml);
-      String engine = inferEngine(jobKind, yaml);
-      return new GraphNode.Pipeline(name, jobKind, engine);
+      // SqlJob carries dialect/executionMode as structured spec fields — prefer those over
+      // name-based inference. Other job kinds (FlinkSessionJob, SparkApplication, etc.) encode
+      // the engine in the kind name itself, so inferEngine handles them.
+      String engine;
+      String executionMode;
+      if ("SqlJob".equals(jobKind)) {
+        engine = extractSqlJobField(yaml, "dialect");
+        executionMode = extractSqlJobField(yaml, "executionMode");
+      } else {
+        engine = inferEngine(jobKind, yaml);
+        executionMode = null;
+      }
+      return new GraphNode.Pipeline(name, jobKind, engine, executionMode);
     }
 
     private String pipelineId(V1alpha1Pipeline pipeline) {

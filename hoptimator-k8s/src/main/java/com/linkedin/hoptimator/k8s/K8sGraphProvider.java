@@ -13,8 +13,10 @@ import com.linkedin.hoptimator.graph.PipelineGraph;
  * the existing entry-point methods become routes for each {@link GraphTarget} subtype:
  *
  * <ul>
- *   <li>{@link GraphTarget.View} → {@link PipelineGraphBuilder#forView(String, int)}
- *   <li>{@link GraphTarget.LogicalTable} → {@link PipelineGraphBuilder#forLogicalTable(String, int)}
+ *   <li>{@link GraphTarget.View} → {@link PipelineGraphBuilder#forView(String)} (single-hop;
+ *       depth is ignored — see method Javadoc)
+ *   <li>{@link GraphTarget.LogicalTable} → {@link PipelineGraphBuilder#forLogicalTable(String)}
+ *       (single-hop; depth is ignored — see method Javadoc)
  *   <li>{@link GraphTarget.Resource} → {@link PipelineGraphBuilder#forResource(String, java.util.List, int)}.
  *       SQL-identifier-to-CRD-name resolution happens in {@link com.linkedin.hoptimator.jdbc.GraphService}
  *       before dispatch — by the time the target reaches us, {@code Resource.database()} is the
@@ -33,11 +35,11 @@ public class K8sGraphProvider implements GraphProvider {
     PipelineGraphBuilder builder = createBuilder(context);
     if (target instanceof GraphTarget.View) {
       GraphTarget.View v = (GraphTarget.View) target;
-      return builder.forView(v.name(), depth);
+      return builder.forView(v.name());
     }
     if (target instanceof GraphTarget.LogicalTable) {
       GraphTarget.LogicalTable lt = (GraphTarget.LogicalTable) target;
-      return builder.forLogicalTable(lt.name(), depth);
+      return builder.forLogicalTable(lt.name());
     }
     if (target instanceof GraphTarget.Resource) {
       GraphTarget.Resource r = (GraphTarget.Resource) target;

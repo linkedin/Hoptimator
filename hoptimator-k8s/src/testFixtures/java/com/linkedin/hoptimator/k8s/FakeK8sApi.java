@@ -37,6 +37,11 @@ public class FakeK8sApi<T extends KubernetesObject, U extends KubernetesListObje
 
   @Override
   public T getIfExists(String namespace, String name) throws SQLException {
+    return getIfExists(name);
+  }
+
+  @Override
+  public T getIfExists(String name) throws SQLException {
     return objects.stream().filter(x -> x.getMetadata().getName().equals(name)).findFirst()
         .orElse(null);
   }

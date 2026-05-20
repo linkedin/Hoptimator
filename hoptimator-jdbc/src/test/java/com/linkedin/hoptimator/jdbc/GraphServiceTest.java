@@ -188,7 +188,7 @@ class GraphServiceTest {
   }
 
   @Test
-  void buildGraphSurfacesNoProviderError() throws SQLException {
+  void buildGraphSurfacesNoProviderError() {
     // No GraphProvider is registered on this module's test classpath, so any resolvable
     // identifier reaches the "no provider supports target" branch. Wires through the resolver
     // first (identifier must walk Calcite cleanly), then fails dispatch.

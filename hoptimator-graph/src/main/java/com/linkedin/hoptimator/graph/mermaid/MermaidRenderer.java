@@ -207,6 +207,9 @@ public final class MermaidRenderer implements GraphRenderer {
         if (p.engine() != null) {
           lbl.append("<br/>engine: ").append(p.engine());
         }
+        if (p.executionMode() != null) {
+          lbl.append("<br/>mode: ").append(p.executionMode());
+        }
         return id + "[/\"" + escape(lbl.toString()) + "\"/]";
       }
       case VIEW: {

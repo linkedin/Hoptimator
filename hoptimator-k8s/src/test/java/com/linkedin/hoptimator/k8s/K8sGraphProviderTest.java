@@ -59,7 +59,7 @@ class K8sGraphProviderTest {
 
     providerWith(builder).forTarget(new GraphTarget.View("audience"), 3, connection);
 
-    verify(builder).forView(eq("audience"), eq(3));
+    verify(builder).forView(eq("audience"));
   }
 
   @Test
@@ -69,7 +69,7 @@ class K8sGraphProviderTest {
 
     providerWith(builder).forTarget(new GraphTarget.LogicalTable("members"), 2, connection);
 
-    verify(builder).forLogicalTable(eq("members"), eq(2));
+    verify(builder).forLogicalTable(eq("members"));
   }
 
   @Test

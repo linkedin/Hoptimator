@@ -68,26 +68,40 @@ public abstract class GraphNode {
     private final String name;
     private final String jobKind;
     private final String engine;
+    private final String executionMode;
 
-    public Pipeline(String name, @Nullable String jobKind, @Nullable String engine) {
+    public Pipeline(String name, @Nullable String jobKind, @Nullable String engine,
+        @Nullable String executionMode) {
       super(Kind.PIPELINE, "pipeline:" + name);
       this.name = Objects.requireNonNull(name, "name");
       this.jobKind = jobKind;
       this.engine = engine;
+      this.executionMode = executionMode;
     }
 
     public String name() {
       return name;
     }
 
-    /** Type of the underlying job artifact (e.g. {@code FlinkDeployment}). */
+    /** Type of the underlying job artifact (e.g. {@code SqlJob}, {@code FlinkSessionJob}). */
     public @Nullable String jobKind() {
       return jobKind;
     }
 
-    /** Execution engine inferred from the job artifact (e.g. {@code Flink}, {@code Flink Beam}). */
+    /**
+     * Execution engine. For a {@code SqlJob}, this is {@code spec.dialect} (e.g. {@code Flink},
+     * {@code FlinkBeam}). For other job kinds, inferred from the kind name.
+     */
     public @Nullable String engine() {
       return engine;
+    }
+
+    /**
+     * {@code SqlJob} {@code spec.executionMode} — {@code Streaming} or {@code Batch}. Null for
+     * non-SqlJob kinds where execution mode isn't a first-class spec field.
+     */
+    public @Nullable String executionMode() {
+      return executionMode;
     }
 
     @Override

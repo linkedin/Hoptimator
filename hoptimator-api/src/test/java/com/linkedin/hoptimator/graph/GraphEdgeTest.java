@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.graph;
 
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
@@ -18,8 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class GraphEdgeTest {
 
-  private static final GraphNode A = new GraphNode.External("db", Arrays.asList("a"));
-  private static final GraphNode B = new GraphNode.External("db", Arrays.asList("b"));
+  private static final GraphNode A = new GraphNode.External("db", List.of("a"));
+  private static final GraphNode B = new GraphNode.External("db", List.of("b"));
 
   @Test
   void equalEdgesShareHashCode() {
@@ -48,8 +49,8 @@ class GraphEdgeTest {
   @Test
   void notEqualToOtherTypes() {
     GraphEdge e = new GraphEdge(A, B, GraphEdge.Type.TRIGGERS);
-    assertNotEquals(e, "not an edge");
-    assertNotEquals(e, null);
+    assertNotEquals("not an edge", e);
+    assertNotEquals(null, e);
   }
 
   @Test

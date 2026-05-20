@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.k8s;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,17 +18,13 @@ import com.linkedin.hoptimator.graph.GraphEdge;
 import com.linkedin.hoptimator.graph.GraphNode;
 import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
-import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
-import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
-import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
-import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -50,15 +47,17 @@ class PipelineGraphBuilderTest {
   @Test
   void forViewMaterializedRendersSourcesAndSink() throws SQLException {
     V1alpha1View view = view("ads", "audience", true, "view-uid-1");
+    // Pipeline name == view CRD name (see K8sMaterializedViewDeployer); the visualizer derives
+    // the name from the view, so the fixture must mirror that contract.
     V1alpha1Pipeline pipeline = pipelineWithSourcesAndSink(
-        "audience-pipeline", "view-uid-1", "View",
+        "audience", "view-uid-1", "View",
         Arrays.asList("kafka1_KAFKA.events", "venice-prod_VENICE.profile"),
         "ads_VENICE.audience");
 
     PipelineGraphBuilder builder = builder(
         list(view), list(pipeline), list(), list());
 
-    PipelineGraph graph = builder.forView("audience", 1);
+    PipelineGraph graph = builder.forView("audience");
 
     assertEquals(GraphNode.Kind.VIEW, graph.root().kind());
     // Expected nodes: View root + 1 Pipeline + 2 sources + 1 sink = 5 nodes.
@@ -91,8 +90,8 @@ class PipelineGraphBuilderTest {
     // mention A — visualization tracks operational truth, not user intent.
     V1alpha1View viewB = view("ns", "b", true, "uid-B");
     V1alpha1Pipeline pipeB = pipelineWithSourcesAndSink(
-        "B-pipeline", "uid-B", "View",
-        Arrays.asList("kafka1_KAFKA.x"),
+        "b", "uid-B", "View",
+        List.of("kafka1_KAFKA.x"),
         "ns_VENICE.B");
 
     PipelineGraphBuilder builder = builder(
@@ -100,7 +99,7 @@ class PipelineGraphBuilderTest {
         list(pipeB),
         list(), list());
 
-    PipelineGraph graph = builder.forView("b", 1);
+    PipelineGraph graph = builder.forView("b");
 
     boolean mentionsA = graph.nodes().stream().anyMatch(n -> n.id().endsWith("/a"));
     assertFalse(mentionsA, "MV-on-MV should not surface upstream View 'A' — only physical sources");
@@ -124,13 +123,13 @@ class PipelineGraphBuilderTest {
     //   - No profile.members / ads.audience.
     V1alpha1View viewP = view("ads", "p", true, "uid-P");
     V1alpha1Pipeline pPipe = pipelineWithSourcesAndSink(
-        "p-pipeline", "uid-P", "View",
-        Arrays.asList("ads-database_ADS.AD_CLICKS"),
+        "p", "uid-P", "View",
+        List.of("ads-database_ADS.AD_CLICKS"),
         "ads-database_ADS.PAGE_VIEWS");
 
     V1alpha1View viewA = view("ads", "a", true, "uid-A");
     V1alpha1Pipeline aPipe = pipelineWithSourcesAndSink(
-        "a-pipeline", "uid-A", "View",
+        "a", "uid-A", "View",
         Arrays.asList("ads-database_ADS.PAGE_VIEWS", "profile-database_PROFILE.MEMBERS"),
         "ads-database_ADS.AUDIENCE");
 
@@ -140,11 +139,11 @@ class PipelineGraphBuilderTest {
         list(), list());
 
     // forView P — must NOT include downstream A or its surroundings.
-    PipelineGraph forP = builder.forView("p", 2);
+    PipelineGraph forP = builder.forView("p");
     boolean pHasOwn = forP.nodes().stream().anyMatch(n ->
-        n instanceof GraphNode.Pipeline && "p-pipeline".equals(((GraphNode.Pipeline) n).name()));
+        n instanceof GraphNode.Pipeline && "p".equals(((GraphNode.Pipeline) n).name()));
     boolean pHasA = forP.nodes().stream().anyMatch(n ->
-        n instanceof GraphNode.Pipeline && "a-pipeline".equals(((GraphNode.Pipeline) n).name()));
+        n instanceof GraphNode.Pipeline && "a".equals(((GraphNode.Pipeline) n).name()));
     assertTrue(pHasOwn, "P's own pipeline should appear in its graph");
     assertFalse(pHasA, "A's pipeline is downstream of P's sink — must not appear");
     assertFalse(forP.nodes().stream().anyMatch(n ->
@@ -155,11 +154,11 @@ class PipelineGraphBuilderTest {
     // forView A — must NOT include upstream P or ads.ad_clicks. The chain view is the job of
     // a Resource-target query (!graph on the source identifier). A's graph is A's pipeline +
     // its direct sources (PAGE_VIEWS, MEMBERS as leaves) + its sink (AUDIENCE as a leaf).
-    PipelineGraph forA = builder.forView("a", 2);
+    PipelineGraph forA = builder.forView("a");
     boolean aHasOwn = forA.nodes().stream().anyMatch(n ->
-        n instanceof GraphNode.Pipeline && "a-pipeline".equals(((GraphNode.Pipeline) n).name()));
+        n instanceof GraphNode.Pipeline && "a".equals(((GraphNode.Pipeline) n).name()));
     boolean aHasP = forA.nodes().stream().anyMatch(n ->
-        n instanceof GraphNode.Pipeline && "p-pipeline".equals(((GraphNode.Pipeline) n).name()));
+        n instanceof GraphNode.Pipeline && "p".equals(((GraphNode.Pipeline) n).name()));
     assertTrue(aHasOwn, "A's own pipeline should appear in its graph");
     assertFalse(aHasP, "P's pipeline is upstream of A's source — must not chain into A's view graph");
     assertFalse(forA.nodes().stream().anyMatch(n ->
@@ -177,17 +176,19 @@ class PipelineGraphBuilderTest {
         "online", "venice-db",
         "offline", "hdfs-db"));
 
-    // Implicit nearline → online pipeline owned by the LogicalTable.
+    // Implicit inter-tier pipelines owned by the LogicalTable. Names match the deployer's scheme
+    // (LogicalTableNames.pipelineName) — the visualizer probes by those exact names.
     V1alpha1Pipeline n2o = pipelineWithSourcesAndSink(
-        "events-nearline-online", "uid-lt", "LogicalTable",
-        Arrays.asList("kafka-db_kafka-db.events"),
+        "logical-events-nearline-to-online", "uid-lt", "LogicalTable",
+        List.of("kafka-db_kafka-db.events"),
         "venice-db_venice-db.events");
     V1alpha1Pipeline n2f = pipelineWithSourcesAndSink(
-        "events-nearline-offline", "uid-lt", "LogicalTable",
-        Arrays.asList("kafka-db_kafka-db.events"),
+        "logical-events-nearline-to-offline", "uid-lt", "LogicalTable",
+        List.of("kafka-db_kafka-db.events"),
         "hdfs-db_hdfs-db.events");
     // Bridging trigger: reads from offline (source) and writes to online (sink), reverse-ETL.
-    V1alpha1TableTrigger trigger = trigger("ns", "events-offline-trigger",
+    // Name matches LogicalTableNames.triggerName("events").
+    V1alpha1TableTrigger trigger = trigger("ns", "logical-events-offline-trigger",
         "uid-lt", "0 */6 * * *",
         "hdfs-db_hdfs-db.events",      // source (offline)
         "venice-db_venice-db.events"); // sink (online)
@@ -198,7 +199,7 @@ class PipelineGraphBuilderTest {
         list(lt),
         list(trigger));
 
-    PipelineGraph graph = builder.forLogicalTable("events", 1);
+    PipelineGraph graph = builder.forLogicalTable("events");
 
     assertEquals(GraphNode.Kind.LOGICAL_TABLE, graph.root().kind());
     long pipelineCount = graph.nodes().stream()
@@ -224,40 +225,6 @@ class PipelineGraphBuilderTest {
         "LogicalTable should own its tier externals + 2 pipelines + 1 trigger; got: " + ownerEdges);
   }
 
-  // ─── Test: multiple triggers on a logical table — both are surfaced ──────
-
-  @Test
-  void forLogicalTableSurfacesMultipleTriggers() throws SQLException {
-    V1alpha1LogicalTable lt = logicalTable("ns", "events", "uid-lt", linked(
-        "nearline", "kafka-db",
-        "offline", "hdfs-db"));
-
-    // Both triggers reference the same offline-tier identifier so the graph connects both.
-    // We add a pipeline writing to that identifier so the External actually exists in the graph
-    // (otherwise the trigger has nothing to connect to).
-    V1alpha1Pipeline writer = pipelineWithSourcesAndSink(
-        "events-nearline-offline", "uid-lt", "LogicalTable",
-        Arrays.asList("kafka-db_kafka-db.events"),
-        "hdfs-db_hdfs-db.events");
-    V1alpha1TableTrigger fast = trigger("ns", "events-fast", "uid-lt",
-        "*/5 * * * *", "hdfs-db_hdfs-db.events", null);
-    V1alpha1TableTrigger slow = trigger("ns", "events-slow", "uid-lt",
-        "0 0 * * *", "hdfs-db_hdfs-db.events", null);
-
-    PipelineGraphBuilder builder = builder(
-        list(), list(writer), list(lt), list(fast, slow));
-
-    PipelineGraph graph = builder.forLogicalTable("events", 0);
-
-    long triggerNodes = graph.nodes().stream()
-        .filter(n -> n.kind() == GraphNode.Kind.TRIGGER).count();
-    assertEquals(2, triggerNodes, "both triggers should be in the graph");
-
-    long triggerEdges = graph.edges().stream()
-        .filter(e -> e.type() == GraphEdge.Type.TRIGGERS).count();
-    assertEquals(2, triggerEdges, "both TRIGGERS edges should exist");
-  }
-
   // ─── Test: trigger pointing at an arbitrary table (not LogicalTable-owned) ─
 
   @Test
@@ -267,7 +234,7 @@ class PipelineGraphBuilderTest {
     // doesn't live in this graph (it's not owned by the resource), but the pipeline does.
     V1alpha1Pipeline pipeline = pipelineWithSourcesAndSink(
         "etl-pipeline", "uid-job", "Job",
-        Arrays.asList("source-db_S.input"),
+        List.of("source-db_S.input"),
         "sink-db_S.output");
 
     PipelineGraphBuilder builder = builder(
@@ -290,7 +257,7 @@ class PipelineGraphBuilderTest {
   void depthZeroForResourceReturnsRootOnly() throws SQLException {
     V1alpha1Pipeline pipeline = pipelineWithSourcesAndSink(
         "p1", "uid", "Job",
-        Arrays.asList("kafka1_KAFKA.events"),
+        List.of("kafka1_KAFKA.events"),
         "ads_VENICE.audience");
 
     PipelineGraphBuilder builder = builder(
@@ -312,11 +279,11 @@ class PipelineGraphBuilderTest {
     // the loop as a closed cycle (4 nodes, 4 edges).
     V1alpha1Pipeline p1 = pipelineWithSourcesAndSink(
         "p1", "uid-job-1", "Job",
-        Arrays.asList("db_A.t1"),
+        List.of("db_A.t1"),
         "db_A.t2");
     V1alpha1Pipeline p2 = pipelineWithSourcesAndSink(
         "p2", "uid-job-2", "Job",
-        Arrays.asList("db_A.t2"),
+        List.of("db_A.t2"),
         "db_A.t1");
 
     PipelineGraphBuilder builder = builder(
@@ -350,7 +317,7 @@ class PipelineGraphBuilderTest {
   void largeDepthHandledGracefully() throws SQLException {
     V1alpha1Pipeline pipeline = pipelineWithSourcesAndSink(
         "p1", "uid", "Job",
-        Arrays.asList("kafka1_KAFKA.events"),
+        List.of("kafka1_KAFKA.events"),
         "ads_VENICE.audience");
 
     PipelineGraphBuilder builder = builder(
@@ -374,7 +341,7 @@ class PipelineGraphBuilderTest {
     PipelineGraphBuilder builder = builder(
         list(view), list(), list(), list());
 
-    PipelineGraph graph = builder.forView("VENICE.test-store$insert-partial", 0);
+    PipelineGraph graph = builder.forView("VENICE.test-store$insert-partial");
 
     assertEquals(GraphNode.Kind.VIEW, graph.root().kind());
     assertEquals("venice-test-store-insert-partial", ((GraphNode.View) graph.root()).name(),
@@ -385,8 +352,7 @@ class PipelineGraphBuilderTest {
 
   @Test
   void extractJobKindReturnsTheJobSuffixedKind() {
-    String yaml = ""
-        + "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
+    String yaml = "apiVersion: hoptimator.linkedin.com/v1alpha1\n"
         + "kind: KafkaTopic\n"
         + "metadata:\n  name: foo\n"
         + "---\n"
@@ -438,8 +404,7 @@ class PipelineGraphBuilderTest {
 
   @Test
   void extractJobKindHandlesPlainBatchJob() {
-    String yaml = ""
-        + "apiVersion: batch/v1\n"
+    String yaml = "apiVersion: batch/v1\n"
         + "kind: Job\n"
         + "metadata:\n  name: cron-job\n";
 
@@ -450,8 +415,7 @@ class PipelineGraphBuilderTest {
   void extractJobTemplateNameStripsTriggerPrefix() {
     // Deployer renders `metadata.name: <trigger>-<template>`. Strip the prefix to recover
     // the template name (which the visualizer uses to label trigger nodes).
-    String yaml = ""
-        + "apiVersion: batch/v1\n"
+    String yaml = "apiVersion: batch/v1\n"
         + "kind: Job\n"
         + "metadata:\n"
         + "  name: testsimple-my-app\n"
@@ -478,8 +442,7 @@ class PipelineGraphBuilderTest {
   void extractMetadataNameSkipsContainerName() {
     // `name:` also appears under containers — must not match a container entry. The metadata
     // line is indented but has no leading `-`, which is how we tell them apart.
-    String yaml = ""
-        + "metadata:\n"
+    String yaml = "metadata:\n"
         + "  name: outer-name\n"
         + "spec:\n"
         + "  template:\n"
@@ -517,10 +480,10 @@ class PipelineGraphBuilderTest {
       List<V1alpha1LogicalTable> logicalTables,
       List<V1alpha1TableTrigger> triggers) {
     return new PipelineGraphBuilder(
-        new FakeK8sApi<V1alpha1View, V1alpha1ViewList>(new ArrayList<>(views)),
-        new FakeK8sApi<V1alpha1Pipeline, V1alpha1PipelineList>(new ArrayList<>(pipelines)),
-        new FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList>(new ArrayList<>(logicalTables)),
-        new FakeK8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList>(new ArrayList<>(triggers)));
+        new FakeK8sApi<>(new ArrayList<>(views)),
+        new FakeK8sApi<>(new ArrayList<>(pipelines)),
+        new FakeK8sApi<>(new ArrayList<>(logicalTables)),
+        new FakeK8sApi<>(new ArrayList<>(triggers)));
   }
 
   private static V1alpha1View view(String namespace, String name, boolean materialized, String uid) {
@@ -561,7 +524,7 @@ class PipelineGraphBuilderTest {
     }
     V1ObjectMeta meta = new V1ObjectMeta().namespace(namespace).name(name).uid("trigger-uid")
         .annotations(annotations)
-        .ownerReferences(Arrays.asList(new V1OwnerReference()
+        .ownerReferences(Collections.singletonList(new V1OwnerReference()
             .kind("LogicalTable").name("events").uid(ownerUid)));
     trigger.setMetadata(meta);
     V1alpha1TableTriggerSpec spec = new V1alpha1TableTriggerSpec();
@@ -591,17 +554,11 @@ class PipelineGraphBuilderTest {
     pipeline.setMetadata(new V1ObjectMeta()
         .namespace("ns").name(name).uid(name + "-uid")
         .labels(labels).annotations(annotations)
-        .ownerReferences(Arrays.asList(new V1OwnerReference()
-            .kind(ownerKind).name(ownerKindToName(ownerKind)).uid(ownerUid))));
+        .ownerReferences(Collections.singletonList(new V1OwnerReference()
+            .kind(ownerKind).name("events").uid(ownerUid))));
     pipeline.setSpec(new V1alpha1PipelineSpec().sql("INSERT INTO " + sinkIdentifier
         + " SELECT * FROM " + String.join(",", sourceIdentifiers)));
     return pipeline;
-  }
-
-  private static String ownerKindToName(String kind) {
-    // The fixtures use deterministic owner names; tests that need the name to match a specific
-    // CRD wire it through ownerKindToName at build time.
-    return "events";
   }
 
   private static V1alpha1Pipeline pipelineWithLabelButNoMatchingAnnotation() {
