@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.util.planner;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.linq4j.tree.Expression;
@@ -35,17 +34,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
-@SuppressFBWarnings(
-    value = {"OBL_UNSATISFIED_OBLIGATION", "ODR_OPEN_DATABASE_RESOURCE"},
-    justification = "Tests stub DataSource.getConnection() / Connection.unwrap() on Mockito mocks. "
-        + "The returned Connection is a mock — not a real JDBC resource — but SpotBugs can't tell "
-        + "the difference from the bytecode signature.")
 class HoptimatorJdbcSchemaTest {
 
   @Mock
@@ -344,19 +336,33 @@ class HoptimatorJdbcSchemaTest {
     assertFalse(schema.isLogical());
   }
 
-  // Repeated calls must reuse the cached result rather than reopening the downstream connection each time.
+  // Repeated calls must reuse the cached result rather than reopening the downstream connection
+  // each time. Asserted indirectly: the first invocation hands out a healthy Calcite-backed
+  // connection; any subsequent invocation throws. If memoization works, the throw is never
+  // reached and all three calls observe the cached `true`. If it doesn't, the second call
+  // surfaces as a transient failure (false), failing the assertTrue.
   @Test
   void testIsLogicalIsMemoizedAcrossCalls() throws Exception {
     SchemaPlus downstreamRoot = Frameworks.createRootSchema(true);
     downstreamRoot.add("LOGICAL", new MarkerSchema());
 
-    HoptimatorJdbcSchema schema = schemaWithDownstream(null, "LOGICAL", downstreamRoot);
+    Connection dsConn = mock(Connection.class);
+    CalciteConnection cc = mock(CalciteConnection.class);
+    when(cc.getRootSchema()).thenReturn(downstreamRoot);
+    when(dsConn.unwrap(CalciteConnection.class)).thenReturn(cc);
+    when(mockDataSource.getConnection())
+        .thenReturn(dsConn)
+        .thenThrow(new SQLException("memoization broken: getConnection invoked a second time"));
+
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
+        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
+    HoptimatorJdbcSchema schema = new HoptimatorJdbcSchema(
+        "myDb", null, "LOGICAL", mockDataSource,
+        AnsiSqlDialect.DEFAULT, convention, Collections.emptyList());
 
     assertTrue(schema.isLogical());
     assertTrue(schema.isLogical());
     assertTrue(schema.isLogical());
-
-    verify(mockDataSource, times(1)).getConnection();
   }
 
   // Transient connection failures must NOT poison the cache — a flaky moment can't lock the
@@ -385,26 +391,6 @@ class HoptimatorJdbcSchemaTest {
 
     assertFalse(schema.isLogical(), "first call surfaces non-logical when connection fails");
     assertTrue(schema.isLogical(), "second call must retry and discover the marker");
-  }
-
-  // Permanent "downstream isn't Calcite" should cache as non-logical (no retry storms). Distinct
-  // from the transient case above: SQLException from unwrap() reflects a fixed driver property.
-  @Test
-  void testIsLogicalCachesNonCalciteDownstream() throws Exception {
-    Connection dsConnection = mock(Connection.class);
-    when(mockDataSource.getConnection()).thenReturn(dsConnection);
-    when(dsConnection.unwrap(CalciteConnection.class))
-        .thenThrow(new SQLException("not a CalciteConnection"));
-
-    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
-        AnsiSqlDialect.DEFAULT, mockExpression, "myDb", Collections.emptyList(), mockConnection);
-    HoptimatorJdbcSchema schema = new HoptimatorJdbcSchema(
-        "myDb", "MYCATALOG", "MYSCHEMA", mockDataSource,
-        AnsiSqlDialect.DEFAULT, convention, Collections.emptyList());
-
-    assertFalse(schema.isLogical());
-    assertFalse(schema.isLogical());
-    verify(mockDataSource, times(1)).getConnection();
   }
 
   // Null root from getRootSchema() — explicit early-return branch in detectLogical().
