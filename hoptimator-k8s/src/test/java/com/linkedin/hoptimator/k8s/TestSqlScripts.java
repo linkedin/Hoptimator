@@ -25,6 +25,11 @@ public class TestSqlScripts extends QuidemTestBase {
   }
 
   @Test
+  public void k8sApplyMode() throws Exception {
+    run("k8s-apply-mode.id", "mode=apply");
+  }
+
+  @Test
   public void k8sMetadataTables() throws Exception {
     run("k8s-metadata.id");
   }

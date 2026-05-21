@@ -1,0 +1,58 @@
+!set outputformat mysql
+!use k8s
+
+-- In apply mode, plain CREATE is idempotent: it converges the resource to the
+-- declared definition. The same script can run twice with no error.
+
+create view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+-- Re-running the same CREATE is a no-op convergence, not an error. In the default
+-- (strict) mode this would fail with "View AUDIENCE already exists. Use CREATE OR REPLACE
+-- to update." — see k8s-validation.id for that contract.
+
+create view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+-- Updating the definition through a plain CREATE works the same as CREATE OR REPLACE.
+
+create view ads.audience as select first_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+-- CREATE OR REPLACE remains valid (and equivalent to CREATE) in apply mode.
+
+create or replace view ads.audience as select last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+-- Plain CREATE TABLE is likewise idempotent in apply mode. The default mode would
+-- reject a re-create with "Table X already exists. Use CREATE OR REPLACE to update."
+
+create table ads.apply_table ("k" varchar, "v" varchar);
+(0 rows modified)
+
+!update
+
+create table ads.apply_table ("k" varchar, "v" varchar);
+(0 rows modified)
+
+!update
+
+-- DROP semantics are unchanged: explicit, imperative, metadata-only.
+
+drop view ads.audience;
+(0 rows modified)
+
+!update
+
+drop table ads.apply_table;
+(0 rows modified)
+
+!update

@@ -90,6 +90,53 @@ public final class HoptimatorDdlUtils {
   }
 
   /**
+   * Connection property that controls how plain {@code CREATE} statements behave.
+   *
+   * <ul>
+   *   <li>{@code create} (default) — strict create. {@code CREATE} fails if the resource
+   *       already exists; {@code CREATE OR REPLACE} updates.</li>
+   *   <li>{@code apply} — declarative, K8s-style reconciliation. Both {@code CREATE} and
+   *       {@code CREATE OR REPLACE} converge the resource to the declared definition, so
+   *       running the same script twice is a no-op. Idempotent by design.</li>
+   * </ul>
+   *
+   * <p>The property may also be set per statement via {@code SET mode = 'apply'} on a
+   * compatible session — see {@code docs/user-guide/ddl-reference.md}.
+   */
+  public static final String MODE_PROPERTY = "mode";
+
+  /** Default value of {@link #MODE_PROPERTY}. */
+  public static final String MODE_CREATE = "create";
+
+  /** Apply-mode value of {@link #MODE_PROPERTY}. */
+  public static final String MODE_APPLY = "apply";
+
+  /**
+   * Resolves the effective {@link DdlMode} for a {@code CREATE} statement, combining the
+   * statement's {@code OR REPLACE} flag with the connection's {@link #MODE_PROPERTY}.
+   *
+   * <p>In {@code create} mode (the default): {@code CREATE} → {@link DdlMode#CREATE} and
+   * {@code CREATE OR REPLACE} → {@link DdlMode#UPDATE}. In {@code apply} mode: both forms
+   * resolve to {@link DdlMode#UPDATE}, making CREATE idempotent.
+   */
+  static DdlMode effectiveMode(boolean orReplace, HoptimatorConnection conn) {
+    if (isApplyMode(conn)) {
+      return DdlMode.UPDATE;
+    }
+    return orReplace ? DdlMode.UPDATE : DdlMode.CREATE;
+  }
+
+  /** Whether the connection is configured for apply-mode DDL. */
+  static boolean isApplyMode(HoptimatorConnection conn) {
+    Properties props = conn.connectionProperties();
+    if (props == null) {
+      return false;
+    }
+    String mode = props.getProperty(MODE_PROPERTY, MODE_CREATE);
+    return MODE_APPLY.equalsIgnoreCase(mode);
+  }
+
+  /**
    * The result of a {@link #specifyFromSql} call: the YAML artifact specs, the sink row type,
    * and the fully-qualified path of the sink (viewPath).
    *
@@ -320,12 +367,27 @@ public final class HoptimatorDdlUtils {
         throw new SQLException(
             "Cannot overwrite physical table " + pair.right + " with a view.");
       }
-      // Materialized view exists.
-      if (!create.ifNotExists && !create.getReplace()) {
-        throw new SQLException(
-            "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
+      // A view already exists. The executor pre-resolved apply-mode into DdlMode.UPDATE,
+      // so UPDATE always means "converge to this definition". Strict CREATE is the only
+      // path that errors. SPECIFY (dry-run) keeps the original syntax-driven preview so
+      // it accurately reflects what a real run would do.
+      boolean replaceExisting;
+      if (mode == DdlMode.UPDATE) {
+        replaceExisting = true;
+      } else if (mode == DdlMode.CREATE) {
+        if (!create.ifNotExists) {
+          throw new SQLException(
+              "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
+        }
+        replaceExisting = false;
+      } else { // SPECIFY
+        if (!create.ifNotExists && !create.getReplace()) {
+          throw new SQLException(
+              "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
+        }
+        replaceExisting = create.getReplace();
       }
-      if (create.getReplace()) {
+      if (replaceExisting) {
         schemaPlus.removeTable(pair.right);
       } else {
         // IF NOT EXISTS — nothing to do.
@@ -479,8 +541,18 @@ public final class HoptimatorDdlUtils {
     }
 
     if (!isNewSchema && schemaPlus.tables().get(tableName) != null) {
-      if (!create.ifNotExists && !create.getReplace()) {
-        // They did not specify IF NOT EXISTS, so give error.
+      // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
+      // (apply mode or explicit OR REPLACE) targets the existing table; SPECIFY
+      // (dry-run) preserves its syntax-driven semantics.
+      boolean wouldFail;
+      if (mode == DdlMode.UPDATE) {
+        wouldFail = false;
+      } else if (mode == DdlMode.CREATE) {
+        wouldFail = !create.ifNotExists;
+      } else { // SPECIFY
+        wouldFail = !create.ifNotExists && !create.getReplace();
+      }
+      if (wouldFail) {
         throw new SQLException(
             "Table " + tableName + " already exists. Use CREATE OR REPLACE to update.");
       }
