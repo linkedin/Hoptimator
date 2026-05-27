@@ -1,23 +1,10 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.Source;
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.DriverPropertyInfo;
-import java.sql.SQLException;
-import java.sql.SQLNonTransientException;
-import java.sql.SQLTransientConnectionException;
-import java.sql.SQLTransientException;
-import java.util.List;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.logging.LogManager;
-
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
-import org.apache.calcite.jdbc.Driver;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -33,11 +20,23 @@ import org.apache.calcite.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linkedin.hoptimator.Catalog;
+import java.io.IOException;
+import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
+import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientConnectionException;
+import java.sql.SQLTransientException;
+import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.logging.LogManager;
 
 
 /** Driver for :jdbc:hoptimator:// connections. */
-public class HoptimatorDriver implements java.sql.Driver {
+public class HoptimatorDriver implements Driver {
   private static final Logger logger = LoggerFactory.getLogger(HoptimatorDriver.class);
   private static final HoptimatorDriver INSTANCE = new HoptimatorDriver();
 
@@ -121,7 +120,7 @@ public class HoptimatorDriver implements java.sql.Driver {
       // to return our Prepare. But our Prepare requires a HoptimatorConnection, which
       // we cannot construct yet.
       ConnectionHolder holder = new ConnectionHolder();
-      connection = new Driver().withPrepareFactory(() -> new Prepare(holder))
+      connection = new CalciteDriver().withPrepareFactory(() -> new Prepare(holder))
           .connect("jdbc:calcite:", properties);
       if (connection == null) {
         throw new IOException("Could not connect to " + url + ": Could not create Calcite connection.");

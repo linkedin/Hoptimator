@@ -1,5 +1,12 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Validator;
+import com.linkedin.hoptimator.ValidatorProvider;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.lookup.LikePattern;
+
 import java.sql.Connection;
 import java.sql.SQLDataException;
 import java.sql.SQLException;
@@ -8,14 +15,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
-
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-
-import com.linkedin.hoptimator.Validator;
-import com.linkedin.hoptimator.ValidatorProvider;
-import org.apache.calcite.schema.lookup.LikePattern;
 
 
 public final class ValidationService {
@@ -29,40 +28,40 @@ public final class ValidationService {
     }
     CalciteConnection conn = (CalciteConnection) connection;
     Validator.Issues issues = new Validator.Issues("");
-    walk(conn.getRootSchema(), issues);
+    walk(conn.getRootSchema(), issues, connection);
     return issues;
   }
 
-  private static void walk(SchemaPlus schema, Validator.Issues issues) {
-    validate(schema, issues);
+  private static void walk(SchemaPlus schema, Validator.Issues issues, Connection connection) {
+    validate(schema, issues, connection);
     for (String x : schema.subSchemas().getNames(LikePattern.any())) {
-      walk(schema.subSchemas().get(x), issues.child(x));
+      walk(schema.subSchemas().get(x), issues.child(x), connection);
     }
     for (String x : schema.tables().getNames(LikePattern.any())) {
-      walk(schema.tables().get(x), issues.child(x));
+      walk(schema.tables().get(x), issues.child(x), connection);
     }
   }
 
-  private static void walk(Table table, Validator.Issues issues) {
-    validate(table, issues);
+  private static void walk(Table table, Validator.Issues issues, Connection connection) {
+    validate(table, issues, connection);
   }
 
-  public static <T> void validate(T obj, Validator.Issues issues) {
-    validators(obj).forEach(x -> x.validate(issues));
+  public static <T> void validate(T obj, Validator.Issues issues, Connection connection) {
+    validators(obj, connection).forEach(x -> x.validate(issues, connection));
   }
 
-  public static <T> void validateOrThrow(T obj) throws SQLException {
+  public static <T> void validateOrThrow(T obj, Connection connection) throws SQLException {
     Validator.Issues issues = new Validator.Issues("");
-    validate(obj, issues);
+    validate(obj, issues, connection);
     if (!issues.valid()) {
       throw new SQLDataException("Failed validation:\n" + issues);
     }
   }
 
-  public static <T> void validateOrThrow(Collection<T> objs) throws SQLException {
+  public static <T> void validateOrThrow(Collection<T> objs, Connection connection) throws SQLException {
     Validator.Issues issues = new Validator.Issues("");
     for (T obj : objs) {
-      validate(obj, issues);
+      validate(obj, issues, connection);
       if (!issues.valid()) {
         throw new SQLDataException("Failed validation:\n" + issues);
       }
@@ -76,7 +75,7 @@ public final class ValidationService {
     return providers;
   }
 
-  public static <T> Collection<Validator> validators(T obj) {
-    return providers().stream().flatMap(x -> x.validators(obj).stream()).collect(Collectors.toList());
+  public static <T> Collection<Validator> validators(T obj, Connection connection) {
+    return providers().stream().flatMap(x -> x.validators(obj, connection).stream()).collect(Collectors.toList());
   }
 }

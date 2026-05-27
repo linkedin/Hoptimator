@@ -1,17 +1,8 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.util.AbstractList;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
-import javax.annotation.Nullable;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.core.RelFactories;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
@@ -41,7 +32,17 @@ import org.apache.calcite.sql.type.BasicSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.util.SqlShuttle;
 import org.apache.calcite.tools.RelBuilder;
-import org.apache.calcite.util.Util;
+
+import javax.annotation.Nullable;
+import java.util.AbstractList;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 
 /**
@@ -85,12 +86,23 @@ public interface ScriptImplementor {
 
   /** Append a query */
   default ScriptImplementor query(RelNode relNode) {
-    return with(new QueryImplementor(relNode));
+    return query(relNode, Collections.emptyMap());
+  }
+
+  /** Append a query with table name replacements */
+  default ScriptImplementor query(RelNode relNode, Map<String, String> tableNameReplacements) {
+    return with(new QueryImplementor(relNode, tableNameReplacements));
   }
 
   /** Append a connector definition, e.g. `CREATE TABLE ... WITH (...)` */
   default ScriptImplementor connector(@Nullable String catalog, String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
-    return with(new ConnectorImplementor(catalog, schema, table, rowType, connectorConfig));
+    return connector(catalog, schema, table, null, rowType, connectorConfig);
+  }
+
+  /** Append a connector definition with an optional suffix, e.g. `CREATE TABLE ... WITH (...)` */
+  default ScriptImplementor connector(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelDataType rowType,
+      Map<String, String> connectorConfig) {
+    return with(new ConnectorImplementor(catalog, schema, table, suffix, rowType, connectorConfig));
   }
 
   /** Append a database definition, e.g. `CREATE CATALOG ...` */
@@ -104,8 +116,26 @@ public interface ScriptImplementor {
   }
 
   /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
-  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
-    return with(new InsertImplementor(catalog, schema, table, relNode, targetFields));
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode) {
+    return insert(catalog, schema, table, null, relNode, null, Collections.emptyMap());
+  }
+
+  /** Append an insert statement, e.g. `INSERT INTO ... SELECT ...` */
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, RelNode relNode,
+      @Nullable ImmutablePairList<Integer, String> targetFields) {
+    return insert(catalog, schema, table, null, relNode, targetFields, Collections.emptyMap());
+  }
+
+  /** Append an insert statement with an optional suffix for the target table, e.g. `INSERT INTO ... SELECT ...` */
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
+      @Nullable ImmutablePairList<Integer, String> targetFields) {
+    return insert(catalog, schema, table, suffix, relNode, targetFields, Collections.emptyMap());
+  }
+
+  /** Append an insert statement with an optional suffix and table name replacements for the query, e.g. `INSERT INTO ... SELECT ...` */
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
+      ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements) {
+    return with(new InsertImplementor(catalog, schema, table, suffix, relNode, targetFields, tableNameReplacements));
   }
 
   /** Render the script as DDL/SQL in the default dialect */
@@ -117,7 +147,10 @@ public interface ScriptImplementor {
   default String sql(SqlDialect dialect) {
     SqlWriter w = new SqlPrettyWriter(SqlWriterConfig.of().withDialect(dialect));
     implement(w);
-    return w.toSqlString().getSql().replaceAll("\\n", " ").replaceAll("\\s*;\\s*", ";\n").trim();
+    // This logic is intended to split DDL/DML statements into multiple lines.
+    // Flink SQL options (e.g. key.fields) can contain ";" characters as a delimiter.
+    // TODO: make this logic more robust, it will still fail for non-trimmed strings containing ";" characters
+    return w.toSqlString().getSql().replaceAll("\\n", " ").replaceAll("\\s+;\\s*", ";\n").trim();
   }
 
   /** Generate SQL for a given dialect */
@@ -155,9 +188,15 @@ public interface ScriptImplementor {
   /** Implements an arbitrary RelNode as a query */
   class QueryImplementor implements ScriptImplementor {
     private final RelNode relNode;
+    private final Map<String, String> tableNameReplacements;
 
     public QueryImplementor(RelNode relNode) {
+      this(relNode, Collections.emptyMap());
+    }
+
+    public QueryImplementor(RelNode relNode, Map<String, String> tableNameReplacements) {
       this.relNode = relNode;
+      this.tableNameReplacements = tableNameReplacements;
     }
 
     @Override
@@ -168,6 +207,24 @@ public interface ScriptImplementor {
       if (node instanceof SqlSelect && ((SqlSelect) node).getSelectList() != null) {
         SqlSelect select = (SqlSelect) node;
         select.setSelectList((SqlNodeList) Objects.requireNonNull(select.getSelectList().accept(REMOVE_ROW_CONSTRUCTOR)));
+        SqlNodeList selectList = select.getSelectList();
+
+        // Check if this is a SELECT * and replace with explicit columns
+        if (selectList.size() == 1 && selectList.get(0) instanceof SqlIdentifier) {
+          SqlIdentifier id = (SqlIdentifier) selectList.get(0);
+          if (id.isStar()) {
+            // Replace SELECT * with explicit column list
+            List<SqlNode> explicitColumns = new ArrayList<>();
+            for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
+              explicitColumns.add(new SqlIdentifier(field.getName(), SqlParserPos.ZERO));
+            }
+            select.setSelectList(new SqlNodeList(explicitColumns, SqlParserPos.ZERO));
+          }
+        }
+      }
+      // Apply table name replacements if any
+      if (!tableNameReplacements.isEmpty()) {
+        node = node.accept(new TableNameReplacer(tableNameReplacements));
       }
       node.unparse(w, 0, 0);
     }
@@ -191,6 +248,33 @@ public interface ScriptImplementor {
   }
 
   /**
+   * A SqlShuttle that replaces table names in SQL nodes.
+   * Used to add suffixes to table names when there are source/sink collisions.
+   */
+  class TableNameReplacer extends SqlShuttle {
+    private final Map<String, String> replacements;
+
+    public TableNameReplacer(Map<String, String> replacements) {
+      this.replacements = replacements;
+    }
+
+    @Override
+    public SqlNode visit(SqlIdentifier id) {
+      if (id.names.size() >= 2) {
+        // Build the qualified name to check for replacement
+        String qualifiedName = String.join(".", id.names);
+        if (replacements.containsKey(qualifiedName)) {
+          // Replace the last component (table name) with the suffixed version
+          List<String> newNames = new ArrayList<>(id.names);
+          newNames.set(newNames.size() - 1, replacements.get(qualifiedName));
+          return new SqlIdentifier(newNames, id.getParserPosition());
+        }
+      }
+      return id;
+    }
+  }
+
+  /**
    * Implements a CREATE TABLE...WITH... DDL statement.
    * <p>
    * N.B. the following magic:
@@ -201,13 +285,15 @@ public interface ScriptImplementor {
     private final String catalog;
     private final String schema;
     private final String table;
+    private final String suffix;
     private final RelDataType rowType;
     private final Map<String, String> connectorConfig;
 
-    public ConnectorImplementor(String catalog, String schema, String table, RelDataType rowType, Map<String, String> connectorConfig) {
+    public ConnectorImplementor(String catalog, String schema, String table, String suffix, RelDataType rowType, Map<String, String> connectorConfig) {
       this.catalog = catalog;
       this.schema = schema;
       this.table = table;
+      this.suffix = suffix;
       this.rowType = rowType;
       this.connectorConfig = connectorConfig;
     }
@@ -215,7 +301,8 @@ public interface ScriptImplementor {
     @Override
     public void implement(SqlWriter w) {
       w.keyword("CREATE TABLE IF NOT EXISTS");
-      (new CompoundIdentifierImplementor(catalog, schema, table)).implement(w);
+      String effectiveTable = suffix != null ? table + suffix : table;
+      (new CompoundIdentifierImplementor(catalog, schema, effectiveTable)).implement(w);
       SqlWriter.Frame frame1 = w.startList("(", ")");
       (new RowTypeSpecImplementor(rowType)).implement(w);
       if (rowType.getField("PRIMARY_KEY", true, false) != null) {
@@ -262,46 +349,97 @@ public interface ScriptImplementor {
     private final String catalog;
     private final String schema;
     private final String table;
+    private final String suffix;
     private final RelNode relNode;
     private final ImmutablePairList<Integer, String> targetFields;
+    private final Map<String, String> tableNameReplacements;
 
-    public InsertImplementor(@Nullable String catalog, String schema, String table, RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
+    public InsertImplementor(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
+        @Nullable ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements) {
       this.catalog = catalog;
       this.schema = schema;
       this.table = table;
+      this.suffix = suffix;
       this.relNode = relNode;
       this.targetFields = targetFields;
+      this.tableNameReplacements = tableNameReplacements;
     }
 
     @Override
     public void implement(SqlWriter w) {
       w.keyword("INSERT INTO");
-      (new CompoundIdentifierImplementor(catalog, schema, table)).implement(w);
-      RelNode project = dropFields(relNode, targetFields);
-      (new ColumnListImplementor(project.getRowType())).implement(w);
-      (new QueryImplementor(project)).implement(w);
+      String effectiveTable = suffix != null ? table + suffix : table;
+      (new CompoundIdentifierImplementor(catalog, schema, effectiveTable)).implement(w);
+      RelNode project = targetFields == null ? dropNullFields(relNode) : dropFields(relNode, targetFields);
+
+      // If the relNode is a Project (or subclass), the field names should already match the sink.
+      // Otherwise, like in SELECT * situations, the relNode fields will match the source field names, so
+      // we need to directly use targetFields to map correctly.
+      if (relNode instanceof Project || targetFields == null) {
+        (new ColumnListImplementor(project.getRowType().getFieldNames())).implement(w);
+      } else {
+        (new ColumnListImplementor(targetFields.rightList())).implement(w);
+      }
+
+      (new QueryImplementor(project, tableNameReplacements)).implement(w);
       w.literal(";");
+    }
+
+    // Drops NULL fields
+    private static RelNode dropNullFields(RelNode relNode) {
+      List<Integer> cols = new ArrayList<>();
+      int i = 0;
+      for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
+        if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
+          cols.add(i);
+        }
+        i++;
+      }
+      return RelOptUtil.createProject(relNode, cols);
     }
 
     // Drops NULL fields
     // Drops non-target columns, for use case: INSERT INTO (col1, col2) SELECT * FROM ...
     private static RelNode dropFields(RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
       List<Integer> cols = new ArrayList<>();
-      int i = 0;
+      List<String> aliases = new ArrayList<>();
       List<String> targetFieldNames = targetFields.rightList();
-      for (RelDataTypeField field : relNode.getRowType().getFieldList()) {
-        if (targetFieldNames.contains(field.getName())
-            && !field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
-          cols.add(i);
+      List<RelDataTypeField> sourceFields = relNode.getRowType().getFieldList();
+
+      // If the relNode is a Project (or subclass), the field names should already match the target
+      // because the projection explicitly renamed them. Use name-based matching.
+      if (relNode instanceof Project) {
+        for (int i = 0; i < sourceFields.size(); i++) {
+          RelDataTypeField field = sourceFields.get(i);
+          if (targetFieldNames.contains(field.getName())
+              && !field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
+            cols.add(i);
+            aliases.add(field.getName());
+          }
         }
-        i++;
+
+        return createForceProject(relNode, cols, aliases);
       }
-      return createForceProject(relNode, cols);
+
+      // Otherwise (e.g., TableScan), the projection was optimized away.
+      // Use index-based matching from targetFields to select the right columns.
+      for (int i = 0; i < targetFields.size(); i++) {
+        int fieldIndex = targetFields.leftList().get(i);
+        if (fieldIndex < sourceFields.size()) {
+          RelDataTypeField field = sourceFields.get(fieldIndex);
+          if (!field.getType().getSqlTypeName().equals(SqlTypeName.NULL)) {
+            cols.add(fieldIndex);
+            aliases.add(targetFields.rightList().get(i));
+          }
+        }
+      }
+
+      return createForceProject(relNode, cols, aliases);
     }
   }
 
-  static RelNode createForceProject(final RelNode child, final List<Integer> posList) {
-    return createForceProject(RelFactories.DEFAULT_PROJECT_FACTORY, child, posList);
+  static RelNode createForceProject(final RelNode child, final List<Integer> posList, final List<String> aliases) {
+    return createForceProject(RelFactories.DEFAULT_PROJECT_FACTORY, child, posList, aliases);
   }
 
   // By default, "projectNamed" will try to provide an optimization by not creating a new project if the
@@ -318,9 +456,7 @@ public interface ScriptImplementor {
   // This implementation is largely a duplicate of RelOptUtil.createProject(relNode, cols); which does not allow
   // overriding the "force" argument of "projectNamed".
   static RelNode createForceProject(final RelFactories.ProjectFactory factory,
-      final RelNode child, final List<Integer> posList) {
-    RelDataType rowType = child.getRowType();
-    final List<String> fieldNames = rowType.getFieldNames();
+      final RelNode child, final List<Integer> posList, final List<String> aliases) {
     final RelBuilder relBuilder =
         RelBuilder.proto(factory).create(child.getCluster(), null);
     final List<RexNode> exprs = new AbstractList<>() {
@@ -335,10 +471,9 @@ public interface ScriptImplementor {
         return relBuilder.getRexBuilder().makeInputRef(child, pos);
       }
     };
-    final List<String> names = Util.select(fieldNames, posList);
     return relBuilder
         .push(child)
-        .projectNamed(exprs, names, true)
+        .projectNamed(exprs, aliases, true)
         .build();
   }
 
@@ -536,25 +671,20 @@ public interface ScriptImplementor {
 
   /** Implements column lists, e.g. `NAME, AGE` */
   class ColumnListImplementor implements ScriptImplementor {
-    private final List<RelDataTypeField> fields;
+    private final List<String> fieldNames;
 
-    public ColumnListImplementor(RelDataType dataType) {
-      this(dataType.getFieldList());
-    }
-
-    public ColumnListImplementor(List<RelDataTypeField> fields) {
-      this.fields = fields;
+    ColumnListImplementor(List<String> fieldNames) {
+      this.fieldNames = fieldNames;
     }
 
     @Override
     public void implement(SqlWriter w) {
       SqlWriter.Frame frame1 = w.startList("(", ")");
-      List<SqlIdentifier> fieldNames = fields.stream()
-          .map(RelDataTypeField::getName)
+      List<SqlIdentifier> identifiers = fieldNames.stream()
           .map(x -> x.replaceAll("\\$", "_"))  // support FOO$BAR columns as FOO_BAR
           .map(x -> new SqlIdentifier(x, SqlParserPos.ZERO))
           .collect(Collectors.toList());
-      for (SqlIdentifier fieldName : fieldNames) {
+      for (SqlIdentifier fieldName : identifiers) {
         w.sep(",");
         fieldName.unparse(w, 0, 0);
       }

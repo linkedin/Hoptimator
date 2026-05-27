@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.planner;
 
-import java.util.ArrayList;
-import java.util.List;
-
+import com.linkedin.hoptimator.catalog.HopTable;
+import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
@@ -13,9 +13,8 @@ import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.util.Litmus;
 
-import com.linkedin.hoptimator.catalog.HopTable;
-import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.catalog.ScriptImplementor;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -45,7 +44,7 @@ public interface PipelineRel extends RelNode {
   class Implementor {
     private final RelNode relNode;
     private final List<Resource> resources = new ArrayList<>();
-    private ScriptImplementor script = ScriptImplementor.empty().database("PIPELINE");
+    private ScriptImplementor script = ScriptImplementor.empty().database(null, "PIPELINE");
 
     public Implementor(RelNode relNode) {
       this.relNode = relNode;
@@ -79,12 +78,12 @@ public interface PipelineRel extends RelNode {
     public ScriptImplementor insertInto(HopTable sink) {
       RelOptUtil.eq(sink.name(), sink.rowType(), "subscription", rowType(), Litmus.THROW);
       RelNode castRel = RelOptUtil.createCastRel(relNode, sink.rowType(), true);
-      return script.database(sink.database()).with(sink).insert(sink.database(), sink.name(), castRel);
+      return script.database(null, sink.database()).with(sink).insert(null, sink.database(), sink.name(), castRel);
     }
 
     /** Add any resources: SQL, DDL, etc. required to access the table. */
     public void implement(HopTable table) {
-      script = script.database(table.database()).with(table);
+      script = script.database(null, table.database()).with(table);
       table.readResources().forEach(this::resource);
     }
 

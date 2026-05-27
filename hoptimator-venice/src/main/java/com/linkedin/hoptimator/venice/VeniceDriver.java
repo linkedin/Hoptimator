@@ -1,23 +1,23 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.hoptimator.jdbc.CalciteDriver;
+import org.apache.calcite.avatica.ConnectStringParser;
+import org.apache.calcite.avatica.DriverVersion;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.schema.SchemaPlus;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.util.Properties;
-import java.util.concurrent.ExecutionException;
-
-import org.apache.calcite.avatica.ConnectStringParser;
-import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.jdbc.Driver;
-import org.apache.calcite.schema.SchemaPlus;
 
 
 /** JDBC driver for Venice stores. */
-public class VeniceDriver extends Driver {
+public class VeniceDriver extends CalciteDriver {
   public static final String CATALOG_NAME = "VENICE";
+  public static final String CONNECTION_PREFIX = "jdbc:venice://";
 
   static {
     new VeniceDriver().register();
@@ -25,7 +25,7 @@ public class VeniceDriver extends Driver {
 
   @Override
   protected String getConnectStringPrefix() {
-    return "jdbc:venice://";
+    return CONNECTION_PREFIX;
   }
 
   @Override
@@ -53,10 +53,9 @@ public class VeniceDriver extends Driver {
       CalciteConnection calciteConnection = (CalciteConnection) connection;
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
       ClusterSchema schema = createClusterSchema(properties);
-      schema.populate();
       rootSchema.add(CATALOG_NAME, schema);
       return connection;
-    } catch (IOException | ExecutionException | InterruptedException e) {
+    } catch (IOException e) {
       throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {
       throw new SQLNonTransientException("Problem loading " + url, e);

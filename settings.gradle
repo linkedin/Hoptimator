@@ -7,6 +7,7 @@ include 'hoptimator-catalog'          // <-- marked for deletion
 include 'hoptimator-cli'
 include 'hoptimator-demodb'
 include 'hoptimator-flink-runner'
+include 'hoptimator-graph'
 include 'hoptimator-jdbc'
 include 'hoptimator-jdbc-driver'
 include 'hoptimator-jdbc-driver-int'
@@ -22,6 +23,7 @@ include 'hoptimator-operator-integration'
 include 'hoptimator-planner'          // <-- marked for deletion
 include 'hoptimator-util'
 include 'hoptimator-venice'
+include 'hoptimator-logical'
 
 dependencyResolutionManagement {
   repositories {

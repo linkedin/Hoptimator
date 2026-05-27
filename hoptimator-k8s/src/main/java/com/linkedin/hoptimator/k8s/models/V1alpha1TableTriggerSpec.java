@@ -31,11 +31,19 @@ import java.util.Map;
  * TableTrigger spec.
  */
 @ApiModel(description = "TableTrigger spec.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-20T18:46:28.037Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-19T19:18:59.968Z[Etc/UTC]")
 public class V1alpha1TableTriggerSpec {
+  public static final String SERIALIZED_NAME_CATALOG = "catalog";
+  @SerializedName(SERIALIZED_NAME_CATALOG)
+  private String catalog;
+
   public static final String SERIALIZED_NAME_JOB_PROPERTIES = "jobProperties";
   @SerializedName(SERIALIZED_NAME_JOB_PROPERTIES)
   private Map<String, String> jobProperties = null;
+
+  public static final String SERIALIZED_NAME_PAUSED = "paused";
+  @SerializedName(SERIALIZED_NAME_PAUSED)
+  private Boolean paused;
 
   public static final String SERIALIZED_NAME_SCHEDULE = "schedule";
   @SerializedName(SERIALIZED_NAME_SCHEDULE)
@@ -52,6 +60,29 @@ public class V1alpha1TableTriggerSpec {
   public static final String SERIALIZED_NAME_YAML = "yaml";
   @SerializedName(SERIALIZED_NAME_YAML)
   private String yaml;
+
+
+  public V1alpha1TableTriggerSpec catalog(String catalog) {
+    
+    this.catalog = catalog;
+    return this;
+  }
+
+   /**
+   * The catalog the table belongs to, e.g. OPENHOUSE. Optional; present only for 3-part identifiers.
+   * @return catalog
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "The catalog the table belongs to, e.g. OPENHOUSE. Optional; present only for 3-part identifiers.")
+
+  public String getCatalog() {
+    return catalog;
+  }
+
+
+  public void setCatalog(String catalog) {
+    this.catalog = catalog;
+  }
 
 
   public V1alpha1TableTriggerSpec jobProperties(Map<String, String> jobProperties) {
@@ -82,6 +113,29 @@ public class V1alpha1TableTriggerSpec {
 
   public void setJobProperties(Map<String, String> jobProperties) {
     this.jobProperties = jobProperties;
+  }
+
+
+  public V1alpha1TableTriggerSpec paused(Boolean paused) {
+    
+    this.paused = paused;
+    return this;
+  }
+
+   /**
+   * Whether the trigger is paused.
+   * @return paused
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Whether the trigger is paused.")
+
+  public Boolean getPaused() {
+    return paused;
+  }
+
+
+  public void setPaused(Boolean paused) {
+    this.paused = paused;
   }
 
 
@@ -184,7 +238,9 @@ public class V1alpha1TableTriggerSpec {
       return false;
     }
     V1alpha1TableTriggerSpec v1alpha1TableTriggerSpec = (V1alpha1TableTriggerSpec) o;
-    return Objects.equals(this.jobProperties, v1alpha1TableTriggerSpec.jobProperties) &&
+    return Objects.equals(this.catalog, v1alpha1TableTriggerSpec.catalog) &&
+        Objects.equals(this.jobProperties, v1alpha1TableTriggerSpec.jobProperties) &&
+        Objects.equals(this.paused, v1alpha1TableTriggerSpec.paused) &&
         Objects.equals(this.schedule, v1alpha1TableTriggerSpec.schedule) &&
         Objects.equals(this.schema, v1alpha1TableTriggerSpec.schema) &&
         Objects.equals(this.table, v1alpha1TableTriggerSpec.table) &&
@@ -193,7 +249,7 @@ public class V1alpha1TableTriggerSpec {
 
   @Override
   public int hashCode() {
-    return Objects.hash(jobProperties, schedule, schema, table, yaml);
+    return Objects.hash(catalog, jobProperties, paused, schedule, schema, table, yaml);
   }
 
 
@@ -201,7 +257,9 @@ public class V1alpha1TableTriggerSpec {
   public String toString() {
     StringBuilder sb = new StringBuilder();
     sb.append("class V1alpha1TableTriggerSpec {\n");
+    sb.append("    catalog: ").append(toIndentedString(catalog)).append("\n");
     sb.append("    jobProperties: ").append(toIndentedString(jobProperties)).append("\n");
+    sb.append("    paused: ").append(toIndentedString(paused)).append("\n");
     sb.append("    schedule: ").append(toIndentedString(schedule)).append("\n");
     sb.append("    schema: ").append(toIndentedString(schema)).append("\n");
     sb.append("    table: ").append(toIndentedString(table)).append("\n");

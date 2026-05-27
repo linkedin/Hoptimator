@@ -1,10 +1,10 @@
 package com.linkedin.hoptimator.catalog;
 
-import java.util.concurrent.ExecutionException;
-import java.util.function.Function;
-
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+
+import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
 
 /** Resolves a table name into a concrete row type. Usually involves a network call. */

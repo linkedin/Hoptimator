@@ -31,7 +31,7 @@ import java.util.Map;
  * Filled in by the operator.
  */
 @ApiModel(description = "Filled in by the operator.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-20T18:46:28.037Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-19T19:18:59.968Z[Etc/UTC]")
 public class V1alpha1SqlJobStatus {
   public static final String SERIALIZED_NAME_CONFIGS = "configs";
   @SerializedName(SERIALIZED_NAME_CONFIGS)
@@ -40,6 +40,10 @@ public class V1alpha1SqlJobStatus {
   public static final String SERIALIZED_NAME_FAILED = "failed";
   @SerializedName(SERIALIZED_NAME_FAILED)
   private Boolean failed;
+
+  public static final String SERIALIZED_NAME_LAST_DEPLOYED_AT = "lastDeployedAt";
+  @SerializedName(SERIALIZED_NAME_LAST_DEPLOYED_AT)
+  private Long lastDeployedAt;
 
   public static final String SERIALIZED_NAME_MESSAGE = "message";
   @SerializedName(SERIALIZED_NAME_MESSAGE)
@@ -105,6 +109,29 @@ public class V1alpha1SqlJobStatus {
 
   public void setFailed(Boolean failed) {
     this.failed = failed;
+  }
+
+
+  public V1alpha1SqlJobStatus lastDeployedAt(Long lastDeployedAt) {
+    
+    this.lastDeployedAt = lastDeployedAt;
+    return this;
+  }
+
+   /**
+   * Epoch millis of the last deploy request the operator issued for this SqlJob.
+   * @return lastDeployedAt
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Epoch millis of the last deploy request the operator issued for this SqlJob.")
+
+  public Long getLastDeployedAt() {
+    return lastDeployedAt;
+  }
+
+
+  public void setLastDeployedAt(Long lastDeployedAt) {
+    this.lastDeployedAt = lastDeployedAt;
   }
 
 
@@ -188,6 +215,7 @@ public class V1alpha1SqlJobStatus {
     V1alpha1SqlJobStatus v1alpha1SqlJobStatus = (V1alpha1SqlJobStatus) o;
     return Objects.equals(this.configs, v1alpha1SqlJobStatus.configs) &&
         Objects.equals(this.failed, v1alpha1SqlJobStatus.failed) &&
+        Objects.equals(this.lastDeployedAt, v1alpha1SqlJobStatus.lastDeployedAt) &&
         Objects.equals(this.message, v1alpha1SqlJobStatus.message) &&
         Objects.equals(this.ready, v1alpha1SqlJobStatus.ready) &&
         Objects.equals(this.sql, v1alpha1SqlJobStatus.sql);
@@ -195,7 +223,7 @@ public class V1alpha1SqlJobStatus {
 
   @Override
   public int hashCode() {
-    return Objects.hash(configs, failed, message, ready, sql);
+    return Objects.hash(configs, failed, lastDeployedAt, message, ready, sql);
   }
 
 
@@ -205,6 +233,7 @@ public class V1alpha1SqlJobStatus {
     sb.append("class V1alpha1SqlJobStatus {\n");
     sb.append("    configs: ").append(toIndentedString(configs)).append("\n");
     sb.append("    failed: ").append(toIndentedString(failed)).append("\n");
+    sb.append("    lastDeployedAt: ").append(toIndentedString(lastDeployedAt)).append("\n");
     sb.append("    message: ").append(toIndentedString(message)).append("\n");
     sb.append("    ready: ").append(toIndentedString(ready)).append("\n");
     sb.append("    sql: ").append(toIndentedString(sql)).append("\n");

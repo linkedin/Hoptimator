@@ -785,23 +785,25 @@ public interface HoptimatorDdlParserImplConstants {
   int DOUBLE_QUOTE = 779;
   int VERTICAL_BAR = 780;
   int CARET = 781;
-  int DOLLAR = 782;
-  int HINT_BEG = 788;
-  int COMMENT_END = 789;
-  int SINGLE_LINE_COMMENT = 792;
-  int FORMAL_COMMENT = 793;
-  int MULTI_LINE_COMMENT = 794;
-  int BRACKET_QUOTED_IDENTIFIER = 796;
-  int QUOTED_IDENTIFIER = 797;
-  int BACK_QUOTED_IDENTIFIER = 798;
-  int BIG_QUERY_BACK_QUOTED_IDENTIFIER = 799;
-  int HYPHENATED_IDENTIFIER = 800;
-  int IDENTIFIER = 801;
-  int COLLATION_ID = 802;
-  int UNICODE_QUOTED_IDENTIFIER = 803;
-  int LETTER = 804;
-  int DIGIT = 805;
-  int BEL = 806;
+  int AMPERSAND = 782;
+  int LEFTSHIFT = 783;
+  int DOLLAR = 784;
+  int HINT_BEG = 790;
+  int COMMENT_END = 791;
+  int SINGLE_LINE_COMMENT = 794;
+  int FORMAL_COMMENT = 795;
+  int MULTI_LINE_COMMENT = 796;
+  int BRACKET_QUOTED_IDENTIFIER = 798;
+  int QUOTED_IDENTIFIER = 799;
+  int BACK_QUOTED_IDENTIFIER = 800;
+  int BIG_QUERY_BACK_QUOTED_IDENTIFIER = 801;
+  int HYPHENATED_IDENTIFIER = 802;
+  int IDENTIFIER = 803;
+  int COLLATION_ID = 804;
+  int UNICODE_QUOTED_IDENTIFIER = 805;
+  int LETTER = 806;
+  int DIGIT = 807;
+  int BEL = 808;
 
   int DEFAULT = 0;
   int DQID = 1;
@@ -1594,6 +1596,8 @@ public interface HoptimatorDdlParserImplConstants {
     "\"\\\"\"",
     "\"|\"",
     "\"^\"",
+    "\"&\"",
+    "\"<<\"",
     "\"$\"",
     "\" \"",
     "\"\\t\"",
@@ -1602,12 +1606,12 @@ public interface HoptimatorDdlParserImplConstants {
     "\"\\f\"",
     "\"/*+\"",
     "\"*/\"",
-    "<token of kind 790>",
+    "<token of kind 792>",
     "\"/*\"",
     "<SINGLE_LINE_COMMENT>",
     "<FORMAL_COMMENT>",
     "<MULTI_LINE_COMMENT>",
-    "<token of kind 795>",
+    "<token of kind 797>",
     "<BRACKET_QUOTED_IDENTIFIER>",
     "<QUOTED_IDENTIFIER>",
     "<BACK_QUOTED_IDENTIFIER>",

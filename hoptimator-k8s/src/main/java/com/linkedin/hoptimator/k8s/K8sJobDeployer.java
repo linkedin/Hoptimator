@@ -1,21 +1,21 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.ThrowingFunction;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
+import com.linkedin.hoptimator.util.ConfigService;
+import com.linkedin.hoptimator.util.Template;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Collectors;
-
-import com.linkedin.hoptimator.Job;
-import com.linkedin.hoptimator.SqlDialect;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateSpec;
-import com.linkedin.hoptimator.util.ConfigService;
-import com.linkedin.hoptimator.util.Template;
 
 
 /** Specifies an abstract Job with concrete YAML by applying JobTemplates. */
@@ -31,7 +31,11 @@ class K8sJobDeployer extends K8sYamlDeployer {
     super(context);
     this.context = context;
     this.job = job;
-    this.jobTemplateApi = new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
+    this.jobTemplateApi = createJobTemplateApi(context);
+  }
+
+  K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> createJobTemplateApi(K8sContext context) {
+    return new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
   }
 
   @Override

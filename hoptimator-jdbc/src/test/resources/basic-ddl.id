@@ -1,7 +1,7 @@
 !set outputformat mysql
 !use util
 
-create table foo (id VARCHAR(128), a VARCHAR, c INT);
+create table foo (id VARCHAR(128), a VARCHAR, c INT) WITH (a 'b', c 'd');
 (0 rows modified)
 
 !update

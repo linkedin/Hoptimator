@@ -1,21 +1,19 @@
 package com.linkedin.hoptimator.k8s.status;
 
+import com.google.gson.JsonObject;
+import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.K8sUtils;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.google.gson.JsonObject;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
-
-import com.linkedin.hoptimator.k8s.K8sContext;
-import com.linkedin.hoptimator.k8s.K8sUtils;
-import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 
 
 /**
@@ -48,7 +46,19 @@ public class K8sPipelineElementStatusEstimator {
    * Estimates status of an element. If we can not retrieve it from K8s, we assume that it's not ready and not failed yet.
    */
   public K8sPipelineElementStatus estimateElementStatus(String elementYaml, String pipelineNamespace) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(elementYaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(elementYaml);
+    } catch (Exception e) {
+      String message = String.format("Failed to parse element YAML: %s", e.getMessage());
+      log.warn(message, e);
+      return defaultUnreadyStatusOnK8sObjectRetrievalFailure("unknown", message);
+    }
+    if (obj.getMetadata() == null) {
+      String message = "Failed to parse element YAML: null metadata";
+      log.warn(message);
+      return defaultUnreadyStatusOnK8sObjectRetrievalFailure("unknown", message);
+    }
     String name = obj.getMetadata().getName();
     String namespace = obj.getMetadata().getNamespace() == null ? pipelineNamespace : obj.getMetadata().getNamespace();
     String kind = obj.getKind();

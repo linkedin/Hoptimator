@@ -18,14 +18,14 @@
  */
 package com.linkedin.hoptimator.util.planner;
 
-import java.sql.Connection;
-
-import javax.annotation.Nullable;
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
+
+import javax.annotation.Nullable;
+import java.sql.Connection;
 
 /**
  * Rule to convert a relational expression from

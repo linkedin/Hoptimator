@@ -1,17 +1,5 @@
 package com.linkedin.hoptimator.operator.pipeline;
 
-import java.sql.SQLException;
-import java.time.Duration;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
@@ -20,6 +8,17 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1PipelineStatus;
 import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatus;
 import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.sql.SQLException;
+import java.time.Duration;
+import java.util.List;
 
 
 /**
@@ -33,9 +32,15 @@ public final class PipelineReconciler implements Reconciler {
   private final K8sPipelineElementStatusEstimator elementStatusEstimator;
 
   private PipelineReconciler(K8sContext context) {
+    this(context, new K8sApi<>(context, K8sApiEndpoints.PIPELINES),
+        new K8sPipelineElementStatusEstimator(context));
+  }
+
+  PipelineReconciler(K8sContext context, K8sApi<V1alpha1Pipeline, V1alpha1PipelineList> pipelineApi,
+      K8sPipelineElementStatusEstimator elementStatusEstimator) {
     this.context = context;
-    this.pipelineApi = new K8sApi<>(context, K8sApiEndpoints.PIPELINES);
-    this.elementStatusEstimator = new K8sPipelineElementStatusEstimator(context);
+    this.pipelineApi = pipelineApi;
+    this.elementStatusEstimator = elementStatusEstimator;
   }
 
   @Override
@@ -65,8 +70,9 @@ public final class PipelineReconciler implements Reconciler {
 
       log.info("Checking status of Pipeline {}...", name);
 
-      boolean ready =
-          elementStatusEstimator.estimateStatuses(object).stream().allMatch(K8sPipelineElementStatus::isReady);
+      List<K8sPipelineElementStatus> elementStatuses = elementStatusEstimator.estimateStatuses(object);
+      boolean ready = elementStatuses.stream().allMatch(K8sPipelineElementStatus::isReady);
+      boolean failed = elementStatuses.stream().allMatch(K8sPipelineElementStatus::isFailed);
 
       if (ready) {
         status.setReady(true);
@@ -74,6 +80,11 @@ public final class PipelineReconciler implements Reconciler {
         status.setMessage("Ready.");
         log.info("Pipeline {} is ready.", name);
         result = new Result(false);
+      } else if (failed) {
+        status.setReady(false);
+        status.setFailed(true);
+        status.setMessage("Failed.");
+        log.info("Pipeline {} failed.", name);
       } else {
         status.setReady(false);
         status.setFailed(false);
@@ -90,12 +101,12 @@ public final class PipelineReconciler implements Reconciler {
   }
 
   // TODO load from configuration
-  private Duration failureRetryDuration() {
+  Duration failureRetryDuration() {
     return Duration.ofMinutes(5);
   }
 
   // TODO load from configuration
-  private Duration pendingRetryDuration() {
+  Duration pendingRetryDuration() {
     return Duration.ofMinutes(1);
   }
 

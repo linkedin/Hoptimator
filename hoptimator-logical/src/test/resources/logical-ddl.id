@@ -1,0 +1,275 @@
+!set outputformat mysql
+!use k8s
+
+# Integration tests for logical table DDL.
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 1: CREATE TABLE — basic two-column logical table
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "LOGICAL"."testevent" ("KEY" varchar, "memberId" bigint, "pageKey" varchar);
+(0 rows modified)
+
+!update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 2: !describe — columns resolved from nearline physical tier schema
+# ─────────────────────────────────────────────────────────────────────────────
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | VARCHAR  | null       | YES        |
+| memberId   | BIGINT   | 19         | YES        |
+| pageKey    | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(3 rows)
+
+!describe "LOGICAL"."testevent"
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | VARCHAR  | null       | YES        |
+| memberId   | BIGINT   | 19         | YES        |
+| pageKey    | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(3 rows)
+
+!describe "VENICE"."testevent"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 3: Pipeline CRD and job elements created for nearline→online sync
+# ─────────────────────────────────────────────────────────────────────────────
+select name from "k8s".pipelines where name = 'logical-testevent-nearline-to-online';
++--------------------------------------+
+| NAME                                 |
++--------------------------------------+
+| logical-testevent-nearline-to-online |
++--------------------------------------+
+(1 row)
+
+!ok
+
+select element_name from "k8s".pipeline_element_map where pipeline_name = 'logical-testevent-nearline-to-online' order by element_name;
++-------------------------------------------------------------+
+| ELEMENT_NAME                                                |
++-------------------------------------------------------------+
+| FlinkSessionJob/venice-logical-testevent-nearline-to-online |
+| KafkaTopic/kafka-database-testevent                         |
++-------------------------------------------------------------+
+(2 rows)
+
+!ok
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 4: CREATE TABLE with nested ROW types
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "LOGICAL"."pageview" ("KEY" varchar, "header" row("memberId" bigint, "timestamp" bigint), "body" row("pageKey" varchar, "tags" varchar array));
+(0 rows modified)
+
+!update
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | VARCHAR  | null       | YES        |
+| header     | ROW      | 0          | YES        |
+| body       | ROW      | 0          | YES        |
++------------+----------+------------+------------+
+(3 rows)
+
+!describe "LOGICAL"."pageview"
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | VARCHAR  | null       | YES        |
+| header     | ROW      | 0          | YES        |
+| body       | ROW      | 0          | YES        |
++------------+----------+------------+------------+
+(3 rows)
+
+!describe "VENICE"."pageview"
+
+select element_name from "k8s".pipeline_element_map where pipeline_name = 'logical-pageview-nearline-to-online' order by element_name;
++------------------------------------------------------------+
+| ELEMENT_NAME                                               |
++------------------------------------------------------------+
+| FlinkSessionJob/venice-logical-pageview-nearline-to-online |
+| KafkaTopic/kafka-database-pageview                         |
++------------------------------------------------------------+
+(2 rows)
+
+!ok
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 5: CREATE OR REPLACE TABLE — update schema (add a column)
+# Each physical tier deployer validates backward compatibility.
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "LOGICAL"."testevent" ("KEY" varchar,"memberId" bigint, "pageKey" varchar, "sessionId" varchar);
+(0 rows modified)
+
+!update
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | VARCHAR  | null       | YES        |
+| memberId   | BIGINT   | 19         | YES        |
+| pageKey    | VARCHAR  | null       | YES        |
+| sessionId  | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(4 rows)
+
+!describe "LOGICAL"."testevent"
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | VARCHAR  | null       | YES        |
+| memberId   | BIGINT   | 19         | YES        |
+| pageKey    | VARCHAR  | null       | YES        |
+| sessionId  | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(4 rows)
+
+!describe "VENICE"."testevent"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 6: CREATE OR REPLACE TABLE — update schema (no key)
+# Should fail Venice validation - schema remains unchanged
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "LOGICAL"."testevent" ("memberId" bigint, "pageKey" varchar, "sessionId" varchar NOT NULL);
+Failed to generate key schema for Venice store testevent
+!error
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | VARCHAR  | null       | YES        |
+| memberId   | BIGINT   | 19         | YES        |
+| pageKey    | VARCHAR  | null       | YES        |
+| sessionId  | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(4 rows)
+
+!describe "LOGICAL"."testevent"
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY        | VARCHAR  | null       | YES        |
+| memberId   | BIGINT   | 19         | YES        |
+| pageKey    | VARCHAR  | null       | YES        |
+| sessionId  | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(4 rows)
+
+!describe "VENICE"."testevent"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 7: CREATE TABLE against non-existent schema is rejected
+# ─────────────────────────────────────────────────────────────────────────────
+create table "LOGICAL-NONEXISTENT"."testevent" ("KEY" varchar, "id" bigint);
+Schema for LOGICAL-NONEXISTENT.testevent not found.
+!error
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 8: Test dry run to verify resources
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "LOGICAL"."create-table-test" ("KEY" varchar, "memberId" bigint, "pageKey" varchar) WITH ("kafka.partitions" '5');
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: venice-logical-create-table-test-nearline-to-online
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `KAFKA` WITH ()
+    - CREATE TABLE IF NOT EXISTS `KAFKA`.`create-table-test` (`KEY` VARCHAR, `memberId` BIGINT, `pageKey` VARCHAR) WITH ('connector'='kafka', 'key.fields'='KEY', 'key.format'='raw', 'properties.bootstrap.servers'='one-kafka-bootstrap.kafka.svc.cluster.local:9094', 'scan.startup.mode'='earliest-offset', 'topic'='create-table-test', 'value.fields-include'='EXCEPT_KEY', 'value.format'='json')
+    - CREATE DATABASE IF NOT EXISTS `VENICE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `VENICE`.`create-table-test` (`KEY` VARCHAR, `memberId` BIGINT, `pageKey` VARCHAR) WITH ('connector'='venice', 'key.fields'='KEY', 'key.fields-prefix'='', 'key.type'='PRIMITIVE', 'partial-update-mode'='true', 'storeName'='create-table-test', 'value.fields-include'='EXCEPT_KEY')
+    - INSERT INTO `VENICE`.`create-table-test` (`KEY`, `memberId`, `pageKey`) SELECT `KEY`, `memberId`, `pageKey` FROM `KAFKA`.`create-table-test`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: kafka-database-create-table-test
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: create-table-test
+  partitions: 5
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+!specify create-table-test
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 9: Dependency guard — An underlying tier cannot be dropped if there is
+# an active logical table. Likewise, a MV created against any tier will block
+# the composite logical table drop
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Drop is blocked — logical table inner pipeline depends on KAFKA/testevent
+drop table "KAFKA"."testevent";
+active dependent
+!error
+
+create or replace materialized view VENICE."testevent$guard" as select "KEY" as "KEY", "VALUE" as "memberId" from KAFKA."existing-topic-1";
+(0 rows modified)
+
+!update
+
+# Drop is blocked — testevent$guard's pipeline depends on VENICE/testevent,
+# which is LOGICAL.testevent's online tier.
+drop table "LOGICAL"."testevent";
+active dependent
+!error
+
+# Drop the dependent MV first to release the label.
+drop materialized view VENICE."testevent$guard";
+(0 rows modified)
+
+!update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 10: DROP TABLE — cascades to the LogicalTable CRD and its implicit
+# inter-tier pipeline; tier resources are best-effort cleaned up afterward.
+# ─────────────────────────────────────────────────────────────────────────────
+drop table "LOGICAL"."testevent";
+(0 rows modified)
+
+!update
+
+# The owner-ref cascade removes the implicit nearline→online pipeline.
+select name from "k8s".pipelines where name = 'logical-testevent-nearline-to-online';
++------+
+| NAME |
++------+
++------+
+(0 rows)
+
+!ok
+
+drop table "LOGICAL"."pageview";
+(0 rows modified)
+
+!update
+
+# Verify the pageview pipeline is gone too.
+select name from "k8s".pipelines where name = 'logical-pageview-nearline-to-online';
++------+
+| NAME |
++------+
++------+
+(0 rows)
+
+!ok

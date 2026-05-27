@@ -1,0 +1,80 @@
+!set outputformat mysql
+!use k8s
+
+# Create table with KEY fields (primary key)
+create or replace table "MYSQL"."test_database"."users" ("KEY_id" int, "name" VARCHAR, "email" VARCHAR);
+(0 rows modified)
+
+!update
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| KEY_id     | INTEGER  | 10         | YES        |
+| name       | VARCHAR  | null       | YES        |
+| email      | VARCHAR  | null       | YES        |
++------------+----------+------------+------------+
+(3 rows)
+
+!describe "MYSQL"."test_database"."users"
+
+# ALTER TABLE - Add/drop/modify new column
+create or replace table "MYSQL"."test_database"."users" ("KEY_id" int, "name" VARCHAR(500), "age" int);
+(0 rows modified)
+
+!update
+
++------------+--------------+------------+------------+
+| columnName | typeName     | columnSize | isNullable |
++------------+--------------+------------+------------+
+| KEY_id     | INTEGER      | 10         | YES        |
+| name       | VARCHAR(500) | 500        | YES        |
+| age        | INTEGER      | 10         | YES        |
++------------+--------------+------------+------------+
+(3 rows)
+
+!describe "MYSQL"."test_database"."users"
+
+# Create table with composite primary key
+create or replace table "MYSQL"."test_database"."orders" ("KEY_user_id" int, "KEY_order_id" int, "total" DOUBLE, "status" VARCHAR);
+(0 rows modified)
+
+!update
+
++--------------+----------+------------+------------+
+| columnName   | typeName | columnSize | isNullable |
++--------------+----------+------------+------------+
+| KEY_user_id  | INTEGER  | 10         | YES        |
+| KEY_order_id | INTEGER  | 10         | YES        |
+| total        | DOUBLE   | 15         | YES        |
+| status       | VARCHAR  | null       | YES        |
++--------------+----------+------------+------------+
+(4 rows)
+
+!describe "MYSQL"."test_database"."orders"
+
+# Create table without KEY fields should fail validation
+create or replace table "MYSQL"."test_database"."invalid_table" ("id" int, "data" VARCHAR);
+No KEY_ fields found in table invalid_table. At least one KEY_ field is required.
+!error
+
+# Attempt to add/drop KEY fields should fail validation
+create or replace table "MYSQL"."test_database"."users" ("KEY_user_id" int, "name" VARCHAR(500), "email" VARCHAR);
+Cannot modify KEY fields for table users. Existing keys: [id], New keys: [user_id]. KEY field changes are not supported.
+!error
+
+# Attempt to modify KEY field type should fail validation
+create or replace table "MYSQL"."test_database"."users" ("KEY_id" VARCHAR, "name" VARCHAR(500), "email" VARCHAR);
+Cannot modify KEY field type for table users. KEY field 'id' has existing type INT but attempted to change to TEXT. KEY field type changes are not supported.
+!error
+
+# Clean up - drop tables
+drop table MYSQL."test_database"."users";
+(0 rows modified)
+
+!update
+
+drop table MYSQL."test_database"."orders";
+(0 rows modified)
+
+!update

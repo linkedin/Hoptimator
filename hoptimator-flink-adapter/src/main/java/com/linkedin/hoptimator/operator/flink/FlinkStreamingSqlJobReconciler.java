@@ -100,6 +100,10 @@ public class FlinkStreamingSqlJobReconciler implements Reconciler {
           .updateStatus(object, x -> object.getStatus())
           .onFailure((x, y) -> log.error("Failed to update status of SqlJob {}: {}.", name, y.getMessage()))
           .throwsApiException();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.error("Interrupted while reconciling Flink streaming SqlJob {}/{}", namespace, name, e);
+      return new Result(true, operator.failureRetryDuration());
     } catch (Exception e) {
       log.error("Encountered exception while reconciling Flink streaming SqlJob {}/{}", namespace, name, e);
       return new Result(true, operator.failureRetryDuration());

@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.ConfigProvider;
+
 import java.sql.Connection;
 import java.util.Properties;
-
-import com.linkedin.hoptimator.ConfigProvider;
 
 public class SystemPropertiesConfigProvider implements ConfigProvider {
 

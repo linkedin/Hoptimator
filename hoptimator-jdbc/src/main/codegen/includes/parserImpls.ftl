@@ -54,13 +54,20 @@ SqlNodeList Options() :
 
 void Option(List<SqlNode> list) :
 {
-    final SqlIdentifier id;
+    final SqlNode key;
     final SqlNode value;
 }
 {
-    id = SimpleIdentifier()
+    (
+        key = CompoundIdentifier()
+    |
+        <QUOTED_STRING> {
+            key = SqlLiteral.createCharString(
+                SqlParserUtil.parseString(token.image), getPos());
+        }
+    )
     value = Literal() {
-        list.add(id);
+        list.add(key);
         list.add(value);
     }
 }
@@ -192,6 +199,7 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
     final boolean ifNotExists;
     final SqlIdentifier id;
     SqlNodeList tableElementList = null;
+    SqlNodeList optionList = null;
     SqlNode query = null;
 
     SqlCreate createTableLike = null;
@@ -204,9 +212,10 @@ SqlCreate SqlCreateTable(Span s, boolean replace) :
         }
     |
         [ tableElementList = TableElementList() ]
+        [ optionList = Options() ]
         [ <AS> query = OrderedQueryOrExpr(ExprContext.ACCEPT_QUERY) ]
         {
-            return SqlDdlNodes.createTable(s.end(this), replace, ifNotExists, id, tableElementList, query);
+            return new SqlCreateTable(s.end(this), replace, ifNotExists, id, tableElementList, optionList, query);
         }
     )
 }
@@ -322,6 +331,20 @@ SqlCreate SqlCreateTrigger(Span s, boolean replace) :
     {
         return new SqlCreateTrigger(s.end(this), replace, ifNotExists, id, target,
             template, namespace, cronSchedule, optionList);
+    }
+}
+
+SqlCreate SqlCreateDatabase(Span s, boolean replace) :
+{
+    final boolean ifNotExists;
+    final SqlIdentifier id;
+    SqlNodeList optionList = null;
+}
+{
+    <DATABASE> ifNotExists = IfNotExistsOpt() id = CompoundIdentifier()
+    [ optionList = Options() ]
+    {
+        return new SqlCreateDatabase(s.end(this), replace, ifNotExists, id, optionList);
     }
 }
 
@@ -463,11 +486,13 @@ SqlFire SqlFireTable(Span s) :
 SqlFire SqlFireTrigger(Span s) :
 {
     final SqlIdentifier id;
+    SqlNodeList options = null;
 }
 {
     <TRIGGER> id = CompoundIdentifier()
+    [ options = Options() ]
     {
-        return new SqlFireTrigger(s.end(this), id);
+        return new SqlFireTrigger(s.end(this), id, options);
     }
 }
 

@@ -5,8 +5,12 @@ install:
 test:
 	./gradlew test -x spotbugsMain -x spotbugsTest -x spotbugsTestFixtures
 
+coverage:
+	./gradlew jacocoAggregateReport -x spotbugsMain -x spotbugsTest -x spotbugsTestFixtures
+	@echo "Aggregate report: file://$(shell pwd)/build/reports/jacoco/aggregate/index.html"
+
 build:
-	./gradlew build shadowJar
+	./gradlew build jacocoAggregateReport shadowJar
 	docker build . -t hoptimator
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-runner -t hoptimator-flink-runner
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-operator -t hoptimator-flink-operator
@@ -41,17 +45,20 @@ quickstart: build deploy
 deploy-demo: deploy
 	kubectl apply -f ./deploy/samples/demodb.yaml
 	kubectl apply -f ./deploy/samples/tabletriggers.yaml
+	kubectl apply -f ./deploy/samples/retl-job-template.yaml
 	kubectl apply -f ./deploy/samples/crontrigger.yaml
+	kubectl apply -f ./deploy/samples/user-jobs.yaml
 
 undeploy-demo: undeploy
 	kubectl delete -f ./deploy/samples/demodb.yaml || echo "skipping"
 	kubectl delete -f ./deploy/samples/tabletriggers.yaml || echo "skipping"
+	kubectl delete -f ./deploy/samples/retl-job-template.yaml || echo "skipping"
 	kubectl delete -f ./deploy/samples/crontrigger.yaml || echo "skipping"
 
 deploy-flink: deploy
 	kubectl create namespace flink || echo "skipping"
 	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
-	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.11.0/
+	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.13.0/
 	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest --set-json='watchNamespaces=["default","flink"]' flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
 	kubectl apply -f ./deploy/dev/flink-session-cluster.yaml
 	kubectl apply -f ./deploy/dev/flink-sql-gateway.yaml
@@ -106,9 +113,15 @@ undeploy-venice:
 	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml down
 
-deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-mysql deploy-venice
+deploy-logical: deploy deploy-flink deploy-kafka deploy-venice
+	kubectl apply -f ./deploy/samples/logicaldb.yaml
 
-undeploy-dev-environment: undeploy-venice undeploy-mysql undeploy-kafka undeploy-flink undeploy-demo undeploy
+undeploy-logical:
+	kubectl delete -f ./deploy/samples/logicaldb.yaml || echo "skipping"
+
+deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-mysql deploy-venice deploy-logical
+
+undeploy-dev-environment: undeploy-logical undeploy-venice undeploy-mysql undeploy-kafka undeploy-flink undeploy-demo undeploy
 	kubectl delete -f ./deploy/dev || echo "skipping"
 
 # Integration test setup intended to be run locally
@@ -146,4 +159,4 @@ run-zeppelin: build-zeppelin
 	  --name hoptimator-zeppelin \
 	  hoptimator-zeppelin
 
-.PHONY: install test build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test coverage build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice deploy-logical undeploy-logical build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release

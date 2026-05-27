@@ -1,14 +1,13 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.sql.Wrapper;
-
+import com.linkedin.hoptimator.Catalog;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import org.apache.calcite.schema.SchemaPlus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.linkedin.hoptimator.Catalog;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import java.sql.SQLException;
+import java.sql.Wrapper;
 
 
 /** The k8s catalog. */
@@ -31,8 +30,8 @@ class K8sCatalog implements Catalog {
     SchemaPlus schemaPlus = wrapper.unwrap(SchemaPlus.class);
     HoptimatorConnection conn = wrapper.unwrap(HoptimatorConnection.class);
     K8sContext context = K8sContext.create(conn);
-    log.info("Using K8s context " + context);
-    K8sMetadata metadata = new K8sMetadata(conn, context);
+    log.info("Using K8s context {}", context);
+    K8sMetadata metadata = createMetadata(conn, context);
     schemaPlus.add("k8s", metadata);
     metadata.databaseTable().addDatabases(schemaPlus, conn);
     metadata.viewTable().addViews(schemaPlus);
@@ -41,5 +40,10 @@ class K8sCatalog implements Catalog {
     // introduce schemas into the view object itself such that all tables that make up a view do not need to be
     // evaluated every time.
     // metadata.viewTable().registerMaterializations(conn);
+  }
+
+  // Package-private for testing
+  K8sMetadata createMetadata(HoptimatorConnection conn, K8sContext context) {
+    return new K8sMetadata(conn, context);
   }
 }

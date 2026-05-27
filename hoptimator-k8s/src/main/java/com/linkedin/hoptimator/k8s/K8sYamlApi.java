@@ -1,5 +1,13 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.util.Api;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -7,16 +15,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.kubernetes.client.openapi.models.V1OwnerReference;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
-
-import com.linkedin.hoptimator.util.Api;
 
 
 public class K8sYamlApi implements Api<String> {
@@ -117,7 +115,7 @@ public class K8sYamlApi implements Api<String> {
     final KubernetesApiResponse<DynamicKubernetesObject> resp;
     if (existing.isSuccess()) {
 
-      // Ensure labels are additive. Existing values are kept.
+      // Ensure labels, annotations are additive. Existing values are kept.
       Map<String, String> labels = new HashMap<>();
       if (obj.getMetadata().getLabels() != null) {
         labels.putAll(obj.getMetadata().getLabels());
@@ -126,6 +124,15 @@ public class K8sYamlApi implements Api<String> {
         labels.putAll(existing.getObject().getMetadata().getLabels());
       }
       existing.getObject().getMetadata().setLabels(labels);
+
+      Map<String, String> annotations = new HashMap<>();
+      if (obj.getMetadata().getAnnotations() != null) {
+        annotations.putAll(obj.getMetadata().getAnnotations());
+      }
+      if (existing.getObject().getMetadata().getAnnotations() != null) {
+        annotations.putAll(existing.getObject().getMetadata().getAnnotations());
+      }
+      existing.getObject().getMetadata().setAnnotations(annotations);
 
       obj.setMetadata(existing.getObject().getMetadata());
       resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).update(obj);

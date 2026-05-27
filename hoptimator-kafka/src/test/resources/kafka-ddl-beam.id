@@ -12,17 +12,17 @@ spec:
   sql:
     - PLACEHOLDER
   configs:
-    source.group.id: hoptimator-flink-beam-existing-topic-1
+    source.group.id: hoptimator-flink-beam-KAFKA.existing-topic-1
     source.schemas: KAFKA
     source.tables: existing-topic-2
     sink.schema: KAFKA
     sink.table: existing-topic-1
     fields: '{"VALUE":"VALUE","KEY":"KEY"}'
-    pipeline: 'existing-topic-1'
+    pipeline: 'KAFKA.existing-topic-1'
     flink.app.type: 'BEAM'
     flink.app.name: 'hoptimator-flink-runner'
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: kafka-database-existing-topic-1
@@ -36,7 +36,7 @@ spec:
     retention.ms: 7200000
     segment.bytes: 1073741824
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: kafka-database-existing-topic-2

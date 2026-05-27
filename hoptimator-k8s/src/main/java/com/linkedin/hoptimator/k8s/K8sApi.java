@@ -1,16 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.linkedin.hoptimator.util.Api;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
@@ -19,8 +9,16 @@ import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.options.DeleteOptions;
 import io.kubernetes.client.util.generic.options.ListOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.linkedin.hoptimator.util.Api;
+import java.sql.SQLException;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 
 
 public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> implements Api<T> {
@@ -62,6 +60,20 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
 
   public T getIfExists(String namespace, String name) throws SQLException {
     KubernetesApiResponse<T> resp = context.generic(endpoint).get(namespace, name);
+    if (resp.getHttpStatusCode() == 404) {
+      return null;
+    }
+    K8sUtils.checkResponse("Error getting " + endpoint().kind() + " " + name, resp);
+    return resp.getObject();
+  }
+
+  public T getIfExists(String name) throws SQLException {
+    final KubernetesApiResponse<T> resp;
+    if (endpoint.clusterScoped()) {
+      resp = context.generic(endpoint).get(name);
+    } else {
+      resp = context.generic(endpoint).get(context.namespace(), name);
+    }
     if (resp.getHttpStatusCode() == 404) {
       return null;
     }
@@ -156,7 +168,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     final KubernetesApiResponse<T> resp;
     if (existing.isSuccess()) {
 
-      // Ensure labels are additive.
+      // Ensure labels, annotations, and owners are additive.
       Map<String, String> labels = new HashMap<>();
       if (existing.getObject().getMetadata().getLabels() != null) {
         labels.putAll(existing.getObject().getMetadata().getLabels());
@@ -165,6 +177,15 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
         labels.putAll(obj.getMetadata().getLabels());
       }
       obj.getMetadata().setLabels(labels);
+
+      Map<String, String> annotations = new HashMap<>();
+      if (existing.getObject().getMetadata().getAnnotations() != null) {
+        annotations.putAll(existing.getObject().getMetadata().getAnnotations());
+      }
+      if (obj.getMetadata().getAnnotations() != null) {
+        annotations.putAll(obj.getMetadata().getAnnotations());
+      }
+      obj.getMetadata().setAnnotations(annotations);
 
       List<V1OwnerReference> owners = new LinkedList<>();
       if (existing.getObject().getMetadata().getOwnerReferences() != null) {

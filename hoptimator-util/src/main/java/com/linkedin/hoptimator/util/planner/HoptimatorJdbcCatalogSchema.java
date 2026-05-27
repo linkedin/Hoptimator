@@ -3,13 +3,6 @@ package com.linkedin.hoptimator.util.planner;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Engine;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.Set;
-import javax.annotation.Nullable;
-import javax.sql.DataSource;
 import org.apache.calcite.adapter.jdbc.JdbcCatalogSchema;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.linq4j.tree.Expression;
@@ -23,6 +16,14 @@ import org.apache.calcite.schema.lookup.LoadingCacheLookup;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.sql.SqlDialect;
 
+import javax.annotation.Nullable;
+import javax.sql.DataSource;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Set;
+
 import static java.util.Objects.requireNonNull;
 
 
@@ -32,6 +33,7 @@ public class HoptimatorJdbcCatalogSchema extends JdbcCatalogSchema implements Da
   private final String database;
   private final List<Engine> engines;
   private final Lookup<JdbcSchema> subSchemas;
+  private final HoptimatorJdbcConvention convention;
 
   public static HoptimatorJdbcCatalogSchema create(String database, String catalog, String schema, DataSource dataSource,
       SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
@@ -46,13 +48,14 @@ public class HoptimatorJdbcCatalogSchema extends JdbcCatalogSchema implements Da
     this.database = database;
     this.catalog = catalog;
     this.engines = engines;
+    this.convention = convention;
     this.subSchemas = new LoadingCacheLookup<>(new IgnoreCaseLookup<>() {
       @Override public @Nullable JdbcSchema get(String name) {
         try (Connection connection = dataSource.getConnection();
             ResultSet resultSet =
                 connection.getMetaData().getSchemas(catalog, name)) {
           // There can only be one schema with a given name
-          while (resultSet.next()) {
+          if (resultSet.next()) {
             final String schemaName =
                 requireNonNull(resultSet.getString(1),
                     "got null schemaName from the database");
@@ -81,6 +84,10 @@ public class HoptimatorJdbcCatalogSchema extends JdbcCatalogSchema implements Da
         return builder.build();
       }
     });
+  }
+
+  public HoptimatorJdbcSchema createSchema(String schemaName) {
+    return new HoptimatorJdbcSchema(database, catalog, schemaName, getDataSource(), dialect, convention, engines);
   }
 
   @Override

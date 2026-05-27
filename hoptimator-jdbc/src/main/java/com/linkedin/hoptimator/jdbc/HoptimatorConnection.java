@@ -4,8 +4,23 @@ import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.hoptimator.util.DelegatingConnection;
+import org.apache.avro.Schema;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.plan.RelOptMaterialization;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.util.Util;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.helpers.MessageFormatter;
+
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -18,13 +33,6 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
-import org.apache.avro.Schema;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.jdbc.CalcitePrepare;
-import org.apache.calcite.jdbc.CalciteSchema;
-import org.apache.calcite.plan.RelOptMaterialization;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.util.Util;
 
 
 public class HoptimatorConnection extends DelegatingConnection {
@@ -43,17 +51,20 @@ public class HoptimatorConnection extends DelegatingConnection {
 
   public ResolvedTable resolve(List<String> tablePath, Map<String, String> hints) throws SQLException {
     try {
-      String tableSql = "SELECT * FROM " + tablePath.stream()
-          .map(x -> "\"" + x + "\"")
-          .collect(Collectors.joining("."));
-      RelNode tableRel = HoptimatorDriver.convert(this, tableSql).root.rel;
-      String namespace = "com.linkedin."
+      Schema avroSchema = avroSchema(tablePath);
+      if (avroSchema == null) {
+        String tableSql = "SELECT * FROM " + tablePath.stream()
+            .map(x -> "\"" + x + "\"")
+            .collect(Collectors.joining("."));
+        RelNode tableRel = HoptimatorDriver.convert(this, tableSql).root.rel;
+        String namespace = "com.linkedin."
             + tablePath.stream()
             .map(x -> x.toLowerCase(Locale.ROOT))
             .limit(tablePath.size() - 1)
             .collect(Collectors.joining("."));
-      String schemaName = tablePath.get(tablePath.size() - 1).toLowerCase(Locale.ROOT);
-      Schema avroSchema = AvroConverter.avro(namespace, schemaName, tableRel.getRowType());
+        String schemaName = tablePath.get(tablePath.size() - 1).toLowerCase(Locale.ROOT);
+        avroSchema = AvroConverter.avro(namespace, schemaName, tableRel.getRowType());
+      }
       String database = databaseName(this.createPrepareContext(), tablePath);
       Source source = new Source(database, tablePath, hints);
       Sink sink = new Sink(database, tablePath, hints);
@@ -62,6 +73,36 @@ public class HoptimatorConnection extends DelegatingConnection {
     } catch (Exception e) {
       throw new SQLException("Failed to resolve " + String.join(".", tablePath) + ": " + e.getMessage(), e);
     }
+  }
+
+  /**
+   * Returns the native merged Avro schema (value + prefixed key fields where applicable) when the
+   * resolved table at {@code tablePath} implements {@link AvroSchemaSource}, or {@code null} when
+   * no source is available and the caller should fall back to RelDataType synthesis.
+   *
+   * <p>{@code resolve()} merges key+value because its consumers (the SQL/query layer, the Flink
+   * catalog, the {@code !resolve} CLI command) expect keys to appear as columns in the table's
+   * logical schema. Connector deployers, which render connector payload options, call
+   * {@link AvroSchemaSource#valueSchema()} directly instead.
+   */
+  private Schema avroSchema(List<String> tablePath) {
+    return avroSchemaAt(connection.getRootSchema(), tablePath);
+  }
+
+  static Schema avroSchemaAt(SchemaPlus root, List<String> tablePath) {
+    SchemaPlus schema = root;
+    for (String part : Util.skipLast(tablePath)) {
+      if (schema == null) {
+        return null;
+      }
+      schema = schema.subSchemas().get(part);
+    }
+    if (schema == null) {
+      return null;
+    }
+    Table table = schema.tables().get(tablePath.get(tablePath.size() - 1));
+    return table instanceof AvroSchemaSource
+        ? AvroSchemas.mergedAvroSchemaFor((AvroSchemaSource) table) : null;
   }
 
   @Override
@@ -130,7 +171,7 @@ public class HoptimatorConnection extends DelegatingConnection {
     final List<String> path = Util.skipLast(tablePath);
     CalciteSchema schema = context.getRootSchema();
     for (String p : path) {
-      schema = Objects.requireNonNull(schema).getSubSchema(p, true);
+      schema = Objects.requireNonNull(schema).subSchemas().get(p);
     }
     if (schema == null || !(schema.schema instanceof Database)) {
       throw new SQLException(tablePath + " is not a physical database.");
@@ -143,12 +184,12 @@ public class HoptimatorConnection extends DelegatingConnection {
    */
   static class HoptimatorConnectionDualLogger {
     private final String className;
-    private final org.slf4j.Logger slf4jLogger;
+    private final Logger slf4jLogger;
     private final List<Consumer<String>> hooks;
 
     HoptimatorConnectionDualLogger(Class<?> clazz, List<Consumer<String>> hooks) {
       this.className = clazz.getSimpleName();
-      this.slf4jLogger = org.slf4j.LoggerFactory.getLogger(clazz);
+      this.slf4jLogger = LoggerFactory.getLogger(clazz);
       this.hooks = hooks;
     }
 
@@ -157,7 +198,7 @@ public class HoptimatorConnection extends DelegatingConnection {
      */
     public void info(String format, Object... arguments) {
       slf4jLogger.info(format, arguments);
-      String msg = org.slf4j.helpers.MessageFormatter.arrayFormat(format, arguments).getMessage();
+      String msg = MessageFormatter.arrayFormat(format, arguments).getMessage();
       String msgWithClassName = String.format("[%s] %s", className, msg);
       hooks.forEach(hook -> hook.accept(msgWithClassName));
     }

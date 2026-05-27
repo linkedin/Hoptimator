@@ -1,18 +1,5 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
-import org.apache.calcite.rel.type.RelProtoDataType;
-import org.apache.calcite.schema.Schema;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.impl.AbstractSchema;
-import org.apache.calcite.schema.impl.ViewTable;
-
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
@@ -21,6 +8,18 @@ import com.linkedin.hoptimator.jdbc.MaterializedViewTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import org.apache.calcite.rel.type.RelProtoDataType;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.ViewTable;
+
+import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 
 
 public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sViewTable.Row> implements Validated {
@@ -97,7 +96,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
         }
         schema = next;
       }
-      Objects.requireNonNull(schema).add(row.viewName(), makeView(schema, row));
+      Objects.requireNonNull(schema).add(row.viewName(), makeView(row));
     }
   }
 
@@ -124,7 +123,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
     }
   }
 
-  private Table makeView(SchemaPlus parentSchema, Row row) {
+  private Table makeView(Row row) {
     // We want to defer resolution of types until they are actually used,
     // since otherwise the view may depend on other views that haven't
     // been loaded yet.
@@ -159,7 +158,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
   }
 
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, Connection connection) {
     for (Row row : rows()) {
       Validator.Issues issues2 = issues.child(row.toString());
       Validator.validateSubdomainName(row.NAME, issues2.child("NAME"));

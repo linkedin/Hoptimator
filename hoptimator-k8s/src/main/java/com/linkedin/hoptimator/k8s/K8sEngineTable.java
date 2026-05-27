@@ -1,20 +1,18 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
-import org.apache.calcite.schema.Schema;
-
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
 import com.linkedin.hoptimator.Engine;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Engine;
 import com.linkedin.hoptimator.k8s.models.V1alpha1EngineList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1EngineSpec;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import org.apache.calcite.schema.Schema;
+
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 
 public class K8sEngineTable extends K8sTable<V1alpha1Engine, V1alpha1EngineList, K8sEngineTable.Row> {

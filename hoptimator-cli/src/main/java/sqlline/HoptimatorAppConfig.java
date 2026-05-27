@@ -1,17 +1,17 @@
 package sqlline;
 
+import com.linkedin.hoptimator.graph.GraphNode;
+import com.linkedin.hoptimator.graph.PipelineGraph;
+import com.linkedin.hoptimator.SqlDialect;
+import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
+import com.linkedin.hoptimator.jdbc.GraphService;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
-import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Objects;
-import java.util.Properties;
-import java.util.Scanner;
-
+import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.jdbc.ResolvedTable;
+import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.schema.SchemaPlus;
@@ -22,15 +22,16 @@ import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.util.Pair;
 import org.jline.reader.Completer;
 
-import com.linkedin.hoptimator.Pipeline;
-import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.SqlDialect;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
-import com.linkedin.hoptimator.jdbc.ResolvedTable;
-import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
-import com.linkedin.hoptimator.util.DeploymentService;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
+import java.nio.charset.StandardCharsets;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.Scanner;
 
 
 public class HoptimatorAppConfig extends Application {
@@ -53,6 +54,7 @@ public class HoptimatorAppConfig extends Application {
     list.add(new PipelineCommandHandler(sqlline));
     list.add(new ResolveCommandHandler(sqlline));
     list.add(new SpecifyCommandHandler(sqlline));
+    list.add(new GraphCommandHandler(sqlline));
     return list;
   }
 
@@ -279,56 +281,135 @@ public class HoptimatorAppConfig extends Application {
       }
       String sql = split[1];
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
-      Pair<SchemaPlus, Table> schemaSnapshot = null;
-      String viewName = "sink";
       try {
-        String querySql = sql;
-        SqlCreateMaterializedView create = null;
-        SqlNode sqlNode = HoptimatorDriver.parseQuery(conn, sql);
-        if (sqlNode.getKind().belongsTo(SqlKind.DDL)) {
-          if (sqlNode instanceof SqlCreateMaterializedView) {
-            create = (SqlCreateMaterializedView) sqlNode;
-            final SqlNode q = HoptimatorDdlUtils.renameColumns(create.columnList, create.query);
-            querySql = q.toSqlString(CalciteSqlDialect.DEFAULT).getSql();
-            viewName = HoptimatorDdlUtils.viewName(create.name);
-          } else {
-            sqlline.error("Unsupported DDL statement: " + sql);
-            dispatchCallback.setToFailure();
-            return;
-          }
-        }
-
-        RelRoot root = HoptimatorDriver.convert(conn, querySql).root;
-        Properties connectionProperties = conn.connectionProperties();
-        RelOptTable table = root.rel.getTable();
-        if (table != null) {
-          connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, String.join(".", table.getQualifiedName()));
-        } else if (create != null) {
-          connectionProperties.setProperty(DeploymentService.PIPELINE_OPTION, create.name.toString());
-        }
-        PipelineRel.Implementor plan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
-        if (create != null) {
-          schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
-              new HoptimatorDriver.Prepare(conn), plan, create, querySql);
-        }
-        Pipeline pipeline = plan.pipeline(viewName, conn);
-        List<String> specs = new ArrayList<>();
-        for (Source source : pipeline.sources()) {
-          specs.addAll(DeploymentService.specify(source, conn));
-        }
-        specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-        specs.addAll(DeploymentService.specify(pipeline.job(), conn));
+        List<String> specs = HoptimatorDdlUtils.specifyFromSql(sql, conn).specs;
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
       } catch (SQLException e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
       }
-      if (schemaSnapshot != null) {
-        if (schemaSnapshot.right != null) {
-          schemaSnapshot.left.add(viewName, schemaSnapshot.right);
-        }
-        schemaSnapshot.left.removeTable(viewName);
+    }
+
+    @Override
+    public List<Completer> getParameterCompleters() {
+      return Collections.emptyList();
+    }
+
+    @Override
+    public boolean echoToFile() {
+      return false;
+    }
+  }
+
+  /**
+   * Renders a Mermaid flowchart for a Hoptimator entity. Forms:
+   * <pre>
+   *   !graph &lt;schema&gt;.&lt;table&gt;                  // 2-level identifier (case-sensitive)
+   *   !graph &lt;catalog&gt;.&lt;schema&gt;.&lt;table&gt;  // 3-level identifier (case-sensitive)
+   * </pre>
+   * Optional flag: {@code --depth N} (default 2).
+   */
+  static final class GraphCommandHandler implements CommandHandler {
+
+    private final SqlLine sqlline;
+
+    GraphCommandHandler(SqlLine sqlline) {
+      this.sqlline = sqlline;
+    }
+
+    @Override
+    public String getName() {
+      return "graph";
+    }
+
+    @Override
+    public List<String> getNames() {
+      return Collections.singletonList(getName());
+    }
+
+    @Override
+    public String getHelpText() {
+      return "Render a Mermaid pipeline graph for a view, logical table, or physical resource.";
+    }
+
+    @Override
+    public String matches(String line) {
+      if (startsWith(line, "!graph") || startsWith(line, "graph")) {
+        return line;
       }
+      return null;
+    }
+
+    @Override
+    public void execute(String line, DispatchCallback dispatchCallback) {
+      if (!(sqlline.getConnection() instanceof HoptimatorConnection)) {
+        sqlline.error("This connection doesn't support `!graph`.");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String[] parts = line.trim().split("\\s+");
+      // parts[0] = "!graph" (or "graph"); identifier mandatory.
+      if (parts.length < 2) {
+        sqlline.error("Usage: !graph <schema.name> [--depth N]");
+        dispatchCallback.setToFailure();
+        return;
+      }
+      String identifier = parts[1];
+      int depth = 2;
+      // Walk through the remaining tokens. Flags consume their value (i += 1); anything else is
+      // an unknown positional and surfaces as an error rather than getting silently dropped.
+      int i = 2;
+      while (i < parts.length) {
+        if ("--depth".equals(parts[i])) {
+          if (i + 1 >= parts.length) {
+            sqlline.error("--depth requires an integer value");
+            dispatchCallback.setToFailure();
+            return;
+          }
+          try {
+            depth = Integer.parseInt(parts[i + 1]);
+          } catch (NumberFormatException e) {
+            sqlline.error("--depth requires an integer; got: " + parts[i + 1]);
+            dispatchCallback.setToFailure();
+            return;
+          }
+          i += 2;
+        } else {
+          sqlline.error("Unknown argument to !graph: " + parts[i]
+              + ". Usage: !graph <schema.name> [--depth N]");
+          dispatchCallback.setToFailure();
+          return;
+        }
+      }
+
+      HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
+      try {
+        PipelineGraph graph = GraphService.buildGraph(identifier, depth, conn);
+        sqlline.output(GraphService.render(graph, MermaidRenderer.FORMAT));
+        // Resource targets root at an External node. A degenerate (root-only) Resource graph at
+        // depth >= 1 means the label-selector found nothing — the identifier resolved to a real
+        // schema, but no pipeline references it. Suppress the warning at depth <= 0 since the
+        // root-only output is the depth bound's effect, not absence of pipelines.
+        if (depth >= 1 && graph.root() instanceof GraphNode.External && isDegenerate(graph)) {
+          sqlline.output(degenerateGraphWarning());
+        }
+      } catch (SQLException e) {
+        sqlline.error(e);
+        dispatchCallback.setToFailure();
+      }
+    }
+
+    /** A graph is degenerate when it contains only the root and no edges — typical of a typo or
+     * a not-yet-deployed resource. */
+    static boolean isDegenerate(PipelineGraph graph) {
+      return graph.nodes().size() == 1 && graph.edges().isEmpty();
+    }
+
+    /** Mermaid comment line warning that the resource may not exist. Comment syntax keeps the
+     * output safe to pipe into a renderer. */
+    static String degenerateGraphWarning() {
+      return "%% WARNING: no pipelines reference this resource — the identifier may not exist "
+          + "or no pipelines have been deployed against it yet.";
     }
 
     @Override

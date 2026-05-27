@@ -1,12 +1,6 @@
 package com.linkedin.hoptimator.avro;
 
-import java.util.AbstractMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.stream.Collectors;
-
+import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -18,13 +12,19 @@ import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Pair;
 
+import java.util.AbstractMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 
 /** Converts between Avro and Calcite's RelDataType */
 public final class AvroConverter {
 
   private static final String KEY_OPTION = "key.fields";
   private static final String KEY_PREFIX_OPTION = "key.fields-prefix";
-  private static final String PRIMITIVE_KEY = "KEY";
 
   private AvroConverter() {
   }
@@ -35,7 +35,15 @@ public final class AvroConverter {
     String newNamespace = namespace + "." + name;
     if (dataType.isStruct()) {
       List<Schema.Field> fields = dataType.getFieldList().stream()
-          .map(x -> new Schema.Field(sanitize(x.getName()), avro(newNamespace, x.getName(), x.getType()), describe(x), null))
+          .map(x -> {
+            Schema innerField = avro(newNamespace, x.getName(), x.getType());
+            Object defaultValue = null;
+            // For unions containing null, defaults are specified in a specific way
+            if (innerField.isUnion() && innerField.isNullable()) {
+              defaultValue = Schema.Field.NULL_DEFAULT_VALUE;
+            }
+            return new Schema.Field(sanitize(x.getName()), innerField, describe(x), defaultValue);
+          })
           .collect(Collectors.toList());
       return createAvroSchemaWithNullability(Schema.createRecord(sanitize(name), dataType.toString(), newNamespace, false, fields),
           dataType.isNullable());
@@ -62,6 +70,12 @@ public final class AvroConverter {
           }
         case DOUBLE:
           return createAvroTypeWithNullability(Schema.Type.DOUBLE, dataType.isNullable());
+        case DATE:
+          return createAvroSchemaWithNullability(
+              LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT)), dataType.isNullable());
+        case TIMESTAMP:
+          return createAvroSchemaWithNullability(
+              LogicalTypes.timestampMillis().addToSchema(Schema.create(Schema.Type.LONG)), dataType.isNullable());
         case BOOLEAN:
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:
@@ -115,7 +129,7 @@ public final class AvroConverter {
         String keyName = field.getName().substring(keyPrefix.length());
 
         // Key is a primitive
-        if (keyNames.size() == 1 && keyName.equals(PRIMITIVE_KEY)) {
+        if (keyNames.size() == 1 && keyName.equals(AvroSchemas.PRIMITIVE_KEY_NAME)) {
           primitiveKeySchema = avro(namespace, keySchemaName, field.getType());
         } else {
           keyBuilder.add(keyName, field.getType());
@@ -124,11 +138,14 @@ public final class AvroConverter {
         payloadBuilder.add(field);
       }
     }
+    RelDataType payload = payloadBuilder.build();
+    Schema payloadSchema = payload.getFieldCount() == 0 ? null : avro(namespace, payloadSchemaName, payload);
     if (primitiveKeySchema != null) {
-      return new Pair<>(primitiveKeySchema, avro(namespace, payloadSchemaName, payloadBuilder.build()));
+      return new Pair<>(primitiveKeySchema, payloadSchema);
     }
-    return new Pair<>(avro(namespace, keySchemaName, keyBuilder.build()),
-        avro(namespace, payloadSchemaName, payloadBuilder.build()));
+    RelDataType key = keyBuilder.build();
+    Schema keySchema = key.getFieldCount() == 0 ? null : avro(namespace, keySchemaName, key);
+    return new Pair<>(keySchema, payloadSchema);
   }
 
   private static Schema createAvroSchemaWithNullability(Schema schema, boolean nullable) {
@@ -149,11 +166,19 @@ public final class AvroConverter {
 
   /** Converts Avro Schema to RelDataType.
    * Nullability is preserved except for array types, JDBC is incapable of interpreting e.g. "FLOAT NOT NULL ARRAY"
-   * causing "NOT NULL" arrays to get demoted to "ANY ARRAY" which is not desired.
+   * causing "NOT NULL" arrays to get demoted to "ANY ARRAY" which is not desired. See HoptimatorArraySqlType for
+   * more details.
+   * <p>
+   * TODO: default field values are lost when converting from Avro to RelDataType
    */
   public static RelDataType rel(Schema schema, RelDataTypeFactory typeFactory, boolean nullable) {
+    if (schema == null) {
+      return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.NULL), true);
+    }
     RelDataType unknown = typeFactory.createUnknownType();
     switch (schema.getType()) {
+      case NULL:
+        return typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.NULL), true);
       case RECORD:
         return typeFactory.createTypeWithNullability(typeFactory.createStructType(schema.getFields().stream()
             .map(x -> new AbstractMap.SimpleEntry<>(x.name(), rel(x.schema(), typeFactory, nullable)))
@@ -161,8 +186,20 @@ public final class AvroConverter {
             .filter(x -> x.getValue().getSqlTypeName() != unknown.getSqlTypeName())
             .collect(Collectors.toList())), nullable);
       case INT:
+        if (schema.getLogicalType() != null) {
+          String logicalName = schema.getLogicalType().getName();
+          if ("date".equals(logicalName)) {
+            return createRelType(typeFactory, SqlTypeName.DATE, nullable);
+          }
+        }
         return createRelType(typeFactory, SqlTypeName.INTEGER, nullable);
       case LONG:
+        if (schema.getLogicalType() != null) {
+          String logicalName = schema.getLogicalType().getName();
+          if ("timestamp-millis".equals(logicalName) || "timestamp-micros".equals(logicalName)) {
+            return createRelType(typeFactory, SqlTypeName.TIMESTAMP, nullable);
+          }
+        }
         return createRelType(typeFactory, SqlTypeName.BIGINT, nullable);
       case ENUM:
       case STRING:
@@ -178,8 +215,7 @@ public final class AvroConverter {
       case BOOLEAN:
         return createRelType(typeFactory, SqlTypeName.BOOLEAN, nullable);
       case ARRAY:
-        return typeFactory.createTypeWithNullability(
-            typeFactory.createArrayType(rel(schema.getElementType(), typeFactory, true), -1), nullable);
+        return new HoptimatorArraySqlType(rel(schema.getElementType(), typeFactory, true), nullable);
       case MAP:
         return typeFactory.createTypeWithNullability(
             typeFactory.createMapType(typeFactory.createSqlType(SqlTypeName.VARCHAR), rel(schema.getValueType(), typeFactory, nullable)), nullable);
@@ -228,8 +264,9 @@ public final class AvroConverter {
   }
 
   private static String sanitize(String name) {
-    if (name.matches("^[^A-Za-z_]")) {
-      // avoid starting with numbers, etc
+    if (name.matches("^[^A-Za-z_].*")) {
+      // avoid starting with numbers, etc — note: matches() requires full-string match,
+      // so the pattern must include .* to match names longer than one character
       return sanitize("_" + name);
     }
     // avoid $, etc

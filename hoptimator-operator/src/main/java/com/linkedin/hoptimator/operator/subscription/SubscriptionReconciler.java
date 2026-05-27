@@ -1,5 +1,26 @@
 package com.linkedin.hoptimator.operator.subscription;
 
+import com.linkedin.hoptimator.catalog.HopTable;
+import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Subscription;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionSpec;
+import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionStatus;
+import com.linkedin.hoptimator.operator.Operator;
+import com.linkedin.hoptimator.planner.HoptimatorPlanner;
+import com.linkedin.hoptimator.planner.Pipeline;
+import com.linkedin.hoptimator.planner.PipelineRel;
+import io.kubernetes.client.common.KubernetesObject;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -11,29 +32,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.kubernetes.client.common.KubernetesObject;
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.util.generic.KubernetesApiResponse;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
-
-import com.linkedin.hoptimator.catalog.HopTable;
-import com.linkedin.hoptimator.catalog.Resource;
-import com.linkedin.hoptimator.k8s.models.V1alpha1Subscription;
-import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionSpec;
-import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionStatus;
-import com.linkedin.hoptimator.operator.Operator;
-import com.linkedin.hoptimator.planner.HoptimatorPlanner;
-import com.linkedin.hoptimator.planner.Pipeline;
-import com.linkedin.hoptimator.planner.PipelineRel;
-
 
 public final class SubscriptionReconciler implements Reconciler {
   private static final Logger log = LoggerFactory.getLogger(SubscriptionReconciler.class);
@@ -44,7 +42,7 @@ public final class SubscriptionReconciler implements Reconciler {
   private final Resource.Environment environment;
   private final Predicate<V1alpha1Subscription> filter;
 
-  private SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory,
+  SubscriptionReconciler(Operator operator, HoptimatorPlanner.Factory plannerFactory,
       Resource.Environment environment, Predicate<V1alpha1Subscription> filter) {
     this.operator = operator;
     this.plannerFactory = plannerFactory;
@@ -144,8 +142,15 @@ public final class SubscriptionReconciler implements Reconciler {
           status.setFailed(null);
           status.setMessage("Planned.");
         } catch (Exception e) {
-          log.error("Encountered error when planning a pipeline for {}/{} with SQL `{}`.", kind, name,
-              object.getSpec().getSql(), e);
+          // SqlValidatorException and ValidationException indicate bad user SQL (client error).
+          // Log at WARN level to avoid false server-error alerts.
+          if (isSqlValidationError(e)) {
+            log.warn("SQL validation error when planning a pipeline for {}/{} with SQL `{}`: {}", kind, name,
+                object.getSpec().getSql(), e.getMessage());
+          } else {
+            log.error("Encountered error when planning a pipeline for {}/{} with SQL `{}`.", kind, name,
+                object.getSpec().getSql(), e);
+          }
 
           // Mark the Subscription as failed.
           status.setFailed(true);
@@ -233,7 +238,17 @@ public final class SubscriptionReconciler implements Reconciler {
 
   // Fetch attributes from downstream controllers
   private Map<String, String> fetchAttributes(String yaml) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(yaml);
+    } catch (Exception e) {
+      log.warn("Failed to parse YAML in fetchAttributes: {}", e.getMessage());
+      return Collections.emptyMap();
+    }
+    if (obj.getMetadata() == null) {
+      log.warn("Failed to fetch attributes: parsed YAML has null metadata.");
+      return Collections.emptyMap();
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
@@ -312,6 +327,20 @@ public final class SubscriptionReconciler implements Reconciler {
     } else {
       return m;
     }
+  }
+
+  // Checks whether an exception represents a SQL validation error (i.e., bad user SQL),
+  // as opposed to a server-side infrastructure failure.
+  static boolean isSqlValidationError(Throwable e) {
+    Throwable x = e;
+    while (x != null) {
+      String className = x.getClass().getName();
+      if (className.contains("SqlValidatorException") || className.contains("ValidationException")) {
+        return true;
+      }
+      x = x.getCause();
+    }
+    return false;
   }
 }
 

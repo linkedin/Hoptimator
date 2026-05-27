@@ -29,7 +29,7 @@ import java.io.IOException;
  * A set of related ACL rules.
  */
 @ApiModel(description = "A set of related ACL rules.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-10-07T17:21:20.255Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-21T19:13:17.972Z[Etc/UTC]")
 public class V1alpha1AclSpec {
   /**
    * The resource access method.

@@ -1,19 +1,19 @@
 package com.linkedin.hoptimator.avro;
 
-import java.util.Collection;
-import java.util.Collections;
-
-import org.apache.calcite.schema.SchemaPlus;
-
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.ValidatorProvider;
+import org.apache.calcite.schema.SchemaPlus;
+
+import java.sql.Connection;
+import java.util.Collection;
+import java.util.Collections;
 
 
 /** Provides AvroValidator. */
 public class AvroValidatorProvider implements ValidatorProvider {
 
   @Override
-  public <T> Collection<Validator> validators(T obj) {
+  public <T> Collection<Validator> validators(T obj, Connection connection) {
     if (obj instanceof SchemaPlus) {
       return Collections.singletonList(new AvroTableValidator((SchemaPlus) obj));
     } else {

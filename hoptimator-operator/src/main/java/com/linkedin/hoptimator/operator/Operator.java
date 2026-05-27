@@ -1,15 +1,5 @@
 package com.linkedin.hoptimator.operator;
 
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.informer.SharedIndexInformer;
@@ -24,6 +14,15 @@ import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 
 /** Single handle to all the clients and configs required by all the controllers. */
@@ -177,10 +176,24 @@ public class Operator {
   }
 
   public boolean isReady(String yaml) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(yaml);
+    } catch (Exception e) {
+      log.warn("Failed to parse YAML in isReady check: {}", e.getMessage());
+      return false;
+    }
+    if (obj.getMetadata() == null) {
+      log.warn("Failed to check isReady: parsed YAML has null metadata.");
+      return false;
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
+    if (namespace == null) {
+      log.warn("Failed to check isReady {}/{}: namespace is null.", kind, name);
+      return false;
+    }
     try {
       KubernetesApiResponse<DynamicKubernetesObject> existing = apiFor(obj).get(namespace, name);
       existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));
@@ -239,10 +252,24 @@ public class Operator {
   }
 
   public boolean isFailed(String yaml) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    DynamicKubernetesObject obj;
+    try {
+      obj = Dynamics.newFromYaml(yaml);
+    } catch (Exception e) {
+      log.warn("Failed to parse YAML in isFailed check: {}", e.getMessage());
+      return false;
+    }
+    if (obj.getMetadata() == null) {
+      log.warn("Failed to check isFailed: parsed YAML has null metadata.");
+      return false;
+    }
     String namespace = obj.getMetadata().getNamespace();
     String name = obj.getMetadata().getName();
     String kind = obj.getKind();
+    if (namespace == null) {
+      log.warn("Failed to check isFailed {}/{}: namespace is null.", kind, name);
+      return false;
+    }
     try {
       KubernetesApiResponse<DynamicKubernetesObject> existing = apiFor(obj).get(namespace, name);
       existing.onFailure((code, status) -> log.warn("Failed to fetch {}/{}: {}.", kind, name, status.getMessage()));

@@ -1,28 +1,9 @@
 package com.linkedin.hoptimator.operator.trigger;
 
-import java.sql.SQLException;
-import java.time.Duration;
-import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import io.kubernetes.client.extended.controller.Controller;
-import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
-import io.kubernetes.client.extended.controller.reconciler.Reconciler;
-import io.kubernetes.client.extended.controller.reconciler.Request;
-import io.kubernetes.client.extended.controller.reconciler.Result;
-import io.kubernetes.client.openapi.models.V1Job;
-import io.kubernetes.client.openapi.models.V1JobCondition;
-import io.kubernetes.client.openapi.models.V1JobList;
-import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-
+import com.cronutils.model.definition.CronDefinition;
+import com.cronutils.model.definition.CronDefinitionBuilder;
+import com.cronutils.model.time.ExecutionTime;
+import com.cronutils.parser.CronParser;
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
@@ -31,34 +12,52 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 import com.linkedin.hoptimator.util.Template;
+import io.kubernetes.client.extended.controller.Controller;
+import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
+import io.kubernetes.client.extended.controller.reconciler.Reconciler;
+import io.kubernetes.client.extended.controller.reconciler.Request;
+import io.kubernetes.client.extended.controller.reconciler.Result;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobCondition;
+import io.kubernetes.client.openapi.models.V1JobList;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import com.cronutils.parser.CronParser;
-import com.cronutils.model.definition.CronDefinition;
-import com.cronutils.model.definition.CronDefinitionBuilder;
-import com.cronutils.model.time.ExecutionTime;
-
+import java.sql.SQLException;
+import java.time.Duration;
+import java.time.OffsetDateTime;
+import java.time.ZonedDateTime;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Properties;
 
 /**
  * Launches Jobs when TableTriggers are fired.
- *
+ * <p>
  * TableTriggers maintain a timestamp and a watermark. The timestamp captures
  * the time at which a matching event occured, which could be far in the past.
  * The watermark records the last timestamp for which a corresponding job has
  * successfully completed, and is thus always older than or equal to the
  * timestamp.
- *
+ * <p>
  * At steady-state, a trigger can be in one of two states:
- *
+ * <p>
  * 1. Timestamp and watermark are the same: trigger has been fired and the
  *    corresponding job has successfully completed.
  * 2. Watermark is older than the timestamp: trigger has been fired, but a new
  *    corresponding job has not yet successfully completed.
- *
+ * <p>
  * At a high level, the reconciler checks whether the watermark is old and
  * creates a Job accordingly. If a Job already exists, we just wait for it
  * to complete. Once completed, we update the watermark to match the specific
  * timestamp that caused the Job to run.
- *
+ * <p>
  * Only one Job runs at a time, which means a trigger may be fired many times
  * before a Job successfully completes. Rather than fall behind, we pass the
  * current watermark and timestamp to each Job (e.g. via environment variables).
@@ -126,6 +125,22 @@ public final class TableTriggerReconciler implements Reconciler {
         return new Result(false);
       }
 
+      if (Boolean.TRUE.equals(object.getSpec().getPaused())) {
+        log.info("Trigger {} is paused. Skipping job creation.", name);
+        V1alpha1TableTriggerStatus status = object.getStatus();
+        if (status != null) {
+          DynamicKubernetesObject expectedJob = yamlApi.objFromYaml(jobYaml(object));
+          V1Job job = jobApi.getIfExists(expectedJob.getMetadata().getNamespace(),
+              expectedJob.getMetadata().getName());
+          if (job != null) {
+            log.info("Trigger {} is paused but existing job {} is still running. Monitoring it.",
+                name, job.getMetadata().getName());
+            return handleExistingJob(job, status, object);
+          }
+        }
+        return new Result(false);
+      }
+
       V1alpha1TableTriggerStatus status = object.getStatus();
       if (status == null && object.getSpec().getSchedule() == null) {
         log.info("Trigger {} has not been fired yet. Skipping.", name);
@@ -134,7 +149,7 @@ public final class TableTriggerReconciler implements Reconciler {
         status = new V1alpha1TableTriggerStatus();
         object.status(status);
       }
- 
+
       if (status.getTimestamp() != null) {
         log.info("TableTrigger {} was last fired at {}.", name, status.getTimestamp());
       }
@@ -165,36 +180,9 @@ public final class TableTriggerReconciler implements Reconciler {
         log.info("Launching Job for TableTrigger {}. ", name);
         createJob(jobYaml, object);
         return new Result(true, pendingRetryDuration());
-      } else if (job != null && job.getStatus() != null && job.getStatus().getConditions() != null) {
-        List<V1JobCondition> conditions = job.getStatus().getConditions();
-        boolean failed = conditions.stream()
-            .anyMatch(x -> "Failed".equals(x.getType()) && "True".equals(x.getStatus()));
-        boolean complete = conditions.stream()
-            .anyMatch(x -> "Complete".equals(x.getType()) && "True".equals(x.getStatus()));
-        if (failed) {
-          log.warn("Job {} has FAILED.", name);
-          jobApi.delete(job);
-          return new Result(true);  // retry
-        } else if (complete) {
-          log.info("Job {} completed successfully.", name);
-          // We get the watermark from the job itself. We annotate the job when launching it.
-          if (job.getMetadata().getAnnotations() == null || job.getMetadata().getAnnotations()
-              .get(TRIGGER_TIMESTAMP_KEY) == null) {
-            log.error("Job {} has no timestamp annotation. Unable to advance the watermark.", name);
-          } else {
-            String watermark = job.getMetadata().getAnnotations().get(TRIGGER_TIMESTAMP_KEY);
-            status.setWatermark(OffsetDateTime.parse(watermark));
-            tableTriggerApi.updateStatus(object, status);
-            log.info("Trigger {} watermark advanced to {}.", name, watermark);
-          }
-          jobApi.delete(job);
-          return new Result(true);  // retry
-        } else {
-          maybeUpdateJobAnnotation(job, status.getTimestamp());
-          log.info("Job for TableTrigger {} still running from a previous trigger event.", name);
-          return new Result(true, pendingRetryDuration());  // retry later
-        }
-      } else if (job == null && scheduled != null) {
+      } else if (job != null) {
+        return handleExistingJob(job, status, object);
+      } else if (scheduled != null) {
         log.info("TableTrigger {} sleeping until next scheduled execution.", name);
         return new Result(true, scheduled.timeToNextExecution(now).get());
       } else {
@@ -208,14 +196,20 @@ public final class TableTriggerReconciler implements Reconciler {
   }
 
   private String jobYaml(V1alpha1TableTrigger trigger) throws SQLException {
-    Template.Environment env = new Template.SimpleEnvironment()
+    Template.SimpleEnvironment env = new Template.SimpleEnvironment()
         .with("trigger", trigger.getMetadata().getName())
         .with("schema", trigger.getSpec().getSchema())
         .with("table", trigger.getSpec().getTable())
         .with("timestamp", Optional.ofNullable(trigger.getStatus().getTimestamp())
-            .map(x -> x.toString()).orElse(null))
+            .map(OffsetDateTime::toString).orElse(null))
         .with("watermark", Optional.ofNullable(trigger.getStatus().getWatermark())
-            .map(x -> x.toString()).orElse(null));
+            .map(OffsetDateTime::toString).orElse(null));
+    Map<String, String> jobProperties = trigger.getSpec().getJobProperties();
+    if (jobProperties != null) {
+      Properties props = new Properties();
+      props.putAll(jobProperties);
+      env = env.with(props);
+    }
     return new Template.SimpleTemplate(trigger.getSpec().getYaml()).render(env);
   }
 
@@ -225,7 +219,17 @@ public final class TableTriggerReconciler implements Reconciler {
     annotations.put(TRIGGER_TIMESTAMP_KEY, trigger.getStatus().getTimestamp().toString());
     Map<String, String> labels = new HashMap<>();
     labels.put(TRIGGER_KEY, trigger.getMetadata().getName());
-    yamlApi.createWithMetadata(yaml, annotations, labels, trigger.getMetadata().getOwnerReferences());
+    List<V1OwnerReference> ownerReference;
+    if (trigger.getMetadata().getOwnerReferences() != null && !trigger.getMetadata().getOwnerReferences().isEmpty()) {
+      ownerReference = trigger.getMetadata().getOwnerReferences();
+    } else {
+      ownerReference = Collections.singletonList(new V1OwnerReference()
+          .apiVersion(trigger.getApiVersion())
+          .kind(trigger.getKind())
+          .name(trigger.getMetadata().getName())
+          .uid(trigger.getMetadata().getUid()));
+    }
+    yamlApi.createWithMetadata(yaml, annotations, labels, ownerReference);
   }
 
   private ExecutionTime scheduledExecution(V1alpha1TableTrigger object) {
@@ -267,6 +271,48 @@ public final class TableTriggerReconciler implements Reconciler {
         jobApi.update(job);
         log.info("Updated {} in Job {} annotation to {}", TRIGGER_TIMESTAMP_KEY, job.getMetadata().getName(), timestamp);
       }
+    }
+  }
+
+  private Result handleExistingJob(V1Job job, V1alpha1TableTriggerStatus status,
+      V1alpha1TableTrigger trigger) throws SQLException {
+    String name = trigger.getMetadata().getName();
+
+    if (job.getStatus() != null && job.getStatus().getConditions() != null) {
+      List<V1JobCondition> conditions = job.getStatus().getConditions();
+      boolean failed = conditions.stream()
+          .anyMatch(x -> "Failed".equals(x.getType()) && "True".equals(x.getStatus()));
+      boolean complete = conditions.stream()
+          .anyMatch(x -> "Complete".equals(x.getType()) && "True".equals(x.getStatus()));
+
+      if (failed) {
+        log.warn("Job {} has FAILED.", name);
+        jobApi.delete(job);
+        return new Result(true);  // retry
+      } else if (complete) {
+        log.info("Job {} completed successfully.", name);
+        // We get the watermark from the job itself. We annotate the job when launching it.
+        if (job.getMetadata().getAnnotations() == null
+            || job.getMetadata().getAnnotations().get(TRIGGER_TIMESTAMP_KEY) == null) {
+          log.error("Job {} has no timestamp annotation. Unable to advance the watermark.", name);
+        } else {
+          String watermark = job.getMetadata().getAnnotations().get(TRIGGER_TIMESTAMP_KEY);
+          status.setWatermark(OffsetDateTime.parse(watermark));
+          tableTriggerApi.updateStatus(trigger, status);
+          log.info("Trigger {} watermark advanced to {}.", name, watermark);
+        }
+        jobApi.delete(job);
+        return new Result(true);  // retry
+      } else {
+        if (status.getTimestamp() != null) {
+          maybeUpdateJobAnnotation(job, status.getTimestamp());
+        }
+        log.info("Job for TableTrigger {} still running.", name);
+        return new Result(true, pendingRetryDuration());  // retry later
+      }
+    } else {
+      log.info("Job for TableTrigger {} has no status yet.", name);
+      return new Result(true, pendingRetryDuration());  // retry later
     }
   }
 }

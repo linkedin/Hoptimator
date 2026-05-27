@@ -1,0 +1,125 @@
+!set outputformat mysql
+!use k8s
+
+# Verify create table plan — !specify previews the KafkaTopic YAML without executing
+create or replace table "KAFKA"."create-table-test" ("KEY" VARCHAR, "VALUE" BINARY) WITH ("kafka.partitions" '5');
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: kafka-database-create-table-test
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: create-table-test
+  partitions: 5
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+!specify create-table-test
+
+# Create table
+create or replace table "KAFKA"."create-table-test" ("KEY" VARCHAR, "VALUE" BINARY) WITH ("kafka.partitions" '10');
+(0 rows modified)
+
+!update
+
+# Verify schema - check columns
++------------+-----------+------------+------------+
+| columnName | typeName  | columnSize | isNullable |
++------------+-----------+------------+------------+
+| KEY        | VARCHAR   | null       | YES        |
+| VALUE      | BINARY(1) | 1          | YES        |
++------------+-----------+------------+------------+
+(2 rows)
+
+!describe "KAFKA"."create-table-test"
+
+insert into KAFKA."create-table-test" select * from KAFKA."existing-topic-2";
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: kafka-database-create-table-test
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `KAFKA` WITH ()
+    - CREATE TABLE IF NOT EXISTS `KAFKA`.`existing-topic-2` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'key.fields'='KEY', 'key.format'='raw', 'properties.bootstrap.servers'='one-kafka-bootstrap.kafka.svc.cluster.local:9094', 'scan.startup.mode'='earliest-offset', 'topic'='existing-topic-2', 'value.fields-include'='EXCEPT_KEY', 'value.format'='json')
+    - CREATE DATABASE IF NOT EXISTS `KAFKA` WITH ()
+    - CREATE TABLE IF NOT EXISTS `KAFKA`.`create-table-test` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'key.fields'='KEY', 'key.format'='raw', 'properties.bootstrap.servers'='one-kafka-bootstrap.kafka.svc.cluster.local:9094', 'scan.startup.mode'='earliest-offset', 'topic'='create-table-test', 'value.fields-include'='EXCEPT_KEY', 'value.format'='json')
+    - INSERT INTO `KAFKA`.`create-table-test` (`KEY`, `VALUE`) SELECT `KEY`, `VALUE` FROM `KAFKA`.`existing-topic-2`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: kafka-database-create-table-test
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: create-table-test
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+---
+apiVersion: kafka.strimzi.io/v1
+kind: KafkaTopic
+metadata:
+  name: kafka-database-existing-topic-2
+  labels:
+    strimzi.io/cluster: one
+spec:
+  topicName: existing-topic-2
+  partitions: 1
+  replicas: 1
+  config:
+    retention.ms: 7200000
+    segment.bytes: 1073741824
+!specify create-table-test
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependency guard: a Kafka topic referenced by an MV's pipeline — as either a
+# source or a sink — cannot be dropped until the dependent MV is removed.
+# Exercises the label-based check that protects Kafka topic drops that would
+# orphan an active downstream pipeline.
+#
+# A single MV exercises both edges. The MV is a partial view
+# (KAFKA."create-table-test$guard") whose implicit sink falls back to
+# create-table-test, and reads from existing-topic-2.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Pipeline reads from existing-topic-2 (source) and writes to create-table-test
+# (partial-view sink). Its Pipeline CRD gets a depends-on-* label per edge.
+create or replace materialized view KAFKA."create-table-test$guard" as select * from KAFKA."existing-topic-2";
+(0 rows modified)
+
+!update
+
+# Source-side guard: existing-topic-2 is a source of the MV's pipeline.
+drop table KAFKA."existing-topic-2";
+active dependent
+!error
+
+# Sink-side guard: create-table-test is the partial-view sink of the MV's pipeline.
+drop table KAFKA."create-table-test";
+active dependent
+!error
+
+# Drop the dependent MV first; its pipeline (and both labels) go away.
+drop materialized view KAFKA."create-table-test$guard";
+(0 rows modified)
+
+!update
+
+# Now sink drop should succeed
+drop table KAFKA."create-table-test";
+(0 rows modified)
+
+!update

@@ -6,17 +6,17 @@ create or replace view kafka."new-topic$kafka-test" as select * from kafka."exis
 
 !update
 
-select count(*) as TABLE_EXISTS from kafka."new-topic$kafka-test" where 1=0;
-+--------------+
-| TABLE_EXISTS |
-+--------------+
-|            0 |
-+--------------+
-(1 row)
++------------+-----------+------------+------------+
+| columnName | typeName  | columnSize | isNullable |
++------------+-----------+------------+------------+
+| KEY        | VARCHAR   | null       | YES        |
+| VALUE      | BINARY(1) | 1          | YES        |
++------------+-----------+------------+------------+
+(2 rows)
 
-!ok
+!describe "KAFKA"."new-topic$kafka-test"
 
-drop materialized view kafka."new-topic$kafka-test";
+drop view kafka."new-topic$kafka-test";
 (0 rows modified)
 
 !update
@@ -35,13 +35,13 @@ spec:
     - CREATE TABLE IF NOT EXISTS `KAFKA`.`existing-topic-2` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'k1'='v1', 'key.fields'='KEY', 'key.format'='raw', 'properties.bootstrap.servers'='one-kafka-bootstrap.kafka.svc.cluster.local:9094', 'scan.startup.mode'='earliest-offset', 'topic'='existing-topic-2', 'value.fields-include'='EXCEPT_KEY', 'value.format'='json')
     - CREATE DATABASE IF NOT EXISTS `KAFKA` WITH ()
     - CREATE TABLE IF NOT EXISTS `KAFKA`.`existing-topic-1` (`KEY` VARCHAR, `VALUE` BINARY) WITH ('connector'='kafka', 'k2'='v2', 'key.fields'='KEY', 'key.format'='raw', 'properties.bootstrap.servers'='one-kafka-bootstrap.kafka.svc.cluster.local:9094', 'scan.startup.mode'='earliest-offset', 'topic'='existing-topic-1', 'value.fields-include'='EXCEPT_KEY', 'value.format'='json')
-    - INSERT INTO `KAFKA`.`existing-topic-1` (`KEY`, `VALUE`) SELECT * FROM `KAFKA`.`existing-topic-2`
+    - INSERT INTO `KAFKA`.`existing-topic-1` (`KEY`, `VALUE`) SELECT `KEY`, `VALUE` FROM `KAFKA`.`existing-topic-2`
     jarURI: file:///opt/hoptimator-flink-runner.jar
     parallelism: 2
     upgradeMode: stateless
     state: running
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: kafka-database-existing-topic-1
@@ -55,7 +55,7 @@ spec:
     retention.ms: 7200000
     segment.bytes: 1073741824
 ---
-apiVersion: kafka.strimzi.io/v1beta2
+apiVersion: kafka.strimzi.io/v1
 kind: KafkaTopic
 metadata:
   name: kafka-database-existing-topic-2

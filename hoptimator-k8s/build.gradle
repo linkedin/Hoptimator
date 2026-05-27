@@ -6,8 +6,10 @@ plugins {
 
 dependencies {
   implementation project(':hoptimator-api')
+  implementation project(':hoptimator-avro')
   implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
+  implementation libs.avro
   implementation libs.calcite.server
   implementation libs.kubernetes.client
 
@@ -18,6 +20,8 @@ dependencies {
   // These are included in case the respective Databases are installed
   testRuntimeOnly project(':hoptimator-demodb')
   testRuntimeOnly project(':hoptimator-mysql')
+
+  testCompileOnly libs.findbugs.annotations
 
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
   testRuntimeOnly libs.slf4j.simple

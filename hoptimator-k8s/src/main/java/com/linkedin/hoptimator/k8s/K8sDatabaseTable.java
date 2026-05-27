@@ -1,30 +1,27 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
+import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
-import java.sql.Connection;
-import java.util.Locale;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Properties;
-import java.util.StringJoiner;
-import javax.sql.DataSource;
-
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 
-import io.kubernetes.client.openapi.models.V1ObjectMeta;
-
-import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
-import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
+import javax.sql.DataSource;
+import java.util.Objects;
+import java.sql.Connection;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.Properties;
+import java.util.StringJoiner;
 
 
 public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1DatabaseList, K8sDatabaseTable.Row> {
@@ -62,14 +59,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
         Schema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
                 ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
             dialect(row), engines.forDatabase(row.NAME), connection);
-
-        // Need to explicitly register the sub schemas within the catalog schema otherwise there are unintended side
-        // effects related to Calcite mutable vs non-mutable schema handling as it relates to explicit and implicit
-        // schema resolution
-        SchemaPlus schema = parentSchema.add(row.CATALOG.toUpperCase(Locale.ROOT), catalogSchema);
-        for (String subSchemaName : catalogSchema.subSchemas().getNames(LikePattern.any())) {
-            schema.add(subSchemaName, Objects.requireNonNull(catalogSchema.subSchemas().get(subSchemaName)));
-        }
+        parentSchema.add(row.CATALOG.toUpperCase(Locale.ROOT), catalogSchema);
       } else {
         Schema schema = HoptimatorJdbcSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
                 ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
@@ -100,7 +90,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
             .dialect(V1alpha1DatabaseSpec.DialectEnum.fromValue(row.DIALECT)));
   }
 
-  private static String schemaName(Row row) {
+  static String schemaName(Row row) {
     if (row.SCHEMA != null && !row.SCHEMA.isEmpty()) {
       return row.SCHEMA;
     } else {
@@ -108,7 +98,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     }
   }
 
-  private static DataSource dataSource(Row row, Properties connectionProperties) {
+  static DataSource dataSource(Row row, Properties connectionProperties) {
     String user = "nouser";
     String pass = "nopass";
     StringJoiner joiner = new StringJoiner(";");
@@ -122,6 +112,11 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
         joiner.add(key + "=" + value);
       }
     }
+    // Inject the Database CRD name so drivers can identify which CRD they are backing.
+    // This is the value returned by source.database() in deployer/provider contexts.
+    if (row.NAME != null && !row.NAME.isEmpty()) {
+      joiner.add("database=" + row.NAME);
+    }
     String joinedUrl = row.URL;
     // Handles case where there are no properties already in the URL
     if (row.URL.endsWith("//")) {
@@ -132,7 +127,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     return JdbcSchema.dataSource(joinedUrl, row.DRIVER, user, pass);
   }
 
-  private static SqlDialect dialect(Row row) {
+  static SqlDialect dialect(Row row) {
     if (row.DIALECT == null) {
       return null;
     }

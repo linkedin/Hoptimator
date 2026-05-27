@@ -1,9 +1,6 @@
 package com.linkedin.hoptimator.avro;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-
+import com.linkedin.hoptimator.Validator;
 import org.apache.avro.Schema;
 import org.apache.avro.file.DataFileWriter;
 import org.apache.avro.generic.GenericDatumWriter;
@@ -15,9 +12,12 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-
-import com.linkedin.hoptimator.Validator;
 import org.apache.calcite.schema.lookup.LikePattern;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.sql.Connection;
 
 
 /** Validates that tables follow Avro schema evolution rules.  */
@@ -30,7 +30,7 @@ class AvroTableValidator implements Validator {
   }
 
   @Override
-  public void validate(Issues issues) {
+  public void validate(Issues issues, Connection connection) {
     try {
       CalciteSchema originalSchema = schema.unwrap(CalciteSchema.class);
       if (originalSchema == null || originalSchema.schema == null) {

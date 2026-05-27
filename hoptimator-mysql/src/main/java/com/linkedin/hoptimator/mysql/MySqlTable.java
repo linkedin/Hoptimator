@@ -1,18 +1,19 @@
 package com.linkedin.hoptimator.mysql;
 
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Properties;
-
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.Properties;
 
 
 /** A table from a MySQL database. */
@@ -68,38 +69,38 @@ public class MySqlTable extends AbstractTable {
   private SqlTypeName jdbcTypeToSqlType(int jdbcType) {
     // Map JDBC types to Calcite SQL types
     switch (jdbcType) {
-      case java.sql.Types.CHAR:
-      case java.sql.Types.VARCHAR:
-      case java.sql.Types.LONGVARCHAR:
+      case Types.CHAR:
+      case Types.VARCHAR:
+      case Types.LONGVARCHAR:
         return SqlTypeName.VARCHAR;
-      case java.sql.Types.NUMERIC:
-      case java.sql.Types.DECIMAL:
+      case Types.NUMERIC:
+      case Types.DECIMAL:
         return SqlTypeName.DECIMAL;
-      case java.sql.Types.BIT:
-      case java.sql.Types.BOOLEAN:
+      case Types.BIT:
+      case Types.BOOLEAN:
         return SqlTypeName.BOOLEAN;
-      case java.sql.Types.TINYINT:
+      case Types.TINYINT:
         return SqlTypeName.TINYINT;
-      case java.sql.Types.SMALLINT:
+      case Types.SMALLINT:
         return SqlTypeName.SMALLINT;
-      case java.sql.Types.INTEGER:
+      case Types.INTEGER:
         return SqlTypeName.INTEGER;
-      case java.sql.Types.BIGINT:
+      case Types.BIGINT:
         return SqlTypeName.BIGINT;
-      case java.sql.Types.REAL:
+      case Types.REAL:
         return SqlTypeName.REAL;
-      case java.sql.Types.FLOAT:
-      case java.sql.Types.DOUBLE:
+      case Types.FLOAT:
+      case Types.DOUBLE:
         return SqlTypeName.DOUBLE;
-      case java.sql.Types.BINARY:
-      case java.sql.Types.VARBINARY:
-      case java.sql.Types.LONGVARBINARY:
+      case Types.BINARY:
+      case Types.VARBINARY:
+      case Types.LONGVARBINARY:
         return SqlTypeName.VARBINARY;
-      case java.sql.Types.DATE:
+      case Types.DATE:
         return SqlTypeName.DATE;
-      case java.sql.Types.TIME:
+      case Types.TIME:
         return SqlTypeName.TIME;
-      case java.sql.Types.TIMESTAMP:
+      case Types.TIMESTAMP:
         return SqlTypeName.TIMESTAMP;
       default:
         log.warn("Unknown JDBC type {} for table {}.{}, defaulting to VARCHAR",

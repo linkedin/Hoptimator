@@ -1,11 +1,10 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.util.Objects;
-
+import com.linkedin.hoptimator.util.RemoteTable;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1NamespaceList;
 
-import com.linkedin.hoptimator.util.RemoteTable;
+import java.util.Objects;
 
 
 public class NamespaceTable extends RemoteTable<V1Namespace, NamespaceTable.Row> {

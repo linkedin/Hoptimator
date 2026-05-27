@@ -46,7 +46,7 @@ public class Source implements Deployable {
     return path;
   }
 
-  protected String pathString() {
+  public String pathString() {
     return String.join(".", path);
   }
 

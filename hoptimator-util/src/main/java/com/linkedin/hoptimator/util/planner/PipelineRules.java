@@ -1,13 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
-import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
+import com.google.common.collect.ImmutableSet;
+import com.linkedin.hoptimator.util.DataTypeUtils;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptCluster;
@@ -44,9 +38,13 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.util.ImmutableBitSet;
 
-import com.google.common.collect.ImmutableSet;
-
-import com.linkedin.hoptimator.util.DataTypeUtils;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 
 public final class PipelineRules {

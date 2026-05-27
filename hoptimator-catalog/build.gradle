@@ -6,9 +6,11 @@ plugins {
 
 dependencies {
   implementation project(':hoptimator-avro')
+  implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
   implementation libs.avro
   implementation libs.calcite.core
+  compileOnly libs.findbugs
 }
 
 publishing {

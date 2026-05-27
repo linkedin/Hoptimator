@@ -31,7 +31,7 @@ import java.io.IOException;
  * A set of objects that work together to deliver data.
  */
 @ApiModel(description = "A set of objects that work together to deliver data.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2025-11-20T18:46:28.037Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-19T19:18:59.968Z[Etc/UTC]")
 public class V1alpha1Pipeline implements io.kubernetes.client.common.KubernetesObject {
   public static final String SERIALIZED_NAME_API_VERSION = "apiVersion";
   @SerializedName(SERIALIZED_NAME_API_VERSION)

@@ -3,17 +3,19 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.ValidatorProvider;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
+import org.apache.calcite.sql.ddl.SqlCreateView;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.opentest4j.AssertionFailedError;
+
 import java.io.IOException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.Connection;
 import java.util.Collection;
 import java.util.List;
-import org.apache.calcite.sql.ddl.SqlCreateView;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-import org.opentest4j.AssertionFailedError;
 
 
 public class TestSqlScripts extends QuidemTestBase {
@@ -69,12 +71,13 @@ public class TestSqlScripts extends QuidemTestBase {
 
     URLClassLoader cl = new URLClassLoader(new URL[]{tempDir.toUri().toURL()}, getClass().getClassLoader());
     Thread.currentThread().setContextClassLoader(cl);
+    // Ensure the class is referenced so the compiler does not report it as unused
+    assert CreateViewValidatorProvider.class != null;
   }
 
-  @SuppressWarnings("unused")
   public static class CreateViewValidatorProvider implements ValidatorProvider {
     @Override
-    public <T> Collection<Validator> validators(T obj) {
+    public <T> Collection<Validator> validators(T obj, Connection connection) {
       if (obj instanceof SqlCreateView || obj instanceof SqlCreateMaterializedView) {
         return List.of(new SqlCreateViewValidator());
       }
@@ -86,7 +89,7 @@ public class TestSqlScripts extends QuidemTestBase {
     static final String ERROR_MESSAGE = "Create view is not allowed in this test.";
 
     @Override
-    public void validate(Issues issues) {
+    public void validate(Issues issues, Connection connection) {
       issues.error(ERROR_MESSAGE);
     }
   }

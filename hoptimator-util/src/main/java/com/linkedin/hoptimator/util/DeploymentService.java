@@ -1,20 +1,11 @@
 package com.linkedin.hoptimator.util;
 
-import java.io.UnsupportedEncodingException;
-import java.net.URLDecoder;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.ServiceLoader;
-import java.util.stream.Collectors;
-
+import com.google.common.base.Splitter;
+import com.linkedin.hoptimator.Deployable;
+import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeployerProvider;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
+import com.linkedin.hoptimator.util.planner.PipelineRules;
 import org.apache.calcite.plan.RelOptMaterialization;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelTraitSet;
@@ -23,13 +14,22 @@ import org.apache.calcite.rel.metadata.DefaultRelMetadataProvider;
 import org.apache.calcite.tools.Program;
 import org.apache.calcite.tools.Programs;
 
-import com.google.common.base.Splitter;
-
-import com.linkedin.hoptimator.Deployable;
-import com.linkedin.hoptimator.Deployer;
-import com.linkedin.hoptimator.DeployerProvider;
-import com.linkedin.hoptimator.util.planner.PipelineRel;
-import com.linkedin.hoptimator.util.planner.PipelineRules;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.ServiceLoader;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 
 public final class DeploymentService {
@@ -86,7 +86,29 @@ public final class DeploymentService {
   }
 
   public static <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
-    return providers().stream()
+    return deployers(obj, connection, providers());
+  }
+
+  static <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection,
+      Collection<DeployerProvider> providers) {
+    // Filter out base classes when subclasses exist
+    Set<DeployerProvider> filteredProviders = new HashSet<>();
+    for (DeployerProvider provider : providers) {
+      boolean hasSubclass = false;
+      for (DeployerProvider other : providers) {
+        if (other != provider && provider.getClass().isAssignableFrom(other.getClass())) {
+          // 'other' is a subclass of 'provider', so skip 'provider'
+          hasSubclass = true;
+          break;
+        }
+      }
+      if (!hasSubclass) {
+        filteredProviders.add(provider);
+      }
+    }
+
+    // Now collect deployers from filtered providers
+    return filteredProviders.stream()
         .flatMap(x -> x.deployers(obj, connection).stream())
         .collect(Collectors.toList());
   }
@@ -152,8 +174,8 @@ public final class DeploymentService {
    */
   private static String urlDecode(String value) {
     try {
-      return URLDecoder.decode(value, "UTF-8");
-    } catch (UnsupportedEncodingException | IllegalArgumentException e) {
+      return URLDecoder.decode(value, StandardCharsets.UTF_8);
+    } catch (IllegalArgumentException e) {
       // If decoding fails, return the original value (backward compatibility)
       return value;
     }

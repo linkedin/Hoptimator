@@ -1,14 +1,5 @@
 package com.linkedin.hoptimator.k8s;
 
-import io.kubernetes.client.openapi.models.V1ConfigMap;
-import io.kubernetes.client.openapi.models.V1ConfigMapList;
-import io.kubernetes.client.openapi.models.V1Job;
-import io.kubernetes.client.openapi.models.V1JobList;
-import io.kubernetes.client.openapi.models.V1Namespace;
-import io.kubernetes.client.openapi.models.V1NamespaceList;
-import io.kubernetes.client.openapi.models.V1Secret;
-import io.kubernetes.client.openapi.models.V1SecretList;
-
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Engine;
@@ -21,8 +12,18 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
+import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
+import io.kubernetes.client.openapi.models.V1ConfigMap;
+import io.kubernetes.client.openapi.models.V1ConfigMapList;
+import io.kubernetes.client.openapi.models.V1Job;
+import io.kubernetes.client.openapi.models.V1JobList;
+import io.kubernetes.client.openapi.models.V1Namespace;
+import io.kubernetes.client.openapi.models.V1NamespaceList;
+import io.kubernetes.client.openapi.models.V1Secret;
+import io.kubernetes.client.openapi.models.V1SecretList;
 
 
 public final class K8sApiEndpoints {
@@ -61,6 +62,9 @@ public final class K8sApiEndpoints {
   public static final K8sApiEndpoint<V1alpha1TableTrigger, V1alpha1TableTriggerList> TABLE_TRIGGERS =
       new K8sApiEndpoint<>("TableTrigger", "hoptimator.linkedin.com", "v1alpha1", "tabletriggers", false,
           V1alpha1TableTrigger.class, V1alpha1TableTriggerList.class);
+  public static final K8sApiEndpoint<V1alpha1LogicalTable, V1alpha1LogicalTableList> LOGICAL_TABLES =
+      new K8sApiEndpoint<>("LogicalTable", "hoptimator.linkedin.com", "v1alpha1", "logicaltables", false,
+          V1alpha1LogicalTable.class, V1alpha1LogicalTableList.class);
 
   private K8sApiEndpoints() {
   }

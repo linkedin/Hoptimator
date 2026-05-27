@@ -4,11 +4,16 @@ plugins {
 }
 
 dependencies {
+  implementation project(':hoptimator-api')
+  implementation project(':hoptimator-avro')
+  implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
   implementation libs.calcite.core
   implementation libs.kafka.clients
+  compileOnly libs.findbugs
 
   testImplementation libs.assertj
+  testImplementation libs.commons.dbcp2
 
   testRuntimeOnly project(':hoptimator-k8s')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))

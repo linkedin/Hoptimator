@@ -5,9 +5,12 @@ plugins {
 
 dependencies {
   implementation project(':hoptimator-api')
+  implementation project(':hoptimator-avro')
+  implementation libs.avro
   implementation libs.calcite.core
   implementation libs.yaml
   compileOnly libs.findbugs
+  testCompileOnly libs.findbugs.annotations
 
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
 }

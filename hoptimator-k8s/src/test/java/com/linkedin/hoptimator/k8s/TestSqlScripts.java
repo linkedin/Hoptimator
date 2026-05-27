@@ -26,11 +26,46 @@ public class TestSqlScripts extends QuidemTestBase {
 
   @Test
   public void k8sMetadataTables() throws Exception {
-    run("k8s-metadata.id", "hints=offline.table.name=ads_offline");
+    run("k8s-metadata.id");
   }
 
   @Test
   public void k8sConditionalJobTemplate() throws Exception {
     run("k8s-metadata-beam.id", "hints=flink.app.type=BEAM");
+  }
+
+  @Test
+  public void k8sTriggerPauseResume() throws Exception {
+    run("k8s-trigger-pause.id");
+  }
+
+  @Test
+  public void k8sTriggerOptions() throws Exception {
+    run("k8s-trigger-options.id");
+  }
+
+  @Test
+  public void k8sTriggerValidation() throws Exception {
+    run("k8s-trigger-validation.id");
+  }
+
+  @Test
+  public void k8sTriggerFire() throws Exception {
+    run("k8s-trigger-fire.id");
+  }
+
+  @Test
+  public void k8sDdlCreateDatabase() throws Exception {
+    run("k8s-ddl-create-database.id");
+  }
+
+  @Test
+  public void k8sGraphScript() throws Exception {
+    run("k8s-graph.id");
+  }
+
+  @Test
+  public void k8sTriggerGraphScript() throws Exception {
+    run("k8s-trigger-graph.id");
   }
 }

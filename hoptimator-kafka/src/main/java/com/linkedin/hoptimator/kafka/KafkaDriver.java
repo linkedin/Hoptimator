@@ -1,5 +1,11 @@
 package com.linkedin.hoptimator.kafka;
 
+import com.linkedin.hoptimator.jdbc.CalciteDriver;
+import org.apache.calcite.avatica.ConnectStringParser;
+import org.apache.calcite.avatica.DriverVersion;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.schema.SchemaPlus;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -7,15 +13,11 @@ import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientException;
 import java.util.Properties;
 
-import org.apache.calcite.avatica.ConnectStringParser;
-import org.apache.calcite.avatica.DriverVersion;
-import org.apache.calcite.jdbc.CalciteConnection;
-import org.apache.calcite.jdbc.Driver;
-import org.apache.calcite.schema.SchemaPlus;
-
 
 /** JDBC driver for Kafka topics. */
-public class KafkaDriver extends Driver {
+public class KafkaDriver extends CalciteDriver {
+
+  public static final String CONNECTION_PREFIX = "jdbc:kafka://";
 
   static {
     new KafkaDriver().register();
@@ -23,7 +25,7 @@ public class KafkaDriver extends Driver {
 
   @Override
   protected String getConnectStringPrefix() {
-    return "jdbc:kafka://";
+    return CONNECTION_PREFIX;
   }
 
   @Override
@@ -47,8 +49,7 @@ public class KafkaDriver extends Driver {
       connection.setAutoCommit(true); // to prevent rollback()
       CalciteConnection calciteConnection = (CalciteConnection) connection;
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      ClusterSchema schema = new ClusterSchema(properties);
-      schema.populate();
+      ClusterSchema schema = createClusterSchema(properties);
       rootSchema.add("KAFKA", schema);
       return connection;
     } catch (IOException e) {
@@ -56,5 +57,9 @@ public class KafkaDriver extends Driver {
     } catch (Exception e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
+  }
+
+  protected ClusterSchema createClusterSchema(Properties properties) {
+    return new ClusterSchema(properties);
   }
 }

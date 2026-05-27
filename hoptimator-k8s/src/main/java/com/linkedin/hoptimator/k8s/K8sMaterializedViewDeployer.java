@@ -1,16 +1,17 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.List;
-
-import io.kubernetes.client.openapi.models.V1OwnerReference;
-
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.util.DeploymentService;
+import io.kubernetes.client.openapi.models.V1OwnerReference;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 
 /** Deploys View and Pipeline objects, along with all the pipeline elements. */
@@ -26,8 +27,17 @@ class K8sMaterializedViewDeployer implements Deployer {
   K8sMaterializedViewDeployer(MaterializedView view, K8sContext context) {
     this.view = view;
     this.context = context;
-    this.viewDeployer = new K8sViewDeployer(view, true, context);
+    this.viewDeployer = createViewDeployer(view, context);
     this.deployers = new ArrayList<>();
+  }
+
+  K8sViewDeployer createViewDeployer(MaterializedView view, K8sContext context) {
+    return new K8sViewDeployer(view, true, context);
+  }
+
+  K8sPipelineBundle createPipelineBundle(String name, List<String> pipelineSpecs, String sql,
+      Collection<Source> sources, Sink sink, K8sContext viewContext) {
+    return new K8sPipelineBundle(name, pipelineSpecs, sql, sources, sink, viewContext);
   }
 
   @Override
@@ -37,13 +47,10 @@ class K8sMaterializedViewDeployer implements Deployer {
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.createAndReference();
       K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql(), viewContext);
-      deployers.add(pipelineDeployer);
-      V1OwnerReference pipelineRef = pipelineDeployer.createAndReference();
-      K8sContext pipelineContext = viewContext.withLabel("pipeline", name).withOwner(pipelineRef);
-      K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
-      deployers.add(yamlDeployer);
-      yamlDeployer.update();  // update, cuz some elements may already exist
+      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(),
+          view.pipeline().sources(), view.pipeline().sink(), viewContext);
+      deployers.add(bundle);
+      bundle.create();
     }
   }
 
@@ -54,13 +61,10 @@ class K8sMaterializedViewDeployer implements Deployer {
       List<String> pipelineSpecs = pipelineSpecs();
       V1OwnerReference viewRef = viewDeployer.updateAndReference();
       K8sContext viewContext = context.withOwner(viewRef);
-      K8sPipelineDeployer pipelineDeployer = new K8sPipelineDeployer(name, pipelineSpecs, sql(), viewContext);
-      deployers.add(pipelineDeployer);
-      V1OwnerReference pipelineRef = pipelineDeployer.updateAndReference();
-      K8sContext pipelineContext = viewContext.withLabel("pipeline", name).withOwner(pipelineRef);
-      K8sYamlDeployerImpl yamlDeployer = new K8sYamlDeployerImpl(pipelineContext, pipelineSpecs);
-      deployers.add(yamlDeployer);
-      yamlDeployer.update();
+      K8sPipelineBundle bundle = createPipelineBundle(name, pipelineSpecs, sql(),
+          view.pipeline().sources(), view.pipeline().sink(), viewContext);
+      deployers.add(bundle);
+      bundle.update();
     }
   }
 

@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.Connector;
+import com.linkedin.hoptimator.ConnectorProvider;
+
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -9,9 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
-
-import com.linkedin.hoptimator.Connector;
-import com.linkedin.hoptimator.ConnectorProvider;
 
 
 public final class ConnectionService {
