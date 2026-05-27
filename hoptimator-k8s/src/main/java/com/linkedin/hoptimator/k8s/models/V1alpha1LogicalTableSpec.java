@@ -32,7 +32,7 @@ import java.util.Map;
  * Desired logical table configuration.
  */
 @ApiModel(description = "Desired logical table configuration.")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-04-21T19:10:45.166Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-19T19:18:59.968Z[Etc/UTC]")
 public class V1alpha1LogicalTableSpec {
   public static final String SERIALIZED_NAME_TABLE_NAME = "tableName";
   @SerializedName(SERIALIZED_NAME_TABLE_NAME)

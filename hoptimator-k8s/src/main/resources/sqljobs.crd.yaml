@@ -80,6 +80,10 @@ spec:
                   type: object
                   additionalProperties:
                     type: string
+                lastDeployedAt:
+                  description: Epoch millis of the last deploy request the operator issued for this SqlJob.
+                  type: integer
+                  format: int64
       subresources:
         status: {}
       additionalPrinterColumns:
