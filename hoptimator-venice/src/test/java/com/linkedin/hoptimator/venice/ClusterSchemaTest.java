@@ -1,23 +1,27 @@
 package com.linkedin.hoptimator.venice;
 
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
-import com.linkedin.venice.controllerapi.ControllerClient;
-import com.linkedin.venice.controllerapi.D2ServiceDiscoveryResponse;
-import com.linkedin.venice.controllerapi.MultiStoreResponse;
-import com.linkedin.venice.exceptions.ErrorType;
-import com.linkedin.venice.security.SSLFactory;
+import com.linkedin.venice.client.store.ClientConfig;
+import com.linkedin.venice.client.store.ClientFactory;
+import com.linkedin.venice.client.store.StoreMetadataFetcher;
+import com.linkedin.venice.client.store.transport.TransportClient;
+import com.linkedin.venice.client.store.transport.TransportClientResponse;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.lookup.LikePattern;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.io.IOException;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -25,7 +29,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
@@ -33,13 +43,13 @@ import static org.mockito.Mockito.when;
 class ClusterSchemaTest {
 
   @Mock
-  private ControllerClient mockControllerClient;
-
-  @Mock
   private StoreSchemaFetcher mockSchemaFetcher;
 
   @Mock
   private VeniceStore mockVeniceStore;
+
+  @Mock
+  private MockedStatic<ClientFactory> clientFactory;
 
   private Properties properties;
 
@@ -47,14 +57,17 @@ class ClusterSchemaTest {
   void setUp() {
     properties = new Properties();
     properties.setProperty("router.url", "http://localhost:1234");
-    properties.setProperty("clusters", "test-cluster");
   }
 
-  private ClusterSchema createTestableSchema() {
+  private ClusterSchema createTestableSchema(StoreMetadataFetcher metadataFetcher) {
+    return createTestableSchema(metadataFetcher, Set.of());
+  }
+
+  private ClusterSchema createTestableSchema(StoreMetadataFetcher metadataFetcher, Set<String> existingStores) {
     return new ClusterSchema(properties) {
       @Override
-      protected ControllerClient createControllerClient(String cluster, Optional<SSLFactory> sslFactory) {
-        return mockControllerClient;
+      protected StoreMetadataFetcher createStoreMetadataFetcher() {
+        return metadataFetcher;
       }
 
       @Override
@@ -66,8 +79,15 @@ class ClusterSchemaTest {
       protected VeniceStore createVeniceStore(String store, StoreSchemaFetcher storeSchemaFetcher) {
         return mockVeniceStore;
       }
+
+      @Override
+      protected boolean storeExists(String storeName) {
+        return existingStores.contains(storeName);
+      }
     };
   }
+
+  // --- filterStoreHints ---
 
   @Test
   void testFilterStoreHintsReturnsMatchingHints() {
@@ -99,149 +119,86 @@ class ClusterSchemaTest {
     assertTrue(result.isEmpty());
   }
 
-  // --- tables().get() / loadTable() tests ---
+  // --- tables().get() (load path uses storeExists, NOT the bulk /stores endpoint) ---
 
   @Test
-  void testLoadTableReturnsStoreWhenFound() {
-    D2ServiceDiscoveryResponse discoverResponse = mock(D2ServiceDiscoveryResponse.class);
-    when(discoverResponse.isError()).thenReturn(false);
-    when(discoverResponse.getCluster()).thenReturn("test-cluster");
-    when(mockControllerClient.discoverCluster("myStore")).thenReturn(discoverResponse);
+  void testLoadReturnsTableWhenStoreFoundInDiscovery() {
+    StoreMetadataFetcher fetcher = mock(StoreMetadataFetcher.class);
 
-    ClusterSchema schema = createTestableSchema();
-    Lookup<Table> tables = schema.tables();
-    Table result = tables.get("myStore");
+    ClusterSchema schema = createTestableSchema(fetcher, Set.of("known-store"));
+    Table result = schema.tables().get("known-store");
 
     assertNotNull(result);
     assertEquals(mockVeniceStore, result);
   }
 
   @Test
-  void testLoadTableReturnsNullWhenStoreNotFound() {
-    D2ServiceDiscoveryResponse discoverResponse = mock(D2ServiceDiscoveryResponse.class);
-    when(discoverResponse.isError()).thenReturn(true);
-    when(discoverResponse.getErrorType()).thenReturn(ErrorType.STORE_NOT_FOUND);
-    when(mockControllerClient.discoverCluster("unknownStore")).thenReturn(discoverResponse);
+  void testLoadReturnsNullWhenStoreNotFoundInDiscovery() {
+    StoreMetadataFetcher fetcher = mock(StoreMetadataFetcher.class);
 
-    ClusterSchema schema = createTestableSchema();
-    Lookup<Table> tables = schema.tables();
-    Table result = tables.get("unknownStore");
+    ClusterSchema schema = createTestableSchema(fetcher, Set.of());
+    Table result = schema.tables().get("nonexistent-store");
 
     assertNull(result);
   }
 
   @Test
-  void testLoadTableThrowsOnOtherError() {
-    D2ServiceDiscoveryResponse discoverResponse = mock(D2ServiceDiscoveryResponse.class);
-    when(discoverResponse.isError()).thenReturn(true);
-    when(discoverResponse.getErrorType()).thenReturn(ErrorType.GENERAL_ERROR);
-    when(discoverResponse.getError()).thenReturn("something went wrong");
-    when(mockControllerClient.discoverCluster("badStore")).thenReturn(discoverResponse);
+  void testLoadDoesNotHitMetadataFetcher() {
+    StoreMetadataFetcher fetcher = mock(StoreMetadataFetcher.class);
+    ClusterSchema schema = createTestableSchema(fetcher, Set.of("a", "b", "c"));
 
-    ClusterSchema schema = createTestableSchema();
+    schema.tables().get("a");
+    schema.tables().get("b");
+    schema.tables().get("c");
+
+    // load() uses targeted per-store discovery (storeExists), never the bulk /stores endpoint.
+    verify(fetcher, never()).getAllStoreNames();
+  }
+
+  // --- tables().getNames(...) (loadAll path) ---
+
+  @Test
+  void testLoadAllTablesPopulatesFromRouterStores() {
+    StoreMetadataFetcher fetcher = mock(StoreMetadataFetcher.class);
+    when(fetcher.getAllStoreNames()).thenReturn(Set.of("store1", "store2"));
+
+    ClusterSchema schema = createTestableSchema(fetcher);
     Lookup<Table> tables = schema.tables();
 
-    RuntimeException ex = assertThrows(RuntimeException.class, () -> tables.get("badStore"));
-    assertTrue(ex.getMessage().contains("badStore"));
+    Set<String> names = tables.getNames(LikePattern.any());
+    assertEquals(Set.of("store1", "store2"), names);
   }
 
   @Test
-  void testLoadTableReturnsNullWhenStoreInDifferentCluster() {
-    D2ServiceDiscoveryResponse discoverResponse = mock(D2ServiceDiscoveryResponse.class);
-    when(discoverResponse.isError()).thenReturn(false);
-    when(discoverResponse.getCluster()).thenReturn("other-cluster");
-    when(mockControllerClient.discoverCluster("remoteStore")).thenReturn(discoverResponse);
+  void testLoadAllTablesAccessibleViaGet() {
+    StoreMetadataFetcher fetcher = mock(StoreMetadataFetcher.class);
+    when(fetcher.getAllStoreNames()).thenReturn(Set.of("storeA", "storeB"));
 
-    ClusterSchema schema = createTestableSchema();
-    Lookup<Table> tables = schema.tables();
-    Table result = tables.get("remoteStore");
-
-    assertNull(result);
-  }
-
-  // --- loadAllTables tests ---
-
-  @Test
-  void testLoadAllTablesPopulatesFromStoreList() {
-    MultiStoreResponse storeListResponse = mock(MultiStoreResponse.class);
-    when(storeListResponse.getStores()).thenReturn(new String[]{"store1", "store2"});
-    when(mockControllerClient.queryStoreList(false)).thenReturn(storeListResponse);
-
-    ClusterSchema schema = createTestableSchema();
+    ClusterSchema schema = createTestableSchema(fetcher);
     Lookup<Table> tables = schema.tables();
 
-    // getNames triggers loadAllTables
-    assertNotNull(tables.getNames(LikePattern.any()));
-  }
+    tables.getNames(LikePattern.any());
 
-  // --- createControllerClient tests ---
-
-  @Test
-  void testCreateControllerClientWithLocalhostUrl() {
-    properties.setProperty("router.url", "http://localhost:5555");
-    ClusterSchema schema = new ClusterSchema(properties);
-    ControllerClient client = schema.createControllerClient("test-cluster", Optional.empty());
-    assertNotNull(client);
-    client.close();
+    assertNotNull(tables.get("storeA"));
+    assertNotNull(tables.get("storeB"));
   }
 
   @Test
-  void testCreateControllerClientWithNonLocalhostUrl() {
-    // non-localhost URL takes the else branch → ControllerClientFactory path
-    // We can't easily call ControllerClientFactory in unit tests, so override it in a subclass
-    properties.setProperty("router.url", "http://venice.example.com:5555");
+  void testLoadAllSkipsStoreWhenSchemaFetcherConstructionFails() {
+    StoreMetadataFetcher fetcher = mock(StoreMetadataFetcher.class);
+    when(fetcher.getAllStoreNames()).thenReturn(Set.of("good-store", "bad-store"));
+
     ClusterSchema schema = new ClusterSchema(properties) {
       @Override
-      protected ControllerClient createControllerClient(String cluster, Optional<SSLFactory> sslFactory) {
-        // verify the non-localhost branch would be reached (url does not contain localhost)
-        assertFalse(properties.getProperty("router.url").contains("localhost"));
-        return mockControllerClient;
-      }
-    };
-    ControllerClient client = schema.createControllerClient("test-cluster", Optional.empty());
-    assertNotNull(client);
-  }
-
-  // --- getSchemaDescription() must return non-empty string ---
-  @Test
-  void testLoadAllTablesSchemaDescriptionIsNonEmpty() {
-    MultiStoreResponse storeListResponse = mock(MultiStoreResponse.class);
-    when(storeListResponse.getStores()).thenReturn(new String[]{"store1"});
-    when(mockControllerClient.queryStoreList(false)).thenReturn(storeListResponse);
-
-    ClusterSchema schema = createTestableSchema();
-    Lookup<Table> tables = schema.tables();
-
-    // getNames(LikePattern.any()) triggers loadAllTables and calls getSchemaDescription internally
-    Iterable<String> names = tables.getNames(LikePattern.any());
-    assertNotNull(names);
-
-    // Verify description via the toString contains cluster info
-    // The description returned is "Venice clusters test-cluster"
-    assertNotNull(tables.toString()); // non-null confirms the table lookup was constructed
-  }
-
-  // --- getSslFactory() no ssl-config-path → returns empty Optional ---
-
-  @Test
-  void testGetSslFactoryReturnsEmptyWhenNoSslConfigPath() {
-    // Properties without ssl-config-path: getSslFactory() should return Optional.empty()
-    // We verify this indirectly: loadAllTables() completes without throwing
-    MultiStoreResponse storeListResponse = mock(MultiStoreResponse.class);
-    when(storeListResponse.getStores()).thenReturn(new String[]{"store1"});
-    when(mockControllerClient.queryStoreList(false)).thenReturn(storeListResponse);
-
-    // properties does NOT have ssl-config-path
-    ClusterSchema schema = new ClusterSchema(properties) {
-      @Override
-      protected ControllerClient createControllerClient(String cluster, Optional<SSLFactory> sslFactory) {
-        // ssl-config-path absent → sslFactory must be empty
-        assertFalse(sslFactory.isPresent());
-        return mockControllerClient;
+      protected StoreMetadataFetcher createStoreMetadataFetcher() {
+        return fetcher;
       }
 
       @Override
       protected StoreSchemaFetcher createStoreSchemaFetcher(String storeName) {
+        if ("bad-store".equals(storeName)) {
+          throw new RuntimeException("schema fetcher setup failed");
+        }
         return mockSchemaFetcher;
       }
 
@@ -249,59 +206,118 @@ class ClusterSchemaTest {
       protected VeniceStore createVeniceStore(String store, StoreSchemaFetcher storeSchemaFetcher) {
         return mockVeniceStore;
       }
+
+      @Override
+      protected boolean storeExists(String storeName) {
+        return true;
+      }
     };
 
     Lookup<Table> tables = schema.tables();
-    Iterable<String> names = tables.getNames(LikePattern.any());
-    assertNotNull(names);
+    tables.getNames(LikePattern.any());
+
+    assertNotNull(tables.get("good-store"));
+    assertNull(tables.get("bad-store"));
   }
 
-  // --- getSslFactory() with invalid ssl-config-path → throws IOException during loadAllTables ---
+  @Test
+  void testGetNamesTriggersMetadataFetcherOnce() {
+    StoreMetadataFetcher fetcher = mock(StoreMetadataFetcher.class);
+    when(fetcher.getAllStoreNames()).thenReturn(Set.of("a", "b"));
+
+    ClusterSchema schema = createTestableSchema(fetcher);
+    schema.tables().getNames(LikePattern.any());
+    schema.tables().getNames(LikePattern.any());
+
+    // loadAll() runs at most once per schema lifetime (LazyLookup caches the result).
+    verify(fetcher).getAllStoreNames();
+  }
+
+  // --- storeExists (real impl, HTTP/HTTPS transport) ---
+
+  @Test
+  void testStoreExistsReturnsTrueOnNonNullResponse() throws Exception {
+    TransportClient transport = mock(TransportClient.class);
+    TransportClientResponse response = mock(TransportClientResponse.class);
+    doReturn(CompletableFuture.completedFuture(response)).when(transport).get(eq("discover_cluster/known"));
+    clientFactory.when(() -> ClientFactory.getTransportClient(any(ClientConfig.class))).thenReturn(transport);
+
+    ClusterSchema schema = new ClusterSchema(properties);
+    assertTrue(schema.storeExists("known"));
+  }
+
+  @Test
+  void testStoreExistsReturnsFalseOnNullResponse() throws Exception {
+    TransportClient transport = mock(TransportClient.class);
+    doReturn(CompletableFuture.completedFuture(null)).when(transport).get(eq("discover_cluster/missing"));
+    clientFactory.when(() -> ClientFactory.getTransportClient(any(ClientConfig.class))).thenReturn(transport);
+
+    ClusterSchema schema = new ClusterSchema(properties);
+    assertFalse(schema.storeExists("missing"));
+  }
+
+  @Test
+  void testStoreExistsWrapsExecutionFailureAsIOException() {
+    TransportClient transport = mock(TransportClient.class);
+    CompletableFuture<TransportClientResponse> failed = new CompletableFuture<>();
+    failed.completeExceptionally(new RuntimeException("router down"));
+    doReturn(failed).when(transport).get(eq("discover_cluster/boom"));
+    clientFactory.when(() -> ClientFactory.getTransportClient(any(ClientConfig.class))).thenReturn(transport);
+
+    ClusterSchema schema = new ClusterSchema(properties);
+    IOException ex = assertThrows(IOException.class, () -> schema.storeExists("boom"));
+    assertTrue(ex.getMessage().contains("boom"));
+  }
+
+  // --- getSslFactory ---
+
+  @Test
+  void testGetSslFactoryReturnsEmptyWhenNoSslConfigPath() throws IOException {
+    ClusterSchema schema = new ClusterSchema(properties);
+    assertTrue(schema.getSslFactory().isEmpty());
+  }
 
   @Test
   void testGetSslFactoryThrowsWhenSslConfigPathInvalid() {
     properties.setProperty("ssl-config-path", "/nonexistent/ssl.properties");
-
-    // No need to override createControllerClient — exception happens before reaching it
     ClusterSchema schema = new ClusterSchema(properties);
-    Lookup<Table> tables = schema.tables();
 
-    // getNames triggers loadAllTables which calls getSslFactory → IOException
-    assertThrows(RuntimeException.class, () -> tables.getNames(LikePattern.any()));
+    assertThrows(Exception.class, schema::getSslFactory);
   }
 
-  // --- loadAllTables() result must be non-empty when stores are registered ---
+  // --- description ---
 
   @Test
-  void testLoadAllTablesReturnsNonEmptyMapWhenStoresExist() {
-    MultiStoreResponse storeListResponse = mock(MultiStoreResponse.class);
-    when(storeListResponse.getStores()).thenReturn(new String[]{"storeA", "storeB"});
-    when(mockControllerClient.queryStoreList(false)).thenReturn(storeListResponse);
+  void testTablesDescriptionMentionsRouterUrl() {
+    StoreMetadataFetcher fetcher = mock(StoreMetadataFetcher.class);
+    lenient().when(fetcher.getAllStoreNames()).thenReturn(Set.of("storeX"));
 
-    ClusterSchema schema = createTestableSchema();
+    ClusterSchema schema = createTestableSchema(fetcher);
     Lookup<Table> tables = schema.tables();
 
-    // Trigger loadAllTables
-    Iterable<String> names = tables.getNames(LikePattern.any());
-    assertNotNull(names);
-
-    // Verify that both stores are accessible via get()
-    assertNotNull(tables.get("storeA"));
-    assertNotNull(tables.get("storeB"));
+    assertNotNull(tables.toString());
   }
 
-  // --- createVeniceStore with real hints ---
+  // --- real ClientFactory wiring (createStoreSchemaFetcher) ---
+
+  @Test
+  void testCreateStoreSchemaFetcherBuildsClientConfigFromRouterUrl() {
+    ArgumentCaptor<ClientConfig> captor = ArgumentCaptor.forClass(ClientConfig.class);
+    clientFactory.when(() -> ClientFactory.createStoreSchemaFetcher(captor.capture())).thenReturn(mockSchemaFetcher);
+
+    ClusterSchema schema = new ClusterSchema(properties);
+    assertNotNull(schema.createStoreSchemaFetcher("myStore"));
+    assertEquals("myStore", captor.getValue().getStoreName());
+    assertEquals("http://localhost:1234", captor.getValue().getVeniceURL());
+  }
+
+  // --- createVeniceStore wires hints ---
 
   @Test
   void testCreateVeniceStoreWithFilteredHints() {
     properties.setProperty("hints", "venice.myStore.valueSchemaId=5");
 
     ClusterSchema schema = new ClusterSchema(properties) {
-      @Override
-      protected ControllerClient createControllerClient(String cluster, Optional<SSLFactory> sslFactory) {
-        return mockControllerClient;
-      }
-
       @Override
       protected StoreSchemaFetcher createStoreSchemaFetcher(String storeName) {
         return mockSchemaFetcher;
