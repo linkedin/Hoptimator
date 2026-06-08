@@ -307,7 +307,8 @@ public class HoptimatorAppConfig extends Application {
    *   !graph &lt;schema&gt;.&lt;table&gt;                  // 2-level identifier (case-sensitive)
    *   !graph &lt;catalog&gt;.&lt;schema&gt;.&lt;table&gt;  // 3-level identifier (case-sensitive)
    * </pre>
-   * Optional flag: {@code --depth N} (default 2).
+   * Optional flags: {@code --depth N} (default 2) and {@code --format <fmt>}
+   * (default {@code mermaid}; any registered {@link GraphService} renderer, e.g. {@code json}).
    */
   static final class GraphCommandHandler implements CommandHandler {
 
@@ -329,7 +330,8 @@ public class HoptimatorAppConfig extends Application {
 
     @Override
     public String getHelpText() {
-      return "Render a Mermaid pipeline graph for a view, logical table, or physical resource.";
+      return "Render a pipeline graph for a view, logical table, or physical resource "
+          + "(Mermaid by default; --format json for JSON).";
     }
 
     @Override
@@ -350,12 +352,14 @@ public class HoptimatorAppConfig extends Application {
       String[] parts = line.trim().split("\\s+");
       // parts[0] = "!graph" (or "graph"); identifier mandatory.
       if (parts.length < 2) {
-        sqlline.error("Usage: !graph <schema.name> [--depth N]");
+        sqlline.error("Usage: !graph <schema.name> [--depth N] [--format mermaid|json]");
         dispatchCallback.setToFailure();
         return;
       }
       String identifier = parts[1];
       int depth = 2;
+      // Default to Mermaid — preserves long-standing CLI behavior and the thorough Mermaid tests.
+      String format = MermaidRenderer.FORMAT;
       // Walk through the remaining tokens. Flags consume their value (i += 1); anything else is
       // an unknown positional and surfaces as an error rather than getting silently dropped.
       int i = 2;
@@ -374,9 +378,23 @@ public class HoptimatorAppConfig extends Application {
             return;
           }
           i += 2;
+        } else if ("--format".equals(parts[i])) {
+          if (i + 1 >= parts.length) {
+            sqlline.error("--format requires a value (e.g. mermaid, json)");
+            dispatchCallback.setToFailure();
+            return;
+          }
+          format = parts[i + 1];
+          if (!isSupportedFormat(format, GraphService.availableFormats())) {
+            sqlline.error("Unsupported graph format: '" + format + "'. Available formats: "
+                + GraphService.availableFormats());
+            dispatchCallback.setToFailure();
+            return;
+          }
+          i += 2;
         } else {
           sqlline.error("Unknown argument to !graph: " + parts[i]
-              + ". Usage: !graph <schema.name> [--depth N]");
+              + ". Usage: !graph <schema.name> [--depth N] [--format mermaid|json]");
           dispatchCallback.setToFailure();
           return;
         }
@@ -385,12 +403,15 @@ public class HoptimatorAppConfig extends Application {
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
         PipelineGraph graph = GraphService.buildGraph(identifier, depth, conn);
-        sqlline.output(GraphService.render(graph, MermaidRenderer.FORMAT));
+        sqlline.output(GraphService.render(graph, format));
         // Resource targets root at an External node. A degenerate (root-only) Resource graph at
         // depth >= 1 means the label-selector found nothing — the identifier resolved to a real
         // schema, but no pipeline references it. Suppress the warning at depth <= 0 since the
-        // root-only output is the depth bound's effect, not absence of pipelines.
-        if (depth >= 1 && graph.root() instanceof GraphNode.External && isDegenerate(graph)) {
+        // root-only output is the depth bound's effect, not absence of pipelines. The warning is
+        // emitted as a Mermaid comment, so only append it for Mermaid output (it would corrupt
+        // JSON or other structured formats).
+        if (MermaidRenderer.FORMAT.equalsIgnoreCase(format)
+            && depth >= 1 && graph.root() instanceof GraphNode.External && isDegenerate(graph)) {
           sqlline.output(degenerateGraphWarning());
         }
       } catch (SQLException e) {
@@ -403,6 +424,15 @@ public class HoptimatorAppConfig extends Application {
      * a not-yet-deployed resource. */
     static boolean isDegenerate(PipelineGraph graph) {
       return graph.nodes().size() == 1 && graph.edges().isEmpty();
+    }
+
+    /**
+     * Whether {@code format} is one of the {@code availableFormats} registered with
+     * {@link GraphService}, compared case-insensitively. Extracted as a pure helper so the
+     * {@code --format} validation is unit-testable without a live sqlline shell.
+     */
+    static boolean isSupportedFormat(String format, List<String> availableFormats) {
+      return availableFormats.stream().anyMatch(f -> f.equalsIgnoreCase(format));
     }
 
     /** Mermaid comment line warning that the resource may not exist. Comment syntax keeps the
