@@ -57,6 +57,27 @@ class GraphCommandHandlerTest {
         "warning text should be self-evident: " + warning);
   }
 
+  @Test
+  void isSupportedFormatMatchesCaseInsensitively() {
+    List<String> available = List.of("mermaid", "json");
+
+    assertTrue(HoptimatorAppConfig.GraphCommandHandler.isSupportedFormat("mermaid", available));
+    assertTrue(HoptimatorAppConfig.GraphCommandHandler.isSupportedFormat("json", available),
+        "json renderer should be accepted when registered");
+    assertTrue(HoptimatorAppConfig.GraphCommandHandler.isSupportedFormat("JSON", available),
+        "format comparison must be case-insensitive");
+  }
+
+  @Test
+  void isSupportedFormatRejectsUnregisteredFormat() {
+    List<String> available = List.of("mermaid", "json");
+
+    assertFalse(HoptimatorAppConfig.GraphCommandHandler.isSupportedFormat("dot", available),
+        "an unregistered format must be rejected so the CLI can surface a usage error");
+    assertFalse(HoptimatorAppConfig.GraphCommandHandler.isSupportedFormat("json", List.of("mermaid")),
+        "json must be rejected when only the Mermaid renderer is on the classpath");
+  }
+
   private static Set<GraphNode> singleton(GraphNode n) {
     Set<GraphNode> set = new LinkedHashSet<>();
     set.add(n);

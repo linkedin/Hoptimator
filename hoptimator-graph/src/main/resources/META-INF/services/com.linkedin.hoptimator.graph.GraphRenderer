@@ -1,1 +1,2 @@
 com.linkedin.hoptimator.graph.mermaid.MermaidRenderer
+com.linkedin.hoptimator.graph.json.JsonGraphRenderer

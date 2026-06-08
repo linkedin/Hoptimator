@@ -13,7 +13,7 @@ both — pick the layer that matches what you're doing.
 | Reject SQL or YAML that's invalid in your environment before it deploys.                            | A `Validator` + `ValidatorProvider`. See [Validators](validators.md). |
 | Pull configuration values from somewhere other than `hoptimator-configmap`.                         | A `ConfigProvider`. See [Config providers](config-providers.md).    |
 | Build a dependency graph from some backing store (e.g. K8s).                                        | A `GraphProvider`. The K8s-backed default ships in `hoptimator-k8s`. |
-| Render the dependency graph in a format other than Mermaid (DOT, JSON, an interactive web view, …). | A `GraphRenderer`. The Mermaid default ships in `hoptimator-graph`. |
+| Render the dependency graph in a format other than the ones shipped (DOT, an interactive web view, …). | A `GraphRenderer`. Mermaid and JSON renderers ship in `hoptimator-graph`. |
 | Customize what gets deployed for an existing system.                                                | Just a `TableTemplate` or `JobTemplate` — no Java needed. See [Templates and configuration](../kubernetes/templates.md). |
 
 ## How extensions are loaded
@@ -77,11 +77,11 @@ The `!graph` CLI command (see
 goes through two SPIs: `GraphProvider` builds the typed
 `PipelineGraph` from some backing store, and `GraphRenderer` serializes
 it to a string. The bundled defaults are a K8s-backed
-`K8sGraphProvider` (in `hoptimator-k8s`) and a Mermaid `MermaidRenderer`
-(in `hoptimator-graph`).
+`K8sGraphProvider` (in `hoptimator-k8s`) plus `MermaidRenderer` and
+`JsonGraphRenderer` (in `hoptimator-graph`).
 
 Add a `GraphRenderer` to support a new output format (e.g. DOT for
-graphviz, a JSON shape for a web UI). Add a `GraphProvider` if the
+graphviz, an interactive web view). Add a `GraphProvider` if the
 pipeline state lives somewhere other than Kubernetes — the K8s
 implementation is the reference. Both register via `META-INF/services`
 like every other SPI here.

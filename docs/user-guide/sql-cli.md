@@ -44,7 +44,7 @@ commands to inspect plans, pipelines, and the deployed graph.
 | `!resolve`    | Print the schema and source/sink connector configs Hoptimator would use for a table. |
 | `!pipeline`   | Print the auto-generated pipeline SQL for a SELECT or CREATE MATERIALIZED VIEW statement. |
 | `!specify`    | Print every Kubernetes spec the statement would deploy. The dry-run for `CREATE MATERIALIZED VIEW`. |
-| `!graph`      | Render the deployed dependency graph rooted at an identifier as a Mermaid diagram. |
+| `!graph`      | Render the deployed dependency graph rooted at an identifier (Mermaid by default; `--format json` for JSON). |
 
 `!resolve`, `!pipeline`, `!specify`, and `!graph` do not modify any state.
 Use them to sanity-check a plan before you let the JDBC driver actually
@@ -117,7 +117,7 @@ If you'd `kubectl apply` the output, you'd get the same result as actually
 running the `CREATE MATERIALIZED VIEW`. This is the safest way to review what
 a statement will do before you run it.
 
-### `!graph <identifier> [--depth N]`
+### `!graph <identifier> [--depth N] [--format mermaid|json]`
 
 ```sql
 0: Hoptimator> !graph ADS.AUDIENCE
@@ -168,9 +168,19 @@ Identifier resolution  runs against Calcite's catalog, so the same names you use
 graphs are intentionally single-hop ("what this view does," not the full
 upstream chain). For the chain, run `!graph` on a source identifier.
 
-Rendering backends are pluggable. Mermaid is the default and the only one
-shipped today; additional renderers can register via the
-`GraphRenderer` SPI — see [Extending Hoptimator](../extending/index.md).
+Rendering backends are pluggable and selected with `--format` (default
+`mermaid`). A `json` renderer also ships, emitting the same graph as a
+structured JSON document for programmatic consumers:
+
+```sql
+0: Hoptimator> !graph ADS.AUDIENCE --format json
+{"root":"view:ADS.AUDIENCE","orientation":"LR","nodes":[...],"edges":[...]}
+```
+
+Additional renderers can register via the `GraphRenderer` SPI — see
+[Extending Hoptimator](../extending/index.md). `--format` accepts any
+registered renderer's format identifier (case-insensitive); an unknown
+format is rejected with the list of available formats.
 
 ## Running SQL
 
