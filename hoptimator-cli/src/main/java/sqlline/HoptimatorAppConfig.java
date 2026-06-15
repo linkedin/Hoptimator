@@ -23,7 +23,6 @@ import org.apache.calcite.util.Pair;
 import org.jline.reader.Completer;
 
 import java.nio.charset.StandardCharsets;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -138,7 +137,7 @@ public class HoptimatorAppConfig extends Application {
               new HoptimatorDriver.Prepare(conn), plan, create, querySql);
         }
         sqlline.output(plan.sql(conn).apply(SqlDialect.ANSI));
-      } catch (SQLException e) {
+      } catch (Exception e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
       }
@@ -216,7 +215,7 @@ public class HoptimatorAppConfig extends Application {
         sqlline.output(resolved.sourceConnectorConfigs().toString() + "\n");
         sqlline.output("Sink configs:");
         sqlline.output(resolved.sinkConnectorConfigs().toString() + "\n");
-      } catch (SQLException e) {
+      } catch (Exception e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
       }
@@ -284,7 +283,7 @@ public class HoptimatorAppConfig extends Application {
       try {
         List<String> specs = HoptimatorDdlUtils.specifyFromSql(sql, conn).specs;
         specs.forEach(x -> sqlline.output(x + "\n\n---\n\n"));
-      } catch (SQLException e) {
+      } catch (Exception e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
       }
@@ -414,7 +413,7 @@ public class HoptimatorAppConfig extends Application {
             && depth >= 1 && graph.root() instanceof GraphNode.External && isDegenerate(graph)) {
           sqlline.output(degenerateGraphWarning());
         }
-      } catch (SQLException e) {
+      } catch (Exception e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();
       }
