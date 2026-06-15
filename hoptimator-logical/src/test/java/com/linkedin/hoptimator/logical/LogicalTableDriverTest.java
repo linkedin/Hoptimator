@@ -23,10 +23,8 @@ import static org.mockito.ArgumentMatchers.any;
 @ExtendWith(MockitoExtension.class)
 public class LogicalTableDriverTest {
 
-  // K8sContext.create() reads the developer's real ~/.kube/config when no k8s connection
-  // properties are supplied, which blocks on an interactive cluster login. The failure-path
-  // tests below stub it via this static mock so they stay hermetic. Validation tests that
-  // return before reaching K8sContext.create() simply leave it unstubbed.
+  // K8sContext.create() reads the real ~/.kube/config (if it exists) when no k8s connection
+  // properties are supplied. This can cause failures in local testing. Mock it to prevent that.
   @Mock
   private MockedStatic<K8sContext> k8sContextStatic;
 
@@ -107,7 +105,6 @@ public class LogicalTableDriverTest {
   @Test
   public void connectThrowsNonTransientWhenK8sContextCreationFails() throws Exception {
     // All validation passes (2 tiers + database property set) but K8sContext.create() fails.
-    // Stub it to throw rather than letting it read the real ~/.kube/config and block on login.
     k8sContextStatic.when(() -> K8sContext.create(any()))
         .thenThrow(new RuntimeException("simulated K8sContext failure"));
 

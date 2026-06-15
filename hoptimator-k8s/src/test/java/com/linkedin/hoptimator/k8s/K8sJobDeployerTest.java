@@ -39,8 +39,6 @@ class K8sJobDeployerTest {
 
   // K8sJobDeployer.specify() calls ConfigService.config(context.connection(), ...), which runs the
   // real ServiceLoader and invokes K8sConfigProvider.loadConfig() -> K8sContext.create(connection).
-  // Without this static mock, create() would read the developer's real ~/.kube/config and block on
-  // an interactive cluster login, stalling the unit test. Stubbing it keeps the test hermetic.
   @Mock
   private MockedStatic<K8sContext> contextStatic;
 
