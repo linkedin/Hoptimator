@@ -100,8 +100,8 @@ public final class HoptimatorDdlUtils {
    *       running the same script twice is a no-op. Idempotent by design.</li>
    * </ul>
    *
-   * <p>The property may also be set per statement via {@code SET mode = 'apply'} on a
-   * compatible session — see {@code docs/user-guide/ddl-reference.md}.
+   * <p>Set per connection on the JDBC URL, e.g. {@code jdbc:hoptimator://...;mode=apply}
+   * — see {@code docs/user-guide/ddl-reference.md}.
    */
   public static final String MODE_PROPERTY = "mode";
 

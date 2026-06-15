@@ -35,10 +35,13 @@ on every merge. Set it on the JDBC URL:
 jdbc:hoptimator://...;mode=apply
 ```
 
-Both modes only ever touch **metadata**. Underlying data is never destroyed by
-any CREATE form — even `OR REPLACE` and `DROP` are metadata-only operations,
-and the data store retains its rows. This is the safety guarantee that makes
-apply mode usable in production.
+No `CREATE` form ever deletes anything. In both modes, `CREATE` — including
+`CREATE OR REPLACE` and apply-mode convergence — only creates or updates
+resources; it never drops the target or its backing data store. This is the
+safety guarantee that makes apply mode usable in production. (`DROP` is the
+only form that removes resources, and it is imperative and explicit — see
+[DROP](#drop). Depending on the deployer, `DROP` may delete the underlying
+data store, e.g. a Kafka topic or MySQL table.)
 
 **Out of scope today:** prune-by-absence (the K8s `--prune` equivalent — a
 resource missing from the declared script does *not* trigger a drop). `DROP`
