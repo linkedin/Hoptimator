@@ -132,8 +132,27 @@ public final class DependencyLabels {
     return out;
   }
 
+  /**
+   * Trims {@code value} to a valid K8s label value: at most {@link #MAX_LABEL_VALUE} characters,
+   * with leading/trailing non-alphanumeric characters stripped. Truncating at a fixed offset can
+   * land on a '-', '_', or '.' (e.g. a long table name cut mid-word), which K8s rejects because a
+   * label value must start and end with an alphanumeric character.
+   */
   private static String truncate(String value) {
-    return value.length() <= MAX_LABEL_VALUE ? value : value.substring(0, MAX_LABEL_VALUE);
+    String truncated = value.length() <= MAX_LABEL_VALUE ? value : value.substring(0, MAX_LABEL_VALUE);
+    int start = 0;
+    int end = truncated.length();
+    while (start < end && !isAlphanumeric(truncated.charAt(start))) {
+      start++;
+    }
+    while (end > start && !isAlphanumeric(truncated.charAt(end - 1))) {
+      end--;
+    }
+    return truncated.substring(start, end);
+  }
+
+  private static boolean isAlphanumeric(char c) {
+    return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9');
   }
 
   private static byte[] sha256(byte[] input) {
