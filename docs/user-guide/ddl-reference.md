@@ -14,6 +14,42 @@ This page documents the DDL Hoptimator adds on top.
 > Reading them is a fast way to see currently-passing examples of every
 > DDL form.
 
+## CREATE semantics: strict vs. apply mode
+
+`CREATE` has two flavors, selected per-connection via the `mode` property:
+
+| Mode               | `CREATE`                                | `CREATE OR REPLACE`  |
+|--------------------|-----------------------------------------|----------------------|
+| `create` (default) | Fail if the resource exists.            | Update if it exists. |
+| `apply`            | Converge the resource to the definition. Idempotent. | Same as `CREATE`. |
+
+`create` mode is the imperative default — good for interactive sessions where
+you want a real error if you accidentally redefine something.
+
+`apply` mode is the declarative, K8s-style flavor: a `.sql` file becomes a
+manifest, and re-running it converges resources to the declared state. It's
+designed for check-in-and-reconcile workflows where CI runs the same script
+on every merge. Set it on the JDBC URL:
+
+```
+jdbc:hoptimator://...;mode=apply
+```
+
+No `CREATE` form ever deletes anything. In both modes, `CREATE` — including
+`CREATE OR REPLACE` and apply-mode convergence — only creates or updates
+resources; it never drops the target or its backing data store. This is the
+safety guarantee that makes apply mode usable in production. (`DROP` is the
+only form that removes resources, and it is imperative and explicit — see
+[DROP](#drop). Depending on the deployer, `DROP` may delete the underlying
+data store, e.g. a Kafka topic or MySQL table.)
+
+**Out of scope today:** prune-by-absence (the K8s `--prune` equivalent — a
+resource missing from the declared script does *not* trigger a drop). `DROP`
+remains imperative and explicit. Detection of *incompatible* metadata changes
+(e.g. dropping a primary key) is also not yet wired in; in apply mode both
+`CREATE` and `CREATE OR REPLACE` apply the new definition regardless. Use
+caution when changing schemas of in-flight pipelines.
+
 ## CREATE VIEW
 
 ```

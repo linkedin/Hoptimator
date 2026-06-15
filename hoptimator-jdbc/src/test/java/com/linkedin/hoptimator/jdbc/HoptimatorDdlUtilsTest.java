@@ -1393,8 +1393,9 @@ class HoptimatorDdlUtilsTest {
 
       CalcitePrepare.Context ctx = conn.createPrepareContext();
       HoptimatorDriver.Prepare prepare = new HoptimatorDriver.Prepare(conn);
+      // The executor pre-resolves OR REPLACE to DdlMode.UPDATE before calling this helper.
       HoptimatorDdlUtils.processCreateMaterializedView(
-          ctx, prepare, conn, create, HoptimatorDdlUtils.DdlMode.CREATE);
+          ctx, prepare, conn, create, HoptimatorDdlUtils.DdlMode.UPDATE);
 
       // After CREATE OR REPLACE, the old ViewTable is gone and a MaterializedViewTable takes its place
       Table table = replaceDbSchema.tables().get("existingView");
@@ -1696,5 +1697,91 @@ class HoptimatorDdlUtilsTest {
       assertNull(rootSchema.tables().get("MISSING_TABLE"),
           "missing-table call must not create the table");
     }
+  }
+
+  /** Helper: a HoptimatorConnection mock that returns the given Properties. */
+  private HoptimatorConnection connectionWith(Properties props) {
+    HoptimatorConnection conn = mock(HoptimatorConnection.class);
+    lenient().when(conn.connectionProperties()).thenReturn(props);
+    return conn;
+  }
+
+  @Test
+  void testEffectiveModeDefaultsToStrictCreate() {
+    HoptimatorConnection conn = connectionWith(new Properties());
+
+    assertEquals(HoptimatorDdlUtils.DdlMode.CREATE,
+        HoptimatorDdlUtils.effectiveMode(false, conn));
+    assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
+        HoptimatorDdlUtils.effectiveMode(true, conn));
+  }
+
+  @Test
+  void testEffectiveModeExplicitCreateMatchesDefault() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_CREATE);
+    HoptimatorConnection conn = connectionWith(props);
+
+    assertEquals(HoptimatorDdlUtils.DdlMode.CREATE,
+        HoptimatorDdlUtils.effectiveMode(false, conn));
+    assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
+        HoptimatorDdlUtils.effectiveMode(true, conn));
+  }
+
+  @Test
+  void testEffectiveModeApplyMapsBothCreateFormsToUpdate() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_APPLY);
+    HoptimatorConnection conn = connectionWith(props);
+
+    // The whole point of apply mode: plain CREATE becomes idempotent (UPDATE).
+    assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
+        HoptimatorDdlUtils.effectiveMode(false, conn));
+    // CREATE OR REPLACE keeps converging behavior in apply mode.
+    assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
+        HoptimatorDdlUtils.effectiveMode(true, conn));
+  }
+
+  @Test
+  void testEffectiveModeApplyIsCaseInsensitive() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, "APPLY");
+    HoptimatorConnection conn = connectionWith(props);
+
+    assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
+        HoptimatorDdlUtils.effectiveMode(false, conn));
+  }
+
+  @Test
+  void testEffectiveModeUnknownValueFallsBackToStrictCreate() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, "nonsense");
+    HoptimatorConnection conn = connectionWith(props);
+
+    // Unknown values must not silently promote to apply — typos shouldn't change behavior.
+    assertEquals(HoptimatorDdlUtils.DdlMode.CREATE,
+        HoptimatorDdlUtils.effectiveMode(false, conn));
+  }
+
+  @Test
+  void testEffectiveModeTolerantOfNullProperties() {
+    HoptimatorConnection conn = mock(HoptimatorConnection.class);
+    lenient().when(conn.connectionProperties()).thenReturn(null);
+
+    assertEquals(HoptimatorDdlUtils.DdlMode.CREATE,
+        HoptimatorDdlUtils.effectiveMode(false, conn));
+  }
+
+  @Test
+  void testIsApplyMode() {
+    Properties applyProps = new Properties();
+    applyProps.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_APPLY);
+    assertTrue(HoptimatorDdlUtils.isApplyMode(connectionWith(applyProps)));
+
+    Properties createProps = new Properties();
+    createProps.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_CREATE);
+    assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(createProps)));
+
+    assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(new Properties())));
   }
 }
