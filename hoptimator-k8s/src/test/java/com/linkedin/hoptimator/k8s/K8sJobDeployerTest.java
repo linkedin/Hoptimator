@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
@@ -24,17 +25,22 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
 class K8sJobDeployerTest {
+
+  // K8sJobDeployer.specify() calls ConfigService.config(context.connection(), ...), which runs the
+  // real ServiceLoader and invokes K8sConfigProvider.loadConfig() -> K8sContext.create(connection).
+  @Mock
+  private MockedStatic<K8sContext> contextStatic;
 
   @Mock
   private HoptimatorConnection connection;
@@ -60,6 +66,7 @@ class K8sJobDeployerTest {
       }
     };
     when(mockContext.connection()).thenReturn(connection);
+    contextStatic.when(() -> K8sContext.create(any())).thenReturn(mockContext);
   }
 
   private Job createTestJob(Sink sink) {
@@ -94,8 +101,6 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyWithNoTemplatesReturnsEmpty() throws SQLException {
-    when(connection.connectionProperties()).thenReturn(new Properties());
-
     Sink sink = new Sink("sinkdb", Arrays.asList("schema", "sink_table"),
         Collections.emptyMap());
     Job job = createTestJob(sink);
@@ -110,8 +115,6 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyRendersMatchingTemplate() throws SQLException {
-    when(connection.connectionProperties()).thenReturn(new Properties());
-
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
         .spec(new V1alpha1JobTemplateSpec()
@@ -132,8 +135,6 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyFiltersOutNonMatchingDatabases() throws SQLException {
-    when(connection.connectionProperties()).thenReturn(new Properties());
-
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
         .spec(new V1alpha1JobTemplateSpec()
@@ -153,8 +154,6 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyWithNullDatabasesMatchesAll() throws SQLException {
-    when(connection.connectionProperties()).thenReturn(new Properties());
-
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
         .spec(new V1alpha1JobTemplateSpec()
@@ -174,8 +173,6 @@ class K8sJobDeployerTest {
 
   @Test
   void specifyRendersTemplateVariables() throws SQLException {
-    when(connection.connectionProperties()).thenReturn(new Properties());
-
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
         .spec(new V1alpha1JobTemplateSpec()
@@ -199,8 +196,6 @@ class K8sJobDeployerTest {
   @Test
   void specifyLambdasReturnNonEmptyValues() throws SQLException {
     // Verify each key field is non-empty.
-    when(connection.connectionProperties()).thenReturn(new Properties());
-
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
         .spec(new V1alpha1JobTemplateSpec()
@@ -233,10 +228,6 @@ class K8sJobDeployerTest {
   @Test
   void specifyWithFlinkConfigPropertiesIncludesThem() throws SQLException {
     // Verify that sink options ARE merged into the environment
-    Properties connProps = new Properties();
-    connProps.setProperty("flinkConfig1", "value1");
-    when(connection.connectionProperties()).thenReturn(connProps);
-
     Map<String, String> sinkOptions = new HashMap<>();
     sinkOptions.put("sinkOption", "sinkVal");
     Sink sink = new Sink("sinkdb", Arrays.asList("schema", "sink_table"), sinkOptions);
@@ -260,8 +251,6 @@ class K8sJobDeployerTest {
   @Test
   void specifyConditionalRenderedTemplateNotNull() throws SQLException {
     // Verify null templates are skipped
-    when(connection.connectionProperties()).thenReturn(new Properties());
-
     templates.add(new V1alpha1JobTemplate()
         .metadata(new V1ObjectMeta().name("template1"))
         .spec(new V1alpha1JobTemplateSpec()

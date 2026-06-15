@@ -2,19 +2,29 @@ package com.linkedin.hoptimator.logical;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
-import java.sql.SQLTransientConnectionException;
 import java.util.Properties;
 
+import com.linkedin.hoptimator.k8s.K8sContext;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 
 
+@ExtendWith(MockitoExtension.class)
 public class LogicalTableDriverTest {
+
+  // K8sContext.create() reads the real ~/.kube/config (if it exists) when no k8s connection
+  // properties are supplied. This can cause failures in local testing. Mock it to prevent that.
+  @Mock
+  private MockedStatic<K8sContext> k8sContextStatic;
 
   @Test
   public void connectReturnsNullForNonLogicalUrl() throws Exception {
@@ -92,38 +102,37 @@ public class LogicalTableDriverTest {
 
   @Test
   public void connectThrowsNonTransientWhenK8sContextCreationFails() throws Exception {
-    // All validation passes (2 tiers + database property set) but K8sContext.create() fails
-    // because kubeconfig points to a non-existent file → catch(Exception) → SQLNonTransientException
+    // All validation passes (2 tiers + database property set) but K8sContext.create() fails.
+    k8sContextStatic.when(() -> K8sContext.create(any()))
+        .thenThrow(new RuntimeException("simulated K8sContext failure"));
+
     String url = "jdbc:logical://nearline=kafka-database;online=venice";
     Properties props = new Properties();
     props.setProperty("database", "mylogicaldb");
-    props.setProperty("k8s.kubeconfig", "/nonexistent/path/kubeconfig");
+
     try (Connection ignored = DriverManager.getConnection(url, props)) {
-      throw new AssertionError("Expected exception");
+      throw new AssertionError("Expected SQLNonTransientException");
     } catch (SQLNonTransientException e) {
       assertTrue(e.getMessage().contains("Problem loading"));
     }
   }
+
   @Test
-  void connectWithValidUrlThrowsSQLNonTransientWhenK8sContextFails() {
-    // A URL that passes all validation (2 tiers + database property) but then fails
-    // when creating K8sContext (no K8s config in test env) → covered by catch(Exception e)
-    // at the end of the try block, covering lines 93-103.
+  void connectPreservesCauseWhenK8sContextCreationFails() throws Exception {
+    // The catch(Exception e) branch must wrap the underlying failure as the cause rather than
+    // swallowing it. Stub K8sContext.create() to throw a known exception and assert it is preserved.
+    RuntimeException boom = new RuntimeException("boom");
+    k8sContextStatic.when(() -> K8sContext.create(any())).thenThrow(boom);
+
     Properties props = new Properties();
     props.setProperty("database", "logical");
-    try (Connection conn = DriverManager.getConnection(
+
+    try (Connection ignored = DriverManager.getConnection(
         "jdbc:logical://nearline=kafka-database;online=venice", props)) {
-      // If connect() unexpectedly succeeds (real K8s available), just verify non-null
-      assertNotNull(conn);
+      throw new AssertionError("Expected SQLNonTransientException");
     } catch (SQLNonTransientException e) {
-      // Expected: K8sContext.create() failed → catch(Exception e) path covered
       assertTrue(e.getMessage().contains("Problem loading"));
-    } catch (SQLTransientConnectionException e) {
-      // Also acceptable: IOException from K8s client
-      assertTrue(e.getMessage().contains("Problem loading"));
-    } catch (SQLException e) {
-      // Any other SQL exception is also fine — something in connect() path was exercised
-      assertNotNull(e.getMessage());
+      assertSame(boom, e.getCause(), "original failure should be preserved as the cause");
     }
   }
 
