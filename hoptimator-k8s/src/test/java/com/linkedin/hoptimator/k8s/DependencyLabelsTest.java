@@ -112,6 +112,23 @@ class DependencyLabelsTest {
   }
 
   @Test
+  void stampLabelValueStrippedWhenTruncationLandsOnSeparator() {
+    // Regression: a real identifier truncated at exactly 63 chars ended on '_', which K8s
+    // rejects. This dummy path is sized so truncation lands on a '_' too; it must be stripped.
+    V1ObjectMeta meta = stamp(
+        Collections.singletonList(
+            src("__dummy-database", "SCHEMA", "dummy_table_name_for_internal_testing____")),
+        null);
+    String value = meta.getLabels().values().iterator().next();
+
+    assertTrue(value.length() <= 63);
+    assertTrue(value.matches("(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?"),
+        "value must satisfy K8s label-value regex, got: " + value);
+    assertEquals("dummy-database_SCHEMA.dummy_table_name_for_internal_testing", value,
+        "leading/trailing separator must be stripped, got: " + value);
+  }
+
+  @Test
   void stampLabelValueIsKubernetesLabelValueCompliant() {
     // K8s label values must match (([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?
     // — the identifier separator is "_" precisely so this holds out of the box for typical

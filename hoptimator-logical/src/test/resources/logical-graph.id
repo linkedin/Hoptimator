@@ -7,41 +7,41 @@
 # externals nest in their respective tier subgraphs.
 # ─────────────────────────────────────────────────────────────────────────────
 
-create or replace table "LOGICAL"."testevent" ("KEY" varchar, "memberId" bigint, "pageKey" varchar);
+create or replace table "LOGICAL"."testevent-graph" ("KEY" varchar, "memberId" bigint, "pageKey" varchar);
 (0 rows modified)
 
 !update
 
 flowchart TD
-  subgraph n0["LogicalTable logical-testevent"]
+  subgraph n0["LogicalTable logical-testevent-graph"]
     direction LR
     subgraph s_nearline["nearline"]
-      n2[("KAFKA.testevent")]
+      n2[("KAFKA.testevent-graph")]
     end
     subgraph s_online["online"]
-      n3[("VENICE.testevent")]
+      n3[("VENICE.testevent-graph")]
     end
-    n1[/"logical-testevent-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+    n1[/"logical-testevent-graph-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
   end
   n2 --> n1
   n1 --> n3
-!graph LOGICAL.testevent
+!graph LOGICAL.testevent-graph
 
 flowchart LR
-  n0[("KAFKA.testevent")]
-  n1[/"logical-testevent-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
-  n2[("VENICE.testevent")]
+  n0[("KAFKA.testevent-graph")]
+  n1[/"logical-testevent-graph-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("VENICE.testevent-graph")]
   n0 --> n1
   n1 --> n2
-!graph KAFKA.testevent
+!graph KAFKA.testevent-graph
 
 flowchart LR
-  n0[("VENICE.testevent")]
-  n1[/"logical-testevent-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
-  n2[("KAFKA.testevent")]
+  n0[("VENICE.testevent-graph")]
+  n1[/"logical-testevent-graph-nearline-to-online<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
+  n2[("KAFKA.testevent-graph")]
   n2 --> n1
   n1 --> n0
-!graph VENICE.testevent
+!graph VENICE.testevent-graph
 
 # ─────────────────────────────────────────────────────────────────────────────
 # LogicalTable with an offline tier + auto-spawned backfill trigger
@@ -92,7 +92,7 @@ flowchart LR
   n2 -.-> n3
 !graph ADS.MEMBERS
 
-drop table "LOGICAL"."testevent";
+drop table "LOGICAL"."testevent-graph";
 (0 rows modified)
 
 !update
