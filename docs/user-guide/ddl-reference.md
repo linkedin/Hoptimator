@@ -50,6 +50,34 @@ remains imperative and explicit. Detection of *incompatible* metadata changes
 `CREATE` and `CREATE OR REPLACE` apply the new definition regardless. Use
 caution when changing schemas of in-flight pipelines.
 
+## Dry-run: validate mode
+
+`mode=validate` is a dry-run. Every statement — `CREATE`, `DROP`, and the
+trigger verbs (`FIRE`/`PAUSE`/`RESUME`) — is fully parsed, planned, and
+validated (including deployer-level validation), but **no real object is ever
+created, updated, or deleted.** A statement that would succeed reports
+`(0 rows modified)`; a statement that would fail validation raises the same
+error a real run would. Use it to check a script against a live environment
+without touching anything:
+
+```
+jdbc:hoptimator://...;mode=validate
+```
+
+With respect to `OR REPLACE`, `validate` behaves like `apply`: an
+already-existing resource is treated as an in-place update, so a plain
+`CREATE` over an existing object validates cleanly instead of erroring.
+
+Crucially, a dry-run still evolves the **in-memory** schema as it goes, so a
+series of statements is validated against each other: a dry-run `DROP VIEW`
+followed by a query against that view fails validation, even though no real
+`View` object was deleted. Only the deployment is skipped, never the
+in-memory bookkeeping. (This is what distinguishes `validate` from the
+one-shot `!specify` preview, which renders a single statement's YAML and then
+restores the schema.) `validate`, `apply`, and `create` are mutually
+exclusive; pick one per connection.
+
+
 ## CREATE VIEW
 
 ```

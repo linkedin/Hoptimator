@@ -49,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 
@@ -1167,6 +1168,137 @@ class HoptimatorDdlExecutorTest {
         HoptimatorDdlExecutor.DdlException.class,
         () -> executor.execute(node, context));
     assertTrue(ex.getMessage().contains("validation failed"));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Validate (dry-run) mode
+  // ---------------------------------------------------------------------------
+
+  /** Switches the shared connection into validate (dry-run) mode. */
+  private void enableValidateMode() {
+    connection.connectionProperties()
+        .setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_VALIDATE);
+  }
+
+  @Test
+  void testValidateModeCreateViewPersistsInMemoryWithoutDeploying() {
+    enableValidateMode();
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SqlNode node = HoptimatorDriver.parseQuery(connection,
+        "CREATE VIEW \"dryRunView\" AS SELECT 1 AS \"col1\"");
+
+    assertDoesNotThrow(() -> executor.executeDdl(context, node));
+
+    // No real deployment happened...
+    mockDeploymentService.verify(() -> DeploymentService.create(any()), never());
+    mockDeploymentService.verify(() -> DeploymentService.update(any()), never());
+
+    // ...but the view IS registered in-memory, so a subsequent statement sees it: dropping it
+    // resolves (and likewise performs no real deletion).
+    SqlNode dropNode = HoptimatorDriver.parseQuery(connection, "DROP VIEW \"dryRunView\"");
+    assertDoesNotThrow(() -> executor.executeDdl(context, dropNode));
+    mockDeploymentService.verify(() -> DeploymentService.delete(any()), never());
+  }
+
+  @Test
+  void testValidateModeCreateTableSkipsDeployment() {
+    enableValidateMode();
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SqlNode node = HoptimatorDriver.parseQuery(connection,
+        "CREATE TABLE \"DEFAULT\".\"dryRunTable\" (\"col1\" VARCHAR)");
+
+    assertDoesNotThrow(() -> executor.executeDdl(context, node));
+
+    mockDeploymentService.verify(() -> DeploymentService.create(any()), never());
+    mockDeploymentService.verify(() -> DeploymentService.update(any()), never());
+  }
+
+  @Test
+  void testValidateModeCreateViewOnExistingDoesNotErrorOrDeploy() {
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    // A view already exists.
+    addViewTableToDefaultSchema(context, "existingView", "SELECT 1 AS \"col1\"");
+
+    enableValidateMode();
+    // Plain CREATE (no OR REPLACE) over an existing view: in validate mode this is apply-like,
+    // so it validates without error and without deploying — unlike strict create mode.
+    SqlNode node = HoptimatorDriver.parseQuery(connection,
+        "CREATE VIEW \"existingView\" AS SELECT 1 AS \"col1\"");
+
+    assertDoesNotThrow(() -> executor.executeDdl(context, node));
+    mockDeploymentService.verify(() -> DeploymentService.create(any()), never());
+    mockDeploymentService.verify(() -> DeploymentService.update(any()), never());
+  }
+
+  @Test
+  void testValidateModeDropViewRemovesInMemoryButSkipsDeletion() {
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    addViewTableToDefaultSchema(context, "dryRunDropView", "SELECT 1 AS \"col1\"");
+
+    enableValidateMode();
+    SqlNode dropNode = HoptimatorDriver.parseQuery(connection, "DROP VIEW \"dryRunDropView\"");
+    assertDoesNotThrow(() -> executor.executeDdl(context, dropNode));
+
+    // No real deletion happened...
+    mockDeploymentService.verify(() -> DeploymentService.delete(any()), never());
+
+    // ...but the in-memory drop took effect: dropping it again can't find it. This is the key
+    // property — validating a script that references a dropped view must fail.
+    SqlNode dropAgain = HoptimatorDriver.parseQuery(connection, "DROP VIEW \"dryRunDropView\"");
+    HoptimatorDdlExecutor.DdlException ex = assertThrows(
+        HoptimatorDdlExecutor.DdlException.class,
+        () -> executor.executeDdl(context, dropAgain));
+    assertTrue(ex.getMessage().contains("not found"));
+  }
+
+  @Test
+  void testValidateModeCreateTriggerSkipsDeployment() {
+    enableValidateMode();
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SqlNode node = HoptimatorDriver.parseQuery(connection,
+        "CREATE TRIGGER \"dryRunTrigger\" ON \"UTIL\".\"PRINT\" AS 'myJob'");
+
+    assertDoesNotThrow(() -> executor.executeDdl(context, node));
+    mockDeploymentService.verify(() -> DeploymentService.create(any()), never());
+    mockDeploymentService.verify(() -> DeploymentService.update(any()), never());
+  }
+
+  @Test
+  void testValidateModeDropTriggerSkipsDeletion() {
+    enableValidateMode();
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SqlNode node = HoptimatorDriver.parseQuery(connection, "DROP TRIGGER \"dryRunTrigger\"");
+
+    assertDoesNotThrow(() -> executor.executeDdl(context, node));
+    mockDeploymentService.verify(() -> DeploymentService.delete(any()), never());
+  }
+
+  @Test
+  void testValidateModeFireTriggerSkipsDeployment() {
+    enableValidateMode();
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SqlNode node = HoptimatorDriver.parseQuery(connection, "FIRE TRIGGER \"dryRunTrigger\"");
+
+    assertDoesNotThrow(() -> executor.executeDdl(context, node));
+    mockDeploymentService.verify(() -> DeploymentService.update(any()), never());
+  }
+
+  @Test
+  void testValidateModePauseTriggerSkipsDeployment() {
+    enableValidateMode();
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SqlNode node = HoptimatorDriver.parseQuery(connection, "PAUSE TRIGGER \"dryRunTrigger\"");
+
+    assertDoesNotThrow(() -> executor.executeDdl(context, node));
+    mockDeploymentService.verify(() -> DeploymentService.update(any()), never());
   }
 
   // ---------------------------------------------------------------------------

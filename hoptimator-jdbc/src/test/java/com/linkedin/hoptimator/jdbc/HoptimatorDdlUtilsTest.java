@@ -60,6 +60,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 
@@ -873,18 +874,35 @@ class HoptimatorDdlUtilsTest {
   }
 
   @Test
-  void ddlModeSpecifyMutableReturnsFalse() {
-    assertFalse(HoptimatorDdlUtils.DdlMode.SPECIFY.mutable());
+  void ddlModePredicatesDescribeEachMode() {
+    // CREATE / UPDATE deploy for real and keep their schema changes; CREATE is strict.
+    assertTrue(HoptimatorDdlUtils.DdlMode.CREATE.shouldDeploy());
+    assertFalse(HoptimatorDdlUtils.DdlMode.CREATE.shouldRestoreSchema());
+    assertTrue(HoptimatorDdlUtils.DdlMode.CREATE.failsIfResourceExists());
+
+    assertTrue(HoptimatorDdlUtils.DdlMode.UPDATE.shouldDeploy());
+    assertFalse(HoptimatorDdlUtils.DdlMode.UPDATE.shouldRestoreSchema());
+    assertFalse(HoptimatorDdlUtils.DdlMode.UPDATE.failsIfResourceExists());
+
+    // SPECIFY (!specify render) deploys nothing and discards its schema changes.
+    assertFalse(HoptimatorDdlUtils.DdlMode.SPECIFY.shouldDeploy());
+    assertTrue(HoptimatorDdlUtils.DdlMode.SPECIFY.shouldRestoreSchema());
+    assertFalse(HoptimatorDdlUtils.DdlMode.SPECIFY.failsIfResourceExists());
   }
 
   @Test
-  void ddlModeCreateMutableReturnsTrue() {
-    assertTrue(HoptimatorDdlUtils.DdlMode.CREATE.mutable());
-  }
+  void ddlModeValidateKeepsSchemaButDeploysNothing() throws SQLException {
+    // The dry-run contract: VALIDATE deploys nothing, keeps in-memory schema changes (so a series
+    // of statements validates against each other), and never errors on an existing resource.
+    assertFalse(HoptimatorDdlUtils.DdlMode.VALIDATE.shouldDeploy());
+    assertFalse(HoptimatorDdlUtils.DdlMode.VALIDATE.shouldRestoreSchema());
+    assertFalse(HoptimatorDdlUtils.DdlMode.VALIDATE.failsIfResourceExists());
 
-  @Test
-  void ddlModeUpdateMutableReturnsTrue() {
-    assertTrue(HoptimatorDdlUtils.DdlMode.UPDATE.mutable());
+    Deployer deployer = mock(Deployer.class);
+    List<String> result = HoptimatorDdlUtils.DdlMode.VALIDATE.executeDeployers(
+        List.of(deployer), null);
+    assertTrue(result.isEmpty());
+    verifyNoInteractions(deployer);
   }
 
   // ── ColumnDef tests ──────────────────────────────────────────────────────────
@@ -1783,5 +1801,42 @@ class HoptimatorDdlUtilsTest {
     assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(createProps)));
 
     assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(new Properties())));
+  }
+
+  @Test
+  void testEffectiveModeValidateMapsBothCreateFormsToValidate() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_VALIDATE);
+    HoptimatorConnection conn = connectionWith(props);
+
+    // validate (dry-run) resolves to the non-deploying VALIDATE mode, and is apply-like w.r.t.
+    // OR REPLACE: both plain CREATE and CREATE OR REPLACE resolve to VALIDATE.
+    assertEquals(HoptimatorDdlUtils.DdlMode.VALIDATE,
+        HoptimatorDdlUtils.effectiveMode(false, conn));
+    assertEquals(HoptimatorDdlUtils.DdlMode.VALIDATE,
+        HoptimatorDdlUtils.effectiveMode(true, conn));
+  }
+
+  @Test
+  void testEffectiveModeValidateIsCaseInsensitive() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, "VALIDATE");
+    HoptimatorConnection conn = connectionWith(props);
+
+    assertEquals(HoptimatorDdlUtils.DdlMode.VALIDATE,
+        HoptimatorDdlUtils.effectiveMode(false, conn));
+  }
+
+  @Test
+  void testIsValidateMode() {
+    Properties validateProps = new Properties();
+    validateProps.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_VALIDATE);
+    assertTrue(HoptimatorDdlUtils.isValidateMode(connectionWith(validateProps)));
+
+    Properties applyProps = new Properties();
+    applyProps.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_APPLY);
+    assertFalse(HoptimatorDdlUtils.isValidateMode(connectionWith(applyProps)));
+
+    assertFalse(HoptimatorDdlUtils.isValidateMode(connectionWith(new Properties())));
   }
 }

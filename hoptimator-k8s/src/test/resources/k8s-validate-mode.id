@@ -1,0 +1,38 @@
+!set outputformat mysql
+!use k8s
+
+-- In validate (dry-run) mode, statements are validated and the in-memory schema evolves across
+-- the script, but nothing is ever deployed. A statement that would succeed reports
+-- (0 rows modified).
+
+create materialized view ads.audience as select first_name, last_name from ads.page_views natural join profile.members;
+(0 rows modified)
+
+!update
+
+-- Validation still enforces real contracts. Overwriting a physical table with a view fails.
+
+create or replace materialized view ads.page_views as select first_name, last_name from profile.members;
+Cannot overwrite physical table PAGE_VIEWS with a view.
+!error
+
+-- An unknown schema is rejected during validation.
+
+create or replace materialized view invalid.page_views as select first_name, last_name from ads.page_views natural join profile.members;
+Schema for INVALID.PAGE_VIEWS not found.
+!error
+
+-- The dry-run CREATE evolved the in-memory schema, so the view now exists and can be dropped
+-- (again without deleting any real object).
+
+drop materialized view ads.audience;
+(0 rows modified)
+
+!update
+
+-- The in-memory DROP took effect: dropping it again fails, even though no real View was ever
+-- created or deleted. This is what lets a multi-statement script validate correctly.
+
+drop materialized view ads.audience;
+Element AUDIENCE not found
+!error

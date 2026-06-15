@@ -126,10 +126,11 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
     for (Function function : schemaPlus.getFunctions(pair.right)) {
       if (function.getParameters().isEmpty()) {
-        if (mode == HoptimatorDdlUtils.DdlMode.CREATE) {
+        if (mode.failsIfResourceExists()) {
           throw new DdlException(create,
               "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
         }
+        // Replace the existing in-memory definition. (!specify never reaches plain CREATE VIEW.)
         pair.left.removeFunction(pair.right);
       }
     }
@@ -152,14 +153,20 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       deployers = DeploymentService.deployers(view, connection);
       ValidationService.validateOrThrow(deployers, connection);
       logger.info("Validated view {}", viewName);
+      // CREATE→create, UPDATE→update, VALIDATE (dry-run)→deploy nothing. The in-memory view is
+      // registered in every case (VALIDATE keeps it without deploying), so a later statement in
+      // the same script sees it.
       if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
         logger.info("Deploying update view {}", viewName);
-        DeploymentService.update(deployers);
-      } else {
+      } else if (mode == HoptimatorDdlUtils.DdlMode.CREATE) {
         logger.info("Deploying create view {}", viewName);
-        DeploymentService.create(deployers);
+      } else {
+        logger.info("Validating (dry-run) view {}; skipping deployment", viewName);
       }
-      logger.info("Deployed view {}", viewName);
+      mode.executeDeployers(deployers, connection);
+      if (mode.shouldDeploy()) {
+        logger.info("Deployed view {}", viewName);
+      }
       schemaPlus.add(viewName, viewTable);
       logger.info("Added view {} to schema {}", viewName, schemaPlus.getName());
     } catch (SQLException | RuntimeException e) {
@@ -243,12 +250,17 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
       if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
         logger.info("Updating trigger {}", name);
-        DeploymentService.update(deployers);
-      } else {
+      } else if (mode == HoptimatorDdlUtils.DdlMode.CREATE) {
         logger.info("Creating trigger {}", name);
-        DeploymentService.create(deployers);
+      } else {
+        logger.info("Validating (dry-run) trigger {}; skipping deployment", name);
       }
-      logger.info("Deployed trigger {}", name);
+      // CREATE→create, UPDATE→update, VALIDATE (dry-run)→no-op. Triggers are not part of the
+      // Calcite schema, so there is no in-memory state to persist.
+      mode.executeDeployers(deployers, connection);
+      if (mode.shouldDeploy()) {
+        logger.info("Deployed trigger {}", name);
+      }
       logger.info("CREATE TRIGGER {} completed", name);
     } catch (Exception e) {
       if (deployers != null) {
@@ -336,7 +348,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       logger.info("Firing trigger {} with {} option(s)", name, options.size() - 1);
       deployers = DeploymentService.deployers(trigger, connection);
-      DeploymentService.update(deployers);
+      // No OR REPLACE on FIRE; shouldDeploy() is false only in validate (dry-run) mode.
+      if (HoptimatorDdlUtils.effectiveMode(false, connection).shouldDeploy()) {
+        DeploymentService.update(deployers);
+      } else {
+        logger.info("Validated FIRE TRIGGER (dry-run) {}; skipping deployment", name);
+      }
       logger.info("FIRE TRIGGER {} completed", name);
     } catch (Exception e) {
       if (deployers != null) {
@@ -366,8 +383,13 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       logger.info("Deleting trigger {}", name);
       deployers = DeploymentService.deployers(trigger, connection);
-      DeploymentService.delete(deployers);
-      logger.info("Deleted trigger {}", name);
+      // No OR REPLACE on DROP; shouldDeploy() is false only in validate (dry-run) mode.
+      if (HoptimatorDdlUtils.effectiveMode(false, connection).shouldDeploy()) {
+        DeploymentService.delete(deployers);
+        logger.info("Deleted trigger {}", name);
+      } else {
+        logger.info("Validated DROP TRIGGER (dry-run) {}; skipping deletion", name);
+      }
       logger.info("DROP TRIGGER {} completed", name);
     } catch (Exception e) {
       if (deployers != null) {
@@ -403,7 +425,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       logger.info("Updating trigger {} with paused state: {}", name, paused);
       deployers = DeploymentService.deployers(trigger, connection);
-      DeploymentService.update(deployers);
+      // No OR REPLACE on PAUSE/RESUME; shouldDeploy() is false only in validate (dry-run) mode.
+      if (HoptimatorDdlUtils.effectiveMode(false, connection).shouldDeploy()) {
+        DeploymentService.update(deployers);
+      } else {
+        logger.info("Validated paused-state update (dry-run) for trigger {}; skipping deployment", name);
+      }
       logger.info("Successfully updated trigger {} with paused state: {}", name, paused);
     } catch (Exception e) {
       if (deployers != null) {
@@ -450,6 +477,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     tablePath.add(tableName);
 
     Collection<Deployer> deployers = null;
+    // No OR REPLACE on DROP; shouldDeploy() is false only in validate (dry-run) mode, where we
+    // skip the real deletion but still evolve the in-memory schema below.
+    final boolean shouldDeploy = HoptimatorDdlUtils.effectiveMode(false, connection).shouldDeploy();
     try {
       if (table instanceof MaterializedViewTable) {
         if (!(drop instanceof SqlDropMaterializedView)) {
@@ -459,8 +489,14 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
         View view = new View(tablePath, materializedViewTable.viewSql());
         deployers = DeploymentService.deployers(view, connection);
-        logger.info("Deleting materialized view {}", tableName);
-        DeploymentService.delete(deployers);
+        if (shouldDeploy) {
+          logger.info("Deleting materialized view {}", tableName);
+          DeploymentService.delete(deployers);
+        } else {
+          logger.info("Validated DROP (dry-run) for materialized view {}; skipping deletion", tableName);
+        }
+        // Always evolve the in-memory schema — even in a dry-run, dropping the view must make a
+        // subsequent reference to it fail validation, regardless of whether a real object existed.
         schemaPlus.removeTable(tableName);
         logger.info("Removed materialized table {} from schema {}", tableName, schemaPlus.getName());
       } else if (table instanceof ViewTable) {
@@ -471,8 +507,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         ViewTable viewTable = (ViewTable) table;
         View view = new View(tablePath, viewTable.getViewSql());
         deployers = DeploymentService.deployers(view, connection);
-        logger.info("Deleting view {}", tableName);
-        DeploymentService.delete(deployers);
+        if (shouldDeploy) {
+          logger.info("Deleting view {}", tableName);
+          DeploymentService.delete(deployers);
+        } else {
+          logger.info("Validated DROP (dry-run) for view {}; skipping deletion", tableName);
+        }
         schemaPlus.removeTable(tableName);
         logger.info("Removed view {} from schema {}", tableName, schemaPlus.getName());
       } else if (table instanceof HoptimatorJdbcTable || table instanceof TemporaryTable) {
@@ -491,11 +531,15 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         }
         // Pre-delete dependency guard. PendingDelete is the explicit "delete intent" signal
         // — only validators that key off it (the K8s dep checker) fire here. The check throws
-        // before any deployer-level state change.
+        // before any deployer-level state change. This validation runs in dry-run too.
         ValidationService.validateOrThrow(new PendingDelete<>(source), connection);
         deployers = DeploymentService.deployers(source, connection);
-        logger.info("Deleting table {}", tableName);
-        DeploymentService.delete(deployers);
+        if (shouldDeploy) {
+          logger.info("Deleting table {}", tableName);
+          DeploymentService.delete(deployers);
+        } else {
+          logger.info("Validated DROP (dry-run) for table {}; skipping deletion", tableName);
+        }
         schemaPlus.removeTable(tableName);
         logger.info("Removed table {} from schema {}", tableName, schemaPlus.getName());
       } else {

@@ -98,6 +98,12 @@ public final class HoptimatorDdlUtils {
    *   <li>{@code apply} — declarative, K8s-style reconciliation. Both {@code CREATE} and
    *       {@code CREATE OR REPLACE} converge the resource to the declared definition, so
    *       running the same script twice is a no-op. Idempotent by design.</li>
+   *   <li>{@code validate} — dry-run. Resolves to {@link DdlMode#VALIDATE}: every statement is
+   *       fully validated (deployers resolved and validated) but no real object is created,
+   *       updated, or deleted. Unlike {@code !specify}, in-memory schema changes are kept, so a
+   *       series of statements validates against each other. With respect to {@code OR REPLACE}
+   *       it behaves like {@code apply}: an already-existing resource converges, it does not
+   *       error.</li>
    * </ul>
    *
    * <p>Set per connection on the JDBC URL, e.g. {@code jdbc:hoptimator://...;mode=apply}
@@ -111,15 +117,23 @@ public final class HoptimatorDdlUtils {
   /** Apply-mode value of {@link #MODE_PROPERTY}. */
   public static final String MODE_APPLY = "apply";
 
+  /** Validate-only (dry-run) value of {@link #MODE_PROPERTY}. Resolves to {@link DdlMode#VALIDATE}. */
+  public static final String MODE_VALIDATE = "validate";
+
   /**
    * Resolves the effective {@link DdlMode} for a {@code CREATE} statement, combining the
    * statement's {@code OR REPLACE} flag with the connection's {@link #MODE_PROPERTY}.
    *
    * <p>In {@code create} mode (the default): {@code CREATE} → {@link DdlMode#CREATE} and
    * {@code CREATE OR REPLACE} → {@link DdlMode#UPDATE}. In {@code apply} mode: both forms
-   * resolve to {@link DdlMode#UPDATE}, making CREATE idempotent.
+   * resolve to {@link DdlMode#UPDATE}, making CREATE idempotent. In {@code validate} mode:
+   * both forms resolve to {@link DdlMode#VALIDATE}, the non-deploying dry-run (which, like
+   * apply, never errors on an already-existing resource).
    */
   static DdlMode effectiveMode(boolean orReplace, HoptimatorConnection conn) {
+    if (isValidateMode(conn)) {
+      return DdlMode.VALIDATE;
+    }
     if (isApplyMode(conn)) {
       return DdlMode.UPDATE;
     }
@@ -128,12 +142,21 @@ public final class HoptimatorDdlUtils {
 
   /** Whether the connection is configured for apply-mode DDL. */
   static boolean isApplyMode(HoptimatorConnection conn) {
+    return modeIs(conn, MODE_APPLY);
+  }
+
+  /** Whether the connection is configured for validate-only (dry-run) DDL. */
+  static boolean isValidateMode(HoptimatorConnection conn) {
+    return modeIs(conn, MODE_VALIDATE);
+  }
+
+  private static boolean modeIs(HoptimatorConnection conn, String expected) {
     Properties props = conn.connectionProperties();
     if (props == null) {
       return false;
     }
     String mode = props.getProperty(MODE_PROPERTY, MODE_CREATE);
-    return MODE_APPLY.equalsIgnoreCase(mode);
+    return expected.equalsIgnoreCase(mode);
   }
 
   /**
@@ -160,8 +183,44 @@ public final class HoptimatorDdlUtils {
   }
 
   /**
-   * Controls whether a DDL operation performs a real deployment (CREATE or UPDATE)
-   * or a dry-run (SPECIFY).
+   * The four ways a {@code CREATE}/{@code DROP} statement can be carried out. Rather than have
+   * callers test {@code mode == X} or reason about "mutable" schemas, each mode answers a few
+   * intent questions that read directly at the call site:
+   *
+   * <ul>
+   *   <li>{@link #executeDeployers} — the deployer action: deploy ({@code CREATE}/{@code UPDATE}),
+   *       render YAML specs ({@code SPECIFY}), or do nothing ({@code VALIDATE}).</li>
+   *   <li>{@link #shouldDeploy()} — does this mode make real changes to deployed resources
+   *       (create/update/delete)? {@code true} for {@code CREATE}/{@code UPDATE}; {@code false}
+   *       for the two dry-run modes.</li>
+   *   <li>{@link #shouldRestoreSchema()} — should in-memory schema changes be discarded afterwards?
+   *       {@code true} only for {@code SPECIFY} (the one-shot {@code !specify} render). The other
+   *       modes keep their changes so a series of statements validates against each other.</li>
+   *   <li>{@link #failsIfResourceExists()} — strict create: error if the target already exists?
+   *       {@code true} only for {@code CREATE}; the rest converge on the existing resource.</li>
+   * </ul>
+   *
+   * <p>{@code VALIDATE} (dry-run) is {@code shouldDeploy()==false} yet {@code shouldRestoreSchema()
+   * ==false}: it deploys nothing but still evolves the in-memory schema, so e.g. a dry-run
+   * {@code DROP VIEW} followed by a query against that view fails validation, even though no real
+   * {@code View} object was deleted.
+   *
+   * <p><b>Why two non-deploying modes (VALIDATE keeps schema changes, SPECIFY restores) instead of
+   * one?</b> It is tempting to unify them and have the {@code !specify} caller own the restore —
+   * e.g. by snapshotting the schema and discarding changes, or by running against a throwaway
+   * mutable root. Calcite does not make that clean:
+   * <ul>
+   *   <li>{@code Schema.snapshot()} is a read-consistency <i>view</i>: it shares the underlying
+   *       {@code tableMap}, so mutating it writes through to the live schema — not a rollback.</li>
+   *   <li>A throwaway mutable root cannot be empty (DDL navigates into existing schemas and
+   *       resolves source tables), and Calcite has no copy-on-write schema. A read-through
+   *       overlay wrapping the backing {@code Schema} loses session-local additions (an earlier
+   *       {@code CREATE VIEW} lives in {@code CalciteSchema.tableMap}, not the backing schema),
+   *       and copying full schema state forces lazy/remote table enumeration.</li>
+   * </ul>
+   * The robust mechanism is the <i>targeted</i> per-statement snapshot the {@code processCreate*}
+   * methods already compute (they know the exact table/view/sink added). So we keep the snapshot
+   * there and let {@link #shouldRestoreSchema()} decide whether to discard it.
    */
   enum DdlMode {
     CREATE {
@@ -172,7 +231,17 @@ public final class HoptimatorDdlUtils {
       }
 
       @Override
-      boolean mutable() {
+      boolean shouldDeploy() {
+        return true;
+      }
+
+      @Override
+      boolean shouldRestoreSchema() {
+        return false;
+      }
+
+      @Override
+      boolean failsIfResourceExists() {
         return true;
       }
     },
@@ -184,8 +253,18 @@ public final class HoptimatorDdlUtils {
       }
 
       @Override
-      boolean mutable() {
+      boolean shouldDeploy() {
         return true;
+      }
+
+      @Override
+      boolean shouldRestoreSchema() {
+        return false;
+      }
+
+      @Override
+      boolean failsIfResourceExists() {
+        return false;
       }
     },
     SPECIFY {
@@ -199,14 +278,56 @@ public final class HoptimatorDdlUtils {
       }
 
       @Override
-      boolean mutable() {
+      boolean shouldDeploy() {
+        return false;
+      }
+
+      @Override
+      boolean shouldRestoreSchema() {
+        return true;
+      }
+
+      @Override
+      boolean failsIfResourceExists() {
+        return false;
+      }
+    },
+    VALIDATE {
+      @Override
+      List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) {
+        // Dry-run: validation has already happened by the time we get here. Deploy nothing and
+        // render nothing. The in-memory schema changes are kept (shouldRestoreSchema()==false)
+        // so a series of statements validates against each other.
+        return Collections.emptyList();
+      }
+
+      @Override
+      boolean shouldDeploy() {
+        return false;
+      }
+
+      @Override
+      boolean shouldRestoreSchema() {
+        return false;
+      }
+
+      @Override
+      boolean failsIfResourceExists() {
         return false;
       }
     };
 
+    /** Runs the deployers per this mode: create, update, render specs, or nothing. */
     abstract List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException;
 
-    abstract boolean mutable();
+    /** Whether this mode makes real changes to deployed resources (create/update/delete). */
+    abstract boolean shouldDeploy();
+
+    /** Whether in-memory schema changes should be discarded after the statement (the {@code !specify} render). */
+    abstract boolean shouldRestoreSchema();
+
+    /** Whether a plain {@code CREATE} over an already-existing resource is an error (strict create). */
+    abstract boolean failsIfResourceExists();
   }
 
   // N.B. copy-pasted from Apache Calcite
@@ -354,8 +475,9 @@ public final class HoptimatorDdlUtils {
     RelRoot root = prepare.convert(ctx, sql).root;
     RelDataType sinkRowType = root.rel.getRowType();
 
-    // Navigate to the schema (mutable only when actually deploying).
-    final Pair<CalciteSchema, String> pair = schema(ctx, mode.mutable(), create.name);
+    // Navigate to the schema. !specify (SPECIFY) works against the read-only root and restores;
+    // every other mode keeps its changes, so it uses the mutable root.
+    final Pair<CalciteSchema, String> pair = schema(ctx, !mode.shouldRestoreSchema(), create.name);
     if (pair.left == null) {
       throw new SQLException("Schema for " + create.name + " not found.");
     }
@@ -367,25 +489,17 @@ public final class HoptimatorDdlUtils {
         throw new SQLException(
             "Cannot overwrite physical table " + pair.right + " with a view.");
       }
-      // A view already exists. The executor pre-resolved apply-mode into DdlMode.UPDATE,
-      // so UPDATE always means "converge to this definition". Strict CREATE is the only
-      // path that errors. SPECIFY (dry-run) keeps the original syntax-driven preview so
-      // it accurately reflects what a real run would do.
+      // Strict CREATE is the only mode that errors on an existing resource; UPDATE (apply mode /
+      // OR REPLACE), VALIDATE (dry-run), and SPECIFY (render) all converge on it.
       boolean replaceExisting;
-      if (mode == DdlMode.UPDATE) {
-        replaceExisting = true;
-      } else if (mode == DdlMode.CREATE) {
+      if (mode.failsIfResourceExists()) {
         if (!create.ifNotExists) {
           throw new SQLException(
               "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
         }
         replaceExisting = false;
-      } else { // SPECIFY
-        if (!create.ifNotExists && !create.getReplace()) {
-          throw new SQLException(
-              "View " + pair.right + " already exists. Use CREATE OR REPLACE to update.");
-        }
-        replaceExisting = create.getReplace();
+      } else {
+        replaceExisting = true;
       }
       if (replaceExisting) {
         schemaPlus.removeTable(pair.right);
@@ -442,20 +556,22 @@ public final class HoptimatorDdlUtils {
       ValidationService.validateOrThrow(deployers, conn);
       logger.info("Validated materialized view {}", viewName);
 
-      // Execute (create/update) or collect specs (specify).
+      // Execute (create/update), render specs (specify), or do nothing (validate dry-run).
       if (mode == DdlMode.UPDATE) {
         logger.info("Deploying update materialized view {}", viewName);
       } else if (mode == DdlMode.CREATE) {
         logger.info("Deploying create materialized view {}", viewName);
+      } else if (mode == DdlMode.VALIDATE) {
+        logger.info("Validating (dry-run) materialized view {}", viewName);
       } else {
         logger.info("Specifying materialized view {}", viewName);
       }
       List<String> specs = mode.executeDeployers(deployers, conn);
-      if (mode.mutable()) {
-        logger.info("Deployed materialized view {}", viewName);
-      } else {
-        // SPECIFY (dry-run): roll back any side effects made by deployers during specify().
+      if (mode.shouldRestoreSchema()) {
+        // Render-only (!specify): roll back any side effects deployers made while producing specs.
         DeploymentService.restore(deployers);
+      } else if (mode.shouldDeploy()) {
+        logger.info("Deployed materialized view {}", viewName);
       }
       success = true;
       return new SpecifyResult(specs, sinkRowType, viewPath);
@@ -467,12 +583,10 @@ public final class HoptimatorDdlUtils {
       }
       throw e;
     } finally {
-      // Restore the schema snapshot.
-      // For SPECIFY (dry-run): always restore — the view was temporarily added to the schema
-      // for planning purposes and must be removed afterward.
-      // For CREATE/UPDATE on failure: restore to undo the partial schema mutation.
-      // For CREATE/UPDATE on success: do NOT restore — the view should remain in the schema.
-      if (!success || !mode.mutable()) {
+      // Restore the in-memory schema only when the mode wants it discarded (SPECIFY render) or the
+      // statement failed (undo the partial mutation). On success, CREATE/UPDATE/VALIDATE all keep
+      // the view in-memory so subsequent statements see it — VALIDATE does so without deploying.
+      if (!success || mode.shouldRestoreSchema()) {
         if (schemaSnapshot != null) {
           if (schemaSnapshot.right != null) {
             schemaSnapshot.left.add(viewName, schemaSnapshot.right);
@@ -515,11 +629,12 @@ public final class HoptimatorDdlUtils {
     }
 
     boolean isNewSchema = false;
-    Pair<CalciteSchema, String> pair = schema(ctx, mode.mutable(), create.name);
+    // !specify (SPECIFY) navigates the read-only root and restores; other modes keep changes.
+    Pair<CalciteSchema, String> pair = schema(ctx, !mode.shouldRestoreSchema(), create.name);
     if (pair.left == null) {
       // If the schema is not found, it might be because it's a 3-level path (CATALOG.SCHEMA.TABLE)
       if (create.name.names.size() > 2) {
-        pair = catalog(ctx, mode.mutable(), create.name);
+        pair = catalog(ctx, !mode.shouldRestoreSchema(), create.name);
         isNewSchema = true;
         if (pair.left == null) {
           throw new SQLException("Catalog for " + create.name + " not found.");
@@ -541,17 +656,9 @@ public final class HoptimatorDdlUtils {
     }
 
     if (!isNewSchema && schemaPlus.tables().get(tableName) != null) {
-      // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
-      // (apply mode or explicit OR REPLACE) targets the existing table; SPECIFY
-      // (dry-run) preserves its syntax-driven semantics.
-      boolean wouldFail;
-      if (mode == DdlMode.UPDATE) {
-        wouldFail = false;
-      } else if (mode == DdlMode.CREATE) {
-        wouldFail = !create.ifNotExists;
-      } else { // SPECIFY
-        wouldFail = !create.ifNotExists && !create.getReplace();
-      }
+      // Strict CREATE is the only mode that errors on an existing table; UPDATE (apply mode /
+      // OR REPLACE), VALIDATE (dry-run) and SPECIFY (render) all converge on it.
+      boolean wouldFail = mode.failsIfResourceExists() && !create.ifNotExists;
       if (wouldFail) {
         throw new SQLException(
             "Table " + tableName + " already exists. Use CREATE OR REPLACE to update.");
@@ -654,15 +761,17 @@ public final class HoptimatorDdlUtils {
         logger.info("Deploying update table {}", source);
       } else if (mode == DdlMode.CREATE) {
         logger.info("Deploying create table {}", source);
+      } else if (mode == DdlMode.VALIDATE) {
+        logger.info("Validating (dry-run) table {}", source);
       } else {
         logger.info("Specifying table {}", source);
       }
       List<String> specs = mode.executeDeployers(deployers, conn);
-      if (mode.mutable()) {
-        logger.info("Deployed table {}", source);
-      } else {
-        // SPECIFY (dry-run): roll back any side effects made by deployers during specify()
+      if (mode.shouldRestoreSchema()) {
+        // Render-only (!specify): roll back any side effects deployers made while producing specs.
         DeploymentService.restore(deployers);
+      } else if (mode.shouldDeploy()) {
+        logger.info("Deployed table {}", source);
       }
       success = true;
       return new SpecifyResult(specs, rowType, tablePath);
@@ -674,10 +783,10 @@ public final class HoptimatorDdlUtils {
       }
       throw e;
     } finally {
-      // For SPECIFY (dry-run): always restore schema.
-      // For CREATE/UPDATE on success: do NOT restore.
-      // For CREATE/UPDATE on failure: restore.
-      if (!success || !mode.mutable()) {
+      // Restore the in-memory schema only when the mode wants it discarded (SPECIFY render) or the
+      // statement failed. On success, CREATE/UPDATE/VALIDATE keep the table in-memory so subsequent
+      // statements validate against it — VALIDATE does so without deploying.
+      if (!success || mode.shouldRestoreSchema()) {
         if (schemaSnapshot != null) {
           if (schemaSnapshot.right == null) {
             schemaSnapshot.left.removeTable(tableName);
@@ -728,10 +837,11 @@ public final class HoptimatorDdlUtils {
       ValidationService.validateOrThrow(deployers, conn);
 
       List<String> specs = mode.executeDeployers(deployers, conn);
-      if (mode.mutable()) {
-        logger.info("Deployed database {}", name);
-      } else {
+      if (mode.shouldRestoreSchema()) {
+        // Render-only (!specify): roll back any side effects deployers made while producing specs.
         DeploymentService.restore(deployers);
+      } else if (mode.shouldDeploy()) {
+        logger.info("Deployed database {}", name);
       }
       return new SpecifyResult(specs, null, Collections.singletonList(name));
     } catch (SQLException | RuntimeException e) {
