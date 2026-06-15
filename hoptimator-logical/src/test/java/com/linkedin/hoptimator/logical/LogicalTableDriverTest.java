@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.logical;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Properties;
 
@@ -15,7 +14,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 
@@ -112,13 +110,15 @@ public class LogicalTableDriverTest {
     Properties props = new Properties();
     props.setProperty("database", "mylogicaldb");
 
-    SQLException ex = assertThrows(SQLNonTransientException.class,
-        () -> DriverManager.getConnection(url, props));
-    assertTrue(ex.getMessage().contains("Problem loading"));
+    try (Connection ignored = DriverManager.getConnection(url, props)) {
+      throw new AssertionError("Expected SQLNonTransientException");
+    } catch (SQLNonTransientException e) {
+      assertTrue(e.getMessage().contains("Problem loading"));
+    }
   }
 
   @Test
-  void connectPreservesCauseWhenK8sContextCreationFails() {
+  void connectPreservesCauseWhenK8sContextCreationFails() throws Exception {
     // The catch(Exception e) branch must wrap the underlying failure as the cause rather than
     // swallowing it. Stub K8sContext.create() to throw a known exception and assert it is preserved.
     RuntimeException boom = new RuntimeException("boom");
@@ -127,11 +127,13 @@ public class LogicalTableDriverTest {
     Properties props = new Properties();
     props.setProperty("database", "logical");
 
-    SQLException ex = assertThrows(SQLNonTransientException.class,
-        () -> DriverManager.getConnection(
-            "jdbc:logical://nearline=kafka-database;online=venice", props));
-    assertTrue(ex.getMessage().contains("Problem loading"));
-    assertSame(boom, ex.getCause(), "original failure should be preserved as the cause");
+    try (Connection ignored = DriverManager.getConnection(
+        "jdbc:logical://nearline=kafka-database;online=venice", props)) {
+      throw new AssertionError("Expected SQLNonTransientException");
+    } catch (SQLNonTransientException e) {
+      assertTrue(e.getMessage().contains("Problem loading"));
+      assertSame(boom, e.getCause(), "original failure should be preserved as the cause");
+    }
   }
 
 }
