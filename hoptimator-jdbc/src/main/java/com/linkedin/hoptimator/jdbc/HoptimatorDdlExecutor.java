@@ -152,13 +152,18 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       deployers = DeploymentService.deployers(view, connection);
       ValidationService.validateOrThrow(deployers, connection);
       logger.info("Validated view {}", viewName);
-      if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
+      boolean dryRun = HoptimatorDdlUtils.isDryRun(connection);
+      if (dryRun) {
+        logger.info("Dry-run (deploy=false): skipping {} of view {}", mode, viewName);
+      } else if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
         logger.info("Deploying update view {}", viewName);
       } else {
         logger.info("Deploying create view {}", viewName);
       }
       mode.executeDeployers(deployers, connection);
-      logger.info("Deployed view {}", viewName);
+      if (!dryRun) {
+        logger.info("Deployed view {}", viewName);
+      }
       schemaPlus.add(viewName, viewTable);
       logger.info("Added view {} to schema {}", viewName, schemaPlus.getName());
     } catch (SQLException | RuntimeException e) {
@@ -240,13 +245,18 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       ValidationService.validateOrThrow(deployers, connection);
       logger.info("Validated trigger {}", name);
       HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
-      if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
+      boolean dryRun = HoptimatorDdlUtils.isDryRun(connection);
+      if (dryRun) {
+        logger.info("Dry-run (deploy=false): skipping {} of trigger {}", mode, name);
+      } else if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
         logger.info("Updating trigger {}", name);
       } else {
         logger.info("Creating trigger {}", name);
       }
       mode.executeDeployers(deployers, connection);
-      logger.info("Deployed trigger {}", name);
+      if (!dryRun) {
+        logger.info("Deployed trigger {}", name);
+      }
       logger.info("CREATE TRIGGER {} completed", name);
     } catch (Exception e) {
       if (deployers != null) {
@@ -334,7 +344,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       logger.info("Firing trigger {} with {} option(s)", name, options.size() - 1);
       deployers = DeploymentService.deployers(trigger, connection);
-      if (!HoptimatorDdlUtils.isDryRun(connection)) {
+      if (HoptimatorDdlUtils.isDryRun(connection)) {
+        logger.info("Dry-run (deploy=false): skipping fire of trigger {}", name);
+      } else {
         DeploymentService.update(deployers);
       }
       logger.info("FIRE TRIGGER {} completed", name);
@@ -364,12 +376,14 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     Collection<Deployer> deployers = null;
     try {
-      logger.info("Deleting trigger {}", name);
       deployers = DeploymentService.deployers(trigger, connection);
-      if (!HoptimatorDdlUtils.isDryRun(connection)) {
+      if (HoptimatorDdlUtils.isDryRun(connection)) {
+        logger.info("Dry-run (deploy=false): skipping delete of trigger {}", name);
+      } else {
+        logger.info("Deleting trigger {}", name);
         DeploymentService.delete(deployers);
+        logger.info("Deleted trigger {}", name);
       }
-      logger.info("Deleted trigger {}", name);
       logger.info("DROP TRIGGER {} completed", name);
     } catch (Exception e) {
       if (deployers != null) {
@@ -403,12 +417,14 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     Collection<Deployer> deployers = null;
     try {
-      logger.info("Updating trigger {} with paused state: {}", name, paused);
       deployers = DeploymentService.deployers(trigger, connection);
-      if (!HoptimatorDdlUtils.isDryRun(connection)) {
+      if (HoptimatorDdlUtils.isDryRun(connection)) {
+        logger.info("Dry-run (deploy=false): skipping update of trigger {} (paused state: {})", name, paused);
+      } else {
+        logger.info("Updating trigger {} with paused state: {}", name, paused);
         DeploymentService.update(deployers);
+        logger.info("Successfully updated trigger {} with paused state: {}", name, paused);
       }
-      logger.info("Successfully updated trigger {} with paused state: {}", name, paused);
     } catch (Exception e) {
       if (deployers != null) {
         DeploymentService.restore(deployers);
@@ -463,8 +479,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
         View view = new View(tablePath, materializedViewTable.viewSql());
         deployers = DeploymentService.deployers(view, connection);
-        logger.info("Deleting materialized view {}", tableName);
-        if (!HoptimatorDdlUtils.isDryRun(connection)) {
+        if (HoptimatorDdlUtils.isDryRun(connection)) {
+          logger.info("Dry-run (deploy=false): skipping delete of materialized view {}", tableName);
+        } else {
+          logger.info("Deleting materialized view {}", tableName);
           DeploymentService.delete(deployers);
         }
         schemaPlus.removeTable(tableName);
@@ -477,8 +495,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         ViewTable viewTable = (ViewTable) table;
         View view = new View(tablePath, viewTable.getViewSql());
         deployers = DeploymentService.deployers(view, connection);
-        logger.info("Deleting view {}", tableName);
-        if (!HoptimatorDdlUtils.isDryRun(connection)) {
+        if (HoptimatorDdlUtils.isDryRun(connection)) {
+          logger.info("Dry-run (deploy=false): skipping delete of view {}", tableName);
+        } else {
+          logger.info("Deleting view {}", tableName);
           DeploymentService.delete(deployers);
         }
         schemaPlus.removeTable(tableName);
@@ -502,8 +522,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         // before any deployer-level state change.
         ValidationService.validateOrThrow(new PendingDelete<>(source), connection);
         deployers = DeploymentService.deployers(source, connection);
-        logger.info("Deleting table {}", tableName);
-        if (!HoptimatorDdlUtils.isDryRun(connection)) {
+        if (HoptimatorDdlUtils.isDryRun(connection)) {
+          logger.info("Dry-run (deploy=false): skipping delete of table {}", tableName);
+        } else {
+          logger.info("Deleting table {}", tableName);
           DeploymentService.delete(deployers);
         }
         schemaPlus.removeTable(tableName);

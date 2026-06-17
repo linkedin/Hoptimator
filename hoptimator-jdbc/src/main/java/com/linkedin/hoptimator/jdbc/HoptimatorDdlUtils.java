@@ -495,7 +495,10 @@ public final class HoptimatorDdlUtils {
       logger.info("Validated materialized view {}", viewName);
 
       // Execute (create/update) or collect specs (specify).
-      if (mode == DdlMode.UPDATE) {
+      boolean dryRun = mode.mutable() && isDryRun(conn);
+      if (dryRun) {
+        logger.info("Dry-run (deploy=false): skipping {} of materialized view {}", mode, viewName);
+      } else if (mode == DdlMode.UPDATE) {
         logger.info("Deploying update materialized view {}", viewName);
       } else if (mode == DdlMode.CREATE) {
         logger.info("Deploying create materialized view {}", viewName);
@@ -503,10 +506,12 @@ public final class HoptimatorDdlUtils {
         logger.info("Specifying materialized view {}", viewName);
       }
       List<String> specs = mode.executeDeployers(deployers, conn);
-      if (mode.mutable()) {
+      if (mode.mutable() && !dryRun) {
         logger.info("Deployed materialized view {}", viewName);
-      } else {
-        // SPECIFY (dry-run): roll back any side effects made by deployers during specify().
+      } else if (!mode.mutable()) {
+        // SPECIFY (single-statement preview): roll back any side effects made by deployers
+        // during specify(). Note: deploy=false dry-run does not touch deployers at all and
+        // therefore has nothing to restore.
         DeploymentService.restore(deployers);
       }
       success = true;
@@ -702,7 +707,10 @@ public final class HoptimatorDdlUtils {
       logger.info("Validating deployable resources for table {}", tableName);
       ValidationService.validateOrThrow(deployers, conn);
 
-      if (mode == DdlMode.UPDATE) {
+      boolean dryRun = mode.mutable() && isDryRun(conn);
+      if (dryRun) {
+        logger.info("Dry-run (deploy=false): skipping {} of table {}", mode, source);
+      } else if (mode == DdlMode.UPDATE) {
         logger.info("Deploying update table {}", source);
       } else if (mode == DdlMode.CREATE) {
         logger.info("Deploying create table {}", source);
@@ -710,10 +718,12 @@ public final class HoptimatorDdlUtils {
         logger.info("Specifying table {}", source);
       }
       List<String> specs = mode.executeDeployers(deployers, conn);
-      if (mode.mutable()) {
+      if (mode.mutable() && !dryRun) {
         logger.info("Deployed table {}", source);
-      } else {
-        // SPECIFY (dry-run): roll back any side effects made by deployers during specify()
+      } else if (!mode.mutable()) {
+        // SPECIFY (single-statement preview): roll back any side effects made by deployers
+        // during specify(). Note: deploy=false dry-run does not touch deployers at all and
+        // therefore has nothing to restore.
         DeploymentService.restore(deployers);
       }
       success = true;
@@ -779,10 +789,17 @@ public final class HoptimatorDdlUtils {
       deployers = DeploymentService.deployers(database, conn);
       ValidationService.validateOrThrow(deployers, conn);
 
+      boolean dryRun = mode.mutable() && isDryRun(conn);
+      if (dryRun) {
+        logger.info("Dry-run (deploy=false): skipping {} of database {}", mode, name);
+      }
       List<String> specs = mode.executeDeployers(deployers, conn);
-      if (mode.mutable()) {
+      if (mode.mutable() && !dryRun) {
         logger.info("Deployed database {}", name);
-      } else {
+      } else if (!mode.mutable()) {
+        // SPECIFY (single-statement preview): roll back any side effects made by deployers
+        // during specify(). Note: deploy=false dry-run does not touch deployers at all and
+        // therefore has nothing to restore.
         DeploymentService.restore(deployers);
       }
       return new SpecifyResult(specs, null, Collections.singletonList(name));
