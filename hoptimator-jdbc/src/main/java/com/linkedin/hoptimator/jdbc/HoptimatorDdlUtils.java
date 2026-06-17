@@ -112,12 +112,41 @@ public final class HoptimatorDdlUtils {
   public static final String MODE_APPLY = "apply";
 
   /**
+   * Connection property that controls whether DDL statements actually deploy resources.
+   *
+   * <ul>
+   *   <li>{@code true} (default) — normal operation. Each DDL invokes the underlying
+   *       deployers (create/update/delete) to mutate external systems.</li>
+   *   <li>{@code false} — dry-run. Each DDL is parsed, validated, and applied to the
+   *       in-memory Calcite schema so subsequent statements in the same session can
+   *       reference it; the underlying deployers are <em>not</em> touched. Useful for
+   *       validating a multi-statement script end-to-end without producing side effects.</li>
+   * </ul>
+   *
+   * <p>Orthogonal to {@link #MODE_PROPERTY}: {@code mode=apply} + {@code deploy=false}
+   * dry-runs an apply-mode script.
+   *
+   * <p>Distinct from {@code SPECIFY} (the strict zero-side-effect path used by
+   * {@code !specify} and friends), which unwinds the in-memory schema and still invokes
+   * {@code deployer.specify()}. Dry-run preserves the in-memory mutation and does not
+   * invoke any deployer method.
+   *
+   * <p>Set per connection on the JDBC URL, e.g. {@code jdbc:hoptimator://...;deploy=false}
+   * — see {@code docs/user-guide/ddl-reference.md}.
+   */
+  public static final String DEPLOY_PROPERTY = "deploy";
+
+  /**
    * Resolves the effective {@link DdlMode} for a {@code CREATE} statement, combining the
    * statement's {@code OR REPLACE} flag with the connection's {@link #MODE_PROPERTY}.
    *
    * <p>In {@code create} mode (the default): {@code CREATE} → {@link DdlMode#CREATE} and
    * {@code CREATE OR REPLACE} → {@link DdlMode#UPDATE}. In {@code apply} mode: both forms
    * resolve to {@link DdlMode#UPDATE}, making CREATE idempotent.
+   *
+   * <p>Independent of {@link #DEPLOY_PROPERTY}: the returned mode is the same in dry-run
+   * and live runs, since dry-run is decided inside {@link DdlMode#executeDeployers} by
+   * consulting {@link #isDryRun}.
    */
   static DdlMode effectiveMode(boolean orReplace, HoptimatorConnection conn) {
     if (isApplyMode(conn)) {
@@ -134,6 +163,18 @@ public final class HoptimatorDdlUtils {
     }
     String mode = props.getProperty(MODE_PROPERTY, MODE_CREATE);
     return MODE_APPLY.equalsIgnoreCase(mode);
+  }
+
+  /** Whether the connection is configured for dry-run DDL (see {@link #DEPLOY_PROPERTY}). */
+  static boolean isDryRun(Connection conn) {
+    if (!(conn instanceof HoptimatorConnection)) {
+      return false;
+    }
+    Properties props = ((HoptimatorConnection) conn).connectionProperties();
+    if (props == null) {
+      return false;
+    }
+    return "false".equalsIgnoreCase(props.getProperty(DEPLOY_PROPERTY, "true"));
   }
 
   /**
@@ -160,14 +201,23 @@ public final class HoptimatorDdlUtils {
   }
 
   /**
-   * Controls whether a DDL operation performs a real deployment (CREATE or UPDATE)
-   * or a dry-run (SPECIFY).
+   * Controls how a {@code CREATE} statement is resolved against the connection's
+   * {@link #MODE_PROPERTY}.
+   *
+   * <p>{@code CREATE} maps to either {@link #CREATE} (strict) or {@link #UPDATE} (apply-mode
+   * convergence or explicit {@code CREATE OR REPLACE}). {@link #SPECIFY} is the strict
+   * zero-side-effect preview used by {@code !specify} and friends.
+   *
+   * <p>Dry-run (see {@link #DEPLOY_PROPERTY}) is orthogonal and resolved inline at each
+   * deployer call site by checking {@link #isDryRun}.
    */
   enum DdlMode {
     CREATE {
       @Override
       List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException {
-        DeploymentService.create(deployers);
+        if (!isDryRun(conn)) {
+          DeploymentService.create(deployers);
+        }
         return Collections.emptyList();
       }
 
@@ -179,7 +229,9 @@ public final class HoptimatorDdlUtils {
     UPDATE {
       @Override
       List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException {
-        DeploymentService.update(deployers);
+        if (!isDryRun(conn)) {
+          DeploymentService.update(deployers);
+        }
         return Collections.emptyList();
       }
 

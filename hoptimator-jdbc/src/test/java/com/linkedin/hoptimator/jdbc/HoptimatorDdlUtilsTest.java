@@ -59,7 +59,9 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
 
@@ -1784,4 +1786,128 @@ class HoptimatorDdlUtilsTest {
 
     assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(new Properties())));
   }
+
+  @Test
+  void testIsDryRunDefaultsToFalse() {
+    assertFalse(HoptimatorDdlUtils.isDryRun(connectionWith(new Properties())));
+  }
+
+  @Test
+  void testIsDryRunExplicitTrueDeploys() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "true");
+    assertFalse(HoptimatorDdlUtils.isDryRun(connectionWith(props)));
+  }
+
+  @Test
+  void testIsDryRunFalseEnablesDryRun() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "false");
+    assertTrue(HoptimatorDdlUtils.isDryRun(connectionWith(props)));
+  }
+
+  @Test
+  void testIsDryRunCaseInsensitive() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "FALSE");
+    assertTrue(HoptimatorDdlUtils.isDryRun(connectionWith(props)));
+  }
+
+  @Test
+  void testIsDryRunUnknownValueIsLive() {
+    Properties props = new Properties();
+    // Anything that isn't "false" (case-insensitive) means deploy — typos shouldn't silently skip
+    // deployment.
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "nope");
+    assertFalse(HoptimatorDdlUtils.isDryRun(connectionWith(props)));
+  }
+
+  @Test
+  void testIsDryRunTolerantOfNullProperties() {
+    HoptimatorConnection conn = mock(HoptimatorConnection.class);
+    lenient().when(conn.connectionProperties()).thenReturn(null);
+    assertFalse(HoptimatorDdlUtils.isDryRun(conn));
+  }
+
+  @Test
+  void testIsDryRunFalseForNonHoptimatorConnection() {
+    // Plain java.sql.Connection — no HoptimatorConnection cast available — must be treated as
+    // live so non-Hoptimator code paths never accidentally suppress deployment.
+    assertFalse(HoptimatorDdlUtils.isDryRun(mock(java.sql.Connection.class)));
+  }
+
+  @Test
+  void testIsDryRunComposesWithApplyMode() {
+    // The two properties are orthogonal: mode=apply + deploy=false is "dry-run an apply script".
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_APPLY);
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "false");
+    HoptimatorConnection conn = connectionWith(props);
+    assertTrue(HoptimatorDdlUtils.isApplyMode(conn));
+    assertTrue(HoptimatorDdlUtils.isDryRun(conn));
+  }
+
+  @Test
+  void testDdlModeCreateInvokesDeployerWhenLive() throws SQLException {
+    HoptimatorConnection conn = connectionWith(new Properties());
+    List<Deployer> deployers = Collections.singletonList(mock(Deployer.class));
+
+    List<String> specs = HoptimatorDdlUtils.DdlMode.CREATE.executeDeployers(deployers, conn);
+
+    assertTrue(specs.isEmpty());
+    mockDeploymentService.verify(() -> DeploymentService.create(deployers), times(1));
+  }
+
+  @Test
+  void testDdlModeCreateSkipsDeployerWhenDryRun() throws SQLException {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "false");
+    HoptimatorConnection conn = connectionWith(props);
+    List<Deployer> deployers = Collections.singletonList(mock(Deployer.class));
+
+    List<String> specs = HoptimatorDdlUtils.DdlMode.CREATE.executeDeployers(deployers, conn);
+
+    assertTrue(specs.isEmpty());
+    mockDeploymentService.verify(() -> DeploymentService.create(deployers), never());
+  }
+
+  @Test
+  void testDdlModeUpdateInvokesDeployerWhenLive() throws SQLException {
+    HoptimatorConnection conn = connectionWith(new Properties());
+    List<Deployer> deployers = Collections.singletonList(mock(Deployer.class));
+
+    HoptimatorDdlUtils.DdlMode.UPDATE.executeDeployers(deployers, conn);
+
+    mockDeploymentService.verify(() -> DeploymentService.update(deployers), times(1));
+  }
+
+  @Test
+  void testDdlModeUpdateSkipsDeployerWhenDryRun() throws SQLException {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "false");
+    HoptimatorConnection conn = connectionWith(props);
+    List<Deployer> deployers = Collections.singletonList(mock(Deployer.class));
+
+    HoptimatorDdlUtils.DdlMode.UPDATE.executeDeployers(deployers, conn);
+
+    mockDeploymentService.verify(() -> DeploymentService.update(deployers), never());
+  }
+
+  @Test
+  void testDdlModeSpecifyAlwaysCallsSpecifyEvenInDryRun() throws SQLException {
+    // SPECIFY's contract is "render the specs with zero external side-effects", so it must
+    // call deployer.specify() regardless of the deploy property. Restore is handled by callers
+    // (see processCreateMaterializedView / Table / Database), keyed off !mode.mutable().
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "false");
+    HoptimatorConnection conn = connectionWith(props);
+    Deployer deployer = mock(Deployer.class);
+    doReturn(Arrays.asList("rendered: yes")).when(deployer).specify();
+
+    List<String> specs = HoptimatorDdlUtils.DdlMode.SPECIFY.executeDeployers(
+        Collections.singletonList(deployer), conn);
+
+    assertEquals(Arrays.asList("rendered: yes"), specs);
+  }
+
 }
