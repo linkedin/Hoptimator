@@ -73,7 +73,8 @@ and `DROP` removes its target from the in-memory schema so a follow-up
 `deploy=false` is orthogonal to `mode`: combining it with `mode=apply`
 dry-runs an apply-mode script.
 
-> Dry-run is distinct from `!specify` (and the underlying `SPECIFY` mode),
+> Dry-run is distinct from `!specify` (and the underlying `SPECIFY` mode;
+> see [CLI reference](sql-cli.md#specify-sql)),
 > which is the strict zero-side-effect preview used to render deployment
 > artifacts for a single statement. `!specify` always invokes
 > `deployer.specify()` and unwinds the in-memory schema afterward. Dry-run

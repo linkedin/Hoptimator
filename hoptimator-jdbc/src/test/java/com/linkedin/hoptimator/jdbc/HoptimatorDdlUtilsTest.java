@@ -1793,7 +1793,7 @@ class HoptimatorDdlUtilsTest {
   }
 
   @Test
-  void testIsDryRunExplicitTrueReturnsFalse() {
+  void testIsDryRunReturnsFalseWhenDeployIsTrue() {
     Properties props = new Properties();
     props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "true");
     assertFalse(HoptimatorDdlUtils.isDryRun(connectionWith(props)));
