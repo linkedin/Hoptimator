@@ -178,6 +178,16 @@ public final class HoptimatorDdlUtils {
   }
 
   /**
+   * Whether deployment should be skipped for this mode + connection combination.
+   * Returns {@code true} only for mutable modes (CREATE/UPDATE) when the connection
+   * has {@code deploy=false}.  SPECIFY is never skipped — it renders specs as its
+   * primary purpose.
+   */
+  static boolean shouldSkipDeployment(DdlMode mode, Connection conn) {
+    return mode.mutable() && isDryRun(conn);
+  }
+
+  /**
    * The result of a {@link #specifyFromSql} call: the YAML artifact specs, the sink row type,
    * and the fully-qualified path of the sink (viewPath).
    *
@@ -495,7 +505,7 @@ public final class HoptimatorDdlUtils {
       logger.info("Validated materialized view {}", viewName);
 
       // Execute (create/update) or collect specs (specify).
-      boolean dryRun = mode.mutable() && isDryRun(conn);
+      boolean dryRun = shouldSkipDeployment(mode, conn);
       if (dryRun) {
         logger.info("Dry-run (deploy=false): skipping {} of materialized view {}", mode, viewName);
       } else if (mode == DdlMode.UPDATE) {
@@ -707,7 +717,7 @@ public final class HoptimatorDdlUtils {
       logger.info("Validating deployable resources for table {}", tableName);
       ValidationService.validateOrThrow(deployers, conn);
 
-      boolean dryRun = mode.mutable() && isDryRun(conn);
+      boolean dryRun = shouldSkipDeployment(mode, conn);
       if (dryRun) {
         logger.info("Dry-run (deploy=false): skipping {} of table {}", mode, source);
       } else if (mode == DdlMode.UPDATE) {
@@ -789,7 +799,7 @@ public final class HoptimatorDdlUtils {
       deployers = DeploymentService.deployers(database, conn);
       ValidationService.validateOrThrow(deployers, conn);
 
-      boolean dryRun = mode.mutable() && isDryRun(conn);
+      boolean dryRun = shouldSkipDeployment(mode, conn);
       if (dryRun) {
         logger.info("Dry-run (deploy=false): skipping {} of database {}", mode, name);
       }

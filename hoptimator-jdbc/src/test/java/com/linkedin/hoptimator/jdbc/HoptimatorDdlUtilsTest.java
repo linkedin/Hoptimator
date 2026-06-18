@@ -1793,7 +1793,7 @@ class HoptimatorDdlUtilsTest {
   }
 
   @Test
-  void testIsDryRunExplicitTrueDeploys() {
+  void testIsDryRunExplicitTrueReturnsFalse() {
     Properties props = new Properties();
     props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "true");
     assertFalse(HoptimatorDdlUtils.isDryRun(connectionWith(props)));
@@ -1834,6 +1834,31 @@ class HoptimatorDdlUtilsTest {
     // Plain java.sql.Connection — no HoptimatorConnection cast available — must be treated as
     // live so non-Hoptimator code paths never accidentally suppress deployment.
     assertFalse(HoptimatorDdlUtils.isDryRun(mock(java.sql.Connection.class)));
+  }
+
+  @Test
+  void testShouldSkipDeploymentTrueForMutableModeWithDryRun() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "false");
+    HoptimatorConnection conn = connectionWith(props);
+    assertTrue(HoptimatorDdlUtils.shouldSkipDeployment(HoptimatorDdlUtils.DdlMode.CREATE, conn));
+    assertTrue(HoptimatorDdlUtils.shouldSkipDeployment(HoptimatorDdlUtils.DdlMode.UPDATE, conn));
+  }
+
+  @Test
+  void testShouldSkipDeploymentFalseForSpecifyMode() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "false");
+    HoptimatorConnection conn = connectionWith(props);
+    assertFalse(HoptimatorDdlUtils.shouldSkipDeployment(HoptimatorDdlUtils.DdlMode.SPECIFY, conn));
+  }
+
+  @Test
+  void testShouldSkipDeploymentFalseWhenDeployTrue() {
+    Properties props = new Properties();
+    props.setProperty(HoptimatorDdlUtils.DEPLOY_PROPERTY, "true");
+    HoptimatorConnection conn = connectionWith(props);
+    assertFalse(HoptimatorDdlUtils.shouldSkipDeployment(HoptimatorDdlUtils.DdlMode.CREATE, conn));
   }
 
   @Test
@@ -1894,7 +1919,7 @@ class HoptimatorDdlUtilsTest {
   }
 
   @Test
-  void testDdlModeSpecifyAlwaysCallsSpecifyEvenInDryRun() throws SQLException {
+  void testDdlModeSpecifyIgnoresDryRunProperty() throws SQLException {
     // SPECIFY's contract is "render the specs with zero external side-effects", so it must
     // call deployer.specify() regardless of the deploy property. Restore is handled by callers
     // (see processCreateMaterializedView / Table / Database), keyed off !mode.mutable().
