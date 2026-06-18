@@ -50,6 +50,37 @@ remains imperative and explicit. Detection of *incompatible* metadata changes
 `CREATE` and `CREATE OR REPLACE` apply the new definition regardless. Use
 caution when changing schemas of in-flight pipelines.
 
+## Dry-run: validating a script without deploying
+
+The `deploy` connection property toggles whether DDL actually touches the
+underlying deployers.
+
+| `deploy` value     | Behavior                                                                    |
+|--------------------|-----------------------------------------------------------------------------|
+| `true` (default)   | Normal operation. Each DDL invokes the deployers (create/update/delete).    |
+| `false`            | Dry-run. Each DDL is parsed, validated, and applied to the in-memory schema, but no deployer is invoked. |
+
+```
+jdbc:hoptimator://...;deploy=false
+```
+
+In dry-run mode, a session can execute a multi-statement script end-to-end —
+later statements see the in-memory effects of earlier ones (a `CREATE TABLE
+FOO` followed by `CREATE VIEW BAR AS SELECT * FROM FOO` validates correctly),
+and `DROP` removes its target from the in-memory schema so a follow-up
+`CREATE` of the same name doesn't collide. Nothing reaches the deployers.
+
+`deploy=false` is orthogonal to `mode`: combining it with `mode=apply`
+dry-runs an apply-mode script.
+
+> Dry-run is distinct from `!specify` (and the underlying `SPECIFY` mode;
+> see [CLI reference](sql-cli.md#specify-sql)),
+> which is the strict zero-side-effect preview used to render deployment
+> artifacts for a single statement. `!specify` always invokes
+> `deployer.specify()` and unwinds the in-memory schema afterward. Dry-run
+> preserves the in-memory mutation across statements and invokes no deployer
+> method at all.
+
 ## CREATE VIEW
 
 ```
