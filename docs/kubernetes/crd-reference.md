@@ -437,7 +437,7 @@ spec:
 | Field           | Type   | Required | Description                                                                       |
 | --------------- | ------ | :------: | --------------------------------------------------------------------------------- |
 | `sql`           | array  | yes      | One or more SQL statements run as a single job.                                   |
-| `dialect`       | enum   |          | `Flink` (default) or `FlinkBeam`.                                                 |
+| `dialect`       | enum   |          | `Flink` (default), `FlinkBeam`, or `Spark`.                                       |
 | `executionMode` | enum   |          | `Streaming` (default) or `Batch`.                                                 |
 | `configs`       | object |          | Job-level configuration passed through to the engine.                             |
 
