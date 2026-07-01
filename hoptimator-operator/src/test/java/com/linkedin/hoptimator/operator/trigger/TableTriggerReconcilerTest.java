@@ -110,6 +110,88 @@ class TableTriggerReconcilerTest {
   }
 
   @Test
+  void backfillCreatesDistinctlyNamedJobAndLeavesCursorUntouched() {
+    V1Job templateJob = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("bf-job"));
+    OffsetDateTime cursor = OffsetDateTime.parse("2026-06-01T00:00Z");
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("table-trigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(templateJob)))
+        .status(new V1alpha1TableTriggerStatus()
+            .watermark(cursor)
+            .timestamp(cursor)
+            .backfillFrom(OffsetDateTime.parse("2026-05-01T00:00Z"))
+            .backfillTo(OffsetDateTime.parse("2026-05-08T00:00Z")));
+    triggers.add(trigger);
+
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+
+    String expectedName = TableTriggerReconciler.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-05-08T00:00Z"));
+    Assertions.assertTrue(result.isRequeue());
+    Assertions.assertTrue(yamls.containsKey(expectedName),
+        "backfill job must be created with a window-encoded -bf- name");
+    Assertions.assertFalse(yamls.containsKey("bf-job"),
+        "the incremental-named job must not be created for a backfill");
+    Assertions.assertEquals(cursor, trigger.getStatus().getWatermark(),
+        "watermark (cursor) must not move while launching a backfill");
+    Assertions.assertEquals(cursor, trigger.getStatus().getTimestamp(),
+        "timestamp (cursor) must not move while launching a backfill");
+    Assertions.assertNotNull(trigger.getStatus().getBackfillFrom(),
+        "backfill request stays pending until the job completes");
+  }
+
+  @Test
+  void backfillJobNameIsDistinctPerWindowAndStable() {
+    OffsetDateTime a1 = OffsetDateTime.parse("2026-05-01T00:00Z");
+    OffsetDateTime a2 = OffsetDateTime.parse("2026-05-08T00:00Z");
+    OffsetDateTime b2 = OffsetDateTime.parse("2026-05-09T00:00Z");
+
+    String nameA = TableTriggerReconciler.backfillJobName("job", a1, a2);
+    String nameB = TableTriggerReconciler.backfillJobName("job", a1, b2);
+
+    // Different windows => different Job names, so a new backfill never collides with a previous
+    // one still terminating.
+    Assertions.assertNotEquals(nameA, nameB);
+    // Same window => same name (idempotent re-fire).
+    Assertions.assertEquals(nameA, TableTriggerReconciler.backfillJobName("job", a1, a2));
+    Assertions.assertTrue(nameA.startsWith("job-bf-"), "name must carry the -bf- infix: " + nameA);
+  }
+
+  @Test
+  void backfillCompletionClearsRequestAndLeavesWatermark() {
+    String backfillName = TableTriggerReconciler.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-05-08T00:00Z"));
+    V1Job backfillJob = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name(backfillName))
+        .status(new V1JobStatus().addConditionsItem(new V1JobCondition().type("Complete").status("True")));
+    V1Job templateJob = new V1Job().apiVersion("v1/batch").kind("Job")
+        .metadata(new V1ObjectMeta().name("bf-job"));
+    OffsetDateTime cursor = OffsetDateTime.parse("2026-06-01T00:00Z");
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("table-trigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(Yaml.dump(templateJob)))
+        .status(new V1alpha1TableTriggerStatus()
+            .watermark(cursor)
+            .timestamp(cursor)
+            .backfillFrom(OffsetDateTime.parse("2026-05-01T00:00Z"))
+            .backfillTo(OffsetDateTime.parse("2026-05-08T00:00Z")));
+    triggers.add(trigger);
+    jobs.add(backfillJob);
+
+    Result result = reconciler.reconcile(new Request("namespace", "table-trigger"));
+
+    Assertions.assertTrue(result.isRequeue());
+    Assertions.assertTrue(jobs.isEmpty(), "completed backfill job must be deleted");
+    Assertions.assertNull(trigger.getStatus().getBackfillFrom(), "backfill request must be cleared");
+    Assertions.assertNull(trigger.getStatus().getBackfillTo(), "backfill request must be cleared");
+    Assertions.assertEquals(cursor, trigger.getStatus().getWatermark(),
+        "watermark must NOT advance when a backfill completes");
+    Assertions.assertEquals(cursor, trigger.getStatus().getTimestamp(),
+        "timestamp must NOT change when a backfill completes");
+  }
+
+  @Test
   void updatesWatermark() {
     Map<String, String> annotations = new HashMap<>();
     annotations.put("triggerTimestamp", OffsetDateTime.now().toString());

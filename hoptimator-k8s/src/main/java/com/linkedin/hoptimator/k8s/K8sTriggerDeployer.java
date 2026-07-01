@@ -10,6 +10,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 import com.linkedin.hoptimator.util.Template;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -21,6 +23,8 @@ import java.util.Properties;
 
 
 public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1TableTriggerList> {
+
+  private static final Logger logger = LoggerFactory.getLogger(K8sTriggerDeployer.class);
 
   private final K8sContext context;
   private final Trigger trigger;
@@ -80,9 +84,10 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     super.update();
   }
 
-  /** Applies a FIRE intent: rejects on in-flight, merges WITH options into spec.jobProperties
-   *  (mirroring CREATE TRIGGER's prefix-stripping), then bumps status.timestamp so the
-   *  TableTriggerReconciler materialises a fresh Job. */
+  /** Applies a FIRE intent: rejects on in-flight (incremental or backfill), validates any requested
+   *  backfill window, then writes status only (never the spec) — a single update. A plain fire bumps
+   *  status.timestamp; a windowed fire records a one-off backfill via status.backfillFrom/backfillTo,
+   *  leaving the watermark untouched. The TableTriggerReconciler materialises the Job. */
   private void fire(V1alpha1TableTrigger existingTrigger) throws SQLException {
     if (existingTrigger == null) {
       throw new SQLException("Trigger " + trigger.name() + " not found.");
@@ -94,30 +99,55 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
           + status.getTimestamp() + ", watermark=" + status.getWatermark()
           + "). Wait for it to complete, or pause/resume to abort.");
     }
-
-    V1alpha1TableTriggerSpec spec = existingTrigger.getSpec();
-    if (spec == null) {
-      spec = new V1alpha1TableTriggerSpec();
-      existingTrigger.spec(spec);
+    if (status != null && status.getBackfillFrom() != null) {
+      throw new SQLException("Trigger " + trigger.name() + " already has a backfill in flight ["
+          + status.getBackfillFrom() + ", " + status.getBackfillTo() + "]. Wait for it to complete.");
     }
-    Map<String, String> jobProps = spec.getJobProperties() != null
-        ? new HashMap<>(spec.getJobProperties())
-        : new HashMap<>();
-    trigger.options().forEach((key, value) -> {
-      if (Trigger.FIRE_OPTION.equals(key)) {
-        return;
-      }
-      if (key.startsWith("job.properties.")) {
-        jobProps.put(key.substring("job.properties.".length()), value);
-      } else {
-        jobProps.put(key, value);
-      }
-    });
-    spec.jobProperties(jobProps);
-    triggerApi.update(existingTrigger);
 
+    // Validate a requested backfill window up front, before mutating anything. A backfill may only
+    // cover already-processed history, so the end is capped at the watermark — a backfill can never
+    // run ahead of the incremental cursor. We reject only a window that is inverted or lies entirely
+    // at/after the watermark (nothing to backfill).
+    OffsetDateTime backfillFrom = null;
+    OffsetDateTime backfillTo = null;
+    String fireFromOpt = trigger.options().get(Trigger.FIRE_FROM_OPTION);
+    String fireToOpt = trigger.options().get(Trigger.FIRE_TO_OPTION);
+    if (fireFromOpt != null && fireToOpt != null) {
+      backfillFrom = OffsetDateTime.parse(fireFromOpt);
+      backfillTo = OffsetDateTime.parse(fireToOpt);
+      if (!backfillFrom.isBefore(backfillTo)) {
+        throw new SQLException("Backfill window start (" + backfillFrom + ") must be before end ("
+            + backfillTo + ").");
+      }
+      OffsetDateTime watermark = status != null ? status.getWatermark() : null;
+      if (watermark == null) {
+        throw new SQLException("Cannot backfill trigger " + trigger.name()
+            + ": it has no watermark yet, so there is no processed history to backfill.");
+      }
+      if (!backfillFrom.isBefore(watermark)) {
+        throw new SQLException("Backfill window [" + backfillFrom + ", " + backfillTo
+            + "] is entirely at or after the watermark (" + watermark + "); there is no processed "
+            + "history to backfill. The incremental cursor will reach this range on its own.");
+      }
+      if (backfillTo.isAfter(watermark)) {
+        logger.info("Capping backfill end for trigger {} from {} to the watermark {} "
+            + "(a backfill cannot cover data the cursor has not yet processed).",
+            trigger.name(), backfillTo, watermark);
+        backfillTo = watermark;
+      }
+    }
+
+    // FIRE never mutates the spec — it only updates status (a single write). This is the gating
+    // commit: if it fails (e.g. a 409 conflict), the FIRE surfaces an error and the client retries.
     V1alpha1TableTriggerStatus newStatus = status != null ? status : new V1alpha1TableTriggerStatus();
-    newStatus.setTimestamp(OffsetDateTime.now(ZoneOffset.UTC));
+    if (backfillFrom != null && backfillTo != null) {
+      // Windowed fire: request a one-off backfill over [from, to]. The reconciler runs it as a
+      // separate Job and does NOT advance the cursor — watermark/timestamp are left untouched.
+      newStatus.setBackfillFrom(backfillFrom);
+      newStatus.setBackfillTo(backfillTo);
+    } else {
+      newStatus.setTimestamp(OffsetDateTime.now(ZoneOffset.UTC));
+    }
     existingTrigger.setStatus(newStatus);
     triggerApi.updateStatus(existingTrigger, newStatus);
   }

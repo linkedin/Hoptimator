@@ -12,6 +12,9 @@ public class Trigger implements Deployable {
    *  Recognised by deployers (see K8sTriggerDeployer) to short-circuit normal update. */
   public static final String FIRE_OPTION = "fire";
 
+  public static final String FIRE_FROM_OPTION = "fire.from";
+  public static final String FIRE_TO_OPTION = "fire.to";
+
   private final String name;
   private final UserJob job;
   private final String cronSchedule;

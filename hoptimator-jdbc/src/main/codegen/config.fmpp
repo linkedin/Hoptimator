@@ -67,6 +67,8 @@ data: {
       "REFRESH"
       "PAUSE"
       "RESUME"
+      "AGO"
+      "NOW"
     ]
 
     # List of non-reserved keywords to add;
@@ -86,6 +88,8 @@ data: {
       "REFRESH"
       "PAUSE"
       "RESUME"
+      "AGO"
+      "NOW"
     ]
 
     # List of methods for parsing extensions to "CREATE [OR REPLACE]" calls.

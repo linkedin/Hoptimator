@@ -63,12 +63,21 @@ import org.apache.calcite.util.Pair;
 
 import java.io.Reader;
 import java.sql.SQLException;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
@@ -311,10 +320,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     updateTriggerPausedState(resume, resume.name, false);
   }
 
-  /** Executes a {@code FIRE TRIGGER name [WITH (k v, ...)]} command.
-   *  Options are merged into the trigger's job properties and the fire intent
-   *  is passed to the deployer via {@link Trigger#FIRE_OPTION}; the deployer is
-   *  responsible for in-flight rejection and bumping the trigger's timestamp. */
+  /** Executes a {@code FIRE TRIGGER name [FROM <bound> TO <bound>]} command.
+   *  FIRE carries no options and never mutates the trigger spec; the fire intent (and an optional
+   *  backfill window) is passed to the deployer via {@link Trigger#FIRE_OPTION} /
+   *  {@link Trigger#FIRE_FROM_OPTION} / {@link Trigger#FIRE_TO_OPTION}. */
   public void execute(SqlFireTrigger fire, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", fire);
     try {
@@ -328,13 +337,21 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     String name = fire.name.names.get(0);
 
-    Map<String, String> options = HoptimatorDdlUtils.options(fire.options);
+    // FIRE carries no user options — it is a pure "run now" action. Only control markers (the fire
+    // intent and an optional backfill window) are passed to the deployer; nothing touches the spec.
+    Map<String, String> options = new HashMap<>();
     options.put(Trigger.FIRE_OPTION, "true");
+    if (fire.from != null) {
+      options.put(Trigger.FIRE_FROM_OPTION,
+          resolveFireBound(((SqlLiteral) fire.from).getValueAs(String.class), fire));
+      options.put(Trigger.FIRE_TO_OPTION,
+          resolveFireBound(((SqlLiteral) fire.to).getValueAs(String.class), fire));
+    }
     Trigger trigger = new Trigger(name, null, null, options, null, null);
 
     Collection<Deployer> deployers = null;
     try {
-      logger.info("Firing trigger {} with {} option(s)", name, options.size() - 1);
+      logger.info("Firing trigger {}", name);
       deployers = DeploymentService.deployers(trigger, connection);
       DeploymentService.update(deployers);
       logger.info("FIRE TRIGGER {} completed", name);
@@ -343,6 +360,58 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         DeploymentService.restore(deployers);
       }
       throw new DdlException(fire, e.getMessage(), e);
+    }
+  }
+
+  private static final Pattern FIRE_RELATIVE = Pattern.compile("^-(\\d+)([smhd])$");
+
+  /**
+   * Resolves a FIRE TRIGGER time bound to an absolute UTC ISO-8601 instant string:
+   * <ul>
+   *   <li>{@code "now"} — the current time;</li>
+   *   <li>{@code "-<n><unit>"} (from {@code <n> <unit> AGO}) — that long before now;</li>
+   *   <li>otherwise an absolute timestamp: a full ISO instant
+   *       ({@code 2026-05-01T00:00:00Z}) or a date ({@code 2026-05-01}, treated as UTC midnight).</li>
+   * </ul>
+   */
+  static String resolveFireBound(String bound, SqlNode node) {
+    Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    if ("now".equals(bound)) {
+      return now.atOffset(ZoneOffset.UTC).toString();
+    }
+    Matcher relative = FIRE_RELATIVE.matcher(bound);
+    if (relative.matches()) {
+      long amount = Long.parseLong(relative.group(1));
+      Duration offset;
+      switch (relative.group(2)) {
+        case "s":
+          offset = Duration.ofSeconds(amount);
+          break;
+        case "m":
+          offset = Duration.ofMinutes(amount);
+          break;
+        case "h":
+          offset = Duration.ofHours(amount);
+          break;
+        default:
+          offset = Duration.ofDays(amount);
+          break;
+      }
+      return now.minus(offset).atOffset(ZoneOffset.UTC).toString();
+    }
+    try {
+      return OffsetDateTime.parse(bound).withOffsetSameInstant(ZoneOffset.UTC).toString();
+    } catch (DateTimeParseException e1) {
+      try {
+        return Instant.parse(bound).atOffset(ZoneOffset.UTC).toString();
+      } catch (DateTimeParseException e2) {
+        try {
+          return LocalDate.parse(bound).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime().toString();
+        } catch (DateTimeParseException e3) {
+          throw new DdlException(node, "Invalid FIRE TRIGGER time bound: '" + bound
+              + "' (expected an ISO timestamp, a date, '<n> <unit> AGO', or NOW)", e3);
+        }
+      }
     }
   }
 
