@@ -68,6 +68,25 @@ spec:
                   description: Timestamp of the last successfully processed trigger event.
                   type: string
                   format: date-time
+                backfillFrom:
+                  description: >-
+                    Start of a requested one-off backfill window. When backfillFrom and backfillTo
+                    are both set, the operator runs a separate one-off Job over [backfillFrom,
+                    backfillTo] without advancing the watermark, then clears these fields.
+                  type: string
+                  format: date-time
+                backfillTo:
+                  description: End of a requested one-off backfill window. See backfillFrom.
+                  type: string
+                  format: date-time
+                lateWatermark:
+                  description: >-
+                    Internal cursor over the source's change stream (in arrival time) tracking how far
+                    late or out-of-order changes behind the watermark have been consumed and repaired
+                    via one-off backfills. This is plumbing for late-change repair and is not the
+                    user-facing watermark; it never affects the incremental cursor.
+                  type: string
+                  format: date-time
                 jobs:
                   description: State of jobs triggered by this trigger.
                   type: object

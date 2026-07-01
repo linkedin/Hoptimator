@@ -274,12 +274,44 @@ spec:
 | `schedule`      | string  |          | Cron schedule. If set, the trigger fires on a schedule. If null, it fires on status patches. |
 | `paused`        | boolean |          | When true, the trigger does not fire (status updates are ignored).                         |
 
+### Input watermarks
+
+A trigger fires when its input is **complete** through some data-time frontier. For sources with a
+registered `InputWatermarkProvider` (see [extending](../extending/index.md)), the operator advances
+the trigger's cursor to the provider's reported completeness watermark and launches the job over the
+newly-available window. Sources without a provider fire on their cron `schedule` or on manual
+`FIRE`. Either way, the job is handed its output window and reads it directly:
+
+| Template variable | Meaning                                                         |
+| ----------------- | -------------------------------------------------------------- |
+| `{{watermark}}`   | Start of the window (the previous cursor position).            |
+| `{{timestamp}}`   | End of the window (the confirmed frontier / cron tick).        |
+
+A job that needs a wider *trailing* read (e.g. to absorb late data) expresses that in its own SQL —
+that late-data tolerance is a per-job concern. There is no platform-level `lookback`/`lookahead`
+adjustment; earlier `{{inputStart}}`/`{{inputEnd}}` variables and the `lookback`/`lookahead` fields
+were removed.
+
+Each window endpoint — `watermark` and `timestamp` — is also exported in a few convenience formats so
+a job can consume a value without parsing the ISO string. For base name `<v>`:
+
+| Variable | Example | Meaning |
+| -------- | ------- | ------- |
+| `{{<v>}}` | `2026-05-08T07:55Z` | ISO-8601 instant (e.g. `{{timestamp}}`). |
+| `{{<v>EpochMs}}` | `1778226900000` | Unix epoch milliseconds. |
+| `{{<v>Date}}` | `2026-05-08` | UTC calendar date (handy for `dt=`-style partitions). |
+| `{{<v>Hour}}` | `07` | UTC hour-of-day, zero-padded. |
+
+So `{{timestampDate}}`, `{{timestampEpochMs}}`, `{{watermarkHour}}`, etc. are all available.
+
 ### Status fields
 
 | Field       | Type      | Description                                                                  |
 | ----------- | --------- | ---------------------------------------------------------------------------- |
 | `timestamp` | date-time | When the trigger was last fired. **Patching this fires the trigger.**        |
 | `watermark` | date-time | Timestamp of the last *successfully* processed event.                        |
+| `backfillFrom` | date-time | Start of a requested one-off backfill window. When set with `backfillTo`, the operator runs a separate `<job>-bf-<windowId>` Job over `[backfillFrom, backfillTo]` **without** advancing `watermark`/`timestamp`, then clears these fields. |
+| `backfillTo` | date-time | End of the requested backfill window. See `backfillFrom`.                  |
 | `jobs`      | object    | Per-job state — useful for tracking the status of jobs the trigger spawned.  |
 
 ### Printer columns
