@@ -1,4 +1,9 @@
 
+# Pin Strimzi to a known-good release. Must support the Kafka version in
+# deploy/dev/kafka.yaml. Avoid "latest" so CI stays deterministic.
+STRIMZI_VERSION ?= 1.0.0
+STRIMZI_INSTALL_URL := https://github.com/strimzi/strimzi-kafka-operator/releases/download/$(STRIMZI_VERSION)/strimzi-cluster-operator-$(STRIMZI_VERSION).yaml
+
 install:
 	./gradlew compileJava installDist
 
@@ -76,20 +81,20 @@ undeploy-flink:
 
 deploy-kafka: deploy deploy-flink
 	kubectl create namespace kafka || echo "skipping"
-	kubectl apply -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka
+	curl -L "$(STRIMZI_INSTALL_URL)" | sed 's/namespace: .*/namespace: kafka/' | kubectl apply -f - -n kafka
 	sleep 10 # avoid kubectl race condition
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
 	kubectl apply -f ./deploy/dev/kafka.yaml
-	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=5m -n kafka || echo "skipping"
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=5m || echo "skipping"
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=5m || echo "skipping"
+	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=20m -n kafka
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=5m
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=5m
 
 undeploy-kafka:
 	kubectl delete kafkatopic.kafka.strimzi.io --all || echo "skipping"
 	kubectl delete strimzi -n kafka --all || echo "skipping"
 	kubectl delete pvc -l strimzi.io/name=one-kafka -n kafka || echo "skipping"
-	kubectl delete -f "https://strimzi.io/install/latest?namespace=kafka" -n kafka || echo "skipping"
+	kubectl delete -f "$(STRIMZI_INSTALL_URL)" -n kafka || echo "skipping"
 	kubectl delete -f ./deploy/samples/kafkadb.yaml || echo "skipping"
 	kubectl delete namespace kafka || echo "skipping"
 
