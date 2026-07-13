@@ -32,7 +32,7 @@ import java.util.Map;
  * SQL job spec
  */
 @ApiModel(description = "SQL job spec")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-05-19T19:18:59.968Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-06-23T18:44:48.199Z[Etc/UTC]")
 public class V1alpha1SqlJobSpec {
   public static final String SERIALIZED_NAME_CONFIGS = "configs";
   @SerializedName(SERIALIZED_NAME_CONFIGS)
@@ -45,7 +45,9 @@ public class V1alpha1SqlJobSpec {
   public enum DialectEnum {
     FLINK("Flink"),
     
-    FLINKBEAM("FlinkBeam");
+    FLINKBEAM("FlinkBeam"),
+    
+    SPARK("Spark");
 
     private String value;
 
