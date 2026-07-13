@@ -81,9 +81,9 @@ deploy-kafka: deploy deploy-flink
 	kubectl wait --for=condition=Established=True crds/kafkas.kafka.strimzi.io
 	kubectl apply -f ./deploy/samples/kafkadb.yaml
 	kubectl apply -f ./deploy/dev/kafka.yaml
-	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=15m -n kafka
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=15m
-	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=15m
+	kubectl wait kafka.kafka.strimzi.io/one --for=condition=Ready --timeout=5m -n kafka || echo "skipping"
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-1 --for=condition=Ready --timeout=5m || echo "skipping"
+	kubectl wait kafkatopic.kafka.strimzi.io/kafka-database-existing-topic-2 --for=condition=Ready --timeout=5m || echo "skipping"
 
 undeploy-kafka:
 	kubectl delete kafkatopic.kafka.strimzi.io --all || echo "skipping"
