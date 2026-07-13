@@ -33,18 +33,18 @@ drop trigger testfire;
 
 !update
 
-# FIRE with WITH options: options should be merged into spec.jobProperties.
-create trigger testfirewith on ads_catalog.ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
+# FIRE with a backfill window: FROM/TO requests a one-off backfill without mutating the spec.
+create trigger testfirewindow on ads_catalog.ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
 (0 rows modified)
 
 !update
 
-fire trigger testfirewith with ('job.properties.backfill.start.time' '2026-04-01', 'job.properties.backfill.end.time' '2026-04-08');
+fire trigger testfirewindow from '2026-04-01' to '2026-04-08';
 (0 rows modified)
 
 !update
 
-drop trigger testfirewith;
+drop trigger testfirewindow;
 (0 rows modified)
 
 !update
