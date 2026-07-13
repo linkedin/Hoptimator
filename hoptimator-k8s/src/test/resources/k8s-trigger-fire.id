@@ -34,15 +34,16 @@ drop trigger testfire;
 !update
 
 # FIRE with a backfill window: FROM/TO requests a one-off backfill without mutating the spec.
+# A backfill can only cover already-processed history, so a freshly-created trigger with no
+# watermark yet is rejected — there is nothing to backfill.
 create trigger testfirewindow on ads_catalog.ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
 (0 rows modified)
 
 !update
 
 fire trigger testfirewindow from '2026-04-01' to '2026-04-08';
-(0 rows modified)
-
-!update
+Cannot backfill trigger TESTFIREWINDOW: it has no watermark yet, so there is no processed history to backfill.
+!error
 
 drop trigger testfirewindow;
 (0 rows modified)
