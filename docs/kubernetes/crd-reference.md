@@ -288,9 +288,8 @@ newly-available window. Sources without a provider fire on their cron `schedule`
 | `{{timestamp}}`   | End of the window (the confirmed frontier / cron tick).        |
 
 A job that needs a wider *trailing* read (e.g. to absorb late data) expresses that in its own SQL —
-that late-data tolerance is a per-job concern. There is no platform-level `lookback`/`lookahead`
-adjustment; earlier `{{inputStart}}`/`{{inputEnd}}` variables and the `lookback`/`lookahead` fields
-were removed.
+that late-data tolerance is a per-job concern, handled by the job rather than by any platform-level
+schedule adjustment.
 
 Each window endpoint — `watermark` and `timestamp` — is also exported in a few convenience formats so
 a job can consume a value without parsing the ISO string. For base name `<v>`:

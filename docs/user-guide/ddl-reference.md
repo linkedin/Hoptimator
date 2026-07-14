@@ -181,16 +181,6 @@ PAUSE TRIGGER refresh_audience;
 RESUME TRIGGER refresh_audience;
 ```
 
-### `LOOK BACK` / `LOOK AHEAD` (removed)
-
-Earlier versions accepted `LOOK BACK`/`LOOK AHEAD` clauses to pre-compute an
-input read window and expose it as `{{inputStart}}`/`{{inputEnd}}`. These were
-removed: a trigger fires when its input is complete (see
-[TableTrigger input watermarks](../kubernetes/crd-reference.md#input-watermarks)),
-and a job that needs a wider trailing read applies that policy in its own SQL —
-that late-data tolerance is a per-job concern, not a per-schedule one. The job
-window is exposed as `{{watermark}}`/`{{timestamp}}`.
-
 ### Recognized `WITH` options
 
 Most `WITH (...)` keys flow through to the rendered job template, but a few are
