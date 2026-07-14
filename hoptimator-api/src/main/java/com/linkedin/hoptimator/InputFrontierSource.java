@@ -27,12 +27,17 @@ import java.util.Optional;
  * a trigger's cursor to this frontier and fires the job over the newly-available window. The value
  * must be <em>monotonic non-decreasing</em> for a given table across calls.
  *
- * <p><b>Frontier, not a completeness watermark.</b> The frontier is an <em>optimistic</em> signal:
- * it says "data has appeared through here," not "everything at or before here has definitely
- * arrived." Late or out-of-order writes may still land <em>behind</em> the frontier — those are
- * reported by {@link #changesSince(String, Instant)} and healed by one-off backfills. Completeness
- * is therefore achieved by <em>frontier + repair</em>, not by holding the frontier back. A source
- * that needs strict completeness before firing should report a conservative frontier itself.
+ * <p><b>Frontier, not a completeness watermark — and repair is what licenses optimism.</b> The
+ * frontier is an <em>optimistic</em> signal: it says "data has appeared through here," not
+ * "everything at or before here has definitely arrived." A source may report an optimistic
+ * frontier <em>only</em> if it can heal what lands <em>behind</em> the cursor: late or
+ * out-of-order writes must be reported by {@link #changesSince(String, Instant)} and replayed as
+ * one-off backfills, so completeness is achieved by <em>frontier + repair</em>. A source that does
+ * <b>not</b> implement {@link #changesSince(String, Instant)} has no safety net and therefore
+ * <b>must</b> report a <em>conservative</em> frontier — a true completeness watermark — or it will
+ * silently drop late data. (The bundled Kafka {@code ClusterSchema} is a deliberate exception: an
+ * optimistic frontier with no repair, i.e. best-effort/lossy — a demo, not a correctness
+ * reference.)
  *
  * <p>Return {@link Optional#empty()} when a frontier cannot be determined right now; the reconciler
  * then falls back to cron/manual firing. A schema that does not implement this interface at all is

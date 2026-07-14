@@ -279,8 +279,9 @@ spec:
 A trigger fires as its input advances to a new data-time **frontier**. When the input's `Database`
 schema exposes an `InputFrontierSource` (see [extending](../extending/index.md)), the operator
 advances the trigger's cursor to that source's reported frontier and launches the job over the
-newly-available window. The frontier is optimistic ("data has appeared through here"), so late
-writes behind the cursor are healed separately via one-off backfills. Sources without such a
+newly-available window. The frontier is optimistic ("data has appeared through here"); sources that
+can report late changes have writes behind the cursor healed separately via one-off backfills, while
+sources that cannot must report a conservative frontier instead. Sources without any frontier
 capability fire on their cron `schedule` or on manual `FIRE`. Either way, the job is handed its
 output window and reads it directly:
 

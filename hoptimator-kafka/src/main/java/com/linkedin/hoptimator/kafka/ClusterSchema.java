@@ -32,9 +32,15 @@ import java.util.concurrent.ExecutionException;
  * Tables are loaded on-demand when first accessed, not during driver connection.
  *
  * <p>Implements {@link InputFrontierSource} so a {@code TableTrigger} over a topic in this cluster
- * can fire on data availability: {@link #frontier(String)} reports the topic's event-time
- * frontier read via <em>this</em> cluster's connection {@code properties}, so every Kafka
- * {@code Database} reports a frontier from its own brokers with no global configuration.
+ * can fire on data availability: {@link #frontier(String)} reports the topic's event-time frontier
+ * read via <em>this</em> cluster's connection {@code properties}, so every Kafka {@code Database}
+ * reports a frontier from its own brokers with no global configuration.
+ *
+ * <p><b>Best-effort / lossy — a demo, not a correctness reference.</b> This source reports an
+ * <em>optimistic</em> frontier (see below) but implements no repair ({@link #changesSince} is left
+ * at its empty default), so data that lands behind the cursor is silently dropped. A source that
+ * needs correctness must either report a conservative watermark or implement {@code changesSince};
+ * see {@link InputFrontierSource}.
  */
 public class ClusterSchema extends AbstractSchema implements InputFrontierSource {
 
@@ -86,12 +92,17 @@ public class ClusterSchema extends AbstractSchema implements InputFrontierSource
   }
 
   /**
-   * Reports the topic's event-time frontier — the latest record timestamp across partitions — via a
-   * single {@code listOffsets} call using {@link OffsetSpec#maxTimestamp()} against this cluster's
-   * own {@code properties}. Kafka is append-only, so completeness is monotone in record time; there
-   * is no out-of-order repair, so {@link #changesSince} is left at its empty default. Returns empty
-   * when the topic is absent/empty or the cluster can't be reached, so a trigger simply doesn't
-   * advance rather than failing.
+   * Reports the topic's event-time frontier as the <b>maximum</b> record timestamp across
+   * partitions, via a single {@code listOffsets} call using {@link OffsetSpec#maxTimestamp()}
+   * against this cluster's own {@code properties}. Returns empty when the topic is absent/empty or
+   * the cluster can't be reached, so a trigger simply doesn't advance rather than failing.
+   *
+   * <p><b>This is optimistic and lossy.</b> Taking the max means the frontier advances to the
+   * <em>fastest</em> partition, so records that later arrive on a lagging partition — or out of
+   * order within a partition (Kafka {@code CreateTime} is not monotonic) — land behind the cursor
+   * and, with no repair path here, are dropped. A production Kafka source would instead hold a
+   * conservative watermark (min across partitions, minus a bounded out-of-orderness delay, with
+   * idle-partition handling); this demo intentionally does not.
    */
   @Override
   public Optional<Instant> frontier(String topic) {

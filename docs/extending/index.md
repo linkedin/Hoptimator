@@ -103,9 +103,11 @@ public interface InputFrontierSource {
 ```
 
 The `frontier` is an **optimistic** signal — "data has appeared through here," not a guarantee that
-everything at or before it has arrived. Late or out-of-order writes that land behind the cursor are
-reported by `changesSince` and healed with one-off backfills, so completeness is achieved by
-*frontier + repair* rather than by holding the frontier back.
+everything at or before it has arrived. **Repair is what licenses that optimism:** late or
+out-of-order writes that land behind the cursor are reported by `changesSince` and healed with
+one-off backfills, so completeness is achieved by *frontier + repair*. A source that does **not**
+implement `changesSince` has no safety net and **must** report a *conservative* frontier (a real
+watermark) or it will silently drop late data.
 
 Because the capability hangs off the schema — the object the driver constructs from *this*
 `Database`'s connection config — per-cluster configuration (which brokers to read, etc.) is
@@ -117,7 +119,9 @@ just with methods), then asks it about the specific `table`. A schema that doesn
 interface is simply not frontier-driven, and the trigger falls back to cron/manual `FIRE`.
 
 To participate, have your driver's inner schema `implements InputFrontierSource`; the Kafka
-`ClusterSchema` in `hoptimator-kafka` is the reference. No `META-INF/services` file is required.
+`ClusterSchema` in `hoptimator-kafka` is a minimal reference — note it is **best-effort/lossy** (an
+optimistic frontier with no `changesSince` repair), so copy its wiring, not its completeness
+guarantees. No `META-INF/services` file is required.
 
 ## Register, then test
 
