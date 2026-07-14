@@ -45,6 +45,35 @@ fire trigger testfirewindow from '2026-04-01' to '2026-04-08';
 Cannot backfill trigger TESTFIREWINDOW: it has no watermark yet, so there is no processed history to backfill.
 !error
 
+# The 3-part identifier is split into catalog/schema/table on the spec. The CATALOG is what routes a
+# TableTrigger's input to the matching InputWatermarkProvider (e.g. KAFKA vs OPENHOUSE), so the
+# source-agnostic reconciler can advance the cursor to that source's data-time frontier.
+select name, "CATALOG" from "k8s".table_triggers where name = 'testfirewindow';
++----------------+-------------+
+| NAME           | CATALOG     |
++----------------+-------------+
+| testfirewindow | ADS_CATALOG |
++----------------+-------------+
+(1 row)
+
+!ok
+
+# An inverted backfill window (start not before end) is rejected up front, before any status write.
+fire trigger testfirewindow from '2026-04-08' to '2026-04-01';
+Backfill window start
+!error
+
+# A relative window (<n> <unit> AGO) parses and resolves to absolute instants end-to-end; with no
+# watermark yet it still reaches the same "no processed history" rejection.
+fire trigger testfirewindow from 7 days ago to 1 day ago;
+Cannot backfill trigger TESTFIREWINDOW
+!error
+
+# An unparseable absolute time bound is rejected by the executor before it reaches the deployer.
+fire trigger testfirewindow from 'not-a-time' to '2026-04-08';
+Invalid FIRE TRIGGER time bound
+!error
+
 drop trigger testfirewindow;
 (0 rows modified)
 

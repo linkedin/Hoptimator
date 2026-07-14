@@ -1,19 +1,27 @@
 package com.linkedin.hoptimator.kafka;
 
+import com.linkedin.hoptimator.InputWatermarkSource;
 import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.util.LazyReference;
 import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.ListOffsetsResult.ListOffsetsResultInfo;
+import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.TopicPartitionInfo;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -22,8 +30,13 @@ import java.util.concurrent.ExecutionException;
 /**
  * Schema for Kafka topics with lazy loading.
  * Tables are loaded on-demand when first accessed, not during driver connection.
+ *
+ * <p>Implements {@link InputWatermarkSource} so a {@code TableTrigger} over a topic in this cluster
+ * can fire on data availability: {@link #watermark(String)} reports the topic's event-time
+ * frontier read via <em>this</em> cluster's connection {@code properties}, so every Kafka
+ * {@code Database} watermarks against its own brokers with no global configuration.
  */
-public class ClusterSchema extends AbstractSchema {
+public class ClusterSchema extends AbstractSchema implements InputWatermarkSource {
 
   private static final Logger log = LoggerFactory.getLogger(ClusterSchema.class);
 
@@ -40,7 +53,7 @@ public class ClusterSchema extends AbstractSchema {
 
       @Override
       protected Map<String, Table> loadAll() throws Exception {
-        try (AdminClient adminClient = AdminClient.create(properties)) {
+        try (AdminClient adminClient = adminClient()) {
           Set<String> topicNames = adminClient.listTopics().names().get();
           Map<String, Table> tables = new HashMap<>();
           for (String topicName : topicNames) {
@@ -52,7 +65,7 @@ public class ClusterSchema extends AbstractSchema {
 
       @Override
       protected @Nullable Table load(String name) throws Exception {
-        try (AdminClient adminClient = AdminClient.create(properties)) {
+        try (AdminClient adminClient = adminClient()) {
           // Attempt to get the topic description, which will throw an exception if it doesn't exist
           adminClient.describeTopics(Collections.singleton(name)).topicNameValues().get(name).get();
           return new KafkaTopic(name, properties);
@@ -70,5 +83,46 @@ public class ClusterSchema extends AbstractSchema {
         return "Kafka at " + properties.getProperty("bootstrap.servers");
       }
     });
+  }
+
+  /**
+   * Reports the topic's event-time frontier — the latest record timestamp across partitions — via a
+   * single {@code listOffsets} call using {@link OffsetSpec#maxTimestamp()} against this cluster's
+   * own {@code properties}. Kafka is append-only, so completeness is monotone in record time; there
+   * is no out-of-order repair, so {@link #changesSince} is left at its empty default. Returns empty
+   * when the topic is absent/empty or the cluster can't be reached, so a trigger simply doesn't
+   * advance rather than failing.
+   */
+  @Override
+  public Optional<Instant> watermark(String topic) {
+    if (topic == null) {
+      return Optional.empty();
+    }
+    try (AdminClient adminClient = adminClient()) {
+      TopicDescription description =
+          adminClient.describeTopics(Collections.singleton(topic)).allTopicNames().get().get(topic);
+      if (description == null) {
+        return Optional.empty();
+      }
+      Map<TopicPartition, OffsetSpec> query = new HashMap<>();
+      for (TopicPartitionInfo partition : description.partitions()) {
+        query.put(new TopicPartition(topic, partition.partition()), OffsetSpec.maxTimestamp());
+      }
+      long frontier = Long.MIN_VALUE;
+      for (ListOffsetsResultInfo info : adminClient.listOffsets(query).all().get().values()) {
+        if (info.timestamp() >= 0 && info.timestamp() > frontier) {
+          frontier = info.timestamp();  // latest record timestamp across partitions
+        }
+      }
+      return frontier == Long.MIN_VALUE ? Optional.empty() : Optional.of(Instant.ofEpochMilli(frontier));
+    } catch (Exception e) {
+      log.warn("Could not read Kafka watermark for topic {}: {}", topic, e.getMessage());
+      return Optional.empty();
+    }
+  }
+
+  /** Creates an {@link AdminClient} for this cluster. Package-private so tests can inject a mock. */
+  AdminClient adminClient() {
+    return AdminClient.create(properties);
   }
 }

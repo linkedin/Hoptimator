@@ -1,12 +1,13 @@
-package com.linkedin.hoptimator.operator.kafka;
+package com.linkedin.hoptimator.kafka;
 
-import com.linkedin.hoptimator.operator.trigger.TriggerInput;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
+
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.ListOffsetsResult;
@@ -18,21 +19,33 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.TopicPartitionInfo;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class KafkaInputWatermarkTest {
+
+/**
+ * Unit tests for {@link ClusterSchema}'s {@code InputWatermarkSource} capability with a mocked
+ * {@code AdminClient}. Verifies the event-time frontier computation (max record timestamp across
+ * partitions) and the empty-watermark branches, independent of a live cluster.
+ */
+class ClusterSchemaWatermarkTest {
 
   private static final Node NODE = new Node(0, "localhost", 9092);
   private final AdminClient admin = mock(AdminClient.class);
-  private final KafkaInputWatermark provider = new KafkaInputWatermark(admin);
+
+  private ClusterSchema schema() {
+    Properties properties = new Properties();
+    properties.put("bootstrap.servers", "localhost:9092");
+    return new ClusterSchema(properties) {
+      @Override
+      AdminClient adminClient() {
+        return admin;
+      }
+    };
+  }
 
   private void topicWithPartitions(String topic, int count) {
     TopicPartitionInfo[] partitions = new TopicPartitionInfo[count];
@@ -61,8 +74,7 @@ class KafkaInputWatermarkTest {
     topicWithPartitions("topic1", 2);
     maxTimestamps("topic1", 1_000L, 3_000L);
 
-    assertEquals(Optional.of(Instant.ofEpochMilli(3_000L)),
-        provider.completeThrough(new TriggerInput("KAFKA", "cluster", "topic1")));
+    assertThat(schema().watermark("topic1")).contains(Instant.ofEpochMilli(3_000L));
   }
 
   @Test
@@ -70,17 +82,23 @@ class KafkaInputWatermarkTest {
     topicWithPartitions("topic1", 2);
     maxTimestamps("topic1", -1L, -1L);
 
-    assertFalse(provider.completeThrough(new TriggerInput(null, "cluster", "topic1")).isPresent());
+    assertThat(schema().watermark("topic1")).isEmpty();
   }
 
   @Test
-  void declinesNonKafkaCatalogWithoutTouchingAdmin() {
-    assertTrue(provider.completeThrough(new TriggerInput("OPENHOUSE", "db", "t")).isEmpty());
-    verify(admin, never()).describeTopics(anyCollection());
+  void emptyWhenTopicNull() {
+    assertThat(schema().watermark(null)).isEmpty();
   }
 
   @Test
-  void emptyWhenInputHasNoTable() {
-    assertTrue(provider.completeThrough(new TriggerInput(null, "cluster", null)).isEmpty());
+  void emptyWhenAdminThrows() {
+    when(admin.describeTopics(anyCollection())).thenThrow(new RuntimeException("boom"));
+
+    assertThat(schema().watermark("topic1")).isEmpty();
+  }
+
+  @Test
+  void changesSinceIsEmptyByDefault() {
+    assertThat(schema().changesSince("topic1", Instant.now())).isEmpty();
   }
 }

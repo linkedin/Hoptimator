@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.linkedin.hoptimator.DataChange;
+import com.linkedin.hoptimator.InputWatermarkSource;
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.FakeK8sYamlApi;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
@@ -24,8 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 /**
- * Verifies the source-agnostic data-availability path: a trigger whose input is covered by an
- * {@link InputWatermarkProvider} advances its cursor to the provider's data-time frontier, with no
+ * Verifies the source-agnostic data-availability path: a trigger whose input {@code Database} exposes
+ * an {@link InputWatermarkSource} advances its cursor to that source's data-time frontier, with no
  * source-specific logic in the reconciler.
  */
 class TableTriggerReconcilerWatermarkTest {
@@ -48,9 +50,7 @@ class TableTriggerReconcilerWatermarkTest {
   }
 
   private TableTriggerReconciler reconcilerWithFrontier(Instant frontier) {
-    InputWatermarkProvider provider = input -> Optional.ofNullable(frontier);
-    return new TableTriggerReconciler(new FakeK8sApi<>(triggers), new FakeK8sApi<>(jobs),
-        new FakeK8sYamlApi(yamls), Collections.singletonList(provider));
+    return reconcilerWith(frontier, Collections.emptyList());
   }
 
   private V1alpha1TableTrigger trigger(V1alpha1TableTriggerSpec spec, V1alpha1TableTriggerStatus status) {
@@ -89,13 +89,13 @@ class TableTriggerReconcilerWatermarkTest {
   }
 
   @Test
-  void skipsWhenNoProviderHandlesInputAndNoScheduleOrStatus() {
-    // Provider returns empty (does not handle this input); with no schedule and no status, the
+  void skipsWhenNoSourceHandlesInputAndNoScheduleOrStatus() {
+    // Source returns empty (no watermark for this input); with no schedule and no status, the
     // trigger is inert — uniform fallback to cron/manual firing.
     trigger(new V1alpha1TableTriggerSpec(), null);
-    InputWatermarkProvider empty = input -> Optional.empty();
+    InputWatermarkSource empty = table -> Optional.empty();
     new TableTriggerReconciler(new FakeK8sApi<>(triggers), new FakeK8sApi<>(jobs),
-        new FakeK8sYamlApi(yamls), Collections.singletonList(empty))
+        new FakeK8sYamlApi(yamls), (catalog, schema) -> empty)
         .reconcile(new Request("namespace", "wm-trigger"));
 
     assertThat(triggers.get(0).getStatus()).isNull();
@@ -104,19 +104,19 @@ class TableTriggerReconcilerWatermarkTest {
   // ---- late-change repair (out-of-order writes behind the watermark -> one-off backfill) ----
 
   private TableTriggerReconciler reconcilerWith(Instant frontier, List<DataChange> changes) {
-    InputWatermarkProvider provider = new InputWatermarkProvider() {
+    InputWatermarkSource source = new InputWatermarkSource() {
       @Override
-      public Optional<Instant> completeThrough(TriggerInput input) {
+      public Optional<Instant> watermark(String table) {
         return Optional.ofNullable(frontier);
       }
 
       @Override
-      public List<DataChange> changesSince(TriggerInput input, Instant sinceArrival) {
+      public List<DataChange> changesSince(String table, Instant sinceArrival) {
         return changes;
       }
     };
     return new TableTriggerReconciler(new FakeK8sApi<>(triggers), new FakeK8sApi<>(jobs),
-        new FakeK8sYamlApi(yamls), Collections.singletonList(provider));
+        new FakeK8sYamlApi(yamls), (catalog, schema) -> source);
   }
 
   private static OffsetDateTime odt(int hour, int minute) {

@@ -15,6 +15,7 @@ both — pick the layer that matches what you're doing.
 | Build a dependency graph from some backing store (e.g. K8s).                                        | A `GraphProvider`. The K8s-backed default ships in `hoptimator-k8s`. |
 | Render the dependency graph in a format other than the ones shipped (DOT, an interactive web view, …). | A `GraphRenderer`. Mermaid and JSON renderers ship in `hoptimator-graph`. |
 | Customize what gets deployed for an existing system.                                                | Just a `TableTemplate` or `JobTemplate` — no Java needed. See [Templates and configuration](../kubernetes/templates.md). |
+| Fire a `TableTrigger` when your source has new data (event-time completeness).                       | An `InputWatermarkSource` on your driver's schema. See [Firing triggers on data availability](#firing-triggers-on-data-availability). |
 
 ## How extensions are loaded
 
@@ -85,6 +86,33 @@ graphviz, an interactive web view). Add a `GraphProvider` if the
 pipeline state lives somewhere other than Kubernetes — the K8s
 implementation is the reference. Both register via `META-INF/services`
 like every other SPI here.
+
+### "I want a `TableTrigger` to fire when my source has new data"
+
+#### Firing triggers on data availability
+
+This one is **not** a `ServiceLoader` SPI. A `TableTrigger` fires when its input is *complete*
+through some data-time frontier; the source reports that frontier by having the Calcite `Schema`
+its JDBC driver already builds implement `com.linkedin.hoptimator.InputWatermarkSource`:
+
+```java
+public interface InputWatermarkSource {
+  Optional<Instant> watermark(String table);                       // forward frontier
+  default List<DataChange> changesSince(String table, Instant since) { … } // late/out-of-order repair
+}
+```
+
+Because the capability hangs off the schema — the object the driver constructs from *this*
+`Database`'s connection config — per-cluster configuration (which brokers to read, etc.) is
+inherent: there is no global config to reach for, and many clusters can each be their own
+`Database`. The source-agnostic `TableTriggerReconciler` resolves a trigger's `(catalog, schema)` to
+the `Database`'s schema via `HoptimatorJdbcSchema.inputWatermarkSource()` (which walks the driver's
+inner schema and `unwrap`s this interface — exactly like the `LogicalSchemaMarker` one-bit marker,
+just with methods), then asks it about the specific `table`. A schema that doesn't implement the
+interface is simply not watermark-driven, and the trigger falls back to cron/manual `FIRE`.
+
+To participate, have your driver's inner schema `implements InputWatermarkSource`; the Kafka
+`ClusterSchema` in `hoptimator-kafka` is the reference. No `META-INF/services` file is required.
 
 ## Register, then test
 

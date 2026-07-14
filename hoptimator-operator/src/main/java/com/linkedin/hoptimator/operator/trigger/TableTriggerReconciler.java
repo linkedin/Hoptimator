@@ -4,6 +4,10 @@ import com.cronutils.model.definition.CronDefinition;
 import com.cronutils.model.definition.CronDefinitionBuilder;
 import com.cronutils.model.time.ExecutionTime;
 import com.cronutils.parser.CronParser;
+import com.linkedin.hoptimator.DataChange;
+import com.linkedin.hoptimator.InputWatermarkSource;
+import com.linkedin.hoptimator.jdbc.DeployerUtils;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
@@ -13,6 +17,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 import com.linkedin.hoptimator.util.Template;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
@@ -34,7 +39,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -98,27 +102,41 @@ public final class TableTriggerReconciler implements Reconciler {
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi;
   private final K8sApi<V1Job, V1JobList> jobApi;
   private final K8sYamlApi yamlApi;
-  private final Collection<InputWatermarkProvider> inputWatermarkProviders;
+  private final WatermarkSourceResolver watermarkSourceResolver;
 
   private TableTriggerReconciler(K8sContext context) {
     this(new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS),
         new K8sApi<>(context, K8sApiEndpoints.JOBS),
         new K8sYamlApi(context),
-        InputWatermarkService.providers());
+        watermarkSourceResolver(context.connection()));
   }
 
   TableTriggerReconciler(K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
       K8sApi<V1Job, V1JobList> jobApi, K8sYamlApi yamlApi) {
-    this(tableTriggerApi, jobApi, yamlApi, Collections.emptyList());
+    this(tableTriggerApi, jobApi, yamlApi, (catalog, schema) -> null);
   }
 
   TableTriggerReconciler(K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
       K8sApi<V1Job, V1JobList> jobApi, K8sYamlApi yamlApi,
-      Collection<InputWatermarkProvider> inputWatermarkProviders) {
+      WatermarkSourceResolver watermarkSourceResolver) {
     this.tableTriggerApi = tableTriggerApi;
     this.jobApi = jobApi;
     this.yamlApi = yamlApi;
-    this.inputWatermarkProviders = inputWatermarkProviders;
+    this.watermarkSourceResolver = watermarkSourceResolver;
+  }
+
+  /**
+   * Production resolver: unwraps the operator's Calcite connection to the input {@code Database}'s
+   * {@link HoptimatorJdbcSchema} and returns its {@link InputWatermarkSource} capability, or null when
+   * the input has no database or its driver surfaces no watermark capability. This is the seam that
+   * replaces per-source trigger controllers: the capability hangs off the schema the driver already
+   * builds, so per-cluster connection config is inherent.
+   */
+  private static WatermarkSourceResolver watermarkSourceResolver(HoptimatorConnection connection) {
+    return (catalog, schema) -> {
+      HoptimatorJdbcSchema jdbcSchema = DeployerUtils.jdbcSchema(catalog, schema, connection, log);
+      return jdbcSchema == null ? null : jdbcSchema.inputWatermarkSource().orElse(null);
+    };
   }
 
   @Override
@@ -162,9 +180,9 @@ public final class TableTriggerReconciler implements Reconciler {
 
       V1alpha1TableTriggerStatus status = object.getStatus();
 
-      // Ask any registered source integration how far this input is complete in data time (the
-      // InputWatermarkProvider SPI). Null means no provider handles the input -> the trigger is
-      // cron-/manually-driven. This is the seam that replaces per-source trigger controllers.
+      // Ask the input's Database schema how far this input is complete in data time (the
+      // InputWatermarkSource capability). Null means the input is not watermark-driven -> the trigger
+      // is cron-/manually-driven. This is the seam that replaces per-source trigger controllers.
       OffsetDateTime frontier = inputFrontier(object);
 
       if (status == null && frontier == null && object.getSpec().getSchedule() == null) {
@@ -212,7 +230,8 @@ public final class TableTriggerReconciler implements Reconciler {
       // one-off backfill — which never moves the cursor. Consumed in arrival order via the internal
       // lateWatermark, serialized through the single backfill slot. The user-facing watermark stays
       // the monotone forward frontier.
-      if (job == null && !inputWatermarkProviders.isEmpty()
+      if (job == null
+          && watermarkSourceResolver.resolve(object.getSpec().getCatalog(), object.getSpec().getSchema()) != null
           && status.getBackfillFrom() == null && status.getWatermark() != null) {
         Result repair = maybeEnqueueLateRepair(object, status);
         if (repair != null) {
@@ -431,18 +450,25 @@ public final class TableTriggerReconciler implements Reconciler {
   }
 
   /**
-   * Resolves the input's data-time completeness watermark from the registered
-   * {@link InputWatermarkProvider}s, in UTC, or null when no provider handles the input (the
-   * trigger is then cron-/manually-driven). See {@link InputWatermarkService}.
+   * Resolves the input's data-time completeness watermark from the {@link InputWatermarkSource}
+   * capability of the input's {@code Database} schema, in UTC, or null when the input is not
+   * watermark-driven (the trigger is then cron-/manually-driven). A source that throws is logged and
+   * skipped, so one misbehaving database never blocks a trigger.
    */
   private OffsetDateTime inputFrontier(V1alpha1TableTrigger trigger) {
-    if (inputWatermarkProviders.isEmpty()) {
+    V1alpha1TableTriggerSpec spec = trigger.getSpec();
+    InputWatermarkSource source = watermarkSourceResolver.resolve(spec.getCatalog(), spec.getSchema());
+    if (source == null) {
       return null;
     }
-    V1alpha1TableTriggerSpec spec = trigger.getSpec();
-    TriggerInput input = new TriggerInput(spec.getCatalog(), spec.getSchema(), spec.getTable());
-    Optional<Instant> watermark = InputWatermarkService.completeThrough(inputWatermarkProviders, input);
-    return watermark.map(t -> t.atOffset(ZoneOffset.UTC)).orElse(null);
+    try {
+      Optional<Instant> watermark = source.watermark(spec.getTable());
+      return watermark.map(t -> t.atOffset(ZoneOffset.UTC)).orElse(null);
+    } catch (Exception e) {
+      log.warn("InputWatermarkSource for {}.{} watermark failed; skipping.",
+          spec.getSchema(), spec.getTable(), e);
+      return null;
+    }
   }
 
   /**
@@ -456,7 +482,6 @@ public final class TableTriggerReconciler implements Reconciler {
   private Result maybeEnqueueLateRepair(V1alpha1TableTrigger object, V1alpha1TableTriggerStatus status)
       throws SQLException {
     V1alpha1TableTriggerSpec spec = object.getSpec();
-    TriggerInput input = new TriggerInput(spec.getCatalog(), spec.getSchema(), spec.getTable());
     OffsetDateTime watermark = status.getWatermark();
 
     if (status.getLateWatermark() == null) {
@@ -466,13 +491,14 @@ public final class TableTriggerReconciler implements Reconciler {
     }
     Instant since = status.getLateWatermark().toInstant();
 
+    InputWatermarkSource source = watermarkSourceResolver.resolve(spec.getCatalog(), spec.getSchema());
     List<DataChange> changes = new ArrayList<>();
-    for (InputWatermarkProvider provider : inputWatermarkProviders) {
+    if (source != null) {
       try {
-        changes.addAll(provider.changesSince(input, since));
+        changes.addAll(source.changesSince(spec.getTable(), since));
       } catch (Exception e) {
-        log.warn("InputWatermarkProvider {} changesSince failed for {}; skipping.",
-            provider.getClass().getName(), input, e);
+        log.warn("InputWatermarkSource for {}.{} changesSince failed; skipping.",
+            spec.getSchema(), spec.getTable(), e);
       }
     }
     if (changes.isEmpty()) {

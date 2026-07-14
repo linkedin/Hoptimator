@@ -276,11 +276,11 @@ spec:
 
 ### Input watermarks
 
-A trigger fires when its input is **complete** through some data-time frontier. For sources with a
-registered `InputWatermarkProvider` (see [extending](../extending/index.md)), the operator advances
-the trigger's cursor to the provider's reported completeness watermark and launches the job over the
-newly-available window. Sources without a provider fire on their cron `schedule` or on manual
-`FIRE`. Either way, the job is handed its output window and reads it directly:
+A trigger fires when its input is **complete** through some data-time frontier. When the input's
+`Database` schema exposes an `InputWatermarkSource` (see [extending](../extending/index.md)), the
+operator advances the trigger's cursor to that source's reported completeness watermark and launches
+the job over the newly-available window. Sources without such a capability fire on their cron
+`schedule` or on manual `FIRE`. Either way, the job is handed its output window and reads it directly:
 
 | Template variable | Meaning                                                         |
 | ----------------- | -------------------------------------------------------------- |
