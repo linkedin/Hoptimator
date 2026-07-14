@@ -4,7 +4,7 @@ metadata:
   namespace: {{pipeline.namespace}}
   name: {{pipeline.name}}-flink-job
 spec:
-  image: docker.io/library/hoptimator-flink-runner
+  image: hoptimator-flink-runner:latest
   imagePullPolicy: Never
   flinkVersion: v1_18
   flinkConfiguration:
