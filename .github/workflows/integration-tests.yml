@@ -35,18 +35,12 @@ jobs:
         min-coverage-changed-files: 60
         pass-emoji: ':green_circle:'
         update-comment: true
-    - name: Create K8s Kind Cluster
+    - name: Install kind
       uses: helm/kind-action@v1.4.0
       with:
-        cluster_name: 'kind'
-        config: './etc/cluster.yaml'
-    - name: Load Docker Images
-      run: |
-        kind load docker-image hoptimator
-        kind load docker-image hoptimator-flink-runner
-        kind load docker-image hoptimator-flink-operator
+        install_only: true
     - name: Run Integration Tests
-      run: make integration-tests-kind
+      run: make integration-tests
     - name: Capture Integration Reports
       if: failure()
       uses: actions/upload-artifact@v6

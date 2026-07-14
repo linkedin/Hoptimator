@@ -138,16 +138,12 @@ undeploy-dev-environment: undeploy-logical undeploy-venice undeploy-mysql undepl
 	kubectl delete -f ./deploy/dev || echo "skipping"
 	kind delete cluster -n hoptimator-kind || echo "skipping"
 
-# Integration test setup intended to be run locally. create-kind-cluster provisions the kind cluster
-# with ./etc/cluster.yaml (the same config CI's kind-action uses), which maps the Kafka
-# bootstrap/broker and Flink SQL gateway node ports to localhost — so no manual port-forwarding is
-# needed to reach the cluster from the host.
+# End-to-end integration tests, used both locally and in CI (the GitHub workflow installs kind, then
+# runs this target). create-kind-cluster provisions the kind cluster with ./etc/cluster.yaml, which
+# maps the Kafka bootstrap/broker and Flink SQL gateway node ports to localhost — so the tests reach
+# the cluster from the host with no manual port-forwarding.
 integration-tests: deploy-dev-environment
 	./gradlew intTest --no-parallel
-
-# kind cluster used in github workflow needs to have different routing set up, avoiding the need to forward kafka ports
-integration-tests-kind: deploy-dev-environment
-	./gradlew intTest -i --no-parallel
 
 generate-models:
 	./generate-models.sh
@@ -170,4 +166,4 @@ run-zeppelin: build-zeppelin
 	  --name hoptimator-zeppelin \
 	  hoptimator-zeppelin
 
-.PHONY: install test coverage build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice deploy-logical undeploy-logical build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test coverage build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice deploy-logical undeploy-logical build-zeppelin run-zeppelin integration-tests deploy-dev-environment undeploy-dev-environment generate-models release
