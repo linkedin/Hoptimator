@@ -23,10 +23,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 /**
- * Integration test for {@link ClusterSchema}'s {@code InputWatermarkSource} capability against a live
+ * Integration test for {@link ClusterSchema}'s {@code InputFrontierSource} capability against a live
  * Kafka cluster (the same one the {@code intTest} suite provisions). It creates a fresh topic,
  * produces records with known event-time timestamps across partitions, and asserts that
- * {@code watermark} reports the true frontier — the latest record timestamp across partitions —
+ * {@code frontier} reports the true frontier — the latest record timestamp across partitions —
  * via a real {@code describeTopics} + {@code listOffsets(maxTimestamp)} round-trip against the
  * cluster addressed by the schema's own {@code bootstrap.servers}.
  *
@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 @Tag("integration")
 @Timeout(value = 2, unit = TimeUnit.MINUTES)
-class ClusterSchemaWatermarkIntegrationTest {
+class ClusterSchemaFrontierIntegrationTest {
 
   private static final String BOOTSTRAP_PROPERTY = "hoptimator.kafka.bootstrap.servers";
   private static final String DEFAULT_BOOTSTRAP = "localhost:9092";
@@ -49,7 +49,7 @@ class ClusterSchemaWatermarkIntegrationTest {
   @BeforeEach
   void setUp() throws Exception {
     bootstrap = System.getProperty(BOOTSTRAP_PROPERTY, DEFAULT_BOOTSTRAP);
-    topic = "hoptimator-watermark-it-" + UUID.randomUUID();
+    topic = "hoptimator-frontier-it-" + UUID.randomUUID();
     Properties adminProperties = new Properties();
     adminProperties.put("bootstrap.servers", bootstrap);
     admin = AdminClient.create(adminProperties);
@@ -87,19 +87,19 @@ class ClusterSchemaWatermarkIntegrationTest {
     produce(0, partition0Timestamp);
     produce(1, partition1Timestamp);
 
-    Optional<Instant> watermark = clusterSchema().watermark(topic);
+    Optional<Instant> frontier = clusterSchema().frontier(topic);
 
-    assertThat(watermark).contains(Instant.ofEpochMilli(expectedFrontier));
+    assertThat(frontier).contains(Instant.ofEpochMilli(expectedFrontier));
   }
 
   @Test
   void isEmptyForTopicWithNoRecords() {
-    assertThat(clusterSchema().watermark(topic)).isEmpty();
+    assertThat(clusterSchema().frontier(topic)).isEmpty();
   }
 
   @Test
   void isEmptyForNonExistentTopic() {
-    assertThat(clusterSchema().watermark("hoptimator-watermark-absent-" + UUID.randomUUID())).isEmpty();
+    assertThat(clusterSchema().frontier("hoptimator-frontier-absent-" + UUID.randomUUID())).isEmpty();
   }
 
   private void produce(int partition, long timestamp) throws Exception {

@@ -1,6 +1,6 @@
 package com.linkedin.hoptimator.kafka;
 
-import com.linkedin.hoptimator.InputWatermarkSource;
+import com.linkedin.hoptimator.InputFrontierSource;
 import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -31,12 +31,12 @@ import java.util.concurrent.ExecutionException;
  * Schema for Kafka topics with lazy loading.
  * Tables are loaded on-demand when first accessed, not during driver connection.
  *
- * <p>Implements {@link InputWatermarkSource} so a {@code TableTrigger} over a topic in this cluster
- * can fire on data availability: {@link #watermark(String)} reports the topic's event-time
+ * <p>Implements {@link InputFrontierSource} so a {@code TableTrigger} over a topic in this cluster
+ * can fire on data availability: {@link #frontier(String)} reports the topic's event-time
  * frontier read via <em>this</em> cluster's connection {@code properties}, so every Kafka
- * {@code Database} watermarks against its own brokers with no global configuration.
+ * {@code Database} reports a frontier from its own brokers with no global configuration.
  */
-public class ClusterSchema extends AbstractSchema implements InputWatermarkSource {
+public class ClusterSchema extends AbstractSchema implements InputFrontierSource {
 
   private static final Logger log = LoggerFactory.getLogger(ClusterSchema.class);
 
@@ -94,7 +94,7 @@ public class ClusterSchema extends AbstractSchema implements InputWatermarkSourc
    * advance rather than failing.
    */
   @Override
-  public Optional<Instant> watermark(String topic) {
+  public Optional<Instant> frontier(String topic) {
     if (topic == null) {
       return Optional.empty();
     }
@@ -116,7 +116,7 @@ public class ClusterSchema extends AbstractSchema implements InputWatermarkSourc
       }
       return frontier == Long.MIN_VALUE ? Optional.empty() : Optional.of(Instant.ofEpochMilli(frontier));
     } catch (Exception e) {
-      log.warn("Could not read Kafka watermark for topic {}: {}", topic, e.getMessage());
+      log.warn("Could not read Kafka frontier for topic {}: {}", topic, e.getMessage());
       return Optional.empty();
     }
   }

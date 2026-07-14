@@ -6,7 +6,7 @@ import java.util.Objects;
 
 /**
  * A change to an input observed at {@link #arrival()} that affects the data-time window
- * {@code [windowStart, windowEnd)}. Reported by an {@link InputWatermarkSource} so the reconciler
+ * {@code [windowStart, windowEnd)}. Reported by an {@link InputFrontierSource} so the reconciler
  * can repair late or out-of-order writes that land <em>behind</em> the watermark — by running a
  * one-off backfill over the affected window — without disturbing the monotone forward cursor.
  *

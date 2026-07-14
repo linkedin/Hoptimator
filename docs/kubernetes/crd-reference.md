@@ -274,13 +274,15 @@ spec:
 | `schedule`      | string  |          | Cron schedule. If set, the trigger fires on a schedule. If null, it fires on status patches. |
 | `paused`        | boolean |          | When true, the trigger does not fire (status updates are ignored).                         |
 
-### Input watermarks
+### Input frontiers
 
-A trigger fires when its input is **complete** through some data-time frontier. When the input's
-`Database` schema exposes an `InputWatermarkSource` (see [extending](../extending/index.md)), the
-operator advances the trigger's cursor to that source's reported completeness watermark and launches
-the job over the newly-available window. Sources without such a capability fire on their cron
-`schedule` or on manual `FIRE`. Either way, the job is handed its output window and reads it directly:
+A trigger fires as its input advances to a new data-time **frontier**. When the input's `Database`
+schema exposes an `InputFrontierSource` (see [extending](../extending/index.md)), the operator
+advances the trigger's cursor to that source's reported frontier and launches the job over the
+newly-available window. The frontier is optimistic ("data has appeared through here"), so late
+writes behind the cursor are healed separately via one-off backfills. Sources without such a
+capability fire on their cron `schedule` or on manual `FIRE`. Either way, the job is handed its
+output window and reads it directly:
 
 | Template variable | Meaning                                                         |
 | ----------------- | -------------------------------------------------------------- |

@@ -27,11 +27,11 @@ import static org.mockito.Mockito.when;
 
 
 /**
- * Unit tests for {@link ClusterSchema}'s {@code InputWatermarkSource} capability with a mocked
+ * Unit tests for {@link ClusterSchema}'s {@code InputFrontierSource} capability with a mocked
  * {@code AdminClient}. Verifies the event-time frontier computation (max record timestamp across
- * partitions) and the empty-watermark branches, independent of a live cluster.
+ * partitions) and the empty-frontier branches, independent of a live cluster.
  */
-class ClusterSchemaWatermarkTest {
+class ClusterSchemaFrontierTest {
 
   private static final Node NODE = new Node(0, "localhost", 9092);
   private final AdminClient admin = mock(AdminClient.class);
@@ -74,7 +74,7 @@ class ClusterSchemaWatermarkTest {
     topicWithPartitions("topic1", 2);
     maxTimestamps("topic1", 1_000L, 3_000L);
 
-    assertThat(schema().watermark("topic1")).contains(Instant.ofEpochMilli(3_000L));
+    assertThat(schema().frontier("topic1")).contains(Instant.ofEpochMilli(3_000L));
   }
 
   @Test
@@ -82,19 +82,19 @@ class ClusterSchemaWatermarkTest {
     topicWithPartitions("topic1", 2);
     maxTimestamps("topic1", -1L, -1L);
 
-    assertThat(schema().watermark("topic1")).isEmpty();
+    assertThat(schema().frontier("topic1")).isEmpty();
   }
 
   @Test
   void emptyWhenTopicNull() {
-    assertThat(schema().watermark(null)).isEmpty();
+    assertThat(schema().frontier(null)).isEmpty();
   }
 
   @Test
   void emptyWhenAdminThrows() {
     when(admin.describeTopics(anyCollection())).thenThrow(new RuntimeException("boom"));
 
-    assertThat(schema().watermark("topic1")).isEmpty();
+    assertThat(schema().frontier("topic1")).isEmpty();
   }
 
   @Test

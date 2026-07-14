@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import com.linkedin.hoptimator.DataChange;
-import com.linkedin.hoptimator.InputWatermarkSource;
+import com.linkedin.hoptimator.InputFrontierSource;
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.FakeK8sYamlApi;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
@@ -27,10 +27,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Verifies the source-agnostic data-availability path: a trigger whose input {@code Database} exposes
- * an {@link InputWatermarkSource} advances its cursor to that source's data-time frontier, with no
+ * an {@link InputFrontierSource} advances its cursor to that source's data-time frontier, with no
  * source-specific logic in the reconciler.
  */
-class TableTriggerReconcilerWatermarkTest {
+class TableTriggerReconcilerFrontierTest {
 
   private static final String JOB_TEMPLATE = String.join("\n",
       "apiVersion: batch/v1",
@@ -90,10 +90,10 @@ class TableTriggerReconcilerWatermarkTest {
 
   @Test
   void skipsWhenNoSourceHandlesInputAndNoScheduleOrStatus() {
-    // Source returns empty (no watermark for this input); with no schedule and no status, the
+    // Source returns empty (no frontier for this input); with no schedule and no status, the
     // trigger is inert — uniform fallback to cron/manual firing.
     trigger(new V1alpha1TableTriggerSpec(), null);
-    InputWatermarkSource empty = table -> Optional.empty();
+    InputFrontierSource empty = table -> Optional.empty();
     new TableTriggerReconciler(new FakeK8sApi<>(triggers), new FakeK8sApi<>(jobs),
         new FakeK8sYamlApi(yamls), (catalog, schema) -> empty)
         .reconcile(new Request("namespace", "wm-trigger"));
@@ -104,9 +104,9 @@ class TableTriggerReconcilerWatermarkTest {
   // ---- late-change repair (out-of-order writes behind the watermark -> one-off backfill) ----
 
   private TableTriggerReconciler reconcilerWith(Instant frontier, List<DataChange> changes) {
-    InputWatermarkSource source = new InputWatermarkSource() {
+    InputFrontierSource source = new InputFrontierSource() {
       @Override
-      public Optional<Instant> watermark(String table) {
+      public Optional<Instant> frontier(String table) {
         return Optional.ofNullable(frontier);
       }
 

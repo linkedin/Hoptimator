@@ -5,7 +5,7 @@ import com.cronutils.model.definition.CronDefinitionBuilder;
 import com.cronutils.model.time.ExecutionTime;
 import com.cronutils.parser.CronParser;
 import com.linkedin.hoptimator.DataChange;
-import com.linkedin.hoptimator.InputWatermarkSource;
+import com.linkedin.hoptimator.InputFrontierSource;
 import com.linkedin.hoptimator.jdbc.DeployerUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.K8sApi;
@@ -102,13 +102,13 @@ public final class TableTriggerReconciler implements Reconciler {
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi;
   private final K8sApi<V1Job, V1JobList> jobApi;
   private final K8sYamlApi yamlApi;
-  private final WatermarkSourceResolver watermarkSourceResolver;
+  private final FrontierSourceResolver frontierSourceResolver;
 
   private TableTriggerReconciler(K8sContext context) {
     this(new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS),
         new K8sApi<>(context, K8sApiEndpoints.JOBS),
         new K8sYamlApi(context),
-        watermarkSourceResolver(context.connection()));
+        frontierSourceResolver(context.connection()));
   }
 
   TableTriggerReconciler(K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
@@ -118,24 +118,24 @@ public final class TableTriggerReconciler implements Reconciler {
 
   TableTriggerReconciler(K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
       K8sApi<V1Job, V1JobList> jobApi, K8sYamlApi yamlApi,
-      WatermarkSourceResolver watermarkSourceResolver) {
+      FrontierSourceResolver frontierSourceResolver) {
     this.tableTriggerApi = tableTriggerApi;
     this.jobApi = jobApi;
     this.yamlApi = yamlApi;
-    this.watermarkSourceResolver = watermarkSourceResolver;
+    this.frontierSourceResolver = frontierSourceResolver;
   }
 
   /**
    * Production resolver: unwraps the operator's Calcite connection to the input {@code Database}'s
-   * {@link HoptimatorJdbcSchema} and returns its {@link InputWatermarkSource} capability, or null when
-   * the input has no database or its driver surfaces no watermark capability. This is the seam that
+   * {@link HoptimatorJdbcSchema} and returns its {@link InputFrontierSource} capability, or null when
+   * the input has no database or its driver surfaces no frontier capability. This is the seam that
    * replaces per-source trigger controllers: the capability hangs off the schema the driver already
    * builds, so per-cluster connection config is inherent.
    */
-  private static WatermarkSourceResolver watermarkSourceResolver(HoptimatorConnection connection) {
+  private static FrontierSourceResolver frontierSourceResolver(HoptimatorConnection connection) {
     return (catalog, schema) -> {
       HoptimatorJdbcSchema jdbcSchema = DeployerUtils.jdbcSchema(catalog, schema, connection, log);
-      return jdbcSchema == null ? null : jdbcSchema.inputWatermarkSource().orElse(null);
+      return jdbcSchema == null ? null : jdbcSchema.inputFrontierSource().orElse(null);
     };
   }
 
@@ -181,7 +181,7 @@ public final class TableTriggerReconciler implements Reconciler {
       V1alpha1TableTriggerStatus status = object.getStatus();
 
       // Ask the input's Database schema how far this input is complete in data time (the
-      // InputWatermarkSource capability). Null means the input is not watermark-driven -> the trigger
+      // InputFrontierSource capability). Null means the input is not frontier-driven -> the trigger
       // is cron-/manually-driven. This is the seam that replaces per-source trigger controllers.
       OffsetDateTime frontier = inputFrontier(object);
 
@@ -211,12 +211,13 @@ public final class TableTriggerReconciler implements Reconciler {
       ExecutionTime scheduled = scheduledExecution(object);
       ZonedDateTime now = ZonedDateTime.now();
 
-      // Data-availability firing: when a source provider reports a data-time frontier for the
-      // input, advance the cursor to it and launch the Job over the newly-available window
-      // [watermark, timestamp]. The frontier is a completeness watermark — the source has confirmed
-      // input exists through it — so no additional margin is applied. Gated on job == null (like
-      // cron) so we process one window at a time. Uniform across every source: the source supplies a
-      // watermark; this reconciler owns the cursor and Job launching.
+      // Data-availability firing: when a source reports a data-time frontier for the input, advance
+      // the cursor to it and launch the Job over the newly-available window [watermark, timestamp].
+      // The frontier is an optimistic signal — the source has seen data through it, not a guarantee
+      // that everything at or before it has arrived — so late writes behind the cursor are healed
+      // separately via changesSince/backfill. Gated on job == null (like cron) so we process one
+      // window at a time. Uniform across every source: the source supplies a frontier; this
+      // reconciler owns the cursor and Job launching.
       if (job == null && frontier != null
           && (status.getTimestamp() == null || frontier.isAfter(status.getTimestamp()))) {
         log.info("Advancing TableTrigger {} to input frontier {}.", name, frontier);
@@ -231,7 +232,7 @@ public final class TableTriggerReconciler implements Reconciler {
       // lateWatermark, serialized through the single backfill slot. The user-facing watermark stays
       // the monotone forward frontier.
       if (job == null
-          && watermarkSourceResolver.resolve(object.getSpec().getCatalog(), object.getSpec().getSchema()) != null
+          && frontierSourceResolver.resolve(object.getSpec().getCatalog(), object.getSpec().getSchema()) != null
           && status.getBackfillFrom() == null && status.getWatermark() != null) {
         Result repair = maybeEnqueueLateRepair(object, status);
         if (repair != null) {
@@ -450,22 +451,22 @@ public final class TableTriggerReconciler implements Reconciler {
   }
 
   /**
-   * Resolves the input's data-time completeness watermark from the {@link InputWatermarkSource}
-   * capability of the input's {@code Database} schema, in UTC, or null when the input is not
-   * watermark-driven (the trigger is then cron-/manually-driven). A source that throws is logged and
-   * skipped, so one misbehaving database never blocks a trigger.
+   * Resolves the input's data-time frontier from the {@link InputFrontierSource} capability of the
+   * input's {@code Database} schema, in UTC, or null when the input is not frontier-driven (the
+   * trigger is then cron-/manually-driven). A source that throws is logged and skipped, so one
+   * misbehaving database never blocks a trigger.
    */
   private OffsetDateTime inputFrontier(V1alpha1TableTrigger trigger) {
     V1alpha1TableTriggerSpec spec = trigger.getSpec();
-    InputWatermarkSource source = watermarkSourceResolver.resolve(spec.getCatalog(), spec.getSchema());
+    InputFrontierSource source = frontierSourceResolver.resolve(spec.getCatalog(), spec.getSchema());
     if (source == null) {
       return null;
     }
     try {
-      Optional<Instant> watermark = source.watermark(spec.getTable());
-      return watermark.map(t -> t.atOffset(ZoneOffset.UTC)).orElse(null);
+      Optional<Instant> frontier = source.frontier(spec.getTable());
+      return frontier.map(t -> t.atOffset(ZoneOffset.UTC)).orElse(null);
     } catch (Exception e) {
-      log.warn("InputWatermarkSource for {}.{} watermark failed; skipping.",
+      log.warn("InputFrontierSource for {}.{} frontier failed; skipping.",
           spec.getSchema(), spec.getTable(), e);
       return null;
     }
@@ -491,13 +492,13 @@ public final class TableTriggerReconciler implements Reconciler {
     }
     Instant since = status.getLateWatermark().toInstant();
 
-    InputWatermarkSource source = watermarkSourceResolver.resolve(spec.getCatalog(), spec.getSchema());
+    InputFrontierSource source = frontierSourceResolver.resolve(spec.getCatalog(), spec.getSchema());
     List<DataChange> changes = new ArrayList<>();
     if (source != null) {
       try {
         changes.addAll(source.changesSince(spec.getTable(), since));
       } catch (Exception e) {
-        log.warn("InputWatermarkSource for {}.{} changesSince failed; skipping.",
+        log.warn("InputFrontierSource for {}.{} changesSince failed; skipping.",
             spec.getSchema(), spec.getTable(), e);
       }
     }

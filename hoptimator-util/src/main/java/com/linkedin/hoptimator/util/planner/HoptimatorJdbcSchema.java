@@ -2,7 +2,7 @@ package com.linkedin.hoptimator.util.planner;
 
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Engine;
-import com.linkedin.hoptimator.InputWatermarkSource;
+import com.linkedin.hoptimator.InputFrontierSource;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -41,7 +41,7 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   private final HoptimatorJdbcConvention convention;
   private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
   private volatile Boolean cachedLogical;
-  private volatile Optional<InputWatermarkSource> cachedWatermarkSource;
+  private volatile Optional<InputFrontierSource> cachedFrontierSource;
 
   public static HoptimatorJdbcSchema create(String database, String catalog, String schema, DataSource dataSource,
       SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
@@ -131,11 +131,11 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   }
 
   /**
-   * Returns the source's {@link InputWatermarkSource} capability when the underlying driver surfaces
+   * Returns the source's {@link InputFrontierSource} capability when the underlying driver surfaces
    * one at the configured catalog/schema path, so a {@code TableTrigger} over this {@code Database}
    * can fire on data availability. Exactly parallels {@link #isLogical()}: lazily opens the
    * downstream connection on first ask, walks its sub-schemas, and returns the inner schema unwrapped
-   * to {@link InputWatermarkSource} (empty when the driver surfaces no such capability). Drivers
+   * to {@link InputFrontierSource} (empty when the driver surfaces no such capability). Drivers
    * participate simply by having their inner Calcite schema implement the interface — no SPI or
    * shared string required.
    *
@@ -145,19 +145,19 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
    * own retained config, not the live connection) — the Kafka {@code ClusterSchema}, which holds only
    * connection properties, satisfies this.
    */
-  public Optional<InputWatermarkSource> inputWatermarkSource() {
-    Optional<InputWatermarkSource> cached = cachedWatermarkSource;
+  public Optional<InputFrontierSource> inputFrontierSource() {
+    Optional<InputFrontierSource> cached = cachedFrontierSource;
     if (cached != null) {
       return cached;
     }
     try {
-      Optional<InputWatermarkSource> resolved = detectWatermarkSource();
-      cachedWatermarkSource = resolved;
+      Optional<InputFrontierSource> resolved = detectFrontierSource();
+      cachedFrontierSource = resolved;
       return resolved;
     } catch (SQLException e) {
       // Cache deliberately left unset — the next caller retries.
-      LOG.warn("Transient failure resolving InputWatermarkSource for database {}; treating as "
-          + "non-watermarked for this call and will retry on next access", database, e);
+      LOG.warn("Transient failure resolving InputFrontierSource for database {}; treating as "
+          + "non-frontier-driven for this call and will retry on next access", database, e);
       return Optional.empty();
     }
   }
@@ -168,7 +168,7 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
    *     driver that simply doesn't implement {@link CalciteConnection} or the capability is a
    *     permanent characteristic and is cached as absent instead of being treated as a failure.
    */
-  private Optional<InputWatermarkSource> detectWatermarkSource() throws SQLException {
+  private Optional<InputFrontierSource> detectFrontierSource() throws SQLException {
     try (Connection downstream = getDataSource().getConnection()) {
       CalciteConnection cc;
       try {
@@ -191,9 +191,9 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
         return Optional.empty();
       }
       // SchemaPlus.unwrap throws ClassCastException for non-matching types — that's the dominant
-      // "looked and isn't a watermark source" outcome, not a crash.
+      // "looked and isn't a frontier source" outcome, not a crash.
       try {
-        return Optional.ofNullable(sub.unwrap(InputWatermarkSource.class));
+        return Optional.ofNullable(sub.unwrap(InputFrontierSource.class));
       } catch (ClassCastException e) {
         return Optional.empty();
       }

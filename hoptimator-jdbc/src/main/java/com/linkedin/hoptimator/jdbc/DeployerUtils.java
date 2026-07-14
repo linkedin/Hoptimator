@@ -154,7 +154,7 @@ public final class DeployerUtils {
    * Resolves the {@link HoptimatorJdbcSchema} registered under {@code catalogName/schemaName} in the
    * connection's root schema, or null when the schema is absent or not JDBC-backed. This is the
    * shared resolution step behind {@link #extractPropertiesFromJdbcSchema} (which reads the URL) and
-   * capability lookups such as {@code HoptimatorJdbcSchema.inputWatermarkSource()}.
+   * capability lookups such as {@code HoptimatorJdbcSchema.inputFrontierSource()}.
    */
   public static HoptimatorJdbcSchema jdbcSchema(@Nullable String catalogName, String schemaName,
       Connection connection, @Nullable Logger logger) {
