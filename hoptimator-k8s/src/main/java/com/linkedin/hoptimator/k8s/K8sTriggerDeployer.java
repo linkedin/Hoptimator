@@ -204,6 +204,13 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
         trigger.sink() != null ? Collections.singletonList(trigger.sink()) : Collections.emptyList());
     String template = jobTemplate.getSpec().getYaml();
     String rendered = new Template.SimpleTemplate(template).render(env);
+    if (rendered == null || rendered.trim().isEmpty()) {
+      throw new SQLException("JobTemplate " + jobNamespace + "/" + jobName + " rendered to nothing for "
+          + "trigger " + trigger.name() + ". Its yaml is empty, or it references a template variable that "
+          + "was not provided — a single unresolved {{variable}} skips the whole template. Check the log "
+          + "for \"resolved to null. Skipping template.\" and supply it via WITH (...) (e.g. a "
+          + "job.properties.* value) or give the variable a {{var:default}}.");
+    }
     Map<String, String> jobProps = new HashMap<>();
     trigger.options().forEach((key, value) -> {
       if (key.startsWith("job.properties.")) {
