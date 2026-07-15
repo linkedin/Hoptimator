@@ -21,7 +21,6 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.PendingDelete;
-import com.linkedin.hoptimator.RefreshTarget;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.UserJob;

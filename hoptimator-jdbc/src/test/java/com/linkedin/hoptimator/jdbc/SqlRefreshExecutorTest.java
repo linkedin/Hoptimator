@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.jdbc;
 
-import com.linkedin.hoptimator.RefreshTarget;
 import com.linkedin.hoptimator.util.DeploymentService;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.sql.SqlNode;

@@ -1,46 +1,79 @@
 package com.linkedin.hoptimator.jdbc;
 
-import com.linkedin.hoptimator.RefreshProvider;
-import com.linkedin.hoptimator.RefreshTarget;
+import com.linkedin.hoptimator.graph.GraphEdge;
+import com.linkedin.hoptimator.graph.GraphNode;
+import com.linkedin.hoptimator.graph.GraphTarget;
+import com.linkedin.hoptimator.graph.PipelineGraph;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.ServiceLoader;
 
 
 /**
- * Resolves {@code REFRESH} targets by delegating to the pluggable {@link RefreshProvider}s
- * registered by the active backend(s). The DDL layer asks "what are the triggers immediately
- * upstream of this object, and what kind of object is it?" without knowing how the backend wires
- * triggers to their downstream materialized view or logical table.
+ * Resolves {@code REFRESH} targets from the pipeline dependency graph.
+ *
+ * <p>REFRESH needs two facts the DDL layer can't get from a name alone: what <em>kind</em> of object
+ * it is (materialized view vs logical table) and which <em>triggers</em> are immediately upstream of
+ * it. Both already live in the graph layer: {@link GraphService#resolve} classifies the identifier
+ * (via the Calcite schema) and {@link GraphService#buildGraph} produces the dependency graph with the
+ * object's owned {@code TableTrigger}s attached. Reusing it keeps discovery decoupled from any
+ * particular backend — the graph is built by a {@code GraphProvider} — without a REFRESH-specific SPI.
  */
-public final class RefreshService {
+final class RefreshService {
 
   private RefreshService() {
   }
 
-  public static Collection<RefreshProvider> providers() {
-    ServiceLoader<RefreshProvider> loader = ServiceLoader.load(RefreshProvider.class);
-    List<RefreshProvider> providers = new ArrayList<>();
-    loader.iterator().forEachRemaining(providers::add);
-    return providers;
+  /**
+   * Resolves the refresh target for {@code path}, or returns {@code null} when it isn't a
+   * materialized view or logical table (an unknown name, or a plain physical resource).
+   */
+  static RefreshTarget resolve(List<String> path, HoptimatorConnection connection) throws SQLException {
+    String identifier = String.join(".", path);
+
+    GraphTarget target;
+    try {
+      target = GraphService.resolve(identifier, connection);
+    } catch (SQLException e) {
+      // The identifier doesn't resolve to anything this connection can see — not refreshable.
+      return null;
+    }
+
+    RefreshTarget.Kind kind = kindOf(target);
+    if (kind == null) {
+      // A physical resource (or anything else) — not a materialized view or logical table.
+      return null;
+    }
+
+    PipelineGraph graph = GraphService.buildGraph(identifier, 0, connection);
+    return new RefreshTarget(kind, immediateUpstreamTriggers(graph));
   }
 
-  /**
-   * Resolves the refresh target for {@code path}, or returns {@code null} when no registered
-   * provider recognizes the object (e.g. it isn't a materialized view or logical table, or no
-   * backend is configured). The first provider to recognize the object wins.
-   */
-  public static RefreshTarget resolve(List<String> path, Connection connection) throws SQLException {
-    for (RefreshProvider provider : providers()) {
-      RefreshTarget target = provider.resolve(path, connection);
-      if (target != null) {
-        return target;
-      }
+  /** Maps a graph target to a REFRESH kind, or {@code null} when the target isn't refreshable.
+   *  {@link GraphService#resolve} only yields {@link GraphTarget.View} for a materialized view
+   *  (its leaf is a {@code MaterializedViewTable}), so a plain view never reaches here. */
+  static RefreshTarget.Kind kindOf(GraphTarget target) {
+    if (target instanceof GraphTarget.View) {
+      return RefreshTarget.Kind.MATERIALIZED_VIEW;
+    }
+    if (target instanceof GraphTarget.LogicalTable) {
+      return RefreshTarget.Kind.TABLE;
     }
     return null;
+  }
+
+  /** Names of the trigger nodes the graph root directly owns — the triggers immediately upstream of
+   *  the object (an {@code OWNER_OF} edge from the root to a {@link GraphNode.Trigger}). */
+  static List<String> immediateUpstreamTriggers(PipelineGraph graph) {
+    List<String> names = new ArrayList<>();
+    for (GraphEdge edge : graph.edges()) {
+      if (edge.type() == GraphEdge.Type.OWNER_OF
+          && edge.from().equals(graph.root())
+          && edge.to() instanceof GraphNode.Trigger) {
+        names.add(((GraphNode.Trigger) edge.to()).name());
+      }
+    }
+    return names;
   }
 }
