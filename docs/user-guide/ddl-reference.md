@@ -285,11 +285,12 @@ materialized view (or `REFRESH MATERIALIZED VIEW x` on a logical table) is
 has **no upstream triggers** to fire — a refresh that silently does nothing is a
 footgun, not a no-op.
 
-How the upstream triggers are discovered is a backend concern: the DDL layer asks
-a pluggable resolver (`RefreshProvider`), so `hoptimator-jdbc` never touches
-Kubernetes directly. The Kubernetes backend treats the `TableTrigger`s owned by
-the object's CRD (e.g. a logical table's auto-created offline-tier trigger) as its
-upstream triggers.
+How the upstream triggers are discovered is a backend concern. Discovery reuses the
+pipeline dependency **graph** (`GraphService` / the `GraphProvider` SPI): the
+identifier is classified into a materialized view or logical table via the Calcite
+schema, and the object's owned `TableTrigger`s (e.g. a logical table's auto-created
+offline-tier trigger) are its upstream triggers. `hoptimator-jdbc` never touches
+Kubernetes directly.
 
 ## CREATE TABLE
 
