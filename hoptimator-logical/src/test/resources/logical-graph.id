@@ -65,7 +65,7 @@ flowchart TD
       n3[("ADS_CATALOG.ADS.MEMBERS")]
     end
     n1[/"logical-members-nearline-to-offline<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
-    n4{"logical-members-offline-trigger<br/>(paused)"}
+    n4{"logical-members-offline-trigger<br/>template: retl-job-template-job<br/>container: hello<br/>(paused)"}
   end
   n2 --> n1
   n1 --> n3
@@ -76,7 +76,7 @@ flowchart LR
   n0[("ADS_CATALOG.ADS.MEMBERS")]
   n1[/"logical-members-nearline-to-offline<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
   n2[("ADS.MEMBERS")]
-  n3{"logical-members-offline-trigger<br/>(paused)"}
+  n3{"logical-members-offline-trigger<br/>template: retl-job-template-job<br/>container: hello<br/>(paused)"}
   n2 --> n1
   n1 --> n0
   n0 -.-> n3
@@ -86,7 +86,7 @@ flowchart LR
   n0[("ADS.MEMBERS")]
   n1[/"logical-members-nearline-to-offline<br/>kind: FlinkSessionJob<br/>engine: Flink"/]
   n2[("ADS_CATALOG.ADS.MEMBERS")]
-  n3{"logical-members-offline-trigger<br/>(paused)"}
+  n3{"logical-members-offline-trigger<br/>template: retl-job-template-job<br/>container: hello<br/>(paused)"}
   n0 --> n1
   n1 --> n2
   n2 -.-> n3
