@@ -679,12 +679,11 @@ class K8sTriggerDeployerTest {
         "spec.paused=true must be present in rendered YAML when PAUSED_OPTION=true — got: " + specs.get(0));
   }
 
-  // ───────── update() FIRE_OPTION (fire-trigger) tests ─────────
+  // ───────── update() FIRE TRIGGER tests ─────────
 
-  private Trigger fireTrigger(Map<String, String> extraOptions) {
-    Map<String, String> options = new HashMap<>(extraOptions);
-    options.put(Trigger.FIRE_OPTION, "true");
-    return new Trigger("MY_TRIGGER", null, null, options, null, null);
+  private Trigger fireTrigger() {
+    return new Trigger("MY_TRIGGER", null, null, new HashMap<>(), null, null,
+        new Trigger.Fire(null, null));
   }
 
   @Test
@@ -695,7 +694,7 @@ class K8sTriggerDeployerTest {
     triggers.add(existing);
 
     OffsetDateTime before = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(), mockContext);
     deployer.update();
 
     assertNotNull(existing.getStatus(), "status must be set after FIRE");
@@ -716,11 +715,8 @@ class K8sTriggerDeployerTest {
             .timestamp(OffsetDateTime.parse("2026-06-01T00:00Z")));
     triggers.add(existing);
 
-    Map<String, String> opts = new HashMap<>();
-    opts.put(Trigger.FIRE_FROM_OPTION, "2026-05-01T00:00Z");
-    opts.put(Trigger.FIRE_TO_OPTION, "2026-05-08T00:00Z");
-
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(opts), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-05-01T00:00Z", "2026-05-08T00:00Z"), mockContext);
     deployer.update();
 
     assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
@@ -735,10 +731,8 @@ class K8sTriggerDeployerTest {
   }
 
   private Trigger windowedFire(String from, String to) {
-    Map<String, String> opts = new HashMap<>();
-    opts.put(Trigger.FIRE_FROM_OPTION, from);
-    opts.put(Trigger.FIRE_TO_OPTION, to);
-    return fireTrigger(opts);
+    return new Trigger("MY_TRIGGER", null, null, new HashMap<>(), null, null,
+        new Trigger.Fire(OffsetDateTime.parse(from), OffsetDateTime.parse(to)));
   }
 
   @Test
@@ -829,7 +823,7 @@ class K8sTriggerDeployerTest {
         .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now(ZoneOffset.UTC)));
     triggers.add(existing);
 
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(), mockContext);
     SQLException ex = assertThrows(SQLException.class, deployer::update,
         "FIRE on an in-flight trigger must throw");
     assertTrue(ex.getMessage().contains("in-flight"),
@@ -846,7 +840,7 @@ class K8sTriggerDeployerTest {
         .status(new V1alpha1TableTriggerStatus().timestamp(t).watermark(t));
     triggers.add(existing);
 
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(), mockContext);
     deployer.update();
 
     assertTrue(existing.getStatus().getTimestamp().isAfter(t),
@@ -855,7 +849,7 @@ class K8sTriggerDeployerTest {
 
   @Test
   void updateWithFireOptionThrowsWhenTriggerNotFound() {
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(), mockContext);
     SQLException ex = assertThrows(SQLException.class, deployer::update);
     assertTrue(ex.getMessage().contains("not found"),
         "exception must mention not-found: " + ex.getMessage());

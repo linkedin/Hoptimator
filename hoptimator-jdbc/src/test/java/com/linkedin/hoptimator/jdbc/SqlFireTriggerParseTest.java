@@ -77,27 +77,27 @@ class SqlFireTriggerParseTest {
   @Test
   void resolveNow() {
     OffsetDateTime before = OffsetDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.SECONDS);
-    OffsetDateTime resolved = OffsetDateTime.parse(HoptimatorDdlExecutor.resolveFireBound("now", null));
+    OffsetDateTime resolved = HoptimatorDdlExecutor.resolveFireBound("now", null);
     assertThat(resolved).isBetween(before.minusSeconds(2), before.plusSeconds(5));
   }
 
   @Test
   void resolveRelativeIsBeforeNow() {
     OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC);
-    OffsetDateTime resolved = OffsetDateTime.parse(HoptimatorDdlExecutor.resolveFireBound("-7d", null));
+    OffsetDateTime resolved = HoptimatorDdlExecutor.resolveFireBound("-7d", null);
     assertThat(resolved).isBefore(now.minusDays(6)).isAfter(now.minusDays(8));
   }
 
   @Test
   void resolveAbsoluteInstant() {
     assertThat(HoptimatorDdlExecutor.resolveFireBound("2026-05-01T00:00:00Z", null))
-        .isEqualTo("2026-05-01T00:00Z");
+        .isEqualTo(OffsetDateTime.parse("2026-05-01T00:00Z"));
   }
 
   @Test
   void resolveAbsoluteDate() {
     assertThat(HoptimatorDdlExecutor.resolveFireBound("2026-05-01", null))
-        .isEqualTo("2026-05-01T00:00Z");
+        .isEqualTo(OffsetDateTime.parse("2026-05-01T00:00Z"));
   }
 
   @Test

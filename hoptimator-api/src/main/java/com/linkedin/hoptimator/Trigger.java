@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator;
 
 import javax.annotation.Nullable;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 
@@ -8,12 +9,35 @@ public class Trigger implements Deployable {
 
   public static final String PAUSED_OPTION = "paused";
 
-  /** Marker option used by FIRE TRIGGER to signal a fire intent through DeploymentService.
-   *  Recognised by deployers (see K8sTriggerDeployer) to short-circuit normal update. */
-  public static final String FIRE_OPTION = "fire";
+  /**
+   * A {@code FIRE TRIGGER} request. A plain fire (both bounds null) bumps the cursor; a windowed
+   * fire ({@link #from()}/{@link #to()} both set) requests a one-off backfill over {@code [from,
+   * to]} without moving the cursor. Bounds are already resolved to absolute UTC instants.
+   */
+  public static final class Fire {
+    private final OffsetDateTime from;
+    private final OffsetDateTime to;
 
-  public static final String FIRE_FROM_OPTION = "fire.from";
-  public static final String FIRE_TO_OPTION = "fire.to";
+    public Fire(@Nullable OffsetDateTime from, @Nullable OffsetDateTime to) {
+      this.from = from;
+      this.to = to;
+    }
+
+    /** Backfill window start, or null for a plain fire. */
+    public @Nullable OffsetDateTime from() {
+      return from;
+    }
+
+    /** Backfill window end, or null for a plain fire. */
+    public @Nullable OffsetDateTime to() {
+      return to;
+    }
+
+    /** True when this is a windowed fire (a one-off backfill), false for a plain fire. */
+    public boolean windowed() {
+      return from != null && to != null;
+    }
+  }
 
   private final String name;
   private final UserJob job;
@@ -21,6 +45,7 @@ public class Trigger implements Deployable {
   private final Map<String, String> options;
   private final Source source;
   private final Sink sink;
+  private final Fire fire;
 
   /**
    * Contains an optional downstream sink for triggers that operate between a source
@@ -29,12 +54,18 @@ public class Trigger implements Deployable {
    */
   public Trigger(String name, UserJob job, String cronSchedule, Map<String, String> options,
       Source source, @Nullable Sink sink) {
+    this(name, job, cronSchedule, options, source, sink, null);
+  }
+
+  public Trigger(String name, UserJob job, String cronSchedule, Map<String, String> options,
+      Source source, @Nullable Sink sink, @Nullable Fire fire) {
     this.name = name;
     this.job = job;
     this.cronSchedule = cronSchedule;
     this.options = options;
     this.source = source;
     this.sink = sink;
+    this.fire = fire;
   }
 
   public String name() {
@@ -62,6 +93,12 @@ public class Trigger implements Deployable {
   /** Downstream sink the trigger's job writes to, or {@code null} when the trigger has no declared sink. */
   public @Nullable Sink sink() {
     return sink;
+  }
+
+  /** The {@code FIRE TRIGGER} request this deploy carries, or {@code null} for any non-fire operation
+   *  (CREATE / DROP / PAUSE / RESUME). */
+  public @Nullable Fire fire() {
+    return fire;
   }
 
   @Override

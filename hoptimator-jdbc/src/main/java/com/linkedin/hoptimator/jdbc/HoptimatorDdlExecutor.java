@@ -322,8 +322,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   /** Executes a {@code FIRE TRIGGER name [FROM <bound> TO <bound>]} command.
    *  FIRE carries no options and never mutates the trigger spec; the fire intent (and an optional
-   *  backfill window) is passed to the deployer via {@link Trigger#FIRE_OPTION} /
-   *  {@link Trigger#FIRE_FROM_OPTION} / {@link Trigger#FIRE_TO_OPTION}. */
+   *  backfill window) is carried to the deployer as a typed {@link Trigger.Fire}. */
   public void execute(SqlFireTrigger fire, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", fire);
     try {
@@ -337,17 +336,17 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
     String name = fire.name.names.get(0);
 
-    // FIRE carries no user options — it is a pure "run now" action. Only control markers (the fire
-    // intent and an optional backfill window) are passed to the deployer; nothing touches the spec.
-    Map<String, String> options = new HashMap<>();
-    options.put(Trigger.FIRE_OPTION, "true");
+    // FIRE carries no user options — it is a pure "run now" action. A windowed fire resolves its
+    // bounds to absolute instants here; a plain fire has neither. Nothing touches the spec.
+    Trigger.Fire fireRequest;
     if (fire.from != null) {
-      options.put(Trigger.FIRE_FROM_OPTION,
-          resolveFireBound(((SqlLiteral) fire.from).getValueAs(String.class), fire));
-      options.put(Trigger.FIRE_TO_OPTION,
+      fireRequest = new Trigger.Fire(
+          resolveFireBound(((SqlLiteral) fire.from).getValueAs(String.class), fire),
           resolveFireBound(((SqlLiteral) fire.to).getValueAs(String.class), fire));
+    } else {
+      fireRequest = new Trigger.Fire(null, null);
     }
-    Trigger trigger = new Trigger(name, null, null, options, null, null);
+    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null, null, fireRequest);
 
     Collection<Deployer> deployers = null;
     try {
@@ -374,10 +373,10 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
    *       ({@code 2026-05-01T00:00:00Z}) or a date ({@code 2026-05-01}, treated as UTC midnight).</li>
    * </ul>
    */
-  static String resolveFireBound(String bound, SqlNode node) {
+  static OffsetDateTime resolveFireBound(String bound, SqlNode node) {
     Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
     if ("now".equals(bound)) {
-      return now.atOffset(ZoneOffset.UTC).toString();
+      return now.atOffset(ZoneOffset.UTC);
     }
     Matcher relative = FIRE_RELATIVE.matcher(bound);
     if (relative.matches()) {
@@ -397,16 +396,16 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
           offset = Duration.ofDays(amount);
           break;
       }
-      return now.minus(offset).atOffset(ZoneOffset.UTC).toString();
+      return now.minus(offset).atOffset(ZoneOffset.UTC);
     }
     try {
-      return OffsetDateTime.parse(bound).withOffsetSameInstant(ZoneOffset.UTC).toString();
+      return OffsetDateTime.parse(bound).withOffsetSameInstant(ZoneOffset.UTC);
     } catch (DateTimeParseException e1) {
       try {
-        return Instant.parse(bound).atOffset(ZoneOffset.UTC).toString();
+        return Instant.parse(bound).atOffset(ZoneOffset.UTC);
       } catch (DateTimeParseException e2) {
         try {
-          return LocalDate.parse(bound).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime().toString();
+          return LocalDate.parse(bound).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime();
         } catch (DateTimeParseException e3) {
           throw new DdlException(node, "Invalid FIRE TRIGGER time bound: '" + bound
               + "' (expected an ISO timestamp, a date, '<n> <unit> AGO', or NOW)", e3);
