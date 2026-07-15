@@ -35,9 +35,9 @@ import java.util.Optional;
  * one-off backfills, so completeness is achieved by <em>frontier + repair</em>. A source that does
  * <b>not</b> implement {@link #changesSince(String, Instant)} has no safety net and therefore
  * <b>must</b> report a <em>conservative</em> frontier — a true completeness watermark — or it will
- * silently drop late data. (The bundled Kafka {@code ClusterSchema} is a deliberate exception: an
- * optimistic frontier with no repair, i.e. best-effort/lossy — a demo, not a correctness
- * reference.)
+ * silently drop late data. (The bundled Kafka {@code ClusterSchema} takes the conservative route: a
+ * bounded out-of-orderness watermark — the per-partition min of the latest timestamp, minus a lag,
+ * excluding idle partitions — so it is sound without any repair.)
  *
  * <p>Return {@link Optional#empty()} when a frontier cannot be determined right now; the reconciler
  * then falls back to cron/manual firing. A schema that does not implement this interface at all is

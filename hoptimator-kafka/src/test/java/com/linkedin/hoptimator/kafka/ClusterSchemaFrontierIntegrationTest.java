@@ -40,7 +40,8 @@ class ClusterSchemaFrontierIntegrationTest {
 
   private static final String BOOTSTRAP_PROPERTY = "hoptimator.kafka.bootstrap.servers";
   private static final String DEFAULT_BOOTSTRAP = "localhost:9092";
-  private static final int PARTITIONS = 2;
+  private static final int PARTITIONS = 3;
+  private static final long LAG_MS = 10_000L;
 
   private String bootstrap;
   private String topic;
@@ -71,21 +72,24 @@ class ClusterSchemaFrontierIntegrationTest {
   private ClusterSchema clusterSchema() {
     Properties properties = new Properties();
     properties.put("bootstrap.servers", bootstrap);
+    properties.put(ClusterSchema.FRONTIER_LAG_MS_PROPERTY, Long.toString(LAG_MS));
     return new ClusterSchema(properties);
   }
 
   @Test
-  void reportsLatestRecordTimestampAcrossPartitionsFromLiveKafka() throws Exception {
-    // Produce records with explicit, known event-time timestamps. The max across partitions is the
-    // frontier the schema must report. Partition 0 gets the later timestamp so the answer is not
-    // simply the last write.
+  void reportsMinMinusLagExcludingStragglersFromLiveKafka() throws Exception {
+    // Two partitions are recent (within B of each other); the third lags far behind (>> B) and must
+    // be treated as idle and excluded, so the watermark is min(recent) - B, not dragged to the
+    // straggler. Partition 0 is the later of the two recent ones, so the answer is the min, not max.
     long base = System.currentTimeMillis();
-    long partition0Timestamp = base - 10_000L;
-    long partition1Timestamp = base - 60_000L;
-    long expectedFrontier = Math.max(partition0Timestamp, partition1Timestamp);
+    long partition0Timestamp = base - 2_000L;
+    long partition1Timestamp = base - 4_000L;
+    long stragglerTimestamp = base - 60_000L;    // > LAG_MS behind the leader
+    long expectedFrontier = Math.min(partition0Timestamp, partition1Timestamp) - LAG_MS;
 
     produce(0, partition0Timestamp);
     produce(1, partition1Timestamp);
+    produce(2, stragglerTimestamp);
 
     Optional<Instant> frontier = clusterSchema().frontier(topic);
 

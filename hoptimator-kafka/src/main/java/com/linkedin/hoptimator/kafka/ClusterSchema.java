@@ -18,8 +18,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -32,19 +34,26 @@ import java.util.concurrent.ExecutionException;
  * Tables are loaded on-demand when first accessed, not during driver connection.
  *
  * <p>Implements {@link InputFrontierSource} so a {@code TableTrigger} over a topic in this cluster
- * can fire on data availability: {@link #frontier(String)} reports the topic's event-time frontier
- * read via <em>this</em> cluster's connection {@code properties}, so every Kafka {@code Database}
- * reports a frontier from its own brokers with no global configuration.
+ * can fire on data availability: {@link #frontier(String)} reports the topic's event-time
+ * completeness watermark, read via <em>this</em> cluster's connection {@code properties}, so every
+ * Kafka {@code Database} watermarks against its own brokers with no global configuration.
  *
- * <p><b>Best-effort / lossy — a demo, not a correctness reference.</b> This source reports an
- * <em>optimistic</em> frontier (see below) but implements no repair ({@link #changesSince} is left
- * at its empty default), so data that lands behind the cursor is silently dropped. A source that
- * needs correctness must either report a conservative watermark or implement {@code changesSince};
- * see {@link InputFrontierSource}.
+ * <p><b>Bounded out-of-orderness watermark.</b> The watermark is the per-partition minimum of
+ * {@code maxTimestamp}, held back by a lag {@code B} (the {@code frontier.lag.ms} connection
+ * property, default 5 minutes), excluding partitions that lag more than {@code B} behind the leader
+ * (idle/straggler detection). It is complete for records arriving within {@code B} of event-time
+ * order; a partition that falls more than {@code B} behind the leader is treated as idle, so it
+ * never stalls the topic — at the cost that data it later emits below the watermark may be dropped.
+ * There is no repair path ({@link #changesSince} is left at its empty default): completeness comes
+ * from the conservative watermark itself.
  */
 public class ClusterSchema extends AbstractSchema implements InputFrontierSource {
 
   private static final Logger log = LoggerFactory.getLogger(ClusterSchema.class);
+
+  /** Per-database out-of-orderness / idle bound {@code B}, in milliseconds. */
+  static final String FRONTIER_LAG_MS_PROPERTY = "frontier.lag.ms";
+  static final long DEFAULT_FRONTIER_LAG_MS = 5 * 60 * 1000L;
 
   private final Properties properties;
   private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
@@ -92,17 +101,15 @@ public class ClusterSchema extends AbstractSchema implements InputFrontierSource
   }
 
   /**
-   * Reports the topic's event-time frontier as the <b>maximum</b> record timestamp across
-   * partitions, via a single {@code listOffsets} call using {@link OffsetSpec#maxTimestamp()}
-   * against this cluster's own {@code properties}. Returns empty when the topic is absent/empty or
-   * the cluster can't be reached, so a trigger simply doesn't advance rather than failing.
+   * Reports the topic's event-time completeness watermark: the per-partition minimum of
+   * {@code maxTimestamp}, excluding partitions more than {@code B} behind the leader, then held back
+   * by {@code B} (bounded out-of-orderness). Returns empty when the topic is absent/empty or the
+   * cluster can't be reached, so a trigger simply doesn't advance rather than failing.
    *
-   * <p><b>This is optimistic and lossy.</b> Taking the max means the frontier advances to the
-   * <em>fastest</em> partition, so records that later arrive on a lagging partition — or out of
-   * order within a partition (Kafka {@code CreateTime} is not monotonic) — land behind the cursor
-   * and, with no repair path here, are dropped. A production Kafka source would instead hold a
-   * conservative watermark (min across partitions, minus a bounded out-of-orderness delay, with
-   * idle-partition handling); this demo intentionally does not.
+   * <p>Concretely, with per-partition maxima and leader {@code M = max}: drop any partition below
+   * {@code M - B} (idle/straggler), take the {@code min} of the rest, and subtract {@code B}. This
+   * is complete for records arriving within {@code B} of event-time order; idle/empty partitions
+   * never stall the topic.
    */
   @Override
   public Optional<Instant> frontier(String topic) {
@@ -119,21 +126,56 @@ public class ClusterSchema extends AbstractSchema implements InputFrontierSource
       for (TopicPartitionInfo partition : description.partitions()) {
         query.put(new TopicPartition(topic, partition.partition()), OffsetSpec.maxTimestamp());
       }
-      long frontier = Long.MIN_VALUE;
+      List<Long> partitionMax = new ArrayList<>();
       for (ListOffsetsResultInfo info : adminClient.listOffsets(query).all().get().values()) {
-        if (info.timestamp() >= 0 && info.timestamp() > frontier) {
-          frontier = info.timestamp();  // latest record timestamp across partitions
+        if (info.timestamp() >= 0) {
+          partitionMax.add(info.timestamp());  // latest record timestamp in this partition
         }
       }
-      return frontier == Long.MIN_VALUE ? Optional.empty() : Optional.of(Instant.ofEpochMilli(frontier));
+      if (partitionMax.isEmpty()) {
+        return Optional.empty();  // no records anywhere yet
+      }
+
+      long lagMs = lagMs();
+      long leader = Collections.max(partitionMax);
+      // Exclude partitions more than B behind the leader (idle/straggler), so a lagging or dead
+      // partition never stalls the topic; take the min of the rest and hold back by B so records
+      // arriving within B of event-time order are still ahead of the cursor.
+      long minKeepingUp = Long.MAX_VALUE;
+      for (long max : partitionMax) {
+        if (max >= leader - lagMs && max < minKeepingUp) {
+          minKeepingUp = max;
+        }
+      }
+      return Optional.of(Instant.ofEpochMilli(minKeepingUp - lagMs));
     } catch (Exception e) {
       log.warn("Could not read Kafka frontier for topic {}: {}", topic, e.getMessage());
       return Optional.empty();
     }
   }
 
+  private long lagMs() {
+    String configured = properties.getProperty(FRONTIER_LAG_MS_PROPERTY);
+    if (configured == null || configured.isEmpty()) {
+      return DEFAULT_FRONTIER_LAG_MS;
+    }
+    try {
+      return Long.parseLong(configured.trim());
+    } catch (NumberFormatException e) {
+      log.warn("Invalid {}='{}'; using default {}ms.", FRONTIER_LAG_MS_PROPERTY, configured, DEFAULT_FRONTIER_LAG_MS);
+      return DEFAULT_FRONTIER_LAG_MS;
+    }
+  }
+
   /** Creates an {@link AdminClient} for this cluster. Package-private so tests can inject a mock. */
   AdminClient adminClient() {
-    return AdminClient.create(properties);
+    // Strip non-Kafka control properties (e.g. frontier.lag.ms) so the AdminClient doesn't warn.
+    Properties adminProperties = new Properties();
+    for (String name : properties.stringPropertyNames()) {
+      if (!name.startsWith("frontier.")) {
+        adminProperties.setProperty(name, properties.getProperty(name));
+      }
+    }
+    return AdminClient.create(adminProperties);
   }
 }

@@ -28,17 +28,24 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for {@link ClusterSchema}'s {@code InputFrontierSource} capability with a mocked
- * {@code AdminClient}. Verifies the event-time frontier computation (max record timestamp across
- * partitions) and the empty-frontier branches, independent of a live cluster.
+ * {@code AdminClient}. Verifies the bounded-out-of-orderness watermark: the per-partition minimum of
+ * {@code maxTimestamp} held back by the lag {@code B}, excluding partitions more than {@code B}
+ * behind the leader.
  */
 class ClusterSchemaFrontierTest {
 
+  private static final long LAG_MS = 1_000L;
   private static final Node NODE = new Node(0, "localhost", 9092);
   private final AdminClient admin = mock(AdminClient.class);
 
   private ClusterSchema schema() {
+    return schema(LAG_MS);
+  }
+
+  private ClusterSchema schema(long lagMs) {
     Properties properties = new Properties();
     properties.put("bootstrap.servers", "localhost:9092");
+    properties.put(ClusterSchema.FRONTIER_LAG_MS_PROPERTY, Long.toString(lagMs));
     return new ClusterSchema(properties) {
       @Override
       AdminClient adminClient() {
@@ -70,11 +77,47 @@ class ClusterSchemaFrontierTest {
   }
 
   @Test
-  void returnsLatestRecordTimestampAcrossPartitions() {
+  void balancedPartitionsUseMinMinusLag() {
+    // Both partitions within B of the leader -> min(10_000, 10_500) - B.
     topicWithPartitions("topic1", 2);
-    maxTimestamps("topic1", 1_000L, 3_000L);
+    maxTimestamps("topic1", 10_000L, 10_500L);
 
-    assertThat(schema().frontier("topic1")).contains(Instant.ofEpochMilli(3_000L));
+    assertThat(schema().frontier("topic1")).contains(Instant.ofEpochMilli(10_000L - LAG_MS));
+  }
+
+  @Test
+  void withinLagLaggardHoldsBackWatermark() {
+    // Partition 1 is 800ms behind the leader (< B), so it stays in the min and holds the watermark.
+    topicWithPartitions("topic1", 2);
+    maxTimestamps("topic1", 10_000L, 9_200L);
+
+    assertThat(schema().frontier("topic1")).contains(Instant.ofEpochMilli(9_200L - LAG_MS));
+  }
+
+  @Test
+  void excludesStragglerMoreThanLagBehind() {
+    // Partition 1 is 5_000ms behind the leader (>> B) -> treated as idle, excluded, so it does NOT
+    // drag the watermark down to 5_000 - B.
+    topicWithPartitions("topic1", 2);
+    maxTimestamps("topic1", 10_000L, 5_000L);
+
+    assertThat(schema().frontier("topic1")).contains(Instant.ofEpochMilli(10_000L - LAG_MS));
+  }
+
+  @Test
+  void singlePartitionIsMaxMinusLag() {
+    topicWithPartitions("topic1", 1);
+    maxTimestamps("topic1", 10_000L);
+
+    assertThat(schema().frontier("topic1")).contains(Instant.ofEpochMilli(10_000L - LAG_MS));
+  }
+
+  @Test
+  void respectsConfiguredLag() {
+    topicWithPartitions("topic1", 1);
+    maxTimestamps("topic1", 10_000L);
+
+    assertThat(schema(2_000L).frontier("topic1")).contains(Instant.ofEpochMilli(8_000L));
   }
 
   @Test
