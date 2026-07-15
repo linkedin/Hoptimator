@@ -34,16 +34,17 @@ drop trigger testfire;
 !update
 
 # FIRE with a backfill window: FROM/TO requests a one-off backfill without mutating the spec.
-# A backfill can only cover already-processed history, so a freshly-created trigger with no
-# watermark yet is rejected — there is nothing to backfill.
+# A trigger with no watermark (e.g. paused, or never run) has no forward cursor to protect, so the
+# backfill simply runs the requested window as-is — this is the normal offline-tier backfill case.
 create trigger testfirewindow on ads_catalog.ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
 (0 rows modified)
 
 !update
 
 fire trigger testfirewindow from '2026-04-01' to '2026-04-08';
-Cannot backfill trigger TESTFIREWINDOW: it has no watermark yet, so there is no processed history to backfill.
-!error
+(0 rows modified)
+
+!update
 
 # The 3-part identifier is split into catalog/schema/table on the spec. The CATALOG is what routes a
 # TableTrigger's input to the matching InputWatermarkProvider (e.g. KAFKA vs OPENHOUSE), so the
@@ -63,11 +64,12 @@ fire trigger testfirewindow from '2026-04-08' to '2026-04-01';
 Backfill window start
 !error
 
-# A relative window (<n> <unit> AGO) parses and resolves to absolute instants end-to-end; with no
-# watermark yet it still reaches the same "no processed history" rejection.
+# A relative window (<n> <unit> AGO) parses and resolves to absolute instants end-to-end and, with no
+# watermark to cap against, runs the requested window.
 fire trigger testfirewindow from 7 days ago to 1 day ago;
-Cannot backfill trigger TESTFIREWINDOW
-!error
+(0 rows modified)
+
+!update
 
 # An unparseable absolute time bound is rejected by the executor before it reaches the deployer.
 fire trigger testfirewindow from 'not-a-time' to '2026-04-08';
