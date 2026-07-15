@@ -67,7 +67,12 @@ public final class K8sTriggerJobs {
    * Renders the trigger's Job template for an explicit output window {@code [windowStart,
    * windowEnd]}. The window is exposed to the template as {@code {{watermark}}}/{@code {{timestamp}}}
    * (plus the convenience forms from {@link #withInstantVars}); a job that needs a wider read range
-   * applies its own policy in its SQL.
+   * applies its own policy in its SQL. A null bound (e.g. the first fire has no prior watermark) is
+   * exposed as an empty string, so a template that references the window still renders.
+   *
+   * @throws SQLException if the template renders to nothing — a referenced {@code {{variable}}} the
+   *     per-fire environment does not provide. This surfaces the failure with the trigger's name
+   *     instead of letting a null propagate into an opaque NPE downstream.
    */
   public static String render(V1alpha1TableTrigger trigger, OffsetDateTime windowStart,
       OffsetDateTime windowEnd) throws SQLException {
@@ -83,18 +88,32 @@ public final class K8sTriggerJobs {
       props.putAll(jobProperties);
       env = env.with(props);
     }
-    return new Template.SimpleTemplate(trigger.getSpec().getYaml()).render(env);
+    String rendered = new Template.SimpleTemplate(trigger.getSpec().getYaml()).render(env);
+    if (rendered == null || rendered.trim().isEmpty()) {
+      throw new SQLException("Trigger " + trigger.getMetadata().getName() + ": its Job template "
+          + "rendered to nothing. It references a template variable that could not be resolved at "
+          + "fire time — the per-fire environment provides trigger/schema/table, the fire window "
+          + "(watermark/timestamp and their derived forms), and job.properties.*, but nothing else. "
+          + "Check the operator log for \"resolved to null. Skipping template.\".");
+    }
+    return rendered;
   }
 
   /**
    * Exports a family of template variables for one instant, so jobs can read it without parsing:
    * {@code {{base}}} (ISO-8601), {@code {{base}}EpochMs}, {@code {{base}}Date} (UTC date), and
-   * {@code {{base}}Hour} (UTC hour). A null instant exports nothing.
+   * {@code {{base}}Hour} (UTC hour). A null instant (e.g. the first fire has no prior watermark)
+   * exports the family as empty strings, so a template referencing the window still renders and the
+   * job decides how to treat the open bound.
    */
   static Template.SimpleEnvironment withInstantVars(Template.SimpleEnvironment env, String base,
       OffsetDateTime instant) {
     if (instant == null) {
-      return env;
+      return env
+          .with(base, "")
+          .with(base + "EpochMs", "")
+          .with(base + "Date", "")
+          .with(base + "Hour", "");
     }
     OffsetDateTime utc = instant.withOffsetSameInstant(ZoneOffset.UTC);
     return env

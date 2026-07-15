@@ -290,6 +290,9 @@ output window and reads it directly:
 | `{{watermark}}`   | Start of the window (the previous cursor position).            |
 | `{{timestamp}}`   | End of the window (the confirmed frontier / cron tick).        |
 
+The very first fire has no prior cursor, so `{{watermark}}` (and its derived forms) render as an
+empty string rather than skipping the job — the job decides how to treat that open lower bound.
+
 A job that needs a wider *trailing* read (e.g. to absorb late data) expresses that in its own SQL —
 that late-data tolerance is a per-job concern, handled by the job rather than by any platform-level
 schedule adjustment.

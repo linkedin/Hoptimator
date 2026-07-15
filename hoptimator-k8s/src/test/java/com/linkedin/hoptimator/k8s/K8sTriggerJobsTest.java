@@ -4,6 +4,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.util.Template;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -48,6 +50,33 @@ class K8sTriggerJobsTest {
 
     assertEquals("from=2026-05-01T00:00Z to=2026-05-08T00:00Z table=T",
         K8sTriggerJobs.render(trigger, A, B));
+  }
+
+  @Test
+  void renderWithNullWatermarkExposesAnEmptyWindowStart() throws Exception {
+    // The first incremental fire has no prior watermark. The window start must render as empty (not
+    // null the whole template), so the Job still launches. Regression for the reconcile NPE where
+    // render() returned null and objFromYaml(null) threw.
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("t"))
+        .spec(new V1alpha1TableTriggerSpec().schema("S").table("T")
+            .yaml("start=[{{watermark}}] day=[{{watermarkDate}}] end=[{{timestamp}}]"));
+
+    assertEquals("start=[] day=[] end=[2026-05-08T00:00Z]",
+        K8sTriggerJobs.render(trigger, null, B));
+  }
+
+  @Test
+  void renderThrowsAClearErrorWhenTemplateReferencesAnUnprovidedVariable() {
+    // A template that references a variable the per-fire environment does not provide (here {{name}},
+    // which only CREATE-time rendering binds) must fail with a named error, not a downstream NPE.
+    V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("t"))
+        .spec(new V1alpha1TableTriggerSpec().schema("S").table("T").yaml("name={{name}}"));
+
+    SQLException e = assertThrows(SQLException.class, () -> K8sTriggerJobs.render(trigger, A, B));
+    assertTrue(e.getMessage().contains("rendered to nothing"),
+        "error must explain the template rendered to nothing — got: " + e.getMessage());
   }
 
   @Test
