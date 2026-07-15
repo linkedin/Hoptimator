@@ -798,16 +798,43 @@ class K8sTriggerDeployerTest {
   }
 
   @Test
-  void backfillWithNoWatermarkIsRejected() {
+  void backfillWithNoWatermarkRunsRequestedWindow() throws SQLException {
+    // A trigger with no watermark (paused, or never run) has no forward cursor to protect, so a
+    // backfill runs the requested window as-is. This is the normal case for an offline-tier trigger,
+    // which is created paused and only ever does on-demand backfills.
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("mytrigger"))
-        .spec(new V1alpha1TableTriggerSpec());
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE));
     triggers.add(existing);
 
     K8sTriggerDeployer deployer = makeDeployer(
         windowedFire("2026-05-01T00:00Z", "2026-05-08T00:00Z"), mockContext);
-    SQLException e = assertThrows(SQLException.class, deployer::update);
-    assertTrue(e.getMessage().contains("no watermark yet"));
+    deployer.update();
+
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-05-08T00:00Z"), null)),
+        "backfill must run the requested window when there is no watermark to cap against");
+  }
+
+  @Test
+  void backfillIgnoresInFlightForwardExecution() throws SQLException {
+    // A backfill is independent of the forward cursor, so an in-flight forward execution
+    // (timestamp > watermark) must NOT block it. This is what lets a paused offline trigger — which,
+    // once plain-fired, sits with timestamp set and watermark null forever — still be backfilled.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE))
+        .status(new V1alpha1TableTriggerStatus()
+            .timestamp(OffsetDateTime.parse("2026-06-05T00:00Z")));   // set, watermark null → "in-flight"
+    triggers.add(existing);
+
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-05-01T00:00Z", "2026-05-08T00:00Z"), mockContext);
+    deployer.update();
+
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-05-08T00:00Z"), null)),
+        "a backfill must not be blocked by an in-flight forward execution");
   }
 
   @Test

@@ -97,6 +97,44 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
       throw new SQLException("Trigger " + trigger.name() + " not found.");
     }
     V1alpha1TableTriggerStatus status = existingTrigger.getStatus();
+    Trigger.Fire fireRequest = trigger.fire();
+
+    // A windowed fire (backfill) is independent of the forward cursor: it runs a one-off Job over an
+    // explicit window and never moves the cursor. It deliberately bypasses the paused-forward gate
+    // (createBackfill launches the Job directly), which is exactly what an offline / batch-only
+    // trigger — created paused, fired on demand — needs. So we do NOT apply the in-flight guard here;
+    // that guard is about the forward path.
+    if (fireRequest.windowed()) {
+      OffsetDateTime from = fireRequest.from();
+      OffsetDateTime to = fireRequest.to();
+      if (!from.isBefore(to)) {
+        throw new SQLException("Backfill window start (" + from + ") must be before end ("
+            + to + ").");
+      }
+      // The watermark cap protects a *live forward cursor* — a backfill must not run ahead of it. A
+      // trigger with no watermark (paused, or never run) has no such cursor, so there is nothing to
+      // protect: run the requested window as-is. This is the normal case for an offline-tier backfill
+      // trigger, whose only mode is on-demand backfills.
+      OffsetDateTime watermark = status != null ? status.getWatermark() : null;
+      if (watermark != null) {
+        if (!from.isBefore(watermark)) {
+          throw new SQLException("Backfill window [" + from + ", " + to
+              + "] is entirely at or after the watermark (" + watermark + "); there is no processed "
+              + "history to backfill. The incremental cursor will reach this range on its own.");
+        }
+        if (to.isAfter(watermark)) {
+          logger.info("Capping backfill end for trigger {} from {} to the watermark {} "
+              + "(a backfill cannot cover data the cursor has not yet processed).",
+              trigger.name(), to, watermark);
+          to = watermark;
+        }
+      }
+      K8sTriggerJobs.createBackfill(createYamlApi(context), existingTrigger, from, to, null);
+      return;
+    }
+
+    // Plain (forward) fire: reject if a forward execution is already in flight (the cursor has been
+    // bumped past the watermark and the Job hasn't caught up).
     if (status != null && status.getTimestamp() != null
         && (status.getWatermark() == null || status.getTimestamp().isAfter(status.getWatermark()))) {
       throw new SQLException("Trigger " + trigger.name() + " has an in-flight execution (timestamp="
@@ -104,44 +142,9 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
           + "). Wait for it to complete.");
     }
 
-    // Validate a requested backfill window up front, before mutating anything. A backfill may only
-    // cover already-processed history, so the end is capped at the watermark — a backfill can never
-    // run ahead of the incremental cursor. We reject only a window that is inverted or lies entirely
-    // at/after the watermark (nothing to backfill).
-    Trigger.Fire fireRequest = trigger.fire();
-    OffsetDateTime from = fireRequest.from();
-    OffsetDateTime to = fireRequest.to();
-    if (fireRequest.windowed()) {
-      if (!from.isBefore(to)) {
-        throw new SQLException("Backfill window start (" + from + ") must be before end ("
-            + to + ").");
-      }
-      OffsetDateTime watermark = status != null ? status.getWatermark() : null;
-      if (watermark == null) {
-        throw new SQLException("Cannot backfill trigger " + trigger.name()
-            + ": it has no watermark yet, so there is no processed history to backfill.");
-      }
-      if (!from.isBefore(watermark)) {
-        throw new SQLException("Backfill window [" + from + ", " + to
-            + "] is entirely at or after the watermark (" + watermark + "); there is no processed "
-            + "history to backfill. The incremental cursor will reach this range on its own.");
-      }
-      if (to.isAfter(watermark)) {
-        logger.info("Capping backfill end for trigger {} from {} to the watermark {} "
-            + "(a backfill cannot cover data the cursor has not yet processed).",
-            trigger.name(), to, watermark);
-        to = watermark;
-      }
-    }
-
-    // FIRE never mutates the spec. A windowed fire launches a one-off backfill Job directly (not
-    // tracked on the trigger); a plain fire bumps the cursor for the reconciler to materialise.
-    if (fireRequest.windowed()) {
-      K8sTriggerJobs.createBackfill(createYamlApi(context), existingTrigger, from, to, null);
-      return;
-    }
-    // Plain fire: a single status write (the gating commit). If it fails (e.g. a 409 conflict), the
-    // FIRE surfaces an error and the client retries.
+    // A plain fire bumps the cursor for the reconciler to materialise: a single status write (the
+    // gating commit). If it fails (e.g. a 409 conflict), the FIRE surfaces an error and the client
+    // retries.
     V1alpha1TableTriggerStatus newStatus = status != null ? status : new V1alpha1TableTriggerStatus();
     newStatus.setTimestamp(OffsetDateTime.now(ZoneOffset.UTC));
     existingTrigger.setStatus(newStatus);

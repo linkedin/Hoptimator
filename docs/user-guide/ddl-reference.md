@@ -229,12 +229,22 @@ backfill never disturbs (or rewinds) live incremental processing. The job reads
 and writes the requested window `[from, to]`; because a backfill covers
 already-processed history, that input already exists.
 
-A backfill can only cover **already-processed history**, so the end is
-automatically **capped at the watermark**: `NOW` (or any `to` past the watermark)
-means "up to the cursor." This makes relative windows like `FROM 7 DAYS AGO TO
-NOW` do the sensible thing on a lagging trigger. A fire is *rejected* only if the
-window is inverted, starts at/after the watermark (nothing to backfill), the
-trigger has no watermark yet, or an incremental execution is already in flight.
+When the trigger has a **live forward cursor** (a watermark), a backfill can only
+cover **already-processed history**, so the end is automatically **capped at the
+watermark**: `NOW` (or any `to` past the watermark) means "up to the cursor." This
+makes relative windows like `FROM 7 DAYS AGO TO NOW` do the sensible thing on a
+lagging trigger, and the fire is *rejected* if the window starts at/after the
+watermark (nothing to backfill).
+
+A trigger with **no watermark** — one that is *paused*, or has never run — has no
+forward cursor to protect, so a backfill simply runs the requested window as-is
+(no cap, no rejection). This is the normal case for an **offline-tier backfill
+trigger**, which is created paused and only ever fires on-demand backfills: its
+forward path never advances a watermark, and that's fine. A windowed fire is
+independent of the forward path, so it is *never* blocked by an in-flight forward
+execution; the only hard rejection is an **inverted** window (`from` not before
+`to`). (A *plain* `FIRE` — no window — still bumps the forward cursor and is still
+rejected while a forward execution is in flight.)
 
 `FIRE ... FROM ... TO ...` **creates the backfill Job directly** — a one-off,
 trigger-owned `<job>-bf-<windowId>` Job — and nothing is recorded on the trigger.
