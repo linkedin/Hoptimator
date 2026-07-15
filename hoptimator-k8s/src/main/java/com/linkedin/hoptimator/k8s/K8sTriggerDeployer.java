@@ -101,7 +101,7 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
         && (status.getWatermark() == null || status.getTimestamp().isAfter(status.getWatermark()))) {
       throw new SQLException("Trigger " + trigger.name() + " has an in-flight execution (timestamp="
           + status.getTimestamp() + ", watermark=" + status.getWatermark()
-          + "). Wait for it to complete, or pause/resume to abort.");
+          + "). Wait for it to complete.");
     }
 
     // Validate a requested backfill window up front, before mutating anything. A backfill may only
