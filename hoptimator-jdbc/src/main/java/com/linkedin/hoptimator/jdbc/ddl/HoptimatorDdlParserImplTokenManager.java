@@ -22,7 +22,7 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlResume;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlRefresh;
-import com.linkedin.hoptimator.jdbc.ddl.SqlRefreshMaterializedView;
+import com.linkedin.hoptimator.jdbc.ddl.SqlRefreshObject;
 import org.apache.calcite.avatica.util.Casing;
 import org.apache.calcite.avatica.util.TimeUnit;
 import org.apache.calcite.rel.type.RelDataType;

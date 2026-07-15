@@ -22,4 +22,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void logicalTableGraphScript() throws Exception {
     run("logical-graph.id");
   }
+
+  @Test
+  public void logicalTableRefreshScript() throws Exception {
+    run("logical-refresh.id");
+  }
 }

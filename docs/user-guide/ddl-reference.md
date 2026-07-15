@@ -253,6 +253,44 @@ Its lifecycle belongs to the Kubernetes Job controller: retries via the template
 its own inspectable record (a `Failed` Job labelled `backfill=true`). Re-issue the
 `FIRE` to launch a fresh one.
 
+## REFRESH
+
+```
+REFRESH [ MATERIALIZED VIEW | TABLE ] <name>
+  [ FROM <bound> TO <bound> ]
+```
+
+Backfills a materialized view or logical table by firing **every trigger
+immediately upstream of it** — the triggers that populate it. It is the
+object-level counterpart to `FIRE TRIGGER`: rather than naming a trigger, you name
+the thing you want refreshed, and Hoptimator discovers and fires its upstream
+trigger(s). The optional `FROM … TO …` window behaves exactly as it does for
+`FIRE TRIGGER` (same bounds, same one-off backfill semantics — see above).
+
+```sql
+-- backfill a logical table from its upstream trigger(s)
+REFRESH "PROFILE"."MEMBERS";
+
+-- same, over a fixed historical window
+REFRESH TABLE "PROFILE"."MEMBERS" FROM '2026-05-01' TO '2026-05-08';
+
+-- refresh a materialized view
+REFRESH MATERIALIZED VIEW engaged_sessions;
+```
+
+The `MATERIALIZED VIEW` / `TABLE` keyword is **optional** — the object's kind is
+discovered without it. When present, it is an assertion: `REFRESH TABLE x` on a
+materialized view (or `REFRESH MATERIALIZED VIEW x` on a logical table) is
+**rejected**. A `REFRESH` also errors when the object doesn't exist, or when it
+has **no upstream triggers** to fire — a refresh that silently does nothing is a
+footgun, not a no-op.
+
+How the upstream triggers are discovered is a backend concern: the DDL layer asks
+a pluggable resolver (`RefreshProvider`), so `hoptimator-jdbc` never touches
+Kubernetes directly. The Kubernetes backend treats the `TableTrigger`s owned by
+the object's CRD (e.g. a logical table's auto-created offline-tier trigger) as its
+upstream triggers.
+
 ## CREATE TABLE
 
 ```
@@ -341,11 +379,9 @@ the parse alone.
 
 **Parses but not yet executed:**
 
-- `REFRESH MATERIALIZED VIEW <name>` — intended to re-run a batch-style
-  materialization on demand.
 - `FIRE TABLE | VIEW | MATERIALIZED VIEW <name>` — intended to
   manually fire a side effect (e.g. for testing without waiting for a
-  schedule). (`FIRE TRIGGER` is fully implemented — see above.)
+  schedule). (`FIRE TRIGGER` and `REFRESH` are fully implemented — see above.)
 - `PAUSE MATERIALIZED VIEW <name>` / `RESUME MATERIALIZED VIEW <name>` —
   parser support exists; executor does not. (`PAUSE TRIGGER` /
   `RESUME TRIGGER` above are fully implemented.)

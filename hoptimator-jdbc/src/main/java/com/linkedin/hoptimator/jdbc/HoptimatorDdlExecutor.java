@@ -21,6 +21,7 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.PendingDelete;
+import com.linkedin.hoptimator.RefreshTarget;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.UserJob;
@@ -33,6 +34,7 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlDropTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlFireTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
+import com.linkedin.hoptimator.jdbc.ddl.SqlRefreshObject;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
@@ -338,28 +340,93 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     // FIRE carries no user options — it is a pure "run now" action. A windowed fire resolves its
     // bounds to absolute instants here; a plain fire has neither. Nothing touches the spec.
-    Trigger.Fire fireRequest;
-    if (fire.from != null) {
-      fireRequest = new Trigger.Fire(
-          resolveFireBound(((SqlLiteral) fire.from).getValueAs(String.class), fire),
-          resolveFireBound(((SqlLiteral) fire.to).getValueAs(String.class), fire));
-    } else {
-      fireRequest = new Trigger.Fire(null, null);
-    }
-    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null, null, fireRequest);
+    Trigger.Fire fireRequest = buildFireRequest(fire.from, fire.to, fire);
+    fireTriggerByName(name, fireRequest, fire);
+    logger.info("FIRE TRIGGER {} completed", name);
+  }
 
+  /** Builds a {@link Trigger.Fire} from the optional {@code FROM ... TO ...} bounds shared by
+   *  {@code FIRE TRIGGER} and {@code REFRESH}. A windowed fire resolves both bounds to absolute
+   *  instants; a plain fire (no window) has neither. */
+  private Trigger.Fire buildFireRequest(SqlNode from, SqlNode to, SqlNode node) {
+    if (from != null) {
+      return new Trigger.Fire(
+          resolveFireBound(((SqlLiteral) from).getValueAs(String.class), node),
+          resolveFireBound(((SqlLiteral) to).getValueAs(String.class), node));
+    }
+    return new Trigger.Fire(null, null);
+  }
+
+  /** Fires a single trigger by name, reusing the {@code FIRE TRIGGER} deploy path: build a
+   *  name-only {@link Trigger} carrying the {@link Trigger.Fire} intent and update it. Restores the
+   *  deployers and rethrows as a {@link DdlException} on any failure. */
+  private void fireTriggerByName(String name, Trigger.Fire fireRequest, SqlNode node) {
+    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null, null, fireRequest);
     Collection<Deployer> deployers = null;
     try {
       logger.info("Firing trigger {}", name);
       deployers = DeploymentService.deployers(trigger, connection);
       DeploymentService.update(deployers);
-      logger.info("FIRE TRIGGER {} completed", name);
     } catch (Exception e) {
       if (deployers != null) {
         DeploymentService.restore(deployers);
       }
-      throw new DdlException(fire, e.getMessage(), e);
+      throw new DdlException(node, e.getMessage(), e);
     }
+  }
+
+  /** Executes a {@code REFRESH [MATERIALIZED VIEW | TABLE] name [FROM <bound> TO <bound>]} command.
+   *  REFRESH backfills a materialized view or logical table by firing every trigger immediately
+   *  upstream of it, reusing the {@code FIRE TRIGGER} machinery. Discovering those triggers (and the
+   *  object's kind) is delegated to {@link RefreshService}, so the DDL layer stays decoupled from the
+   *  backend. Errors when the object is unknown, its kind contradicts an explicit
+   *  {@code MATERIALIZED VIEW}/{@code TABLE} keyword, or it has no upstream triggers. */
+  public void execute(SqlRefreshObject refresh, CalcitePrepare.Context context) {
+    logger.info("Validating statement: {}", refresh);
+    try {
+      ValidationService.validateOrThrow(refresh, connection);
+    } catch (SQLException e) {
+      throw new DdlException(refresh, e.getMessage(), e);
+    }
+
+    RefreshTarget target;
+    try {
+      target = RefreshService.resolve(refresh.name.names, connection);
+    } catch (SQLException e) {
+      throw new DdlException(refresh, e.getMessage(), e);
+    }
+    String objectName = String.join(".", refresh.name.names);
+    if (target == null) {
+      throw new DdlException(refresh, "Cannot REFRESH " + objectName
+          + ": no such materialized view or logical table.");
+    }
+
+    // A MATERIALIZED VIEW / TABLE keyword, when present, is an assertion about the object's kind.
+    // Reject a mismatch rather than silently refreshing the wrong kind of thing.
+    if (refresh.objectType != null) {
+      RefreshTarget.Kind asserted = refresh.objectType == SqlRefreshObject.ObjectType.MATERIALIZED_VIEW
+          ? RefreshTarget.Kind.MATERIALIZED_VIEW : RefreshTarget.Kind.TABLE;
+      if (asserted != target.kind()) {
+        throw new DdlException(refresh, "Cannot REFRESH " + objectName + " as "
+            + describeKind(asserted) + ": it is " + describeKind(target.kind()) + ".");
+      }
+    }
+
+    // A REFRESH that fires nothing is a footgun — fail loudly instead of silently doing nothing.
+    if (target.triggerNames().isEmpty()) {
+      throw new DdlException(refresh, "Cannot REFRESH " + objectName
+          + ": it has no upstream triggers to fire.");
+    }
+
+    Trigger.Fire fireRequest = buildFireRequest(refresh.from, refresh.to, refresh);
+    for (String triggerName : target.triggerNames()) {
+      fireTriggerByName(triggerName, fireRequest, refresh);
+    }
+    logger.info("REFRESH {} completed ({} trigger(s) fired)", objectName, target.triggerNames().size());
+  }
+
+  private static String describeKind(RefreshTarget.Kind kind) {
+    return kind == RefreshTarget.Kind.MATERIALIZED_VIEW ? "a materialized view" : "a table";
   }
 
   private static final Pattern FIRE_RELATIVE = Pattern.compile("^-(\\d+)([smhd])$");

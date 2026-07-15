@@ -16,6 +16,7 @@ both — pick the layer that matches what you're doing.
 | Render the dependency graph in a format other than the ones shipped (DOT, an interactive web view, …). | A `GraphRenderer`. Mermaid and JSON renderers ship in `hoptimator-graph`. |
 | Customize what gets deployed for an existing system.                                                | Just a `TableTemplate` or `JobTemplate` — no Java needed. See [Templates and configuration](../kubernetes/templates.md). |
 | Fire a `TableTrigger` when your source has new data (event-time).                                   | An `InputFrontierSource` on your driver's schema. See [Firing triggers on data availability](#firing-triggers-on-data-availability). |
+| Tell `REFRESH` which triggers are upstream of a materialized view or logical table.                 | A `RefreshProvider`. The K8s-backed default (`K8sRefreshProvider`) ships in `hoptimator-k8s`. |
 
 ## How extensions are loaded
 
@@ -29,6 +30,7 @@ META-INF/services/com.linkedin.hoptimator.ValidatorProvider
 META-INF/services/com.linkedin.hoptimator.ConfigProvider
 META-INF/services/com.linkedin.hoptimator.ConnectorProvider
 META-INF/services/com.linkedin.hoptimator.CatalogProvider
+META-INF/services/com.linkedin.hoptimator.RefreshProvider
 META-INF/services/com.linkedin.hoptimator.graph.GraphProvider
 META-INF/services/com.linkedin.hoptimator.graph.GraphRenderer
 ```

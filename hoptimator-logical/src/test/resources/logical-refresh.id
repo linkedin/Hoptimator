@@ -1,0 +1,45 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REFRESH backfills a materialized view or logical table by firing every trigger
+# immediately upstream of it, reusing the FIRE TRIGGER machinery.
+#
+# Create a LogicalTable with an offline tier — this auto-creates a paused
+# offline-tier backfill trigger owned by the LogicalTable CRD. REFRESH discovers
+# and fires that trigger without the DDL layer touching Kubernetes.
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "LOGICAL-OFFLINE"."REFRESHTBL" ("ID" bigint, "NAME" varchar);
+(0 rows modified)
+
+!update
+
+# A plain REFRESH fires the upstream trigger (a "run now"). The optional TABLE
+# keyword is accepted because the object really is a logical table.
+refresh table "LOGICAL-OFFLINE"."REFRESHTBL";
+(0 rows modified)
+
+!update
+
+# A second REFRESH before the reconciler advances the watermark hits the same
+# in-flight guard as FIRE TRIGGER — the fire machinery is shared.
+refresh "LOGICAL-OFFLINE"."REFRESHTBL";
+has an in-flight execution
+!error
+
+# The MATERIALIZED VIEW / TABLE keyword is validated against the object's real
+# kind; asserting MATERIALIZED VIEW on a logical table is rejected.
+refresh materialized view "LOGICAL-OFFLINE"."REFRESHTBL";
+it is a table
+!error
+
+# Refreshing something that isn't a materialized view or logical table errors
+# rather than silently doing nothing.
+refresh "LOGICAL-OFFLINE"."NOPE";
+no such materialized view or logical table
+!error
+
+drop table "LOGICAL-OFFLINE"."REFRESHTBL";
+(0 rows modified)
+
+!update
