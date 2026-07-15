@@ -9,6 +9,7 @@ import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -35,7 +36,31 @@ public final class K8sTriggerJobs {
   static final String BACKFILL_KEY = "backfill";
   static final String BACKFILL_INFIX = "-bf-";
 
+  /**
+   * The template variables that name the fire window, resolved per-fire by {@link #render} (and its
+   * {@link #withInstantVars} derived forms). A JobTemplate reads these to know which data-time window
+   * the launched Job must cover. Kept here as the single source of truth so the CREATE-TRIGGER render
+   * can defer exactly these (see {@link #deferredWindowVars}).
+   */
+  static final List<String> WINDOW_VARS = Collections.unmodifiableList(Arrays.asList(
+      "watermark", "watermarkEpochMs", "watermarkDate", "watermarkHour",
+      "timestamp", "timestampEpochMs", "timestampDate", "timestampHour"));
+
   private K8sTriggerJobs() {
+  }
+
+  /**
+   * Whether {@code key} names a fire-window variable — one resolved per-fire by {@link #render}
+   * (and its {@link #withInstantVars} derived forms), not at CREATE time. A JobTemplate rendered by
+   * {@code CREATE TRIGGER ... as <template>} is rendered twice: once to fix the static vars and again
+   * per-fire to fill the window. Passing this as the {@code defer} predicate to
+   * {@link Template.SimpleTemplate#render(Template.Environment, java.util.function.Predicate)} leaves
+   * the window tokens (transform and all) intact for that second render, while any other unresolved
+   * variable still fails the first render — so CREATE TRIGGER rejects a genuinely missing variable
+   * rather than deferring the failure to fire time.
+   */
+  public static boolean isWindowVar(String key) {
+    return WINDOW_VARS.contains(key);
   }
 
   /**

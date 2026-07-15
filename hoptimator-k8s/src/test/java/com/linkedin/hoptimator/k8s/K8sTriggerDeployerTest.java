@@ -611,6 +611,33 @@ class K8sTriggerDeployerTest {
         "{{catalog}}.{{schema}}.{{table}} must render to OPENHOUSE.MYDB.MYTABLE — got: " + specs.get(0));
   }
 
+  @Test
+  void toK8sObjectDefersWindowVarsForThePerFireRender() throws SQLException {
+    // A JobTemplate that references the fire window must NOT be rejected at CREATE (the window is
+    // only known per-fire). The window vars must pass through toK8sObject untouched so the reconciler
+    // / FIRE render can resolve them later. Without deferral, {{watermark}} would render to null and
+    // the empty-yaml guard would reject the CREATE.
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml(
+            "window: [{{watermark}}, {{timestamp}}] table: {{table}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *",
+        Collections.emptyMap(),
+        new Source(null, Arrays.asList("OPENHOUSE", "MYDB", "MYTABLE"), Collections.emptyMap()),
+        null);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    assertTrue(specs.get(0).contains("window: [{{watermark}}, {{timestamp}}]"),
+        "window vars must survive the CREATE render for the per-fire render — got: " + specs.get(0));
+    assertTrue(specs.get(0).contains("table: MYTABLE"),
+        "static vars must still resolve at CREATE — got: " + specs.get(0));
+  }
+
   // ───────── toK8sObject() path derivation tests ─────────
 
   @Test

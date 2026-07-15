@@ -203,7 +203,7 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
         source != null ? Collections.singletonList(source) : Collections.emptyList(),
         trigger.sink() != null ? Collections.singletonList(trigger.sink()) : Collections.emptyList());
     String template = jobTemplate.getSpec().getYaml();
-    String rendered = new Template.SimpleTemplate(template).render(env);
+    String rendered = new Template.SimpleTemplate(template).render(env, K8sTriggerJobs::isWindowVar);
     if (rendered == null || rendered.trim().isEmpty()) {
       throw new SQLException("JobTemplate " + jobNamespace + "/" + jobName + " rendered to nothing for "
           + "trigger " + trigger.name() + ". Its yaml is empty, or it references a template variable that "

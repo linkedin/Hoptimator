@@ -306,6 +306,13 @@ a job can consume a value without parsing the ISO string. For base name `<v>`:
 
 So `{{timestampDate}}`, `{{timestampEpochMs}}`, `{{watermarkHour}}`, etc. are all available.
 
+> **Window vars in a `JobTemplate`.** A `JobTemplate` referenced by `CREATE TRIGGER ... as
+> <template>` is rendered twice: once at `CREATE` (to fix the static vars — `{{name}}`, `{{table}}`,
+> `{{path}}`, `job.properties.*`, …) and again per-fire (to fill the window). The window vars above
+> are automatically deferred through the first render, so they reach the launched job intact. Any
+> *other* unresolved `{{variable}}` still fails the `CREATE` loudly — a `JobTemplate` that renders to
+> nothing is rejected rather than stored empty.
+
 ### Status fields
 
 | Field       | Type      | Description                                                                  |

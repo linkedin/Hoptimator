@@ -23,6 +23,16 @@ spec:
                 value: "{{path}}"
               - name: ONLINE_TABLE_NAME
                 value: "{{job.properties.online.table.name}}"
-            command: ["bash",  "-c", "echo {{name}}-trigger fired at `date`"]
+              # Fire window [WINDOW_START, WINDOW_END]. On an incremental fire this is
+              # [watermark, timestamp]; on a backfill (FIRE ... FROM ... TO ...) it is [FROM, TO].
+              - name: WINDOW_START
+                value: "{{watermark}}"
+              - name: WINDOW_END
+                value: "{{timestamp}}"
+              - name: WINDOW_START_DATE
+                value: "{{watermarkDate}}"
+              - name: WINDOW_END_DATE
+                value: "{{timestampDate}}"
+            command: ["bash",  "-c", "echo {{name}}-trigger processing window [$WINDOW_START, $WINDOW_END] at `date`"]
           restartPolicy: Never
       backoffLimit: 4

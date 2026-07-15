@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -210,6 +211,19 @@ public interface Template {
 
     @Override
     public String render(Environment env) throws SQLException {
+      return render(env, key -> false);
+    }
+
+    /**
+     * Renders the template, but leaves any token whose variable {@code defer} accepts <em>and</em>
+     * which {@code env} does not resolve as its original {@code {{...}}} text — verbatim, including
+     * any transform or condition. This supports two-pass rendering: a first pass fixes the known
+     * (static) variables and defers the rest for a later pass that knows them, without a deferred
+     * {@code {{watermark toUpperCase}}} being mangled into {@code {{WATERMARK}}} (which the second
+     * pass could no longer resolve). A non-deferred unresolved variable still skips the whole
+     * template (returns {@code null}), so callers can detect a genuinely missing variable.
+     */
+    public String render(Environment env, Predicate<String> defer) throws SQLException {
       StringBuilder sb = new StringBuilder();
       Pattern p =
           Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*((:|==|!=)([\\w_\\-\\.]*))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
@@ -255,10 +269,18 @@ public interface Template {
             }
           }
           if (value == null) {
+            if (defer.test(key)) {
+              m.appendReplacement(sb, Matcher.quoteReplacement(m.group()));
+              continue;
+            }
             log.warn("Template variable '{}' resolved to null. Skipping template.", key);
             return null;
           }
         } catch (IllegalArgumentException e) {
+          if (defer.test(key)) {
+            m.appendReplacement(sb, Matcher.quoteReplacement(m.group()));
+            continue;
+          }
           log.warn("Missing template variable '{}' in environment: {}. Skipping template.", key, e.getMessage());
           return null;
         }

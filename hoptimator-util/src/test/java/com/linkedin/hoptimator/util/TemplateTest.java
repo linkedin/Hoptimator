@@ -416,4 +416,43 @@ class TemplateTest {
     assertThrows(SQLException.class, () -> new Template.SimpleTemplate(template).render(env));
   }
 
+  // --- deferred (two-pass) rendering tests ---
+
+  @Test
+  void deferLeavesAnUnresolvedTokenVerbatim() throws SQLException {
+    Template.Environment env = new Template.SimpleEnvironment().with("known", "K");
+    String rendered = new Template.SimpleTemplate("a={{known}} b={{later}}")
+        .render(env, key -> key.equals("later"));
+
+    assertEquals("a=K b={{later}}", rendered);
+  }
+
+  @Test
+  void deferPreservesATokensTransformForALaterRender() throws SQLException {
+    // The transform must ride along on the deferred token, not be applied to the placeholder text —
+    // otherwise a second render could not resolve the (now mangled) key.
+    String first = new Template.SimpleTemplate("{{later toUpperCase}}")
+        .render(Template.Environment.EMPTY, key -> true);
+    assertEquals("{{later toUpperCase}}", first);
+
+    String second = new Template.SimpleTemplate(first)
+        .render(new Template.SimpleEnvironment().with("later", "value"));
+    assertEquals("VALUE", second);
+  }
+
+  @Test
+  void deferDoesNotApplyToATokenWithADefault() throws SQLException {
+    // A token with a default resolves to that default (it is never null), so it is not deferred.
+    String first = new Template.SimpleTemplate("{{later:fallback}}")
+        .render(Template.Environment.EMPTY, key -> true);
+    assertEquals("fallback", first);
+  }
+
+  @Test
+  void deferDoesNotRescueANonDeferredMissingVariable() throws SQLException {
+    // Only deferred keys survive; a different missing key still skips the whole template.
+    assertNull(new Template.SimpleTemplate("{{later}} {{missing}}")
+        .render(Template.Environment.EMPTY, key -> key.equals("later")));
+  }
+
 }
