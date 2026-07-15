@@ -46,14 +46,6 @@ public class V1alpha1TableTriggerStatus {
   @SerializedName(SERIALIZED_NAME_WATERMARK)
   private OffsetDateTime watermark;
 
-  public static final String SERIALIZED_NAME_BACKFILL_FROM = "backfillFrom";
-  @SerializedName(SERIALIZED_NAME_BACKFILL_FROM)
-  private OffsetDateTime backfillFrom;
-
-  public static final String SERIALIZED_NAME_BACKFILL_TO = "backfillTo";
-  @SerializedName(SERIALIZED_NAME_BACKFILL_TO)
-  private OffsetDateTime backfillTo;
-
   public static final String SERIALIZED_NAME_LATE_WATERMARK = "lateWatermark";
   @SerializedName(SERIALIZED_NAME_LATE_WATERMARK)
   private OffsetDateTime lateWatermark;
@@ -136,52 +128,6 @@ public class V1alpha1TableTriggerStatus {
   }
 
 
-  public V1alpha1TableTriggerStatus backfillFrom(OffsetDateTime backfillFrom) {
-    
-    this.backfillFrom = backfillFrom;
-    return this;
-  }
-
-   /**
-   * Start of a requested one-off backfill window.
-   * @return backfillFrom
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "Start of a requested one-off backfill window.")
-
-  public OffsetDateTime getBackfillFrom() {
-    return backfillFrom;
-  }
-
-
-  public void setBackfillFrom(OffsetDateTime backfillFrom) {
-    this.backfillFrom = backfillFrom;
-  }
-
-
-  public V1alpha1TableTriggerStatus backfillTo(OffsetDateTime backfillTo) {
-    
-    this.backfillTo = backfillTo;
-    return this;
-  }
-
-   /**
-   * End of a requested one-off backfill window.
-   * @return backfillTo
-  **/
-  @javax.annotation.Nullable
-  @ApiModelProperty(value = "End of a requested one-off backfill window.")
-
-  public OffsetDateTime getBackfillTo() {
-    return backfillTo;
-  }
-
-
-  public void setBackfillTo(OffsetDateTime backfillTo) {
-    this.backfillTo = backfillTo;
-  }
-
-
   public V1alpha1TableTriggerStatus lateWatermark(OffsetDateTime lateWatermark) {
     
     this.lateWatermark = lateWatermark;
@@ -218,14 +164,12 @@ public class V1alpha1TableTriggerStatus {
     return Objects.equals(this.jobs, v1alpha1TableTriggerStatus.jobs) &&
         Objects.equals(this.timestamp, v1alpha1TableTriggerStatus.timestamp) &&
         Objects.equals(this.watermark, v1alpha1TableTriggerStatus.watermark) &&
-        Objects.equals(this.backfillFrom, v1alpha1TableTriggerStatus.backfillFrom) &&
-        Objects.equals(this.backfillTo, v1alpha1TableTriggerStatus.backfillTo) &&
         Objects.equals(this.lateWatermark, v1alpha1TableTriggerStatus.lateWatermark);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(jobs, timestamp, watermark, backfillFrom, backfillTo, lateWatermark);
+    return Objects.hash(jobs, timestamp, watermark, lateWatermark);
   }
 
 
@@ -236,8 +180,6 @@ public class V1alpha1TableTriggerStatus {
     sb.append("    jobs: ").append(toIndentedString(jobs)).append("\n");
     sb.append("    timestamp: ").append(toIndentedString(timestamp)).append("\n");
     sb.append("    watermark: ").append(toIndentedString(watermark)).append("\n");
-    sb.append("    backfillFrom: ").append(toIndentedString(backfillFrom)).append("\n");
-    sb.append("    backfillTo: ").append(toIndentedString(backfillTo)).append("\n");
     sb.append("    lateWatermark: ").append(toIndentedString(lateWatermark)).append("\n");
     sb.append("}");
     return sb.toString();

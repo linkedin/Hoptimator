@@ -233,14 +233,15 @@ A backfill can only cover **already-processed history**, so the end is
 automatically **capped at the watermark**: `NOW` (or any `to` past the watermark)
 means "up to the cursor." This makes relative windows like `FROM 7 DAYS AGO TO
 NOW` do the sensible thing on a lagging trigger. A fire is *rejected* only if the
-window is inverted, starts at/after the watermark (nothing to backfill), or the
-trigger has no watermark yet — or if an incremental execution or another backfill
-is already in flight. A failed backfill is abandoned (re-issue the `FIRE` to
-retry).
+window is inverted, starts at/after the watermark (nothing to backfill), the
+trigger has no watermark yet, or an incremental execution is already in flight.
 
-Internally the request is recorded in `status.backfillFrom`/`status.backfillTo`;
-the operator launches a `<job>-bf-<windowId>` Job, and on completion clears those
-fields (leaving the cursor alone).
+`FIRE ... FROM ... TO ...` **creates the backfill Job directly** — a one-off,
+trigger-owned `<job>-bf-<windowId>` Job — and nothing is recorded on the trigger.
+Its lifecycle belongs to the Kubernetes Job controller: retries via the template's
+`backoffLimit`, cleanup via `ttlSecondsAfterFinished`, and a failed backfill is
+its own inspectable record (a `Failed` Job labelled `backfill=true`). Re-issue the
+`FIRE` to launch a fresh one.
 
 ## CREATE TABLE
 

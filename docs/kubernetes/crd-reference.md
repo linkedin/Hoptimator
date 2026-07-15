@@ -312,8 +312,6 @@ So `{{timestampDate}}`, `{{timestampEpochMs}}`, `{{watermarkHour}}`, etc. are al
 | ----------- | --------- | ---------------------------------------------------------------------------- |
 | `timestamp` | date-time | When the trigger was last fired. **Patching this fires the trigger.**        |
 | `watermark` | date-time | Timestamp of the last *successfully* processed event.                        |
-| `backfillFrom` | date-time | Start of a requested one-off backfill window. When set with `backfillTo`, the operator runs a separate `<job>-bf-<windowId>` Job over `[backfillFrom, backfillTo]` **without** advancing `watermark`/`timestamp`, then clears these fields. |
-| `backfillTo` | date-time | End of the requested backfill window. See `backfillFrom`.                  |
 | `jobs`      | object    | Per-job state — useful for tracking the status of jobs the trigger spawned.  |
 
 ### Printer columns

@@ -47,6 +47,10 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     return new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
   }
 
+  K8sYamlApi createYamlApi(K8sContext context) {
+    return new K8sYamlApi(context);
+  }
+
   @Override
   public void update() throws SQLException {
     String canonicalName = K8sUtils.canonicalizeName(trigger.name());
@@ -84,10 +88,10 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     super.update();
   }
 
-  /** Applies a FIRE intent: rejects on in-flight (incremental or backfill), validates any requested
-   *  backfill window, then writes status only (never the spec) — a single update. A plain fire bumps
-   *  status.timestamp; a windowed fire records a one-off backfill via status.backfillFrom/backfillTo,
-   *  leaving the watermark untouched. The TableTriggerReconciler materialises the Job. */
+  /** Applies a FIRE intent: rejects on an in-flight incremental execution, validates any requested
+   *  backfill window, then either bumps {@code status.timestamp} (a plain fire, materialised by the
+   *  reconciler) or launches a one-off backfill Job over {@code [from, to]} directly. A backfill
+   *  never touches the cursor and is not tracked on the trigger — it is just a Kubernetes Job. */
   private void fire(V1alpha1TableTrigger existingTrigger) throws SQLException {
     if (existingTrigger == null) {
       throw new SQLException("Trigger " + trigger.name() + " not found.");
@@ -98,10 +102,6 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
       throw new SQLException("Trigger " + trigger.name() + " has an in-flight execution (timestamp="
           + status.getTimestamp() + ", watermark=" + status.getWatermark()
           + "). Wait for it to complete, or pause/resume to abort.");
-    }
-    if (status != null && status.getBackfillFrom() != null) {
-      throw new SQLException("Trigger " + trigger.name() + " already has a backfill in flight ["
-          + status.getBackfillFrom() + ", " + status.getBackfillTo() + "]. Wait for it to complete.");
     }
 
     // Validate a requested backfill window up front, before mutating anything. A backfill may only
@@ -137,17 +137,16 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
       }
     }
 
-    // FIRE never mutates the spec — it only updates status (a single write). This is the gating
-    // commit: if it fails (e.g. a 409 conflict), the FIRE surfaces an error and the client retries.
-    V1alpha1TableTriggerStatus newStatus = status != null ? status : new V1alpha1TableTriggerStatus();
+    // FIRE never mutates the spec. A windowed fire launches a one-off backfill Job directly (not
+    // tracked on the trigger); a plain fire bumps the cursor for the reconciler to materialise.
     if (backfillFrom != null && backfillTo != null) {
-      // Windowed fire: request a one-off backfill over [from, to]. The reconciler runs it as a
-      // separate Job and does NOT advance the cursor — watermark/timestamp are left untouched.
-      newStatus.setBackfillFrom(backfillFrom);
-      newStatus.setBackfillTo(backfillTo);
-    } else {
-      newStatus.setTimestamp(OffsetDateTime.now(ZoneOffset.UTC));
+      K8sTriggerJobs.createBackfill(createYamlApi(context), existingTrigger, backfillFrom, backfillTo, null);
+      return;
     }
+    // Plain fire: a single status write (the gating commit). If it fails (e.g. a 409 conflict), the
+    // FIRE surfaces an error and the client retries.
+    V1alpha1TableTriggerStatus newStatus = status != null ? status : new V1alpha1TableTriggerStatus();
+    newStatus.setTimestamp(OffsetDateTime.now(ZoneOffset.UTC));
     existingTrigger.setStatus(newStatus);
     triggerApi.updateStatus(existingTrigger, newStatus);
   }

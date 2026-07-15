@@ -48,6 +48,11 @@ class K8sTriggerDeployerTest {
   private List<V1alpha1JobTemplate> jobTemplates;
   private FakeK8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> jobTemplateApi;
   private K8sSnapshot snapshot;
+  private Map<String, String> yamls;
+  private FakeK8sYamlApi fakeYamlApi;
+
+  private static final String JOB_TEMPLATE = String.join("\n",
+      "apiVersion: batch/v1", "kind: Job", "metadata:", "  name: bf-job");
 
   @BeforeEach
   void setUp() {
@@ -55,8 +60,8 @@ class K8sTriggerDeployerTest {
     triggerApi = new FakeK8sApi<>(triggers);
     jobTemplates = new ArrayList<>();
     jobTemplateApi = new FakeK8sApi<>(jobTemplates);
-    Map<String, String> yamls = new HashMap<>();
-    FakeK8sYamlApi fakeYamlApi = new FakeK8sYamlApi(yamls);
+    yamls = new HashMap<>();
+    fakeYamlApi = new FakeK8sYamlApi(yamls);
     snapshot = new K8sSnapshot(null) {
       @Override
       K8sYamlApi createYamlApi(K8sContext context) {
@@ -84,6 +89,11 @@ class K8sTriggerDeployerTest {
       @Override
       K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> createJobTemplateApi(K8sContext ctx) {
         return capturedJobTemplateApi;
+      }
+
+      @Override
+      K8sYamlApi createYamlApi(K8sContext ctx) {
+        return fakeYamlApi;
       }
 
       @Override
@@ -695,12 +705,12 @@ class K8sTriggerDeployerTest {
   }
 
   @Test
-  void updateWithWindowedFireRequestsBackfillWithoutMovingCursor() throws SQLException {
-    // FIRE ... FROM/TO requests a one-off backfill via status.backfillFrom/backfillTo, and must
-    // NOT touch the incremental cursor (watermark/timestamp). Control options must not leak.
+  void updateWithWindowedFireCreatesBackfillJobWithoutMovingCursor() throws SQLException {
+    // FIRE ... FROM/TO launches a one-off backfill Job directly (not tracked on the trigger) and
+    // must NOT touch the incremental cursor (watermark/timestamp). Control options must not leak.
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("mytrigger"))
-        .spec(new V1alpha1TableTriggerSpec())
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE))
         .status(new V1alpha1TableTriggerStatus()
             .watermark(OffsetDateTime.parse("2026-06-01T00:00Z"))
             .timestamp(OffsetDateTime.parse("2026-06-01T00:00Z")));
@@ -713,11 +723,9 @@ class K8sTriggerDeployerTest {
     K8sTriggerDeployer deployer = makeDeployer(fireTrigger(opts), mockContext);
     deployer.update();
 
-    assertNotNull(existing.getStatus());
-    assertEquals(OffsetDateTime.parse("2026-05-01T00:00Z"), existing.getStatus().getBackfillFrom(),
-        "backfillFrom must be set to the FROM bound");
-    assertEquals(OffsetDateTime.parse("2026-05-08T00:00Z"), existing.getStatus().getBackfillTo(),
-        "backfillTo must be set to the TO bound");
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-05-08T00:00Z"), null)),
+        "a window-named backfill Job must be created");
     assertEquals(OffsetDateTime.parse("2026-06-01T00:00Z"), existing.getStatus().getWatermark(),
         "watermark (cursor) must be left untouched by a backfill");
     assertEquals(OffsetDateTime.parse("2026-06-01T00:00Z"), existing.getStatus().getTimestamp(),
@@ -746,14 +754,14 @@ class K8sTriggerDeployerTest {
         windowedFire("2026-06-02T00:00Z", "2026-06-03T00:00Z"), mockContext);
     SQLException e = assertThrows(SQLException.class, deployer::update);
     assertTrue(e.getMessage().contains("entirely at or after the watermark"));
-    assertNull(existing.getStatus().getBackfillFrom(), "no backfill should be recorded on rejection");
+    assertTrue(yamls.isEmpty(), "no backfill Job should be created on rejection");
   }
 
   @Test
   void backfillEndIsCappedAtWatermark() throws SQLException {
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("mytrigger"))
-        .spec(new V1alpha1TableTriggerSpec())
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE))
         .status(new V1alpha1TableTriggerStatus().watermark(OffsetDateTime.parse("2026-06-01T00:00Z")));
     triggers.add(existing);
 
@@ -762,10 +770,10 @@ class K8sTriggerDeployerTest {
         windowedFire("2026-05-20T00:00Z", "2026-06-15T00:00Z"), mockContext);
     deployer.update();
 
-    assertEquals(OffsetDateTime.parse("2026-05-20T00:00Z"), existing.getStatus().getBackfillFrom(),
-        "start must be preserved");
-    assertEquals(OffsetDateTime.parse("2026-06-01T00:00Z"), existing.getStatus().getBackfillTo(),
-        "end must be capped at the watermark");
+    // The backfill Job covers [from, watermark] — the capped window.
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-20T00:00Z"), OffsetDateTime.parse("2026-06-01T00:00Z"), null)),
+        "backfill end must be capped at the watermark");
   }
 
   @Test
@@ -799,7 +807,7 @@ class K8sTriggerDeployerTest {
   void backfillEndingAtWatermarkIsAccepted() throws SQLException {
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("mytrigger"))
-        .spec(new V1alpha1TableTriggerSpec())
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE))
         .status(new V1alpha1TableTriggerStatus().watermark(OffsetDateTime.parse("2026-06-01T00:00Z")));
     triggers.add(existing);
 
@@ -808,7 +816,8 @@ class K8sTriggerDeployerTest {
         windowedFire("2026-05-01T00:00Z", "2026-06-01T00:00Z"), mockContext);
     deployer.update();
 
-    assertEquals(OffsetDateTime.parse("2026-06-01T00:00Z"), existing.getStatus().getBackfillTo());
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-06-01T00:00Z"), null)));
   }
 
   @Test

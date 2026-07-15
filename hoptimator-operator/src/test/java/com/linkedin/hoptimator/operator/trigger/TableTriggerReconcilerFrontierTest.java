@@ -13,6 +13,7 @@ import com.linkedin.hoptimator.DataChange;
 import com.linkedin.hoptimator.InputFrontierSource;
 import com.linkedin.hoptimator.k8s.FakeK8sApi;
 import com.linkedin.hoptimator.k8s.FakeK8sYamlApi;
+import com.linkedin.hoptimator.k8s.K8sTriggerJobs;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
@@ -137,8 +138,9 @@ class TableTriggerReconcilerFrontierTest {
     reconcilerWith(null, Collections.singletonList(late)).reconcile(new Request("namespace", "wm-trigger"));
 
     V1alpha1TableTriggerStatus s = triggers.get(0).getStatus();
-    assertThat(s.getBackfillFrom()).isEqualTo(odt(9, 0));
-    assertThat(s.getBackfillTo()).isEqualTo(odt(10, 0));
+    // The repair is a one-off backfill Job over [9:00, 10:00], keyed by window + arrival — created
+    // directly and not tracked on the trigger.
+    assertThat(yamls).containsKey(K8sTriggerJobs.backfillJobName("wm-job", odt(9, 0), odt(10, 0), odt(9, 30)));
     assertThat(s.getLateWatermark()).isEqualTo(odt(9, 30));
     // The forward cursor is untouched.
     assertThat(s.getWatermark()).isEqualTo(watermark);
@@ -155,9 +157,8 @@ class TableTriggerReconcilerFrontierTest {
 
     reconcilerWith(null, Collections.singletonList(straddling)).reconcile(new Request("namespace", "wm-trigger"));
 
-    V1alpha1TableTriggerStatus s = triggers.get(0).getStatus();
-    assertThat(s.getBackfillFrom()).isEqualTo(odt(11, 0));
-    assertThat(s.getBackfillTo()).isEqualTo(watermark);
+    // The backfill Job covers [11:00, watermark] — the clipped window.
+    assertThat(yamls).containsKey(K8sTriggerJobs.backfillJobName("wm-job", odt(11, 0), watermark, odt(13, 0)));
   }
 
   @Test
@@ -171,7 +172,7 @@ class TableTriggerReconcilerFrontierTest {
     reconcilerWith(null, Collections.singletonList(ahead)).reconcile(new Request("namespace", "wm-trigger"));
 
     V1alpha1TableTriggerStatus s = triggers.get(0).getStatus();
-    assertThat(s.getBackfillFrom()).isNull();
+    assertThat(yamls.keySet()).noneMatch(k -> k.contains("-bf-"));
     assertThat(s.getLateWatermark()).isEqualTo(odt(13, 30));
   }
 
@@ -186,6 +187,6 @@ class TableTriggerReconcilerFrontierTest {
 
     V1alpha1TableTriggerStatus s = triggers.get(0).getStatus();
     assertThat(s.getLateWatermark()).isNotNull();
-    assertThat(s.getBackfillFrom()).isNull();
+    assertThat(yamls.keySet()).noneMatch(k -> k.contains("-bf-"));
   }
 }
