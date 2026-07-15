@@ -16,6 +16,7 @@ dependencies {
   // Add them as testRuntimeOnly in your application build if needed for integration tests.
 
   testImplementation libs.commons.dbcp2
+  testCompileOnly libs.findbugs.annotations
   testImplementation(testFixtures(project(':hoptimator-k8s')))
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
   testRuntimeOnly project(':hoptimator-demodb')
