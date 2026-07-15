@@ -374,12 +374,12 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     }
   }
 
-  /** Executes a {@code REFRESH [MATERIALIZED VIEW | TABLE] name [FROM <bound> TO <bound>]} command.
-   *  REFRESH backfills a materialized view or logical table by firing every trigger immediately
-   *  upstream of it, reusing the {@code FIRE TRIGGER} machinery. Discovering those triggers (and the
-   *  object's kind) is delegated to {@link RefreshService}, so the DDL layer stays decoupled from the
-   *  backend. Errors when the object is unknown, its kind contradicts an explicit
-   *  {@code MATERIALIZED VIEW}/{@code TABLE} keyword, or it has no upstream triggers. */
+  /** Executes a {@code REFRESH} command: a windowed backfill of a physical table.
+   *  REFRESH backfills a physical table by firing the trigger(s) that produce it, reusing the
+   *  {@code FIRE TRIGGER} machinery. Discovering those triggers is delegated to
+   *  {@link RefreshService} (via the dependency graph), so the DDL layer stays decoupled from the
+   *  backend. Errors when the table is unknown, is a logical table (refresh a tier instead), or has
+   *  no trigger producing it. */
   public void execute(SqlRefreshObject refresh, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", refresh);
     try {
@@ -388,44 +388,25 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       throw new DdlException(refresh, e.getMessage(), e);
     }
 
-    RefreshTarget target;
+    String objectName = String.join(".", refresh.name.names);
+    List<String> triggers;
     try {
-      target = RefreshService.resolve(refresh.name.names, connection);
+      triggers = RefreshService.producingTriggers(refresh.name.names, connection);
     } catch (SQLException e) {
       throw new DdlException(refresh, e.getMessage(), e);
     }
-    String objectName = String.join(".", refresh.name.names);
-    if (target == null) {
-      throw new DdlException(refresh, "Cannot REFRESH " + objectName
-          + ": no such materialized view or logical table.");
-    }
-
-    // A MATERIALIZED VIEW / TABLE keyword, when present, is an assertion about the object's kind.
-    // Reject a mismatch rather than silently refreshing the wrong kind of thing.
-    if (refresh.objectType != null) {
-      RefreshTarget.Kind asserted = refresh.objectType == SqlRefreshObject.ObjectType.MATERIALIZED_VIEW
-          ? RefreshTarget.Kind.MATERIALIZED_VIEW : RefreshTarget.Kind.TABLE;
-      if (asserted != target.kind()) {
-        throw new DdlException(refresh, "Cannot REFRESH " + objectName + " as "
-            + describeKind(asserted) + ": it is " + describeKind(target.kind()) + ".");
-      }
-    }
 
     // A REFRESH that fires nothing is a footgun — fail loudly instead of silently doing nothing.
-    if (target.triggerNames().isEmpty()) {
+    if (triggers.isEmpty()) {
       throw new DdlException(refresh, "Cannot REFRESH " + objectName
-          + ": it has no upstream triggers to fire.");
+          + ": no trigger produces it.");
     }
 
     Trigger.Fire fireRequest = buildFireRequest(refresh.from, refresh.to, refresh);
-    for (String triggerName : target.triggerNames()) {
+    for (String triggerName : triggers) {
       fireTriggerByName(triggerName, fireRequest, refresh);
     }
-    logger.info("REFRESH {} completed ({} trigger(s) fired)", objectName, target.triggerNames().size());
-  }
-
-  private static String describeKind(RefreshTarget.Kind kind) {
-    return kind == RefreshTarget.Kind.MATERIALIZED_VIEW ? "a materialized view" : "a table";
+    logger.info("REFRESH {} completed ({} trigger(s) fired)", objectName, triggers.size());
   }
 
   private static final Pattern FIRE_RELATIVE = Pattern.compile("^-(\\d+)([smhd])$");

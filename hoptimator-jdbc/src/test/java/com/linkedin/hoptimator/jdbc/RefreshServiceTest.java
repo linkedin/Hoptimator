@@ -2,14 +2,11 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.graph.GraphEdge;
 import com.linkedin.hoptimator.graph.GraphNode;
-import com.linkedin.hoptimator.graph.GraphTarget;
 import com.linkedin.hoptimator.graph.PipelineGraph;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -21,55 +18,52 @@ class RefreshServiceTest {
     return new GraphNode.Trigger(name, null, true, null, null);
   }
 
-  @Test
-  void kindOfMapsViewToMaterializedView() {
-    assertThat(RefreshService.kindOf(new GraphTarget.View("mv")))
-        .isEqualTo(RefreshTarget.Kind.MATERIALIZED_VIEW);
+  private static GraphNode.External ext(String db, String name) {
+    return new GraphNode.External(db, Arrays.asList(name));
+  }
+
+  private static PipelineGraph graph(GraphNode root, GraphEdge... edges) {
+    Set<GraphNode> nodes = new LinkedHashSet<>();
+    nodes.add(root);
+    for (GraphEdge e : edges) {
+      nodes.add(e.from());
+      nodes.add(e.to());
+    }
+    return new PipelineGraph(root, nodes, new LinkedHashSet<>(Arrays.asList(edges)));
   }
 
   @Test
-  void kindOfMapsLogicalTableToTable() {
-    assertThat(RefreshService.kindOf(new GraphTarget.LogicalTable("lt")))
-        .isEqualTo(RefreshTarget.Kind.TABLE);
+  void findsTriggersThatProduceTheTable() {
+    // R is the refreshed table; t1 produces it (t1 -> R). A consumer edge (R -> t2) must be ignored.
+    GraphNode.External r = ext("ads-database", "MEMBERS");
+    GraphNode.Trigger t1 = trigger("producer");
+    GraphNode.Trigger t2 = trigger("consumer");
+    PipelineGraph g = graph(r,
+        new GraphEdge(t1, r, GraphEdge.Type.TRIGGERS),   // t1 produces R -> fired
+        new GraphEdge(r, t2, GraphEdge.Type.TRIGGERS));  // t2 consumes R -> not fired
+
+    assertThat(RefreshService.producingTriggers(g)).containsExactly("producer");
   }
 
   @Test
-  void kindOfRejectsPlainResource() {
-    assertThat(RefreshService.kindOf(new GraphTarget.Resource("db", Arrays.asList("t"))))
-        .isNull();
+  void emptyWhenNothingProducesTheTable() {
+    GraphNode.External r = ext("ads-database", "MEMBERS");
+    GraphNode.Trigger t2 = trigger("consumer");
+    PipelineGraph g = graph(r, new GraphEdge(r, t2, GraphEdge.Type.TRIGGERS));
+
+    assertThat(RefreshService.producingTriggers(g)).isEmpty();
   }
 
   @Test
-  void immediateUpstreamTriggersReturnsOnlyRootOwnedTriggers() {
-    GraphNode.LogicalTable root = new GraphNode.LogicalTable("lt", Collections.emptyMap());
-    GraphNode.Trigger owned = trigger("owned-trigger");
-    GraphNode.Trigger notOwned = trigger("other-trigger");
-    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("p", null, null, null);
-    GraphNode.External resource = new GraphNode.External("db", Arrays.asList("R"));
+  void ignoresNonTriggerAndNonRootEdges() {
+    GraphNode.External r = ext("ads-database", "MEMBERS");
+    GraphNode.External other = ext("ads-database", "OTHER");
+    GraphNode.Trigger t = trigger("elsewhere");
+    // A producer edge into a different resource must not count for R.
+    PipelineGraph g = graph(r,
+        new GraphEdge(t, other, GraphEdge.Type.TRIGGERS),
+        new GraphEdge(r, other, GraphEdge.Type.DEPENDS_ON_SINK));
 
-    Set<GraphNode> nodes = new LinkedHashSet<>(Arrays.asList(root, owned, notOwned, pipeline, resource));
-    Set<GraphEdge> edges = new LinkedHashSet<>(Arrays.asList(
-        new GraphEdge(root, owned, GraphEdge.Type.OWNER_OF),        // counts
-        new GraphEdge(root, pipeline, GraphEdge.Type.OWNER_OF),     // not a trigger
-        new GraphEdge(resource, owned, GraphEdge.Type.TRIGGERS),    // wrong edge type
-        new GraphEdge(resource, notOwned, GraphEdge.Type.TRIGGERS)  // not owned by root
-    ));
-    PipelineGraph graph = new PipelineGraph(root, nodes, edges);
-
-    List<String> names = RefreshService.immediateUpstreamTriggers(graph);
-
-    assertThat(names).containsExactly("owned-trigger");
-  }
-
-  @Test
-  void immediateUpstreamTriggersEmptyWhenRootOwnsNoTriggers() {
-    GraphNode.View root = new GraphNode.View("mv", true);
-    GraphNode.Pipeline pipeline = new GraphNode.Pipeline("p", null, null, null);
-    Set<GraphNode> nodes = new LinkedHashSet<>(Arrays.asList(root, pipeline));
-    Set<GraphEdge> edges = Collections.singleton(
-        new GraphEdge(root, pipeline, GraphEdge.Type.OWNER_OF));
-    PipelineGraph graph = new PipelineGraph(root, nodes, edges);
-
-    assertThat(RefreshService.immediateUpstreamTriggers(graph)).isEmpty();
+    assertThat(RefreshService.producingTriggers(g)).isEmpty();
   }
 }

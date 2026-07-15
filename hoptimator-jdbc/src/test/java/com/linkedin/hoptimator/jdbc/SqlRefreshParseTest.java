@@ -26,69 +26,42 @@ class SqlRefreshParseTest {
   }
 
   @Test
-  void plainRefreshHasNoTypeOrWindow() throws SqlParseException {
+  void plainRefreshHasNoWindow() throws SqlParseException {
     SqlRefreshObject refresh = parse("REFRESH \"foo\"");
-    assertThat(refresh.objectType).isNull();
     assertThat(refresh.from).isNull();
     assertThat(refresh.to).isNull();
     assertThat(refresh.name.names).containsExactly("foo");
   }
 
   @Test
-  void materializedViewKeyword() throws SqlParseException {
-    SqlRefreshObject refresh = parse("REFRESH MATERIALIZED VIEW \"foo\"");
-    assertThat(refresh.objectType).isEqualTo(SqlRefreshObject.ObjectType.MATERIALIZED_VIEW);
-    assertThat(refresh.name.names).containsExactly("foo");
-  }
-
-  @Test
-  void tableKeyword() throws SqlParseException {
-    SqlRefreshObject refresh = parse("REFRESH TABLE \"foo\"");
-    assertThat(refresh.objectType).isEqualTo(SqlRefreshObject.ObjectType.TABLE);
-  }
-
-  @Test
   void compoundName() throws SqlParseException {
-    SqlRefreshObject refresh = parse("REFRESH TABLE \"SCHEMA\".\"foo\"");
-    assertThat(refresh.objectType).isEqualTo(SqlRefreshObject.ObjectType.TABLE);
-    assertThat(refresh.name.names).containsExactly("SCHEMA", "foo");
+    SqlRefreshObject refresh = parse("REFRESH \"ADS\".\"MEMBERS\"");
+    assertThat(refresh.name.names).containsExactly("ADS", "MEMBERS");
   }
 
   @Test
   void absoluteWindow() throws SqlParseException {
-    SqlRefreshObject refresh = parse("REFRESH \"foo\" FROM '2026-05-01' TO '2026-05-08'");
+    SqlRefreshObject refresh = parse("REFRESH \"ADS\".\"MEMBERS\" FROM '2026-05-01' TO '2026-05-08'");
     assertThat(boundValue(refresh.from)).isEqualTo("2026-05-01");
     assertThat(boundValue(refresh.to)).isEqualTo("2026-05-08");
   }
 
   @Test
-  void relativeWindowWithType() throws SqlParseException {
-    SqlRefreshObject refresh = parse("REFRESH TABLE \"foo\" FROM 7 DAYS AGO TO NOW");
-    assertThat(refresh.objectType).isEqualTo(SqlRefreshObject.ObjectType.TABLE);
+  void relativeWindow() throws SqlParseException {
+    SqlRefreshObject refresh = parse("REFRESH \"foo\" FROM 7 DAYS AGO TO NOW");
     assertThat(boundValue(refresh.from)).isEqualTo("-7d");
     assertThat(boundValue(refresh.to)).isEqualTo("now");
   }
 
   @Test
-  void materializedViewWithWindow() throws SqlParseException {
-    SqlRefreshObject refresh = parse("REFRESH MATERIALIZED VIEW \"foo\" FROM 2 HOURS AGO TO NOW");
-    assertThat(refresh.objectType).isEqualTo(SqlRefreshObject.ObjectType.MATERIALIZED_VIEW);
-    assertThat(boundValue(refresh.from)).isEqualTo("-2h");
-    assertThat(boundValue(refresh.to)).isEqualTo("now");
+  void rejectsKindKeyword() {
+    // REFRESH targets a plain (physical) table — no MATERIALIZED VIEW / TABLE keyword.
+    assertThatThrownBy(() -> parse("REFRESH TABLE \"foo\"")).isInstanceOf(SqlParseException.class);
+    assertThatThrownBy(() -> parse("REFRESH MATERIALIZED VIEW \"foo\"")).isInstanceOf(SqlParseException.class);
   }
 
   @Test
   void rejectsWithClause() {
-    // REFRESH is a pure imperative action — it takes no WITH options.
-    assertThatThrownBy(() -> parse("REFRESH \"foo\" WITH ('k' 'v')"))
-        .isInstanceOf(SqlParseException.class);
-  }
-
-  @Test
-  void unparseRoundTripsMaterializedView() throws SqlParseException {
-    SqlRefreshObject refresh = parse("REFRESH MATERIALIZED VIEW \"foo\" FROM '2026-05-01' TO '2026-05-08'");
-    String sql = refresh.toString().replace("\n", " ").replaceAll(" +", " ");
-    assertThat(sql).contains("REFRESH").contains("MATERIALIZED").contains("VIEW")
-        .contains("FROM").contains("TO");
+    assertThatThrownBy(() -> parse("REFRESH \"foo\" WITH ('k' 'v')")).isInstanceOf(SqlParseException.class);
   }
 }

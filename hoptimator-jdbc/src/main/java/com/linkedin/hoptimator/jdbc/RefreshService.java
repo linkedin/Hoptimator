@@ -11,14 +11,16 @@ import java.util.List;
 
 
 /**
- * Resolves {@code REFRESH} targets from the pipeline dependency graph.
+ * Resolves the trigger(s) a {@code REFRESH} should fire — the trigger(s) that <em>produce</em>
+ * the named physical table.
  *
- * <p>REFRESH needs two facts the DDL layer can't get from a name alone: what <em>kind</em> of object
- * it is (materialized view vs logical table) and which <em>triggers</em> are immediately upstream of
- * it. Both already live in the graph layer: {@link GraphService#resolve} classifies the identifier
- * (via the Calcite schema) and {@link GraphService#buildGraph} produces the dependency graph with the
- * object's owned {@code TableTrigger}s attached. Reusing it keeps discovery decoupled from any
- * particular backend — the graph is built by a {@code GraphProvider} — without a REFRESH-specific SPI.
+ * <p>Hoptimator doesn't distinguish logical from physical tables, and a consumer always reads a
+ * specific physical table, so REFRESH targets a physical table and fires whatever writes to it.
+ * Discovery reuses the pipeline dependency graph: {@link GraphService#resolve} classifies the
+ * identifier via the Calcite schema, and the one-hop graph around it exposes the producing triggers
+ * as {@code trigger -> table} ({@link GraphEdge.Type#TRIGGERS}) edges. In practice a physical table
+ * has zero or one producing trigger. The DDL layer never touches Kubernetes — the graph is built by
+ * a pluggable {@code GraphProvider}.
  */
 final class RefreshService {
 
@@ -26,52 +28,31 @@ final class RefreshService {
   }
 
   /**
-   * Resolves the refresh target for {@code path}, or returns {@code null} when it isn't a
-   * materialized view or logical table (an unknown name, or a plain physical resource).
+   * Returns the names of the triggers that produce {@code path} (usually zero or one). Throws when
+   * the identifier doesn't resolve to a table, or resolves to a logical table (which has no single
+   * physical output to refresh — a caller should refresh a specific tier instead).
    */
-  static RefreshTarget resolve(List<String> path, HoptimatorConnection connection) throws SQLException {
+  static List<String> producingTriggers(List<String> path, HoptimatorConnection connection)
+      throws SQLException {
     String identifier = String.join(".", path);
-
-    GraphTarget target;
-    try {
-      target = GraphService.resolve(identifier, connection);
-    } catch (SQLException e) {
-      // The identifier doesn't resolve to anything this connection can see — not refreshable.
-      return null;
-    }
-
-    RefreshTarget.Kind kind = kindOf(target);
-    if (kind == null) {
-      // A physical resource (or anything else) — not a materialized view or logical table.
-      return null;
-    }
-
-    PipelineGraph graph = GraphService.buildGraph(identifier, 0, connection);
-    return new RefreshTarget(kind, immediateUpstreamTriggers(graph));
-  }
-
-  /** Maps a graph target to a REFRESH kind, or {@code null} when the target isn't refreshable.
-   *  {@link GraphService#resolve} only yields {@link GraphTarget.View} for a materialized view
-   *  (its leaf is a {@code MaterializedViewTable}), so a plain view never reaches here. */
-  static RefreshTarget.Kind kindOf(GraphTarget target) {
-    if (target instanceof GraphTarget.View) {
-      return RefreshTarget.Kind.MATERIALIZED_VIEW;
-    }
+    GraphTarget target = GraphService.resolve(identifier, connection);
     if (target instanceof GraphTarget.LogicalTable) {
-      return RefreshTarget.Kind.TABLE;
+      throw new SQLException(identifier + " is a logical table; REFRESH a specific physical table "
+          + "(tier) instead.");
     }
-    return null;
+    PipelineGraph graph = GraphService.buildGraph(target, 1, connection);
+    return producingTriggers(graph);
   }
 
-  /** Names of the trigger nodes the graph root directly owns — the triggers immediately upstream of
-   *  the object (an {@code OWNER_OF} edge from the root to a {@link GraphNode.Trigger}). */
-  static List<String> immediateUpstreamTriggers(PipelineGraph graph) {
+  /** Names of the triggers that produce the graph's root table — {@code trigger -> root}
+   *  ({@link GraphEdge.Type#TRIGGERS}) edges. Consumer edges ({@code root -> trigger}) are ignored. */
+  static List<String> producingTriggers(PipelineGraph graph) {
     List<String> names = new ArrayList<>();
     for (GraphEdge edge : graph.edges()) {
-      if (edge.type() == GraphEdge.Type.OWNER_OF
-          && edge.from().equals(graph.root())
-          && edge.to() instanceof GraphNode.Trigger) {
-        names.add(((GraphNode.Trigger) edge.to()).name());
+      if (edge.type() == GraphEdge.Type.TRIGGERS
+          && edge.to().equals(graph.root())
+          && edge.from() instanceof GraphNode.Trigger) {
+        names.add(((GraphNode.Trigger) edge.from()).name());
       }
     }
     return names;

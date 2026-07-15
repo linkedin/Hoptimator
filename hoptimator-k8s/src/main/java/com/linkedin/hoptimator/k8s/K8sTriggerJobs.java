@@ -35,6 +35,8 @@ public final class K8sTriggerJobs {
   static final String TRIGGER_KEY = "trigger";
   static final String BACKFILL_KEY = "backfill";
   static final String BACKFILL_INFIX = "-bf-";
+  /** Kubernetes object names are capped at 63 characters. */
+  static final int MAX_JOB_NAME = 63;
 
   /**
    * The template variables that name the fire window, resolved per-fire by {@link #render} (and its
@@ -129,11 +131,26 @@ public final class K8sTriggerJobs {
    * names. Re-firing the same window is idempotent (same name); auto-repair passes the change's
    * arrival as the discriminator so genuinely new late data on the same window gets a fresh Job.
    * Stable across JVMs ({@link String#hashCode} is specified).
+   *
+   * <p>Kubernetes caps object names at 63 characters. When {@code base} is long enough that the full
+   * name would overflow (common for real trigger names), the base is shortened to a readable
+   * prefix plus a hash of the full base — keeping the name deterministic, unique, and valid.
    */
   public static String backfillJobName(String base, OffsetDateTime from, OffsetDateTime to,
       OffsetDateTime discriminator) {
     String key = from.toString() + "/" + to.toString() + (discriminator == null ? "" : "/" + discriminator);
-    return base + BACKFILL_INFIX + Integer.toHexString(key.hashCode());
+    String suffix = BACKFILL_INFIX + Integer.toHexString(key.hashCode());
+    if (base.length() + suffix.length() <= MAX_JOB_NAME) {
+      return base + suffix;
+    }
+    // Too long for K8s: keep a readable prefix and append a hash of the full base for uniqueness.
+    String baseHash = Integer.toHexString(base.hashCode());
+    int keep = MAX_JOB_NAME - suffix.length() - baseHash.length() - 1;   // -1 for the joining '-'
+    String prefix = base.substring(0, Math.max(0, keep));
+    while (prefix.endsWith("-")) {
+      prefix = prefix.substring(0, prefix.length() - 1);
+    }
+    return prefix + "-" + baseHash + suffix;
   }
 
   /**

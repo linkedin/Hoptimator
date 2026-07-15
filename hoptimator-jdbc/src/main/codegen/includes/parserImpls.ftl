@@ -429,23 +429,15 @@ SqlRefresh SqlRefresh() :
 {
     final Span s;
     final SqlIdentifier id;
-    SqlRefreshObject.ObjectType objectType = null;
     SqlNode from = null;
     SqlNode to = null;
 }
 {
     <REFRESH> { s = span(); }
-    [
-        LOOKAHEAD(2)
-        <MATERIALIZED> <VIEW> { objectType = SqlRefreshObject.ObjectType.MATERIALIZED_VIEW; }
-    ]
-    [
-        <TABLE> { objectType = SqlRefreshObject.ObjectType.TABLE; }
-    ]
     id = CompoundIdentifier()
     [ <FROM> from = FireBound() <TO> to = FireBound() ]
     {
-        return new SqlRefreshObject(s.end(this), id, objectType, from, to);
+        return new SqlRefreshObject(s.end(this), id, from, to);
     }
 }
 

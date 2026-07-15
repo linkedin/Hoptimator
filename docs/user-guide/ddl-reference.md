@@ -256,41 +256,42 @@ its own inspectable record (a `Failed` Job labelled `backfill=true`). Re-issue t
 ## REFRESH
 
 ```
-REFRESH [ MATERIALIZED VIEW | TABLE ] <name>
+REFRESH <table>
   [ FROM <bound> TO <bound> ]
 ```
 
-Backfills a materialized view or logical table by firing **every trigger
-immediately upstream of it** — the triggers that populate it. It is the
-object-level counterpart to `FIRE TRIGGER`: rather than naming a trigger, you name
-the thing you want refreshed, and Hoptimator discovers and fires its upstream
-trigger(s). The optional `FROM … TO …` window behaves exactly as it does for
+Backfills a **physical table** by firing the trigger(s) that **produce** it. It is
+the table-level counterpart to `FIRE TRIGGER`: rather than naming a trigger, you
+name the table you want refreshed, and Hoptimator finds and fires whatever writes
+to it. The optional `FROM … TO …` window behaves exactly as it does for
 `FIRE TRIGGER` (same bounds, same one-off backfill semantics — see above).
 
 ```sql
--- backfill a logical table from its upstream trigger(s)
-REFRESH "PROFILE"."MEMBERS";
+-- fire the trigger that produces this table ("run now")
+REFRESH "ADS"."MEMBERS";
 
--- same, over a fixed historical window
-REFRESH TABLE "PROFILE"."MEMBERS" FROM '2026-05-01' TO '2026-05-08';
-
--- refresh a materialized view
-REFRESH MATERIALIZED VIEW engaged_sessions;
+-- backfill it over a fixed historical window
+REFRESH "ADS"."MEMBERS" FROM '2026-05-01' TO '2026-05-08';
 ```
 
-The `MATERIALIZED VIEW` / `TABLE` keyword is **optional** — the object's kind is
-discovered without it. When present, it is an assertion: `REFRESH TABLE x` on a
-materialized view (or `REFRESH MATERIALIZED VIEW x` on a logical table) is
-**rejected**. A `REFRESH` also errors when the object doesn't exist, or when it
-has **no upstream triggers** to fire — a refresh that silently does nothing is a
-footgun, not a no-op.
+REFRESH targets a **physical** table on purpose. Hoptimator doesn't really
+distinguish logical from physical — a logical table is just a physical table with
+extra moving parts (tiers, an inter-tier pipeline, a trigger) — and a consumer
+always reads a *specific* physical table (tier). So "refresh the tier I read" is
+unambiguous, whereas "refresh the logical table" isn't (which tier's data do you
+want fresh?). Refreshing a **logical table** by name is therefore rejected with a
+hint to refresh a specific physical tier instead. In practice a physical table has
+zero or one producing trigger, so there's no fan-out.
 
-How the upstream triggers are discovered is a backend concern. Discovery reuses the
-pipeline dependency **graph** (`GraphService` / the `GraphProvider` SPI): the
-identifier is classified into a materialized view or logical table via the Calcite
-schema, and the object's owned `TableTrigger`s (e.g. a logical table's auto-created
-offline-tier trigger) are its upstream triggers. `hoptimator-jdbc` never touches
-Kubernetes directly.
+A `REFRESH` errors when the table doesn't exist, or when **nothing produces it** (no
+trigger writes to it) — a refresh that silently does nothing is a footgun, not a
+no-op.
+
+How the producing trigger is discovered is a backend concern. Discovery reuses the
+pipeline dependency **graph** (`GraphService` / the `GraphProvider` SPI): the table
+identifier is resolved via the Calcite schema, and the one-hop graph around it
+exposes its producing triggers as `trigger → table` edges. `hoptimator-jdbc` never
+touches Kubernetes directly.
 
 ## CREATE TABLE
 

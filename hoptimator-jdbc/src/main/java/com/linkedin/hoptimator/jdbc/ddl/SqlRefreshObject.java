@@ -30,41 +30,30 @@ import org.apache.calcite.util.ImmutableNullableList;
 import java.util.List;
 
 /**
- * Parse tree for {@code REFRESH [MATERIALIZED VIEW | TABLE] <name> [FROM <bound> TO <bound>]}.
+ * Parse tree for {@code REFRESH <table> [FROM <bound> TO <bound>]}.
  *
- * <p>REFRESH backfills a materialized view or logical table by firing every trigger immediately
- * upstream of it. It reuses the {@code FIRE TRIGGER} machinery: an optional {@code FROM ... TO ...}
- * window requests a one-off backfill over {@code [from, to]}, exactly as for FIRE.
+ * <p>REFRESH backfills a physical table by firing the trigger(s) that produce it. It reuses the
+ * {@code FIRE TRIGGER} machinery: an optional {@code FROM ... TO ...} window requests a one-off
+ * backfill over {@code [from, to]}, exactly as for FIRE.
  *
- * <p>The {@code MATERIALIZED VIEW} / {@code TABLE} keyword is optional — the object type is
- * discoverable without it. When present, it is validated against the resolved object type, so
- * {@code REFRESH TABLE foo} on a materialized view (or vice versa) is rejected.
+ * <p>The target is a plain table — Hoptimator does not distinguish logical from physical, and a
+ * consumer always reads a specific physical table (tier). Refreshing that table fires whatever
+ * trigger writes to it.
  */
 public class SqlRefreshObject extends SqlRefresh {
-
-  /** The object kind asserted by an optional {@code MATERIALIZED VIEW} / {@code TABLE} keyword. */
-  public enum ObjectType {
-    MATERIALIZED_VIEW,
-    TABLE
-  }
 
   private static final SqlOperator OPERATOR =
       new SqlSpecialOperator("REFRESH", SqlKind.OTHER_DDL);
 
   public final SqlIdentifier name;
-  /** The asserted object type, or {@code null} when the {@code MATERIALIZED VIEW}/{@code TABLE}
-   *  keyword was omitted. */
-  public final ObjectType objectType;
   /** Backfill window start bound, or {@code null} for a plain refresh. */
   public final SqlNode from;
   /** Backfill window end bound, or {@code null} for a plain refresh. */
   public final SqlNode to;
 
-  public SqlRefreshObject(SqlParserPos pos, SqlIdentifier name, ObjectType objectType,
-      SqlNode from, SqlNode to) {
+  public SqlRefreshObject(SqlParserPos pos, SqlIdentifier name, SqlNode from, SqlNode to) {
     super(OPERATOR, pos);
     this.name = name;
-    this.objectType = objectType;
     this.from = from;
     this.to = to;
   }
@@ -76,12 +65,6 @@ public class SqlRefreshObject extends SqlRefresh {
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
     writer.keyword("REFRESH");
-    if (objectType == ObjectType.MATERIALIZED_VIEW) {
-      writer.keyword("MATERIALIZED");
-      writer.keyword("VIEW");
-    } else if (objectType == ObjectType.TABLE) {
-      writer.keyword("TABLE");
-    }
     name.unparse(writer, leftPrec, rightPrec);
     if (from != null) {
       writer.keyword("FROM");

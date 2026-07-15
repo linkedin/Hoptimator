@@ -59,74 +59,45 @@ class SqlRefreshExecutorTest {
     executor.executeDdl(context, node);
   }
 
-  private void stubResolve(RefreshTarget target) throws SQLException {
-    mockRefreshService.when(() -> RefreshService.resolve(any(), any())).thenReturn(target);
-  }
-
   @Test
-  void firesEveryUpstreamTrigger() throws SQLException {
-    stubResolve(new RefreshTarget(RefreshTarget.Kind.MATERIALIZED_VIEW, Arrays.asList("t1", "t2", "t3")));
+  void firesEveryProducingTrigger() throws SQLException {
+    mockRefreshService.when(() -> RefreshService.producingTriggers(any(), any()))
+        .thenReturn(Arrays.asList("t1", "t2"));
 
-    assertDoesNotThrow(() -> execute("REFRESH \"foo\""));
-
-    // One deploy/update per upstream trigger.
-    mockDeploymentService.verify(() -> DeploymentService.update(any()), times(3));
-  }
-
-  @Test
-  void windowedRefreshFiresEachTrigger() throws SQLException {
-    stubResolve(new RefreshTarget(RefreshTarget.Kind.TABLE, Arrays.asList("t1", "t2")));
-
-    assertDoesNotThrow(() -> execute("REFRESH TABLE \"foo\" FROM '2026-05-01' TO '2026-05-08'"));
+    assertDoesNotThrow(() -> execute("REFRESH \"ADS\".\"MEMBERS\""));
 
     mockDeploymentService.verify(() -> DeploymentService.update(any()), times(2));
   }
 
   @Test
-  void unknownObjectThrows() throws SQLException {
-    stubResolve(null);
+  void windowedRefreshFiresProducingTrigger() throws SQLException {
+    mockRefreshService.when(() -> RefreshService.producingTriggers(any(), any()))
+        .thenReturn(Collections.singletonList("t1"));
 
-    HoptimatorDdlExecutor.DdlException ex = assertThrows(HoptimatorDdlExecutor.DdlException.class,
-        () -> execute("REFRESH \"foo\""));
-    assertTrue(ex.getMessage().contains("no such materialized view or logical table"));
-    mockDeploymentService.verify(() -> DeploymentService.update(any()), times(0));
-  }
+    assertDoesNotThrow(() -> execute("REFRESH \"ADS\".\"MEMBERS\" FROM '2026-05-01' TO '2026-05-08'"));
 
-  @Test
-  void noUpstreamTriggersThrows() throws SQLException {
-    stubResolve(new RefreshTarget(RefreshTarget.Kind.TABLE, Collections.emptyList()));
-
-    HoptimatorDdlExecutor.DdlException ex = assertThrows(HoptimatorDdlExecutor.DdlException.class,
-        () -> execute("REFRESH \"foo\""));
-    assertTrue(ex.getMessage().contains("no upstream triggers"));
-    mockDeploymentService.verify(() -> DeploymentService.update(any()), times(0));
-  }
-
-  @Test
-  void kindMismatchTableAssertedOnMaterializedViewThrows() throws SQLException {
-    stubResolve(new RefreshTarget(RefreshTarget.Kind.MATERIALIZED_VIEW, Collections.singletonList("t1")));
-
-    HoptimatorDdlExecutor.DdlException ex = assertThrows(HoptimatorDdlExecutor.DdlException.class,
-        () -> execute("REFRESH TABLE \"foo\""));
-    assertTrue(ex.getMessage().contains("materialized view"));
-    mockDeploymentService.verify(() -> DeploymentService.update(any()), times(0));
-  }
-
-  @Test
-  void kindMismatchMaterializedViewAssertedOnTableThrows() throws SQLException {
-    stubResolve(new RefreshTarget(RefreshTarget.Kind.TABLE, Collections.singletonList("t1")));
-
-    HoptimatorDdlExecutor.DdlException ex = assertThrows(HoptimatorDdlExecutor.DdlException.class,
-        () -> execute("REFRESH MATERIALIZED VIEW \"foo\""));
-    assertTrue(ex.getMessage().contains("a table"));
-    mockDeploymentService.verify(() -> DeploymentService.update(any()), times(0));
-  }
-
-  @Test
-  void matchingKindAssertionSucceeds() throws SQLException {
-    stubResolve(new RefreshTarget(RefreshTarget.Kind.TABLE, Collections.singletonList("t1")));
-
-    assertDoesNotThrow(() -> execute("REFRESH TABLE \"foo\""));
     mockDeploymentService.verify(() -> DeploymentService.update(any()), times(1));
+  }
+
+  @Test
+  void noProducingTriggerThrows() throws SQLException {
+    mockRefreshService.when(() -> RefreshService.producingTriggers(any(), any()))
+        .thenReturn(Collections.emptyList());
+
+    HoptimatorDdlExecutor.DdlException ex = assertThrows(HoptimatorDdlExecutor.DdlException.class,
+        () -> execute("REFRESH \"ADS\".\"MEMBERS\""));
+    assertTrue(ex.getMessage().contains("no trigger produces it"));
+    mockDeploymentService.verify(() -> DeploymentService.update(any()), times(0));
+  }
+
+  @Test
+  void surfacesResolveError() throws SQLException {
+    mockRefreshService.when(() -> RefreshService.producingTriggers(any(), any()))
+        .thenThrow(new SQLException("FOO is a logical table; REFRESH a specific physical table (tier) instead."));
+
+    HoptimatorDdlExecutor.DdlException ex = assertThrows(HoptimatorDdlExecutor.DdlException.class,
+        () -> execute("REFRESH \"FOO\""));
+    assertTrue(ex.getMessage().contains("logical table"));
+    mockDeploymentService.verify(() -> DeploymentService.update(any()), times(0));
   }
 }
