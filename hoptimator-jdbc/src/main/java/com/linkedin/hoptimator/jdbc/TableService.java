@@ -78,9 +78,10 @@ public final class TableService {
     // No SQL column strategies/defaults on the Avro path.
     InitializerExpressionFactory ief = new NullInitializerExpressionFactory();
 
-    // The direct path carries the resolved row type on a DirectDeploymentContext instead of
-    // registering a temporary Calcite table; deployers read it back via HoptimatorDriver.rowType.
-    DirectDeploymentContext context = new DirectDeploymentContext(conn, rowType);
+    // The direct path carries the resolved row type and resolves Database config through a
+    // resolver, so it needs no Calcite connection in the deploy SPI.
+    DirectDeploymentContext context = new DirectDeploymentContext(
+        conn.connectionProperties(), new CalciteDatabaseConfigResolver(conn), rowType);
 
     return HoptimatorDdlUtils.deployTableInternal(conn, context, ctx, target.pair, target.isNewSchema,
         target.database, target.tableName, rowType, ief, options, false, orReplace, mode);

@@ -7,6 +7,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.avro.AvroSchemas;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
@@ -133,7 +134,14 @@ class K8sConnector implements Connector {
   }
 
   private Table lookupTable(Source source) {
-    SchemaPlus schema = context.connection().calciteConnection().getRootSchema();
+    // The direct (non-SQL) path has no Calcite connection: there is no catalog to look up an
+    // existing native-Avro table in, so fall back to synthesizing the value schema from the row
+    // type. Existing-schema resolution for that path is handled store-natively by the deployers.
+    HoptimatorConnection connection = context.connection();
+    if (connection == null) {
+      return null;
+    }
+    SchemaPlus schema = connection.calciteConnection().getRootSchema();
     for (String part : Util.skipLast(source.path())) {
       if (schema == null) {
         return null;

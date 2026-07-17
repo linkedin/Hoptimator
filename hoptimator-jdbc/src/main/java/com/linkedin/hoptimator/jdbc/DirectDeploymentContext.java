@@ -2,8 +2,6 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.DeploymentContext;
 import org.apache.calcite.rel.type.RelDataType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.util.Properties;
@@ -11,24 +9,29 @@ import java.util.Properties;
 
 /**
  * A {@link DeploymentContext} for the direct (non-SQL) API path. Unlike
- * {@link CalciteDeploymentContext}, it does <em>not</em> resolve the table's row type by looking up
- * a Calcite {@code Table} — instead it <em>carries</em> the resolved {@link RelDataType} that the
- * caller already produced (e.g. from an Avro schema). This is what lets the direct path skip
- * registering a temporary Calcite table just to hand deployers a schema.
+ * {@link CalciteDeploymentContext}, it holds no Calcite {@link HoptimatorConnection}:
  *
- * <p>The underlying {@link HoptimatorConnection} is still used for {@code Database}-registry config
- * ({@link #databaseProperties}) — that is catalog metadata, independent of any single table's
- * schema. Resolving Database config without Calcite is future work.
+ * <ul>
+ *   <li>the table's row type is <em>carried</em> (the caller already produced it, e.g. from an
+ *       Avro schema) rather than looked up from a Calcite {@code Table};
+ *   <li>connection-level {@link #properties()} are a plain bag;
+ *   <li>per-{@code Database} config is resolved through an injected {@link DatabaseConfigResolver},
+ *       so this context does not depend on how the {@code Database} registry is stored.
+ * </ul>
+ *
+ * <p>Because it is not {@link ConnectionBackedContext}, deployers cannot reach a
+ * {@code java.sql.Connection} through it -- the direct path stays decoupled from Calcite.
  */
-public final class DirectDeploymentContext implements ConnectionBackedContext {
+public final class DirectDeploymentContext implements DeploymentContext {
 
-  private static final Logger LOG = LoggerFactory.getLogger(DirectDeploymentContext.class);
-
-  private final HoptimatorConnection connection;
+  private final Properties properties;
+  private final DatabaseConfigResolver databaseConfigResolver;
   private final RelDataType rowType;
 
-  public DirectDeploymentContext(HoptimatorConnection connection, RelDataType rowType) {
-    this.connection = connection;
+  public DirectDeploymentContext(Properties properties, DatabaseConfigResolver databaseConfigResolver,
+      RelDataType rowType) {
+    this.properties = properties;
+    this.databaseConfigResolver = databaseConfigResolver;
     this.rowType = rowType;
   }
 
@@ -38,18 +41,13 @@ public final class DirectDeploymentContext implements ConnectionBackedContext {
   }
 
   @Override
-  public HoptimatorConnection connection() {
-    return connection;
-  }
-
-  @Override
   public Properties properties() {
-    return connection.connectionProperties();
+    return properties;
   }
 
   @Override
   public @Nullable Properties databaseProperties(@Nullable String catalog, String database,
       String connectionPrefix) {
-    return DeployerUtils.extractPropertiesFromJdbcSchema(catalog, database, connection, connectionPrefix, LOG);
+    return databaseConfigResolver.databaseProperties(catalog, database, connectionPrefix);
   }
 }
