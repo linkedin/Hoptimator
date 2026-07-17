@@ -23,10 +23,10 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.DatabaseDeployable;
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
@@ -559,8 +559,9 @@ public final class HoptimatorDdlUtils {
         };
 
     Map<String, String> tableOptions = options(create.options);
-    return deployTableInternal(conn, ctx, target.pair, target.isNewSchema, target.database,
-        target.tableName, rowType, ief, tableOptions, create.ifNotExists, create.getReplace(), mode);
+    return deployTableInternal(conn, conn.deploymentContext(), ctx, target.pair, target.isNewSchema,
+        target.database, target.tableName, rowType, ief, tableOptions, create.ifNotExists,
+        create.getReplace(), mode);
   }
 
   /** Resolved location for a table to be created: its schema/catalog node, database, and name. */
@@ -627,12 +628,18 @@ public final class HoptimatorDdlUtils {
    * existence checks, temporary-table registration, validation, deployment, and rollback behave
    * identically whether the row type came from Calcite column declarations or an Avro schema.
    */
-  static SpecifyResult deployTableInternal(HoptimatorConnection conn, CalcitePrepare.Context ctx,
-      Pair<CalciteSchema, String> pair, boolean isNewSchema, String database, String tableName,
-      RelDataType rowType, InitializerExpressionFactory ief, Map<String, String> options,
+  static SpecifyResult deployTableInternal(HoptimatorConnection conn, DeploymentContext context,
+      CalcitePrepare.Context ctx, Pair<CalciteSchema, String> pair, boolean isNewSchema, String database,
+      String tableName, RelDataType rowType, InitializerExpressionFactory ief, Map<String, String> options,
       boolean ifNotExists, boolean orReplace, DdlMode mode) throws SQLException {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
     final SchemaPlus schemaPlus = pair.left.plus();
+
+    // Only the SQL path mutates the Calcite catalog (registering a temporary table so subsequent
+    // statements and Calcite-backed deployers can resolve the row type by name). The direct API
+    // path carries the row type on its DirectDeploymentContext instead, so it neither registers
+    // nor restores a Calcite table.
+    final boolean manageCalciteSchema = context instanceof CalciteDeploymentContext;
 
     if (!isNewSchema && schemaPlus.tables().get(tableName) != null) {
       // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
@@ -652,28 +659,33 @@ public final class HoptimatorDdlUtils {
       }
     }
 
-    // Snapshot current state for rollback (only meaningful when the schema already exists).
+    // Snapshot current state for rollback (only meaningful when we mutate the Calcite schema).
     Pair<SchemaPlus, Table> schemaSnapshot = null;
-    if (!isNewSchema) {
+    if (manageCalciteSchema && !isNewSchema) {
       Table currentTable = schemaPlus.tables().get(tableName);
       schemaSnapshot = Pair.of(schemaPlus, currentTable);
     }
 
-    // Table does not exist. Create it.
-    // Add a temporary table with the correct row type so deployers can resolve the schema
-    // TODO: This may cause problems if we reuse connections, only the next connection will load this as a HoptimatorJdbcTable.
+    // For a brand-new schema, register the JDBC-backed sub-schema regardless of the caller. This
+    // is catalog/config resolution (it exposes the Database's datasource so deployers can read its
+    // connection config), independent of any single table's row type — so the direct path needs it
+    // too. The temporary table below, by contrast, only exists to hand Calcite-backed deployers a
+    // row type; the direct path carries that on its DirectDeploymentContext instead.
+    SchemaPlus databaseSchema = schemaPlus;
     if (isNewSchema) {
       HoptimatorJdbcCatalogSchema catalogSchema = schemaPlus.unwrap(HoptimatorJdbcCatalogSchema.class);
       if (catalogSchema == null) {
         throw new SQLException("Catalog for " + schemaPlus.getName() + " not found.");
       }
-      SchemaPlus databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
+      databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
       logger.info("Added schema {} to catalog {}", database, schemaPlus.getName());
+    }
+
+    // Add a temporary table with the correct row type so Calcite-backed deployers can resolve it.
+    // TODO: This may cause problems if we reuse connections, only the next connection will load this as a HoptimatorJdbcTable.
+    if (manageCalciteSchema) {
       databaseSchema.add(tableName, new TemporaryTable(rowType, database, ief));
       logger.info("Added table {} to schema {}", tableName, databaseSchema.getName());
-    } else {
-      schemaPlus.add(tableName, new TemporaryTable(rowType, database, ief));
-      logger.info("Added table {} to schema {}", tableName, schemaPlus.getName());
     }
 
     final List<String> schemaPath = pair.left.path(null);
@@ -683,17 +695,16 @@ public final class HoptimatorDdlUtils {
     }
     tablePath.add(tableName);
 
-    Source source = new Source(database, tablePath, options,
-        AvroConverter.avro("com.linkedin.hoptimator", tableName, rowType));
+    Source source = new Source(database, tablePath, options);
 
     Collection<Deployer> deployers = null;
     boolean success = false;
     try {
       logger.info("Validating new table {}", source);
-      ValidationService.validateOrThrow(source, conn.deploymentContext());
-      deployers = DeploymentService.deployers(source, conn.deploymentContext());
+      ValidationService.validateOrThrow(source, context);
+      deployers = DeploymentService.deployers(source, context);
       logger.info("Validating deployable resources for table {}", tableName);
-      ValidationService.validateOrThrow(deployers, conn.deploymentContext());
+      ValidationService.validateOrThrow(deployers, context);
 
       if (mode == DdlMode.UPDATE) {
         logger.info("Deploying update table {}", source);
@@ -719,11 +730,17 @@ public final class HoptimatorDdlUtils {
       }
       throw e;
     } finally {
-      // For SPECIFY (dry-run): always restore schema.
-      // For CREATE/UPDATE on success: do NOT restore.
-      // For CREATE/UPDATE on failure: restore.
+      // Undo any Calcite-catalog mutations we made when we are not keeping them:
+      //   - SPECIFY (dry-run): always undo.
+      //   - CREATE/UPDATE on success: keep.
+      //   - CREATE/UPDATE on failure: undo.
       if (!success || !mode.mutable()) {
-        if (schemaSnapshot != null) {
+        if (isNewSchema) {
+          // Both paths created the sub-schema (for config resolution); remove it.
+          pair.left.removeSubSchema(database);
+          logger.info("Removed schema {} from catalog", database);
+        } else if (manageCalciteSchema && schemaSnapshot != null) {
+          // Only the SQL path registered a temporary table; restore its prior state.
           if (schemaSnapshot.right == null) {
             schemaSnapshot.left.removeTable(tableName);
             logger.info("Removed schema for table {}", tableName);
@@ -731,10 +748,6 @@ public final class HoptimatorDdlUtils {
             schemaPlus.add(tableName, schemaSnapshot.right);
             logger.info("Restored schema for table {}", tableName);
           }
-        } else {
-          // isNewSchema case on failure: remove the newly created sub-schema.
-          pair.left.removeSubSchema(database);
-          logger.info("Removed schema {} from catalog", database);
         }
       }
     }

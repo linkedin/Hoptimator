@@ -4,10 +4,9 @@ plugins {
 }
 
 dependencies {
-  // This package should have minimal dependencies. Avro is permitted as the
-  // platform's neutral interchange schema (a schema library, not an engine),
-  // so that Deployables can carry their own row schema.
-  api libs.avro
+  // This package should have minimal dependencies — it is the neutral SPI surface. In
+  // particular it must not depend on a schema library (Avro) or an engine (Calcite): row
+  // schemas are carried by producer-specific context implementations, not this API.
   compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
 }
 

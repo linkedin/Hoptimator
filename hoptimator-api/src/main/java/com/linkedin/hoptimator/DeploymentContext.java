@@ -1,11 +1,8 @@
 package com.linkedin.hoptimator;
 
-import java.util.List;
 import java.util.Properties;
 
 import javax.annotation.Nullable;
-
-import org.apache.avro.Schema;
 
 
 /**
@@ -17,12 +14,15 @@ import org.apache.avro.Schema;
  * implementation backed by its own control plane. Neither the deploy nor validate machinery
  * needs to know which producer it came from.
  *
- * <p>A context exposes only three things:
+ * <p>A context exposes only two things:
  * <ul>
  *   <li>connection-level {@link #properties()} (namespace, hints, cluster config);
- *   <li>per-{@code Database} connection config via {@link #databaseProperties};
- *   <li>the currently-resolved schema for a table via {@link #existingSchema}.
+ *   <li>per-{@code Database} connection config via {@link #databaseProperties}.
  * </ul>
+ *
+ * <p>A table's row type is <em>not</em> exposed here (that would couple this API to a schema
+ * representation). It is resolved by the producer-specific machinery: the SQL path reads it from
+ * the Calcite catalog; the direct path carries it on its own context implementation.
  */
 public interface DeploymentContext {
 
@@ -39,11 +39,4 @@ public interface DeploymentContext {
    * @param connectionPrefix the expected URL scheme prefix (e.g. {@code "jdbc:kafka://"})
    */
   @Nullable Properties databaseProperties(@Nullable String catalog, String database, String connectionPrefix);
-
-  /**
-   * Returns the currently-resolved value Avro schema for the table at {@code path} when it is
-   * backed by native Avro metadata, or {@code null} otherwise. Consumers fall back to the
-   * deployable's own {@link Source#rowSchema()} when this returns {@code null}.
-   */
-  @Nullable Schema existingSchema(List<String> path);
 }

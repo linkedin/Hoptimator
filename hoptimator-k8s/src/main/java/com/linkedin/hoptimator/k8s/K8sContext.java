@@ -1,7 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.DeploymentContext;
-import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
+import com.linkedin.hoptimator.jdbc.ConnectionBackedContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import io.kubernetes.client.apimachinery.GroupVersion;
 import io.kubernetes.client.common.KubernetesListObject;
@@ -74,8 +74,8 @@ public final class K8sContext {
     ApiClient apiClient;
     String info;
 
-    HoptimatorConnection hoptimatorConnection = deploymentContext instanceof CalciteDeploymentContext
-        ? ((CalciteDeploymentContext) deploymentContext).connection() : null;
+    HoptimatorConnection hoptimatorConnection = deploymentContext instanceof ConnectionBackedContext
+        ? ((ConnectionBackedContext) deploymentContext).connection() : null;
     Properties connectionProperties = deploymentContext.properties();
     if (connectionProperties.getProperty(NAMESPACE_KEY) != null) {
       namespace = connectionProperties.getProperty(NAMESPACE_KEY);

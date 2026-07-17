@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
@@ -159,7 +160,7 @@ class K8sConnectorTest {
     builder.add("value", SqlTypeName.VARCHAR);
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     List<V1alpha1TableTemplate> templates = new ArrayList<>();
@@ -182,7 +183,7 @@ class K8sConnectorTest {
     builder.add("value", SqlTypeName.VARCHAR);
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     List<V1alpha1TableTemplate> templates = new ArrayList<>();
@@ -211,7 +212,7 @@ class K8sConnectorTest {
     builder.add("value", SqlTypeName.VARCHAR);
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     List<V1alpha1TableTemplate> templates = new ArrayList<>();
@@ -239,7 +240,7 @@ class K8sConnectorTest {
     builder.add("value", SqlTypeName.VARCHAR);
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     List<V1alpha1TableTemplate> templates = new ArrayList<>();
@@ -269,7 +270,7 @@ class K8sConnectorTest {
     builder.add("value", SqlTypeName.VARCHAR);
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     List<V1alpha1TableTemplate> templates = new ArrayList<>();
@@ -300,7 +301,7 @@ class K8sConnectorTest {
     builder.add("value", SqlTypeName.VARCHAR);
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     List<V1alpha1TableTemplate> templates = new ArrayList<>();
@@ -331,7 +332,7 @@ class K8sConnectorTest {
     builder.add("value", SqlTypeName.VARCHAR);
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     List<V1alpha1TableTemplate> templates = new ArrayList<>();
@@ -365,7 +366,7 @@ class K8sConnectorTest {
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("KEY_id", SqlTypeName.VARCHAR)
         .add("name", SqlTypeName.VARCHAR).build();
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Schema avroSchema = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
@@ -399,7 +400,7 @@ class K8sConnectorTest {
     // No AvroSchemaSource on the resolved table → synthesize from the row type using AvroConverter.avro.
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("name", SqlTypeName.VARCHAR).build();
-    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(HoptimatorConnection.class)))
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("testdb", Arrays.asList("schema", "table"),

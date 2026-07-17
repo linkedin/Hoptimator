@@ -55,7 +55,7 @@ class K8sConnector implements Connector {
 
   @Override
   public Map<String, String> configure() throws SQLException {
-    RelDataType sourceRowType = HoptimatorDriver.rowType(source, context.connection());
+    RelDataType sourceRowType = HoptimatorDriver.rowType(source, context.deploymentContext());
     Map<String, String> options = addKeysAsOption(source.options(), sourceRowType);
 
     Template.Environment env =
