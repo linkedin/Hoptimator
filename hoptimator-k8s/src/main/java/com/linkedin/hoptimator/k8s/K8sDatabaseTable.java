@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.DeploymentContext;
-import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
@@ -56,7 +55,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   }
 
   public void addDatabases(SchemaPlus parentSchema, Connection connection) {
-    DeploymentContext context = new CalciteDeploymentContext((HoptimatorConnection) connection);
+    DeploymentContext context = ((HoptimatorConnection) connection).deploymentContext();
     for (Row row : rows()) {
       if (row.CATALOG != null) {
         Schema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,

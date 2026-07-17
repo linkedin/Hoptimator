@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -58,11 +57,7 @@ public class K8sTableServiceIntegrationTest {
       assertEquals(SqlTypeName.INTEGER, result.sinkRowType.getField("i", false, false).getType().getSqlTypeName());
       assertEquals(SqlTypeName.VARCHAR, result.sinkRowType.getField("s", false, false).getType().getSqlTypeName());
     } finally {
-      try (Statement stmt = connection.createStatement()) {
-        stmt.executeUpdate("DROP TABLE \"ADS\".\"newtable\"");
-      } catch (SQLException ignored) {
-        // best-effort cleanup
-      }
+      TableService.delete(connection, List.of("ADS", "newtable"));
     }
   }
 

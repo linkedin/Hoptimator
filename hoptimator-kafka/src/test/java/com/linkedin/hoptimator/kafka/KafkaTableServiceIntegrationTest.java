@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -66,11 +65,7 @@ public class KafkaTableServiceIntegrationTest {
       assertThat(created.sinkRowType.getField("VALUE", false, false).getType().getSqlTypeName())
           .isEqualTo(SqlTypeName.VARBINARY);
     } finally {
-      try (Statement stmt = connection.createStatement()) {
-        stmt.executeUpdate("DROP TABLE \"KAFKA\".\"create-table-test\"");
-      } catch (SQLException ignored) {
-        // best-effort cleanup
-      }
+      TableService.delete(connection, List.of("KAFKA", "ts-create-table-test"));
     }
   }
 

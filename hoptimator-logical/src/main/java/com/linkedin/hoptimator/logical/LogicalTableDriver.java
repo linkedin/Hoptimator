@@ -7,7 +7,6 @@ import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.util.Properties;
 
-import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
@@ -91,7 +90,7 @@ public class LogicalTableDriver extends CalciteDriver {
       CalciteConnection calciteConnection = (CalciteConnection) connection;
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
 
-      K8sContext context = K8sContext.create(new CalciteDeploymentContext(new HoptimatorConnection(calciteConnection, properties)));
+      K8sContext context = K8sContext.create(new HoptimatorConnection(calciteConnection, properties).deploymentContext());
       LogicalTableSchema logicalSchema = new LogicalTableSchema(properties, context, databaseName);
       rootSchema.add(databaseName.toUpperCase(), logicalSchema);
 

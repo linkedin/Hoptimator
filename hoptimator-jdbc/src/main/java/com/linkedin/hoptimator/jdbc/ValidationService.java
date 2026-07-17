@@ -23,7 +23,7 @@ public final class ValidationService {
 
   /** Validates the entire catalog reachable from the connection (Calcite-specific entry point). */
   public static Validator.Issues validate(HoptimatorConnection connection) {
-    DeploymentContext context = new CalciteDeploymentContext(connection);
+    DeploymentContext context = connection.deploymentContext();
     Validator.Issues issues = new Validator.Issues("");
     walk(connection.calciteConnection().getRootSchema(), issues, context);
     return issues;

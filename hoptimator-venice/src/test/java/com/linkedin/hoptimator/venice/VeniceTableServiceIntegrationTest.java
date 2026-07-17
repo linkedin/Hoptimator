@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -138,8 +137,8 @@ public class VeniceTableServiceIntegrationTest {
   }
 
   private void drop(String store) {
-    try (Statement stmt = connection.createStatement()) {
-      stmt.executeUpdate("DROP TABLE \"VENICE\".\"" + store + "\"");
+    try {
+      TableService.delete(connection, List.of("VENICE", store));
     } catch (SQLException ignored) {
       // best-effort cleanup
     }

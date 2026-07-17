@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -107,8 +106,8 @@ public class MySqlTableServiceIntegrationTest {
   }
 
   private void drop(String table) {
-    try (Statement stmt = connection.createStatement()) {
-      stmt.executeUpdate("DROP TABLE MYSQL.\"test_database\".\"" + table + "\"");
+    try {
+      TableService.delete(connection, List.of("MYSQL", "test_database", table));
     } catch (SQLException ignored) {
       // best-effort cleanup
     }

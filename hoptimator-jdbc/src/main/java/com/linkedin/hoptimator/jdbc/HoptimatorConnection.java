@@ -43,11 +43,24 @@ public class HoptimatorConnection extends DelegatingConnection {
   private final List<RelOptMaterialization> materializations = new ArrayList<>();
 
   private final List<Consumer<String>> logHooks = new ArrayList<>();
+  private DeploymentContext deploymentContext;
 
   public HoptimatorConnection(CalciteConnection connection, Properties connectionProperties) {
     super(connection);
     this.connection = connection;
     this.connectionProperties = connectionProperties;
+  }
+
+  /**
+   * The Calcite-backed {@link DeploymentContext} for this connection, created once and reused.
+   * This is the neutral handle the deploy/validate SPI operates on; callers should pass this
+   * rather than constructing a fresh {@code CalciteDeploymentContext} per operation.
+   */
+  public DeploymentContext deploymentContext() {
+    if (deploymentContext == null) {
+      deploymentContext = new CalciteDeploymentContext(this);
+    }
+    return deploymentContext;
   }
 
   public ResolvedTable resolve(List<String> tablePath, Map<String, String> hints) throws SQLException {
@@ -69,7 +82,7 @@ public class HoptimatorConnection extends DelegatingConnection {
       String database = databaseName(this.createPrepareContext(), tablePath);
       Source source = new Source(database, tablePath, hints);
       Sink sink = new Sink(database, tablePath, hints);
-      DeploymentContext context = new CalciteDeploymentContext(this);
+      DeploymentContext context = this.deploymentContext();
       return new ResolvedTable(tablePath, avroSchema, ConnectionService.configure(source, context),
           ConnectionService.configure(sink, context));
     } catch (Exception e) {

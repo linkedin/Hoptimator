@@ -1,6 +1,11 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeploymentContext;
+import com.linkedin.hoptimator.PendingDelete;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
+import com.linkedin.hoptimator.util.DeploymentService;
 import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
@@ -10,6 +15,8 @@ import org.apache.calcite.sql2rel.InitializerExpressionFactory;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -73,5 +80,47 @@ public final class TableService {
 
     return HoptimatorDdlUtils.deployTableInternal(conn, ctx, target.pair, target.isNewSchema,
         target.database, target.tableName, rowType, ief, options, false, orReplace, mode);
+  }
+
+  /**
+   * Deletes a table, mirroring {@code DROP TABLE}. Unlike {@link #create}, this needs no schema —
+   * it resolves the {@link Source} from the path and runs the same pre-delete dependency guard
+   * and deployer teardown as the DDL path.
+   *
+   * @param conn the Hoptimator connection (provides the Database registry / config)
+   * @param path the fully-qualified table path (e.g. {@code [DATABASE, TABLE]})
+   * @throws SQLException on validation or teardown errors
+   */
+  public static void delete(HoptimatorConnection conn, List<String> path) throws SQLException {
+    if (path == null || path.size() < 2) {
+      throw new SQLException("A table path must include at least a database and a table name.");
+    }
+
+    CalcitePrepare.Context ctx = conn.createPrepareContext();
+    SqlIdentifier name = new SqlIdentifier(path, SqlParserPos.ZERO);
+    HoptimatorDdlUtils.CreateTarget target =
+        HoptimatorDdlUtils.resolveCreateTarget(ctx, conn, false, name);
+
+    List<String> tablePath = new ArrayList<>(target.pair.left.path(null));
+    if (target.isNewSchema) {
+      tablePath.add(target.database);
+    }
+    tablePath.add(target.tableName);
+
+    Source source = new Source(target.database, tablePath, Map.of());
+    DeploymentContext context = conn.deploymentContext();
+
+    Collection<Deployer> deployers = null;
+    try {
+      // Pre-delete dependency guard (mirrors the DDL DROP path).
+      ValidationService.validateOrThrow(new PendingDelete<>(source), context);
+      deployers = DeploymentService.deployers(source, context);
+      DeploymentService.delete(deployers);
+    } catch (SQLException | RuntimeException e) {
+      if (deployers != null) {
+        DeploymentService.restore(deployers);
+      }
+      throw e;
+    }
   }
 }
