@@ -635,13 +635,14 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
     final SchemaPlus schemaPlus = pair.left.plus();
 
-    // Only the SQL path mutates the Calcite catalog (registering a temporary table so subsequent
-    // statements and Calcite-backed deployers can resolve the row type by name). The direct API
-    // path carries the row type on its DirectDeploymentContext instead, so it neither registers
-    // nor restores a Calcite table.
+    // Only the SQL path mutates the Calcite catalog: it registers a temporary table (so
+    // subsequent statements and Calcite-backed deployers can resolve the row type by name) and,
+    // for a new schema, a JDBC-backed sub-schema. The direct API path carries the row type on its
+    // DirectDeploymentContext and resolves Database config registry-natively, so it neither reads
+    // nor mutates the catalog here — existence is enforced store-natively by the deployers.
     final boolean manageCalciteSchema = context instanceof CalciteDeploymentContext;
 
-    if (!isNewSchema && schemaPlus.tables().get(tableName) != null) {
+    if (manageCalciteSchema && !isNewSchema && schemaPlus.tables().get(tableName) != null) {
       // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
       // (apply mode or explicit OR REPLACE) targets the existing table; SPECIFY
       // (dry-run) preserves its syntax-driven semantics.
@@ -666,24 +667,18 @@ public final class HoptimatorDdlUtils {
       schemaSnapshot = Pair.of(schemaPlus, currentTable);
     }
 
-    // For a brand-new schema, register the JDBC-backed sub-schema regardless of the caller. This
-    // is catalog/config resolution (it exposes the Database's datasource so deployers can read its
-    // connection config), independent of any single table's row type — so the direct path needs it
-    // too. The temporary table below, by contrast, only exists to hand Calcite-backed deployers a
-    // row type; the direct path carries that on its DirectDeploymentContext instead.
-    SchemaPlus databaseSchema = schemaPlus;
-    if (isNewSchema) {
-      HoptimatorJdbcCatalogSchema catalogSchema = schemaPlus.unwrap(HoptimatorJdbcCatalogSchema.class);
-      if (catalogSchema == null) {
-        throw new SQLException("Catalog for " + schemaPlus.getName() + " not found.");
-      }
-      databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
-      logger.info("Added schema {} to catalog {}", database, schemaPlus.getName());
-    }
-
-    // Add a temporary table with the correct row type so Calcite-backed deployers can resolve it.
-    // TODO: This may cause problems if we reuse connections, only the next connection will load this as a HoptimatorJdbcTable.
     if (manageCalciteSchema) {
+      // For a brand-new schema, register the JDBC-backed sub-schema, then the temporary table.
+      // TODO: This may cause problems if we reuse connections, only the next connection will load this as a HoptimatorJdbcTable.
+      SchemaPlus databaseSchema = schemaPlus;
+      if (isNewSchema) {
+        HoptimatorJdbcCatalogSchema catalogSchema = schemaPlus.unwrap(HoptimatorJdbcCatalogSchema.class);
+        if (catalogSchema == null) {
+          throw new SQLException("Catalog for " + schemaPlus.getName() + " not found.");
+        }
+        databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
+        logger.info("Added schema {} to catalog {}", database, schemaPlus.getName());
+      }
       databaseSchema.add(tableName, new TemporaryTable(rowType, database, ief));
       logger.info("Added table {} to schema {}", tableName, databaseSchema.getName());
     }
@@ -730,17 +725,17 @@ public final class HoptimatorDdlUtils {
       }
       throw e;
     } finally {
-      // Undo any Calcite-catalog mutations we made when we are not keeping them:
+      // Undo any Calcite-catalog mutations we made when we are not keeping them (SQL path only;
+      // the direct path made none):
       //   - SPECIFY (dry-run): always undo.
       //   - CREATE/UPDATE on success: keep.
       //   - CREATE/UPDATE on failure: undo.
-      if (!success || !mode.mutable()) {
+      if (manageCalciteSchema && (!success || !mode.mutable())) {
         if (isNewSchema) {
-          // Both paths created the sub-schema (for config resolution); remove it.
           pair.left.removeSubSchema(database);
           logger.info("Removed schema {} from catalog", database);
-        } else if (manageCalciteSchema && schemaSnapshot != null) {
-          // Only the SQL path registered a temporary table; restore its prior state.
+        } else if (schemaSnapshot != null) {
+          // Restore the temporary table's prior state.
           if (schemaSnapshot.right == null) {
             schemaSnapshot.left.removeTable(tableName);
             logger.info("Removed schema for table {}", tableName);
