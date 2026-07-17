@@ -79,9 +79,10 @@ public final class TableService {
     InitializerExpressionFactory ief = new NullInitializerExpressionFactory();
 
     // The direct path carries the resolved row type and resolves Database config through a
-    // resolver, so it needs no Calcite connection in the deploy SPI.
+    // registry-native resolver (K8s Database CRDs when available), so it needs no Calcite
+    // connection in the deploy SPI.
     DirectDeploymentContext context = new DirectDeploymentContext(
-        conn.connectionProperties(), new CalciteDatabaseConfigResolver(conn), rowType);
+        conn.connectionProperties(), DatabaseConfigResolvers.forConnection(conn), rowType);
 
     return HoptimatorDdlUtils.deployTableInternal(conn, context, ctx, target.pair, target.isNewSchema,
         target.database, target.tableName, rowType, ief, options, false, orReplace, mode);

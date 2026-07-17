@@ -70,13 +70,26 @@ public final class K8sContext {
   }
 
   public static K8sContext create(DeploymentContext deploymentContext) {
+    HoptimatorConnection hoptimatorConnection = deploymentContext instanceof ConnectionBackedContext
+        ? ((ConnectionBackedContext) deploymentContext).connection() : null;
+    return create(deploymentContext.properties(), hoptimatorConnection, deploymentContext);
+  }
+
+  /**
+   * Builds a context from raw connection-level properties, with no backing {@code Connection} or
+   * {@code DeploymentContext}. Used by connection-free callers (e.g. a K8s-native
+   * {@code DatabaseConfigResolver}) that only need K8s API access, not a Calcite catalog.
+   */
+  public static K8sContext createFromProperties(Properties connectionProperties) {
+    return create(connectionProperties, null, null);
+  }
+
+  private static K8sContext create(Properties connectionProperties, HoptimatorConnection hoptimatorConnection,
+      DeploymentContext deploymentContext) {
     String namespace;
     ApiClient apiClient;
     String info;
 
-    HoptimatorConnection hoptimatorConnection = deploymentContext instanceof ConnectionBackedContext
-        ? ((ConnectionBackedContext) deploymentContext).connection() : null;
-    Properties connectionProperties = deploymentContext.properties();
     if (connectionProperties.getProperty(NAMESPACE_KEY) != null) {
       namespace = connectionProperties.getProperty(NAMESPACE_KEY);
     } else {
