@@ -152,7 +152,7 @@ public final class HoptimatorDdlUtils {
     /** Fully-qualified path of the sink (catalog + schema + table). */
     public final List<String> viewPath;
 
-    SpecifyResult(List<String> specs, RelDataType sinkRowType, List<String> viewPath) {
+    public SpecifyResult(List<String> specs, RelDataType sinkRowType, List<String> viewPath) {
       this.specs = Collections.unmodifiableList(specs);
       this.sinkRowType = sinkRowType;
       this.viewPath = Collections.unmodifiableList(viewPath);
@@ -514,49 +514,7 @@ public final class HoptimatorDdlUtils {
       throw new SQLException("No columns provided.");
     }
 
-    boolean isNewSchema = false;
-    Pair<CalciteSchema, String> pair = schema(ctx, mode.mutable(), create.name);
-    if (pair.left == null) {
-      // If the schema is not found, it might be because it's a 3-level path (CATALOG.SCHEMA.TABLE)
-      if (create.name.names.size() > 2) {
-        pair = catalog(ctx, mode.mutable(), create.name);
-        isNewSchema = true;
-        if (pair.left == null) {
-          throw new SQLException("Catalog for " + create.name + " not found.");
-        }
-      } else {
-        throw new SQLException("Schema for " + create.name + " not found.");
-      }
-    }
-
-    final SchemaPlus schemaPlus = pair.left.plus();
-    String database = null;
-    String tableName;
-    if (isNewSchema) {
-      int idx = pair.right.indexOf(".");
-      database = pair.right.substring(0, idx);
-      tableName = pair.right.substring(idx + 1);
-    } else {
-      tableName = pair.right;
-    }
-
-    if (!isNewSchema && schemaPlus.tables().get(tableName) != null) {
-      // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
-      // (apply mode or explicit OR REPLACE) targets the existing table; SPECIFY
-      // (dry-run) preserves its syntax-driven semantics.
-      boolean wouldFail;
-      if (mode == DdlMode.UPDATE) {
-        wouldFail = false;
-      } else if (mode == DdlMode.CREATE) {
-        wouldFail = !create.ifNotExists;
-      } else { // SPECIFY
-        wouldFail = !create.ifNotExists && !create.getReplace();
-      }
-      if (wouldFail) {
-        throw new SQLException(
-            "Table " + tableName + " already exists. Use CREATE OR REPLACE to update.");
-      }
-    }
+    CreateTarget target = resolveCreateTarget(ctx, conn, mode.mutable(), create.name);
 
     // Build row type and column definitions.
     final JavaTypeFactory typeFactory = ctx.getTypeFactory();
@@ -599,11 +557,97 @@ public final class HoptimatorDdlUtils {
           }
         };
 
+    Map<String, String> tableOptions = options(create.options);
+    return deployTableInternal(conn, ctx, target.pair, target.isNewSchema, target.database,
+        target.tableName, rowType, ief, tableOptions, create.ifNotExists, create.getReplace(), mode);
+  }
+
+  /** Resolved location for a table to be created: its schema/catalog node, database, and name. */
+  static final class CreateTarget {
+    final Pair<CalciteSchema, String> pair;
+    final boolean isNewSchema;
+    final String database;
+    final String tableName;
+
+    CreateTarget(Pair<CalciteSchema, String> pair, boolean isNewSchema, String database, String tableName) {
+      this.pair = pair;
+      this.isNewSchema = isNewSchema;
+      this.database = database;
+      this.tableName = tableName;
+    }
+  }
+
+  /**
+   * Resolves the schema/catalog node, database, and table name for a to-be-created table from a
+   * (possibly multi-level) identifier. Shared by the DDL {@code CREATE TABLE} path and the
+   * SQL-free direct path so both agree on how a path maps to a {@code (database, table)} pair.
+   */
+  static CreateTarget resolveCreateTarget(CalcitePrepare.Context ctx, HoptimatorConnection conn,
+      boolean mutable, SqlIdentifier name) throws SQLException {
+    boolean isNewSchema = false;
+    Pair<CalciteSchema, String> pair = schema(ctx, mutable, name);
+    if (pair.left == null) {
+      // If the schema is not found, it might be because it's a 3-level path (CATALOG.SCHEMA.TABLE)
+      if (name.names.size() > 2) {
+        pair = catalog(ctx, mutable, name);
+        isNewSchema = true;
+        if (pair.left == null) {
+          throw new SQLException("Catalog for " + name + " not found.");
+        }
+      } else {
+        throw new SQLException("Schema for " + name + " not found.");
+      }
+    }
+
+    String database = null;
+    String tableName;
+    if (isNewSchema) {
+      int idx = pair.right.indexOf(".");
+      database = pair.right.substring(0, idx);
+      tableName = pair.right.substring(idx + 1);
+    } else {
+      tableName = pair.right;
+    }
+
     if (database == null) {
       if (pair.left.schema instanceof Database) {
         database = ((Database) pair.left.schema).databaseName();
       } else {
         database = conn.getSchema();
+      }
+    }
+    return new CreateTarget(pair, isNewSchema, database, tableName);
+  }
+
+  /**
+   * Shared core that deploys (or, in SPECIFY mode, dry-run specifies) a single table given an
+   * already-resolved schema target and row type. Used by both the DDL {@code CREATE TABLE} path
+   * ({@link #processCreateTable}) and the SQL-free direct path ({@code TableService}), so that
+   * existence checks, temporary-table registration, validation, deployment, and rollback behave
+   * identically whether the row type came from Calcite column declarations or an Avro schema.
+   */
+  static SpecifyResult deployTableInternal(HoptimatorConnection conn, CalcitePrepare.Context ctx,
+      Pair<CalciteSchema, String> pair, boolean isNewSchema, String database, String tableName,
+      RelDataType rowType, InitializerExpressionFactory ief, Map<String, String> options,
+      boolean ifNotExists, boolean orReplace, DdlMode mode) throws SQLException {
+    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+    final SchemaPlus schemaPlus = pair.left.plus();
+
+    if (!isNewSchema && schemaPlus.tables().get(tableName) != null) {
+      // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
+      // (apply mode or explicit OR REPLACE) targets the existing table; SPECIFY
+      // (dry-run) preserves its syntax-driven semantics.
+      boolean wouldFail;
+      if (mode == DdlMode.UPDATE) {
+        wouldFail = false;
+      } else if (mode == DdlMode.CREATE) {
+        wouldFail = !ifNotExists;
+      } else { // SPECIFY
+        wouldFail = !ifNotExists && !orReplace;
+      }
+      if (wouldFail) {
+        throw new SQLException(
+            "Table " + tableName + " already exists. Use CREATE OR REPLACE to update.");
       }
     }
 
@@ -638,8 +682,7 @@ public final class HoptimatorDdlUtils {
     }
     tablePath.add(tableName);
 
-    Map<String, String> tableOptions = options(create.options);
-    Source source = new Source(database, tablePath, tableOptions);
+    Source source = new Source(database, tablePath, options);
 
     Collection<Deployer> deployers = null;
     boolean success = false;

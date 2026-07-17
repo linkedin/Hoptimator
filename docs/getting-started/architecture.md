@@ -138,6 +138,23 @@ Triggers (`TableTrigger`, `CronJob`) plug in here too — they let upstream
 events or schedules drive downstream side-effects without modeling them inside
 the pipeline.
 
+## Creating a table without SQL
+
+A single table (a `Source`) doesn't need a query to describe it — just a row
+type. For that case there's a SQL-free entrypoint, `TableService.create(...)`
+in `hoptimator-jdbc`, which takes a table path plus an **Avro schema** and runs
+the *same* validation and deployment as `CREATE TABLE` — the row type is
+derived from the Avro schema (via `AvroConverter`) instead of from SQL column
+declarations. Both paths converge on `HoptimatorDdlUtils.deployTableInternal`,
+so validators, deployers, and rollback behave identically regardless of where
+the schema came from.
+
+This is what lets a caller (e.g. a gRPC service) create a table by handing over
+a name and a schema, with no SQL parsing or planning. A `dryRun` flag mirrors
+`!specify` / the MCP `plan` tool: it validates and renders the specs without
+deploying anything. Callers still supply a connection — it hosts the `Database`
+registry the deployers read for per-database config — but no SQL is parsed.
+
 ## Module map
 
 The repo is split into focused modules. The ones you'll touch most often:
