@@ -30,7 +30,7 @@ don't need a custom provider.
 
 ```java
 public interface ConfigProvider {
-  Properties loadConfig(Connection connection) throws Exception;
+  Properties loadConfig(DeploymentContext context) throws Exception;
 }
 ```
 
@@ -38,9 +38,9 @@ One method. Return a `Properties` populated however you like; throw if
 loading fails — Hoptimator will log it and continue with whatever the
 other providers produced.
 
-The `Connection` argument is the active Hoptimator JDBC connection.
-`HoptimatorConnection.connectionProperties()` and the bundled
-`K8sContext.create(connection)` are useful when you want to scope your
+The `DeploymentContext` argument is a Calcite-free handle onto the caller's
+environment. `context.properties()` and the bundled
+`K8sContext.create(context)` are useful when you want to scope your
 loading by namespace, kubeconfig, or anything else the caller already
 configured.
 
@@ -64,9 +64,8 @@ order.
 public class VaultConfigProvider implements ConfigProvider {
 
   @Override
-  public Properties loadConfig(Connection connection) throws Exception {
-    HoptimatorConnection conn = (HoptimatorConnection) connection;
-    String namespace = K8sContext.create(conn).namespace();
+  public Properties loadConfig(DeploymentContext context) throws Exception {
+    String namespace = K8sContext.create(context).namespace();
 
     // Pull namespace-scoped values from Vault. Whatever you return becomes
     // available as {{key}} in any template — and as a connection property

@@ -152,8 +152,15 @@ the schema came from.
 This is what lets a caller (e.g. a gRPC service) create a table by handing over
 a name and a schema, with no SQL parsing or planning. A `dryRun` flag mirrors
 `!specify` / the MCP `plan` tool: it validates and renders the specs without
-deploying anything. Callers still supply a connection — it hosts the `Database`
-registry the deployers read for per-database config — but no SQL is parsed.
+deploying anything.
+
+This works because the deploy/validate SPI is decoupled from Calcite. Providers
+(`Deployer`, `Validator`, `Connector`, `Config`) receive a neutral
+`DeploymentContext` — not a `java.sql.Connection` — that exposes only what they
+need: connection-level properties, per-`Database` config, and existing-schema
+lookup. The SQL path supplies a Calcite-backed `DeploymentContext`; the direct
+path can supply its own. (Today the direct path still opens a connection to host
+the `Database` registry, but nothing about the SPI requires SQL or Calcite.)
 
 ## Module map
 
