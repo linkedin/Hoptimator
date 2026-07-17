@@ -157,10 +157,12 @@ deploying anything.
 This works because the deploy/validate SPI is decoupled from Calcite. Providers
 (`Deployer`, `Validator`, `Connector`, `Config`) receive a neutral
 `DeploymentContext` — not a `java.sql.Connection` — that exposes only what they
-need: connection-level properties, per-`Database` config, and existing-schema
-lookup. The SQL path supplies a Calcite-backed `DeploymentContext`; the direct
-path can supply its own. (Today the direct path still opens a connection to host
-the `Database` registry, but nothing about the SPI requires SQL or Calcite.)
+need: connection-level properties and per-`Database` config. The row type is
+resolved on demand via `HoptimatorDriver.rowType(source, context)`. The SQL path
+supplies a Calcite-backed `DeploymentContext` (row type read from the catalog);
+the direct path supplies a `DirectDeploymentContext` that carries the row type.
+(Today the direct path still opens a connection to host the `Database` registry,
+but nothing about the SPI requires SQL or Calcite.)
 
 ## Module map
 

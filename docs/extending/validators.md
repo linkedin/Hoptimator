@@ -40,9 +40,10 @@ public interface ValidatorProvider {
 ```
 
 The `DeploymentContext` (Calcite-free) exposes connection-level
-`properties()`, per-`Database` config via `databaseProperties(...)`, and the
-currently-resolved `existingSchema(path)` — everything a validator needs to
-run lookups against external systems without touching `java.sql.Connection`.
+`properties()` and per-`Database` config via `databaseProperties(...)` —
+everything a validator needs to run lookups against external systems without
+touching `java.sql.Connection`. A validator that needs the deployable's row
+type calls `HoptimatorDriver.rowType(source, context)`.
 
 Two ways to participate:
 

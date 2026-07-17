@@ -83,12 +83,15 @@ collection when the deployable isn't yours — the runtime will skip you and
 move on to the next provider.
 
 The `DeploymentContext` is a Calcite-free handle onto everything a deployer
-needs: connection-level `properties()` (namespace, hints, cluster config),
+needs: connection-level `properties()` (namespace, hints, cluster config) and
 per-`Database` connection config via `databaseProperties(catalog, database,
-urlPrefix)`, and the currently-resolved `existingSchema(path)`. The SQL path
-supplies a Calcite-backed implementation; a non-SQL caller (e.g. the direct
-table-create API) supplies its own — so a deployer never touches
-`java.sql.Connection` or a Calcite `SchemaPlus` directly.
+urlPrefix)`. The SQL path supplies a Calcite-backed implementation
+(`CalciteDeploymentContext`); the direct table-create API supplies a
+`DirectDeploymentContext` that carries the resolved row type. A deployer that
+needs the row type calls `HoptimatorDriver.rowType(source, context)`, which
+resolves it from the Calcite catalog (SQL path) or from the carried type
+(direct path) — so a deployer never touches `java.sql.Connection` or a Calcite
+`SchemaPlus` directly.
 
 `priority()` controls ordering: providers with **lower priority numbers
 run first**. If two providers can both deploy the same object, the lower-
