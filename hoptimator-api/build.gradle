@@ -1,10 +1,13 @@
 plugins {
-  id 'java'
+  id 'java-library'
   id 'maven-publish'
 }
 
 dependencies {
-  // This package should have minimal dependencies
+  // This package should have minimal dependencies. Avro is permitted as the
+  // platform's neutral interchange schema (a schema library, not an engine),
+  // so that Deployables can carry their own row schema.
+  api libs.avro
   compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
 }
 

@@ -26,6 +26,7 @@ import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
@@ -682,7 +683,8 @@ public final class HoptimatorDdlUtils {
     }
     tablePath.add(tableName);
 
-    Source source = new Source(database, tablePath, options);
+    Source source = new Source(database, tablePath, options,
+        AvroConverter.avro("com.linkedin.hoptimator", tableName, rowType));
 
     Collection<Deployer> deployers = null;
     boolean success = false;
