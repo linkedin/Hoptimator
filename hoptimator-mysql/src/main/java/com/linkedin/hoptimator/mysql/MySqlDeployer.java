@@ -5,7 +5,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.avro.AvroSchemas;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
@@ -40,13 +40,13 @@ public class MySqlDeployer implements Deployer, Validated {
 
   private final Source source;
   private final Properties properties;
-  private final HoptimatorConnection hoptimatorConnection;
+  private final DeploymentContext deploymentContext;
   private boolean created = false;
 
-  public MySqlDeployer(Source source, Properties properties, HoptimatorConnection connection) {
+  public MySqlDeployer(Source source, Properties properties, DeploymentContext context) {
     this.source = source;
     this.properties = properties;
-    this.hoptimatorConnection = connection;
+    this.deploymentContext = context;
   }
 
   /**
@@ -99,7 +99,7 @@ public class MySqlDeployer implements Deployer, Validated {
   }
 
   @Override
-  public void validate(Validator.Issues issues, Connection connection) {
+  public void validate(Validator.Issues issues, DeploymentContext context) {
     String tableName = source.table();
     String database = source.schema();
 
@@ -122,7 +122,7 @@ public class MySqlDeployer implements Deployer, Validated {
     RelDataType newRowType;
     List<String> newKeyFields;
     try {
-      newRowType = HoptimatorDriver.rowType(source, hoptimatorConnection);
+      newRowType = HoptimatorDriver.rowType(source, deploymentContext);
       newKeyFields = parseKeyFields(newRowType);
 
       if (newKeyFields.isEmpty()) {
@@ -380,7 +380,7 @@ public class MySqlDeployer implements Deployer, Validated {
    * Alters an existing table to match the desired schema.
    */
   private void alterTable(Connection conn, String database, String tableName) throws SQLException {
-    RelDataType newRowType = HoptimatorDriver.rowType(source, hoptimatorConnection);
+    RelDataType newRowType = HoptimatorDriver.rowType(source, deploymentContext);
 
     // Get existing schema
     Map<String, ColumnInfo> existingColumns = getExistingColumns(conn, database, tableName);
@@ -539,7 +539,7 @@ public class MySqlDeployer implements Deployer, Validated {
       throw new SQLException("Invalid table name: " + tableName);
     }
 
-    RelDataType rowType = HoptimatorDriver.rowType(source, hoptimatorConnection);
+    RelDataType rowType = HoptimatorDriver.rowType(source, deploymentContext);
     List<String> keyFields = parseKeyFields(rowType);
 
     if (keyFields.isEmpty()) {

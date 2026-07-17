@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaBuilder;
@@ -27,7 +29,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -46,7 +47,7 @@ class HoptimatorJdbcTableTest {
   private JdbcTable mockJdbcTable;
 
   @Mock
-  private Connection mockConnection;
+  private DeploymentContext mockConnection;
 
   @Mock
   private Expression mockExpression;

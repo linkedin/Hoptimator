@@ -5,6 +5,7 @@ import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
 import com.linkedin.hoptimator.jdbc.GraphService;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
@@ -136,7 +137,7 @@ public class HoptimatorAppConfig extends Application {
           schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
               new HoptimatorDriver.Prepare(conn), plan, create, querySql);
         }
-        sqlline.output(plan.sql(conn).apply(SqlDialect.ANSI));
+        sqlline.output(plan.sql(new CalciteDeploymentContext(conn)).apply(SqlDialect.ANSI));
       } catch (Exception e) {
         sqlline.error(e);
         dispatchCallback.setToFailure();

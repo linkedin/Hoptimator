@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
@@ -46,6 +48,9 @@ class K8sJobDeployerTest {
   private HoptimatorConnection connection;
 
   @Mock
+  private DeploymentContext deploymentContext;
+
+  @Mock
   private K8sContext mockContext;
 
   private List<V1alpha1JobTemplate> templates;
@@ -65,7 +70,7 @@ class K8sJobDeployerTest {
         return fakeYamlApi;
       }
     };
-    when(mockContext.connection()).thenReturn(connection);
+    when(mockContext.deploymentContext()).thenReturn(deploymentContext);
     contextStatic.when(() -> K8sContext.create(any())).thenReturn(mockContext);
   }
 

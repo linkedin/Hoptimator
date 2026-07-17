@@ -344,7 +344,7 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
     // Validate the DDL statement.
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create, conn);
+    ValidationService.validateOrThrow(create, new CalciteDeploymentContext(conn));
 
     // Extract query SQL (rename columns if a column list was provided) and plan the query.
     // This is done first — before schema/conflict checks — so that:
@@ -432,15 +432,15 @@ public final class HoptimatorDdlUtils {
     boolean success = false;
     try {
       // Build the pipeline and create the MaterializedView hook.
-      Pipeline pipeline = plan.pipeline(viewName, conn);
+      Pipeline pipeline = plan.pipeline(viewName, new CalciteDeploymentContext(conn));
       MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().sql(), pipeline);
 
       // Validate the hook and its deployers.
       logger.info("Validating materialized view {}", viewName);
-      ValidationService.validateOrThrow(hook, conn);
-      deployers = DeploymentService.deployers(hook, conn);
+      ValidationService.validateOrThrow(hook, new CalciteDeploymentContext(conn));
+      deployers = DeploymentService.deployers(hook, new CalciteDeploymentContext(conn));
       logger.info("Validating deployable resources for materialized view {}", viewName);
-      ValidationService.validateOrThrow(deployers, conn);
+      ValidationService.validateOrThrow(deployers, new CalciteDeploymentContext(conn));
       logger.info("Validated materialized view {}", viewName);
 
       // Execute (create/update) or collect specs (specify).
@@ -505,7 +505,7 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create, conn);
+    ValidationService.validateOrThrow(create, new CalciteDeploymentContext(conn));
 
     // TODO: Add support for populating new tables from a query as a one-time operation.
     if (create.query != null) {
@@ -690,10 +690,10 @@ public final class HoptimatorDdlUtils {
     boolean success = false;
     try {
       logger.info("Validating new table {}", source);
-      ValidationService.validateOrThrow(source, conn);
-      deployers = DeploymentService.deployers(source, conn);
+      ValidationService.validateOrThrow(source, new CalciteDeploymentContext(conn));
+      deployers = DeploymentService.deployers(source, new CalciteDeploymentContext(conn));
       logger.info("Validating deployable resources for table {}", tableName);
-      ValidationService.validateOrThrow(deployers, conn);
+      ValidationService.validateOrThrow(deployers, new CalciteDeploymentContext(conn));
 
       if (mode == DdlMode.UPDATE) {
         logger.info("Deploying update table {}", source);
@@ -755,7 +755,7 @@ public final class HoptimatorDdlUtils {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create, conn);
+    ValidationService.validateOrThrow(create, new CalciteDeploymentContext(conn));
 
     if (create.name.names.size() > 1) {
       throw new SQLException("Database names cannot be compound identifiers.");
@@ -768,9 +768,9 @@ public final class HoptimatorDdlUtils {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Validating database {}", name);
-      ValidationService.validateOrThrow(database, conn);
-      deployers = DeploymentService.deployers(database, conn);
-      ValidationService.validateOrThrow(deployers, conn);
+      ValidationService.validateOrThrow(database, new CalciteDeploymentContext(conn));
+      deployers = DeploymentService.deployers(database, new CalciteDeploymentContext(conn));
+      ValidationService.validateOrThrow(deployers, new CalciteDeploymentContext(conn));
 
       List<String> specs = mode.executeDeployers(deployers, conn);
       if (mode.mutable()) {
@@ -869,13 +869,13 @@ public final class HoptimatorDdlUtils {
     }
 
     try {
-      Pipeline pipeline = plan.pipeline(viewName, conn);
+      Pipeline pipeline = plan.pipeline(viewName, new CalciteDeploymentContext(conn));
       List<String> specs = new ArrayList<>();
       for (Source source : pipeline.sources()) {
-        specs.addAll(DeploymentService.specify(source, conn));
+        specs.addAll(DeploymentService.specify(source, new CalciteDeploymentContext(conn)));
       }
-      specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-      specs.addAll(DeploymentService.specify(pipeline.job(), conn));
+      specs.addAll(DeploymentService.specify(pipeline.sink(), new CalciteDeploymentContext(conn)));
+      specs.addAll(DeploymentService.specify(pipeline.job(), new CalciteDeploymentContext(conn)));
       return new SpecifyResult(specs, sinkRowType, viewPath);
     } finally {
       // Restore the schema — the virtual sink must not persist after this call.

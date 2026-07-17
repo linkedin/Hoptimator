@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
-import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
@@ -226,8 +225,7 @@ class HoptimatorDriverTest {
   void testValidationServiceWithRealConnection() throws SQLException {
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
-      CalciteConnection calciteConn = connection.calciteConnection();
-      Validator.Issues issues = ValidationService.validate(calciteConn);
+      Validator.Issues issues = ValidationService.validate(connection);
 
       assertNotNull(issues);
     }

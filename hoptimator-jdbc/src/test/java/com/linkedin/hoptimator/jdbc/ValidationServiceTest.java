@@ -10,10 +10,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -30,9 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ExtendWith(MockitoExtension.class)
 class ValidationServiceTest {
 
-  @Mock
-  private Connection mockConnection;
-
   @BeforeEach
   void setUp() {
     ValidatorProviderTest.reset();
@@ -44,17 +39,6 @@ class ValidationServiceTest {
   }
 
   @Test
-  void testValidateWithNonCalciteConnectionThrows() {
-    assertThrows(IllegalArgumentException.class,
-        () -> ValidationService.validate(mockConnection));
-  }
-
-  /**
-   * <p>We create the table while errors are off so DDL succeeds, then enable errors
-   * and call validate(). If walk() or the walk-subschema calls are removed, the provider
-   * is never called and issues stays valid — the assertion fails.
-   */
-  @Test
   void testWalkVisitsTablesInSchema() throws SQLException {
     try (HoptimatorConnection conn =
         (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://")) {
@@ -63,8 +47,7 @@ class ValidationServiceTest {
         stmt.executeUpdate("CREATE TABLE WALK_VST (X VARCHAR)");
       }
       ValidatorProviderTest.enableErrors();
-      // Use the underlying CalciteConnection — ValidationService requires CalciteConnection
-      Validator.Issues issues = ValidationService.validate(conn.calciteConnection());
+      Validator.Issues issues = ValidationService.validate(conn);
       assertFalse(issues.valid(),
           "walk() must visit tables so that ValidatorProviderTest can record errors");
     }
@@ -76,7 +59,7 @@ class ValidationServiceTest {
     try (HoptimatorConnection conn =
         (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://catalogs=util")) {
       ValidatorProviderTest.enableErrors();
-      Validator.Issues issues = ValidationService.validate(conn.calciteConnection());
+      Validator.Issues issues = ValidationService.validate(conn);
       assertFalse(issues.valid(),
           "walk() must recurse into sub-schemas so that errors in children are propagated");
     }
@@ -88,7 +71,7 @@ class ValidationServiceTest {
     try (HoptimatorConnection conn =
         (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://catalogs=util")) {
       ValidatorProviderTest.enableErrors();
-      Validator.Issues issues = ValidationService.validate(conn.calciteConnection());
+      Validator.Issues issues = ValidationService.validate(conn);
       assertFalse(issues.valid(),
           "validate(connection) must call walk() so that provider errors are propagated");
     }

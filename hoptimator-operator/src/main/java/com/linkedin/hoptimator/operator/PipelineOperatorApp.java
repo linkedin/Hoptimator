@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.operator;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
@@ -94,7 +95,7 @@ public class PipelineOperatorApp {
     String watchNamespaceInput = cmd.getOptionValue("watch", "");
     Properties connectionProperties = new Properties();
     connectionProperties.put("k8s.watch.namespace", watchNamespaceInput);
-    K8sContext context = K8sContext.create(new HoptimatorConnection(null, connectionProperties));
+    K8sContext context = K8sContext.create(new CalciteDeploymentContext(new HoptimatorConnection(null, connectionProperties)));
     PipelineOperatorApp app = new PipelineOperatorApp(context);
     app.installShutdownHook(Duration.ofMinutes(1));
     app.start(Collections.emptyList());

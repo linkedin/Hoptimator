@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
 import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
@@ -41,9 +42,9 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   private volatile Boolean cachedLogical;
 
   public static HoptimatorJdbcSchema create(String database, String catalog, String schema, DataSource dataSource,
-      SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
+      SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, DeploymentContext context) {
     Expression expression = Schemas.subSchemaExpression(parentSchema, schema, HoptimatorJdbcSchema.class);
-    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(dialect, expression, database, engines, connection);
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(dialect, expression, database, engines, context);
     return new HoptimatorJdbcSchema(database, catalog, schema, dataSource, dialect, convention, engines);
   }
 

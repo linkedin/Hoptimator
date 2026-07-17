@@ -1,12 +1,11 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Validator;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.lookup.LikePattern;
-
-import java.sql.Connection;
 
 
 /** Base class for shared schema evolution validators.  */
@@ -19,7 +18,7 @@ abstract class CompatibilityValidatorBase implements Validator {
   }
 
   @Override
-  public void validate(Issues issues, Connection connection) {
+  public void validate(Issues issues, DeploymentContext context) {
     try {
       CalciteSchema originalSchema = schema.unwrap(CalciteSchema.class);
       if (originalSchema == null || originalSchema.schema == null) {

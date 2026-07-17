@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
@@ -35,6 +37,9 @@ class K8sSourceDeployerTest {
   private HoptimatorConnection connection;
 
   @Mock
+  private DeploymentContext deploymentContext;
+
+  @Mock
   private K8sContext mockContext;
 
   private List<V1alpha1TableTemplate> templates;
@@ -56,10 +61,10 @@ class K8sSourceDeployerTest {
     };
   }
 
-  /** Wires up {@code mockContext.connection()} for tests that exercise specify()'s template path. */
+  /** Wires up {@code mockContext.deploymentContext()} for tests that exercise specify()'s template path. */
   private void stubConnection() {
-    when(mockContext.connection()).thenReturn(connection);
-    when(connection.connectionProperties()).thenReturn(new Properties());
+    when(mockContext.deploymentContext()).thenReturn(deploymentContext);
+    when(deploymentContext.properties()).thenReturn(new Properties());
   }
 
   private K8sSourceDeployer makeDeployer(Source source) {

@@ -1,7 +1,10 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Catalog;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroConverter;
+import org.apache.avro.Schema;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -160,6 +163,18 @@ public class HoptimatorDriver implements Driver {
     } catch (Exception e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
+  }
+
+  public static RelDataType rowType(Source source, DeploymentContext context)
+      throws SQLException {
+    if (context instanceof CalciteDeploymentContext) {
+      return rowType(source, ((CalciteDeploymentContext) context).connection());
+    }
+    Schema avro = source.rowSchema();
+    if (avro == null) {
+      throw new SQLException("No row schema available for " + source);
+    }
+    return AvroConverter.rel(avro, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
   }
 
   public static RelDataType rowType(Source source, HoptimatorConnection connection) throws SQLException {

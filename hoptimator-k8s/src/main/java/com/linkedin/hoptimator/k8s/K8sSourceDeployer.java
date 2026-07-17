@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec;
@@ -36,7 +35,6 @@ class K8sSourceDeployer extends K8sYamlDeployer {
   @Override
   public List<String> specify() throws SQLException {
     String name = K8sUtils.canonicalizeName(source.database(), source.table());
-    HoptimatorConnection connection = context.connection();
     Template.Environment env =
         new Template.SimpleEnvironment()
             .with("name", name)
@@ -47,7 +45,7 @@ class K8sSourceDeployer extends K8sYamlDeployer {
             .with("path", source.pathString())
             .with(source.options())
             .with(JOB_PROPERTIES_PREFIX, getJobPropertiesFromOptions(source.options()))
-            .with(DeploymentService.parseHints(connection.connectionProperties()));
+            .with(DeploymentService.parseHints(context.deploymentContext().properties()));
 
     List<String> templates =  tableTemplateApi.list()
         .stream()

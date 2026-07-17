@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import javax.annotation.Nullable;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
 
@@ -27,10 +27,10 @@ final class K8sDependencyValidator implements Validator {
   }
 
   @Override
-  public void validate(Issues issues, Connection connection) {
+  public void validate(Issues issues, DeploymentContext context) {
     try {
       DependencyChecker.assertNoExternalDependents(
-          K8sContext.create(connection), source.database(), source.path(),
+          K8sContext.create(context), source.database(), source.path(),
           selfOwnerKind, selfOwnerName);
     } catch (SQLException e) {
       issues.error(e.getMessage());

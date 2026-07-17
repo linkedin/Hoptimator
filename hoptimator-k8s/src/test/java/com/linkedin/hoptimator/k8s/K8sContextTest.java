@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
+
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1View;
 import io.kubernetes.client.informer.SharedInformerFactory;
@@ -45,7 +47,7 @@ class K8sContextTest {
   @BeforeEach
   void setUp() {
     context = new K8sContext("test-ns", "", "test context", apiClient, informerFactory, null,
-        Collections.emptyMap(), connection);
+        Collections.emptyMap(), null, connection);
   }
 
   @Test
@@ -203,7 +205,7 @@ class K8sContextTest {
   void dynamicWithApiVersionAndPlural() {
     ApiClient realClient = newTestApiClient();
     K8sContext realContext = new K8sContext("test-ns", "", "test context", realClient,
-        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null);
+        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null, null);
 
     assertNotNull(realContext.dynamic("apps/v1", "deployments"));
   }
@@ -212,7 +214,7 @@ class K8sContextTest {
   void dynamicWithGroupVersionPlural() {
     ApiClient realClient = newTestApiClient();
     K8sContext realContext = new K8sContext("test-ns", "", "test context", realClient,
-        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null);
+        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null, null);
 
     assertNotNull(realContext.dynamic("apps", "v1", "deployments"));
   }
@@ -221,7 +223,7 @@ class K8sContextTest {
   void dynamicWithEndpoint() {
     ApiClient realClient = newTestApiClient();
     K8sContext realContext = new K8sContext("test-ns", "", "test context", realClient,
-        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null);
+        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null, null);
 
     assertNotNull(realContext.dynamic(K8sApiEndpoints.PIPELINES));
   }
@@ -230,7 +232,7 @@ class K8sContextTest {
   void genericWithEndpoint() {
     ApiClient realClient = newTestApiClient();
     K8sContext realContext = new K8sContext("test-ns", "", "test context", realClient,
-        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null);
+        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null, null);
 
     assertNotNull(realContext.generic(K8sApiEndpoints.PIPELINES));
   }
@@ -258,7 +260,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.PASSWORD_KEY, "secret");
     when(mockConn.connectionProperties()).thenReturn(props);
 
-    K8sContext ctx = K8sContext.create(mockConn);
+    K8sContext ctx = K8sContext.create(new CalciteDeploymentContext(mockConn));
 
     assertNotNull(ctx);
     assertEquals("custom-ns", ctx.namespace());
@@ -274,7 +276,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.TOKEN_KEY, "my-token");
     when(mockConn.connectionProperties()).thenReturn(props);
 
-    K8sContext ctx = K8sContext.create(mockConn);
+    K8sContext ctx = K8sContext.create(new CalciteDeploymentContext(mockConn));
 
     assertNotNull(ctx);
     assertEquals("token-ns", ctx.namespace());
@@ -293,7 +295,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.IMPERSONATE_GROUPS_KEY, "group1,group2");
     when(mockConn.connectionProperties()).thenReturn(props);
 
-    K8sContext ctx = K8sContext.create(mockConn);
+    K8sContext ctx = K8sContext.create(new CalciteDeploymentContext(mockConn));
 
     assertNotNull(ctx);
     assertTrue(ctx.toString().contains("impuser"));
@@ -311,7 +313,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.TOKEN_KEY, "token");
     when(mockConn.connectionProperties()).thenReturn(props);
 
-    K8sContext ctx = K8sContext.create(mockConn);
+    K8sContext ctx = K8sContext.create(new CalciteDeploymentContext(mockConn));
 
     assertEquals("watch-ns", ctx.watchNamespace());
   }
@@ -325,7 +327,7 @@ class K8sContextTest {
     props.setProperty(K8sContext.TOKEN_KEY, "token");
     when(mockConn.connectionProperties()).thenReturn(props);
 
-    K8sContext ctx = K8sContext.create(mockConn);
+    K8sContext ctx = K8sContext.create(new CalciteDeploymentContext(mockConn));
 
     assertEquals("", ctx.watchNamespace());
   }
@@ -344,7 +346,7 @@ class K8sContextTest {
       props.setProperty(K8sContext.TOKEN_KEY, "token");
       when(mockConn.connectionProperties()).thenReturn(props);
 
-      K8sContext ctx = K8sContext.create(mockConn);
+      K8sContext ctx = K8sContext.create(new CalciteDeploymentContext(mockConn));
       assertEquals("my-pod-namespace", ctx.namespace());
     } finally {
       if (original == null) {
@@ -368,7 +370,7 @@ class K8sContextTest {
       props.setProperty(K8sContext.TOKEN_KEY, "token");
       when(mockConn.connectionProperties()).thenReturn(props);
 
-      K8sContext ctx = K8sContext.create(mockConn);
+      K8sContext ctx = K8sContext.create(new CalciteDeploymentContext(mockConn));
       // Should use DEFAULT_NAMESPACE when no env var or property is set
       assertEquals(K8sContext.DEFAULT_NAMESPACE, ctx.namespace());
     } finally {

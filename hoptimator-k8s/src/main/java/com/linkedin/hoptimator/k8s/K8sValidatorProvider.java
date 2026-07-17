@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.Connection;
 import java.util.Collection;
 import java.util.Collections;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.PendingDelete;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
@@ -20,7 +20,7 @@ import com.linkedin.hoptimator.ValidatorProvider;
 public class K8sValidatorProvider implements ValidatorProvider {
 
   @Override
-  public <T> Collection<Validator> validators(T obj, Connection connection) {
+  public <T> Collection<Validator> validators(T obj, DeploymentContext context) {
     if (obj instanceof PendingDelete) {
       PendingDelete<?> pd = (PendingDelete<?>) obj;
       Object target = pd.target();

@@ -6,6 +6,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.gson.Gson;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
@@ -331,13 +332,13 @@ public class HoptimatorMcpServer {
       PipelineRel.Implementor sqlPlan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
       schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
             new HoptimatorDriver.Prepare(conn), sqlPlan, create, querySql);
-      Pipeline pipeline = sqlPlan.pipeline(viewName, conn);
+      Pipeline pipeline = sqlPlan.pipeline(viewName, new CalciteDeploymentContext(conn));
       List<String> specs = new ArrayList<>();
       for (Source source : pipeline.sources()) {
-        specs.addAll(DeploymentService.specify(source, conn));
+        specs.addAll(DeploymentService.specify(source, new CalciteDeploymentContext(conn)));
       }
-      specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-      specs.addAll(DeploymentService.specify(pipeline.job(), conn));
+      specs.addAll(DeploymentService.specify(pipeline.sink(), new CalciteDeploymentContext(conn)));
+      specs.addAll(DeploymentService.specify(pipeline.job(), new CalciteDeploymentContext(conn)));
       List<Object> mappedObjs = new ArrayList<>();
       for (String spec : specs) {
         mappedObjs.add(yamlMapper.readValue(spec, Object.class));

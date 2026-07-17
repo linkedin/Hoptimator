@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.SqlDialect;
@@ -26,7 +28,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.AbstractMap;
@@ -48,7 +49,7 @@ import static org.mockito.Mockito.when;
 public class PipelineRelTest {
 
     @Mock
-    private Connection mockConnection;
+    private DeploymentContext mockConnection;
 
     private RelDataTypeFactory typeFactory;
     private PipelineRel.Implementor implementor;

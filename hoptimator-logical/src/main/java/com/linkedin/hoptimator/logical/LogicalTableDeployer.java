@@ -1,6 +1,5 @@
 package com.linkedin.hoptimator.logical;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.ArrayList;
@@ -27,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.PendingDelete;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Trigger;
@@ -119,7 +119,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * <p>Called by {@link com.linkedin.hoptimator.jdbc.ValidationService} before deployment.
    */
   @Override
-  public void validate(Validator.Issues issues, Connection connection) {
+  public void validate(Validator.Issues issues, DeploymentContext deploymentContext) {
     try {
       // Pre-register the row type in tier schemas so deployers (e.g. VeniceDeployer) can
       // call HoptimatorDriver.rowType() during their own validate() calls.
@@ -127,10 +127,10 @@ public class LogicalTableDeployer implements Deployer, Validated {
       // These methods are self-caching; subsequent calls return the cached result.
       for (Map.Entry<String, Source> entry : buildTierSources().entrySet()) {
         Source tierSource = entry.getValue();
-        Collection<Deployer> deployers = DeploymentService.deployers(tierSource, context.connection());
+        Collection<Deployer> deployers = DeploymentService.deployers(tierSource, context.deploymentContext());
         for (Deployer deployer : deployers) {
           if (deployer instanceof Validated) {
-            ((Validated) deployer).validate(issues, connection);
+            ((Validated) deployer).validate(issues, deploymentContext);
           }
         }
       }
@@ -233,13 +233,12 @@ public class LogicalTableDeployer implements Deployer, Validated {
   @Override
   public void delete() throws SQLException {
     Map<String, Source> tierSources = buildTierSources();
-    HoptimatorConnection conn = context.connection();
     String selfName = K8sUtils.canonicalizeName(source.path());
 
     // 1. Per-tier pre-flight dep check.
     for (Source tierSource : tierSources.values()) {
       ValidationService.validateOrThrow(
-          new PendingDelete<>(tierSource, "LogicalTable", selfName), conn);
+          new PendingDelete<>(tierSource, "LogicalTable", selfName), context.deploymentContext());
     }
 
     // 2. Delete the LogicalTable CRD (cascades owned pipelines/triggers).
@@ -249,7 +248,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
     //    physical delete succeeded; failed tiers keep their entries so the user can retry.
     for (Source tierSource : tierSources.values()) {
       boolean tierSucceeded = true;
-      for (Deployer deployer : DeploymentService.deployers(tierSource, conn)) {
+      for (Deployer deployer : DeploymentService.deployers(tierSource, context.deploymentContext())) {
         try {
           deployer.delete();
         } catch (Exception e) {
@@ -259,7 +258,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
         }
       }
       if (tierSucceeded) {
-        HoptimatorDdlUtils.removeTableFromSchema(conn,
+        HoptimatorDdlUtils.removeTableFromSchema(context.connection(),
             tierSource.catalog(), tierSource.schema(), tierSource.table());
       }
     }
@@ -315,7 +314,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
     // Step 1: tier resource specs (mirrors deployTierResources)
     for (Source tierSource : tierSources.values()) {
-      specs.addAll(DeploymentService.specify(tierSource, context.connection()));
+      specs.addAll(DeploymentService.specify(tierSource, context.deploymentContext()));
     }
 
     // Step 2: pipeline job specs (mirrors deployImplicitPipelines)
@@ -356,7 +355,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
     plan.addSource(fromSource.database(), fromSource.path(), root.rel.getRowType(), Collections.emptyMap());
     plan.setSink(toSource.database(), toSource.path(), root.rel.getRowType(), Collections.emptyMap());
     plan.setQuery(root.rel);
-    return plan.pipeline(pipelineName, conn);
+    return plan.pipeline(pipelineName, context.deploymentContext());
   }
 
   /** Plans the pipeline and returns only the job artifact specs (sources/sink already in step 1). */
@@ -364,7 +363,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
       throws SQLException {
     try {
       Pipeline pipeline = planPipeline(fromSource, toSource, pipelineName);
-      return DeploymentService.specify(pipeline.job(), context.connection());
+      return DeploymentService.specify(pipeline.job(), context.deploymentContext());
     } catch (Exception e) {
       String message = String.format("Pipeline spec generation failed for %s on table %s",
           pipelineName, source.table());
@@ -434,7 +433,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
       Source tierSource = entry.getValue();
       log.info("Deploying tier {} (database CRD: {}) for table {}",
           tierName, tierSource.database(), source.table());
-      Collection<Deployer> deployers = DeploymentService.deployers(tierSource, context.connection());
+      Collection<Deployer> deployers = DeploymentService.deployers(tierSource, context.deploymentContext());
       for (Deployer deployer : deployers) {
         // Always use update() — it is create-or-update, making deployment idempotent
         // if tier resources already exist (e.g. from a previous partial run).
@@ -483,14 +482,13 @@ public class LogicalTableDeployer implements Deployer, Validated {
       throw new SQLNonTransientException(message, e);
     }
 
-    HoptimatorConnection conn = context.connection();
     String pipelineSql = pipeline.job().sql().apply(SqlDialect.ANSI);
     List<String> pipelineSpecs = new ArrayList<>();
     for (Source src : pipeline.sources()) {
-      pipelineSpecs.addAll(DeploymentService.specify(src, conn));
+      pipelineSpecs.addAll(DeploymentService.specify(src, context.deploymentContext()));
     }
-    pipelineSpecs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-    pipelineSpecs.addAll(DeploymentService.specify(pipeline.job(), conn));
+    pipelineSpecs.addAll(DeploymentService.specify(pipeline.sink(), context.deploymentContext()));
+    pipelineSpecs.addAll(DeploymentService.specify(pipeline.job(), context.deploymentContext()));
 
     K8sPipelineBundle bundle = new K8sPipelineBundle(pipelineName, pipelineSpecs, pipelineSql,
         pipeline.sources(), pipeline.sink(), ownerContext);

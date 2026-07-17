@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.kafka;
 
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
+
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
@@ -73,7 +75,7 @@ class KafkaDeployerProviderTest {
     when(topicSubSchema.unwrap(HoptimatorJdbcSchema.class)).thenReturn(jdbcSchema);
     when(jdbcSchema.getDataSource()).thenReturn(dataSource);
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertEquals(1, deployers.size());
     assertInstanceOf(KafkaDeployer.class, deployers.iterator().next());
   }
@@ -83,7 +85,7 @@ class KafkaDeployerProviderTest {
     // Database name "test" doesn't start with "kafka" — short-circuits before schema lookup
     Source source = new Source("test", List.of("TEST", "MyStore"), Collections.emptyMap());
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
@@ -97,7 +99,7 @@ class KafkaDeployerProviderTest {
     Source source = new Source("not-kafka", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
 
     // No mocking of connection — the guard should prevent any downstream call
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty(),
         "Database not starting with 'kafka' should return empty regardless of schema name");
   }
@@ -111,14 +113,14 @@ class KafkaDeployerProviderTest {
     doReturn(subSchemaLookup).when(rootSchema).subSchemas();
     when(subSchemaLookup.get("UNKNOWN")).thenReturn(null);
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   @Test
   void testReturnsEmptyForNonSourceDeployable() {
     MaterializedView view = mock(MaterializedView.class);
-    Collection<Deployer> deployers = provider.deployers(view, connection);
+    Collection<Deployer> deployers = provider.deployers(view, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
@@ -126,14 +128,14 @@ class KafkaDeployerProviderTest {
   void testReturnsEmptyWhenSchemaNameIsNull() {
     // Source with only a table name (single-element path) — schema() returns null
     Source source = new Source("kafka-database", List.of("MyTopic"), Collections.emptyMap());
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   @Test
   void testReturnsEmptyWhenDatabaseIsNull() {
     Source source = new Source(null, List.of("KAFKA", "MyTopic"), Collections.emptyMap());
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
@@ -147,7 +149,7 @@ class KafkaDeployerProviderTest {
     when(subSchemaLookup.get("KAFKA")).thenReturn(topicSubSchema);
     when(topicSubSchema.unwrap(HoptimatorJdbcSchema.class)).thenThrow(new RuntimeException("unwrap failed"));
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 }

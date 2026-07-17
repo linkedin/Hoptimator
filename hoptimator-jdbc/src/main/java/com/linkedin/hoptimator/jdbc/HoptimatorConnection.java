@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
@@ -68,8 +69,9 @@ public class HoptimatorConnection extends DelegatingConnection {
       String database = databaseName(this.createPrepareContext(), tablePath);
       Source source = new Source(database, tablePath, hints);
       Sink sink = new Sink(database, tablePath, hints);
-      return new ResolvedTable(tablePath, avroSchema, ConnectionService.configure(source, this),
-          ConnectionService.configure(sink, this));
+      DeploymentContext context = new CalciteDeploymentContext(this);
+      return new ResolvedTable(tablePath, avroSchema, ConnectionService.configure(source, context),
+          ConnectionService.configure(sink, context));
     } catch (Exception e) {
       throw new SQLException("Failed to resolve " + String.join(".", tablePath) + ": " + e.getMessage(), e);
     }

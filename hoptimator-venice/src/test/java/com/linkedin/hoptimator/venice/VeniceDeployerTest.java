@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import com.linkedin.venice.controllerapi.ControllerClient;
@@ -75,7 +76,7 @@ class VeniceDeployerTest {
 
     TestableVeniceDeployer(Source source, Properties properties,
         HoptimatorConnection connection, ControllerClient mockClient) {
-      super(source, properties, connection);
+      super(source, properties, new CalciteDeploymentContext(connection));
       this.mockClient = mockClient;
     }
 

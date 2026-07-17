@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptPlanner;
@@ -11,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -32,7 +33,7 @@ class EngineRulesTest {
   private RelOptPlanner mockPlanner;
 
   @Mock
-  private Connection mockConnection;
+  private DeploymentContext mockConnection;
 
   @Mock
   private Expression mockExpression;

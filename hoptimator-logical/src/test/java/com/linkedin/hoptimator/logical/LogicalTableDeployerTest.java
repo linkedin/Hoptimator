@@ -28,6 +28,7 @@ import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.DeployerUtils;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
@@ -711,7 +712,8 @@ class LogicalTableDeployerTest {
     HoptimatorConnection mockConn = mock(HoptimatorConnection.class);
 
     LogicalTableDeployerProvider provider = new LogicalTableDeployerProvider();
-    Collection<Deployer> deployers = provider.deployers(makeSource("logical", "testevent"), mockConn);
+    Collection<Deployer> deployers = provider.deployers(makeSource("logical", "testevent"),
+        new CalciteDeploymentContext(mockConn));
 
     assertFalse(deployers.isEmpty());
     assertEquals(1, deployers.size());

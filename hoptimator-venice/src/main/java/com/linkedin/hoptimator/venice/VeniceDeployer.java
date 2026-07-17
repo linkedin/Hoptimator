@@ -5,7 +5,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.avro.AvroConverter;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
@@ -25,7 +25,6 @@ import org.apache.calcite.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collections;
@@ -47,16 +46,16 @@ public class VeniceDeployer implements Deployer, Validated {
 
   protected final Source source;
   protected final Properties properties;
-  protected final HoptimatorConnection connection;
+  protected final DeploymentContext context;
 
-  public VeniceDeployer(Source source, Properties properties, HoptimatorConnection connection) {
+  public VeniceDeployer(Source source, Properties properties, DeploymentContext context) {
     this.source = source;
     this.properties = properties;
-    this.connection = connection;
+    this.context = context;
   }
 
   @Override
-  public void validate(Validator.Issues issues, Connection connection) {
+  public void validate(Validator.Issues issues, DeploymentContext context) {
     String storeName = source.table();
 
     // Validate Venice configuration
@@ -192,8 +191,8 @@ public class VeniceDeployer implements Deployer, Validated {
     return AvroConverter.avroKeyPayloadSchema("com.linkedin.hoptimator",
         source.table() + "_Key",
         source.table() + "_Value",
-        HoptimatorDriver.rowType(source, connection),
-        ConnectionService.configure(source, connection));
+        HoptimatorDriver.rowType(source, context),
+        ConnectionService.configure(source, context));
   }
 
   private boolean checkStoreExists(ControllerClient controllerClient) {

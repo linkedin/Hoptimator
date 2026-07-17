@@ -40,7 +40,7 @@ class K8sJobDeployer extends K8sYamlDeployer {
 
   @Override
   public List<String> specify() throws SQLException {
-    Properties properties = ConfigService.config(context.connection(), false, FLINK_CONFIG);
+    Properties properties = ConfigService.config(context.deploymentContext(), false, FLINK_CONFIG);
     properties.putAll(job.sink().options());
     ThrowingFunction<SqlDialect, String> sql = job.sql();
     ThrowingFunction<SqlDialect, String> fieldMap = job.fieldMap();

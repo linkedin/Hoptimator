@@ -91,10 +91,10 @@ class K8sMaterializedViewDeployer implements Deployer {
   List<String> pipelineSpecs() throws SQLException {
     List<String> specs = new ArrayList<>();
     for (Source source : view.pipeline().sources()) {
-      specs.addAll(DeploymentService.specify(source, context.connection()));
+      specs.addAll(DeploymentService.specify(source, context.deploymentContext()));
     }
-    specs.addAll(DeploymentService.specify(view.pipeline().sink(), context.connection()));
-    specs.addAll(DeploymentService.specify(view.pipeline().job(), context.connection()));
+    specs.addAll(DeploymentService.specify(view.pipeline().sink(), context.deploymentContext()));
+    specs.addAll(DeploymentService.specify(view.pipeline().job(), context.deploymentContext()));
     return specs;
   }
 

@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.mysql;
 
+import com.linkedin.hoptimator.DeploymentContext;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
+
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
@@ -106,12 +109,12 @@ class MySqlDeployerTest {
     builder.add("name", typeFactory.createSqlType(SqlTypeName.VARCHAR, 255));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
   }
 
   private MySqlDeployer createDeployer(Source source) {
-    return new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    return new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
   }
 
   private Validator.Issues collectIssues(MySqlDeployer deployer) {
@@ -140,7 +143,7 @@ class MySqlDeployerTest {
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("name", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR, 255), true));
     RelDataType rowType = builder.build();
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
   }
 
@@ -198,7 +201,7 @@ class MySqlDeployerTest {
   void testCreateFailsWithMissingUrl() throws Exception {
     Source source = new Source("db", List.of("MYSQL", DATABASE, "TestTable"), Collections.emptyMap());
     Properties emptyProps = new Properties();
-    MySqlDeployer deployer = new MySqlDeployer(source, emptyProps, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, emptyProps, new CalciteDeploymentContext(mockHoptimatorConnection));
 
     SQLException exception = assertThrows(SQLException.class, deployer::create);
     assertTrue(exception.getMessage().contains("Failed to create table TestTable")
@@ -208,7 +211,7 @@ class MySqlDeployerTest {
   @Test
   void testCreateFailsWithNullDatabase() {
     Source source = new Source("db", List.of("TestTable"), Collections.emptyMap());
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
 
     assertThrows(SQLException.class, deployer::create);
   }
@@ -290,7 +293,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("GhostTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     deployer.delete();
 
     verify(mockStatement, never()).executeUpdate(anyString());
@@ -358,7 +361,7 @@ class MySqlDeployerTest {
     RelDataType newRowType = builder.build();
 
     // Set up the mock BEFORE creating the deployer
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(newRowType);
 
     Source source = new Source("db", List.of("MYSQL", DATABASE, "ExistingTable"), Collections.emptyMap());
@@ -404,7 +407,7 @@ class MySqlDeployerTest {
   void testValidateFailsWithNullDatabase() {
     Source source = new Source("db", List.of("TestTable"), Collections.emptyMap());
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -416,7 +419,7 @@ class MySqlDeployerTest {
   void testValidateFailsWithInvalidDatabaseName() {
     Source source = new Source("db", List.of("MYSQL", "invalid-db", "TestTable"), Collections.emptyMap());
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -428,7 +431,7 @@ class MySqlDeployerTest {
   void testValidateFailsWithInvalidTableName() {
     Source source = new Source("db", List.of("MYSQL", "test_db", "invalid table"), Collections.emptyMap());
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -440,7 +443,7 @@ class MySqlDeployerTest {
   void testValidateFailsWithEmptyDatabaseName() {
     Source source = new Source("db", List.of("MYSQL", "", "TestTable"), Collections.emptyMap());
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -458,7 +461,7 @@ class MySqlDeployerTest {
     builder.add("age", typeFactory.createSqlType(SqlTypeName.INTEGER));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "TestTable"), Collections.emptyMap());
@@ -467,7 +470,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("TestTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -502,7 +505,7 @@ class MySqlDeployerTest {
     when(columnsRs.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("ExistingTable"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -520,7 +523,7 @@ class MySqlDeployerTest {
     builder.add("invalid column", typeFactory.createSqlType(SqlTypeName.VARCHAR, 255));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "BadColTable"), Collections.emptyMap());
@@ -529,7 +532,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("BadColTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -540,12 +543,12 @@ class MySqlDeployerTest {
   @Test
   void testValidateFailsWhenRowTypeThrowsException() throws SQLException {
     SQLException schemaError = new SQLException("schema error");
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenThrow(schemaError);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "SchemaErrorTable"), Collections.emptyMap());
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -566,7 +569,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq(longName), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -579,7 +582,7 @@ class MySqlDeployerTest {
     String tooLong = "a".repeat(65);
     Source source = new Source("db", List.of("MYSQL", "test_db", tooLong), Collections.emptyMap());
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -599,7 +602,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("GoodTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     Validator.Issues issues = new Validator.Issues("test");
     deployer.validate(issues, null);
 
@@ -628,7 +631,7 @@ class MySqlDeployerTest {
   @Test
   void testUpdateFailsWithNullDatabase() {
     Source source = new Source("db", List.of("TestTable"), Collections.emptyMap());
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
 
     assertThrows(SQLException.class, deployer::update);
   }
@@ -645,7 +648,7 @@ class MySqlDeployerTest {
     builder.add("email", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR, 255), true));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "MyTable"), Collections.emptyMap());
@@ -669,7 +672,7 @@ class MySqlDeployerTest {
     when(columnsRs.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("MyTable"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     deployer.update();
 
     // CREATE DATABASE + ALTER TABLE ADD COLUMN email
@@ -703,7 +706,7 @@ class MySqlDeployerTest {
     when(columnsRs.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("MyTable"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     deployer.update();
 
     // Only CREATE DATABASE, no ALTER TABLE
@@ -721,7 +724,7 @@ class MySqlDeployerTest {
     builder.add("name", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR, 500), true));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "ModTable"), Collections.emptyMap());
@@ -746,7 +749,7 @@ class MySqlDeployerTest {
     when(columnsRs.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("ModTable"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     deployer.update();
 
     // CREATE DATABASE + ALTER TABLE MODIFY COLUMN
@@ -780,7 +783,7 @@ class MySqlDeployerTest {
     when(columnsRs.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable, DatabaseMetaData.columnNullable);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("DropTable"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     deployer.update();
 
     // CREATE DATABASE + ALTER TABLE DROP COLUMN old_col
@@ -797,7 +800,7 @@ class MySqlDeployerTest {
     builder.add("invalid-col", typeFactory.createSqlType(SqlTypeName.VARCHAR, 100));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "BadColTable2"), Collections.emptyMap());
@@ -818,7 +821,7 @@ class MySqlDeployerTest {
     when(columnsRs.next()).thenReturn(false);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("BadColTable2"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     // update() -> alterTable() -> buildDesiredColumns() should throw on invalid col name
     assertThrows(SQLException.class, deployer::update,
         "Expected SQLException for invalid column name in buildDesiredColumns");
@@ -899,7 +902,7 @@ class MySqlDeployerTest {
     }
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "TypeExact"), Collections.emptyMap());
@@ -908,7 +911,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("TypeExact"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
 
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.create();
@@ -937,7 +940,7 @@ class MySqlDeployerTest {
     builder.add("col", typeFactory.createSqlType(SqlTypeName.VARCHAR, 1)); // precision == 1 (> 0 boundary)
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "VarcharBound"), Collections.emptyMap());
@@ -946,7 +949,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("VarcharBound"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.create();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());
@@ -971,7 +974,7 @@ class MySqlDeployerTest {
         typeFactory.createSqlType(SqlTypeName.VARCHAR, 255), false));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "NonNullTable"), Collections.emptyMap());
@@ -980,7 +983,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("NonNullTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.create();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());
@@ -1003,7 +1006,7 @@ class MySqlDeployerTest {
         typeFactory.createSqlType(SqlTypeName.VARCHAR, 255), true));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "NullableTable"), Collections.emptyMap());
@@ -1012,7 +1015,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("NullableTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.create();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());
@@ -1039,7 +1042,7 @@ class MySqlDeployerTest {
         typeFactory.createSqlType(SqlTypeName.VARCHAR, 100), true));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "PKTable"), Collections.emptyMap());
@@ -1048,7 +1051,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("PKTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.create();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());
@@ -1072,7 +1075,7 @@ class MySqlDeployerTest {
         typeFactory.createSqlType(SqlTypeName.VARCHAR, 512), true));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "VarLenTable"), Collections.emptyMap());
@@ -1081,7 +1084,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("VarLenTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.create();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());
@@ -1108,7 +1111,7 @@ class MySqlDeployerTest {
         typeFactory.createSqlType(SqlTypeName.VARCHAR, 200), true));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "AddColTable"), Collections.emptyMap());
@@ -1134,7 +1137,7 @@ class MySqlDeployerTest {
         DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("AddColTable"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.update();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());
@@ -1164,7 +1167,7 @@ class MySqlDeployerTest {
         typeFactory.createSqlType(SqlTypeName.VARCHAR, 500), true));
     RelDataType rowType = builder.build();
 
-    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+    hoptimatorDriverStatic.when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenReturn(rowType);
 
     Source source = new Source("db", List.of("MYSQL", "test_db", "ModColTable"), Collections.emptyMap());
@@ -1189,7 +1192,7 @@ class MySqlDeployerTest {
         DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("ModColTable"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.update();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());
@@ -1235,7 +1238,7 @@ class MySqlDeployerTest {
         DatabaseMetaData.columnNoNulls, DatabaseMetaData.columnNullable, DatabaseMetaData.columnNullable);
     when(mockMetaData.getColumns(eq("test_db"), any(), eq("DropColTable"), any())).thenReturn(columnsRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.update();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());
@@ -1269,7 +1272,7 @@ class MySqlDeployerTest {
     when(dbNotEmptyRs.next()).thenReturn(true);
     when(mockMetaData.getTables(eq("test_db"), any(), isNull(), any())).thenReturn(dbNotEmptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.delete();
     verify(mockStatement).executeUpdate(sqlCaptor.capture());
@@ -1296,7 +1299,7 @@ class MySqlDeployerTest {
     when(emptyRs.next()).thenReturn(false);
     when(mockMetaData.getTables(eq("test_db"), any(), eq("SomeTable"), any())).thenReturn(emptyRs);
 
-    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, mockHoptimatorConnection);
+    MySqlDeployer deployer = new MySqlDeployer(source, PROPERTIES, new CalciteDeploymentContext(mockHoptimatorConnection));
     ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
     deployer.create();
     verify(mockStatement, times(2)).executeUpdate(sqlCaptor.capture());

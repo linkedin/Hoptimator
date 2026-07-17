@@ -1,6 +1,11 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.Connection;
+import static org.mockito.ArgumentMatchers.any;
+
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+
+import com.linkedin.hoptimator.DeploymentContext;
+
 import java.sql.SQLException;
 import java.util.List;
 
@@ -31,7 +36,7 @@ class K8sGraphProviderTest {
   @Mock
   private MockedStatic<K8sContext> contextStatic;
   @Mock
-  private Connection connection;
+  private HoptimatorConnection connection;
   @Mock
   private K8sContext context;
 
@@ -56,7 +61,7 @@ class K8sGraphProviderTest {
   @Test
   void forTargetRoutesViewToBuilderForView() throws SQLException {
     PipelineGraphBuilder builder = mock(PipelineGraphBuilder.class);
-    contextStatic.when(() -> K8sContext.create(connection)).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
 
     providerWith(builder).forTarget(new GraphTarget.View("audience"), 3, connection);
 
@@ -66,7 +71,7 @@ class K8sGraphProviderTest {
   @Test
   void forTargetRoutesLogicalTableToBuilderForLogicalTable() throws SQLException {
     PipelineGraphBuilder builder = mock(PipelineGraphBuilder.class);
-    contextStatic.when(() -> K8sContext.create(connection)).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
 
     providerWith(builder).forTarget(new GraphTarget.LogicalTable("members"), 2, connection);
 
@@ -76,7 +81,7 @@ class K8sGraphProviderTest {
   @Test
   void forTargetRoutesResourceToBuilderForResource() throws SQLException {
     PipelineGraphBuilder builder = mock(PipelineGraphBuilder.class);
-    contextStatic.when(() -> K8sContext.create(connection)).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
 
     providerWith(builder).forTarget(
         new GraphTarget.Resource("ads-database", List.of("ADS", "AD_CLICKS")), 1, connection);

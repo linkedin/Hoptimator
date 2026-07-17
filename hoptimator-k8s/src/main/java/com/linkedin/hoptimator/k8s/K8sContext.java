@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DeploymentContext;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import io.kubernetes.client.apimachinery.GroupVersion;
 import io.kubernetes.client.common.KubernetesListObject;
@@ -20,7 +22,6 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.sql.Connection;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,11 +52,12 @@ public final class K8sContext {
   private final SharedInformerFactory informerFactory;
   private final V1OwnerReference ownerReference;
   private final Map<String, String> labels;
+  private final DeploymentContext deploymentContext;
   private final HoptimatorConnection connection;
 
   K8sContext(String namespace, String watchNamespace, String clientInfo, ApiClient apiClient,
       SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels,
-      HoptimatorConnection connection) {
+      DeploymentContext deploymentContext, HoptimatorConnection connection) {
     this.namespace = namespace;
     this.watchNamespace = watchNamespace;
     this.clientInfo = clientInfo;
@@ -63,16 +65,18 @@ public final class K8sContext {
     this.informerFactory = informerFactory;
     this.ownerReference = ownerReference;
     this.labels = labels;
+    this.deploymentContext = deploymentContext;
     this.connection = connection;
   }
 
-  public static K8sContext create(Connection connection) {
+  public static K8sContext create(DeploymentContext deploymentContext) {
     String namespace;
     ApiClient apiClient;
     String info;
 
-    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) connection;
-    Properties connectionProperties = hoptimatorConnection.connectionProperties();
+    HoptimatorConnection hoptimatorConnection = deploymentContext instanceof CalciteDeploymentContext
+        ? ((CalciteDeploymentContext) deploymentContext).connection() : null;
+    Properties connectionProperties = deploymentContext.properties();
     if (connectionProperties.getProperty(NAMESPACE_KEY) != null) {
       namespace = connectionProperties.getProperty(NAMESPACE_KEY);
     } else {
@@ -151,19 +155,19 @@ public final class K8sContext {
     }
 
     return new K8sContext(namespace, watchNamespace, info, apiClient, new SharedInformerFactory(apiClient),
-        null, Collections.emptyMap(), hoptimatorConnection);
+        null, Collections.emptyMap(), deploymentContext, hoptimatorConnection);
   }
 
   public K8sContext withOwner(V1OwnerReference owner) {
     return new K8sContext(namespace, watchNamespace, clientInfo + " Owner is " + owner.getName() + ".", apiClient,
-        informerFactory, owner, labels, connection);
+        informerFactory, owner, labels, deploymentContext, connection);
   }
 
   public K8sContext withLabel(String key, String value) {
     Map<String, String> newLabels = new HashMap<>(labels);
     newLabels.put(key, value);
     return new K8sContext(namespace, watchNamespace, clientInfo + " Label " + key + "=" + value + ".", apiClient,
-        informerFactory, ownerReference, newLabels, connection);
+        informerFactory, ownerReference, newLabels, deploymentContext, connection);
   }
 
   public ApiClient apiClient() {
@@ -239,6 +243,10 @@ public final class K8sContext {
 
   public HoptimatorConnection connection() {
     return connection;
+  }
+
+  public DeploymentContext deploymentContext() {
+    return deploymentContext;
   }
 
   @Override

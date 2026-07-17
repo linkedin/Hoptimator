@@ -1,12 +1,13 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Engine;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -18,7 +19,7 @@ class RemoteToEnumerableConverterRuleTest {
   private Engine mockEngine;
 
   @Mock
-  private Connection mockConnection;
+  private DeploymentContext mockConnection;
 
   // If create() returns null (NullReturnVals), assertNotNull fails.
   @Test

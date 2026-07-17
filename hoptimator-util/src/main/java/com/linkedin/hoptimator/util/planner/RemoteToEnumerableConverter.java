@@ -19,6 +19,7 @@
 package com.linkedin.hoptimator.util.planner;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.util.DelegatingDataSource;
 import com.linkedin.hoptimator.util.DeploymentService;
 import org.apache.calcite.DataContext;
@@ -59,7 +60,6 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.sql.Array;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -80,15 +80,15 @@ public class RemoteToEnumerableConverter
     extends ConverterImpl
     implements EnumerableRel {
 
-  private final Connection connection;
+  private final DeploymentContext context;
 
   protected RemoteToEnumerableConverter(
       RelOptCluster cluster,
       RelTraitSet traits,
       RelNode input,
-      Connection connection) {
+      DeploymentContext context) {
     super(cluster, ConventionTraitDef.INSTANCE, traits, input);
-    this.connection = connection;
+    this.context = context;
   }
 
   /** This method modified from upstream */
@@ -96,7 +96,7 @@ public class RemoteToEnumerableConverter
     RelRoot root = RelRoot.of(getInput(), SqlKind.SELECT);
     try {
       PipelineRel.Implementor plan = DeploymentService.plan(root, Collections.emptyList(), new Properties());
-      return new SqlString(AnsiSqlDialect.DEFAULT, plan.query(connection)
+      return new SqlString(AnsiSqlDialect.DEFAULT, plan.query(context)
           .apply(com.linkedin.hoptimator.SqlDialect.FLINK));  // TODO dialect
     } catch (SQLException e) {
       throw new RuntimeException(e);
@@ -105,7 +105,7 @@ public class RemoteToEnumerableConverter
 
   @Override public RelNode copy(RelTraitSet traitSet, List<RelNode> inputs) {
     return new RemoteToEnumerableConverter(
-        getCluster(), traitSet, sole(inputs), connection);
+        getCluster(), traitSet, sole(inputs), context);
   }
 
   @Override public @Nullable RelOptCost computeSelfCost(RelOptPlanner planner,

@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.kafka;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validated;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.DeployerUtils;
 import org.apache.kafka.clients.admin.AdminClient;
@@ -19,7 +20,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.time.Duration;
 import java.util.Collections;
@@ -54,7 +54,7 @@ public class KafkaDeployer implements Deployer, Validated {
   }
 
   @Override
-  public void validate(Validator.Issues issues, Connection connection) {
+  public void validate(Validator.Issues issues, DeploymentContext context) {
     String topicName = source.table();
     // null default = option was not specified by user, skip validation for that option
     Integer partitions = DeployerUtils.parseIntOption(source.options(), "partitions", null);

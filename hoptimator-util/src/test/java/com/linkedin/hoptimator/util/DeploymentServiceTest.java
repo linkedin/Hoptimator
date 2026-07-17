@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
@@ -26,7 +28,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -54,7 +55,7 @@ class DeploymentServiceTest {
   private MockedStatic<DeploymentService> mockedDeploymentService;
 
   @Mock
-  private Connection mockConnection;
+  private DeploymentContext mockConnection;
 
   @Mock
   private Deployer mockDeployer1;
@@ -389,7 +390,7 @@ class DeploymentServiceTest {
     Deployable deployable = new Deployable() { };
     DeployerProvider provider = new DeployerProvider() {
       @Override
-      public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection conn) {
+      public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext conn) {
         return Collections.singletonList(mockDeployer1);
       }
       @Override
@@ -410,7 +411,7 @@ class DeploymentServiceTest {
 
     DeployerProvider baseProvider = new DeployerProvider() {
       @Override
-      public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection conn) {
+      public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext conn) {
         return Collections.singletonList(mockDeployer1);
       }
       @Override
@@ -422,7 +423,7 @@ class DeploymentServiceTest {
     // Create a subclass of the base provider
     DeployerProvider subProvider = new DeployerProvider() {
       @Override
-      public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection conn) {
+      public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext conn) {
         return Collections.singletonList(mockDeployer2);
       }
       @Override
@@ -486,7 +487,7 @@ class DeploymentServiceTest {
       this.deployer = deployer;
     }
     @Override
-    public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection conn) {
+    public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext conn) {
       return Collections.singletonList(deployer);
     }
     @Override
@@ -536,7 +537,7 @@ class DeploymentServiceTest {
       this.deployer = deployer;
     }
     @Override
-    public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection conn) {
+    public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext conn) {
       return Collections.singletonList(deployer);
     }
     @Override

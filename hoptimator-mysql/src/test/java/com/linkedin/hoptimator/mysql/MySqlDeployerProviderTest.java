@@ -1,5 +1,8 @@
 package com.linkedin.hoptimator.mysql;
 
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
@@ -15,7 +18,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -82,7 +84,7 @@ class MySqlDeployerProviderTest {
     when(testdbSchema.unwrap(HoptimatorJdbcSchema.class)).thenReturn(jdbcSchema);
     when(jdbcSchema.getDataSource()).thenReturn(dataSource);
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertEquals(1, deployers.size());
     assertInstanceOf(MySqlDeployer.class, deployers.iterator().next());
   }
@@ -92,7 +94,7 @@ class MySqlDeployerProviderTest {
     // Catalog name "KAFKA" doesn't match "MYSQL" — short-circuits before schema lookup
     Source source = new Source("kafka", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
@@ -101,14 +103,14 @@ class MySqlDeployerProviderTest {
     Source source = new Source("mysql", List.of("UNKNOWN", "testdb", "users"), Collections.emptyMap());
 
     // No mocking needed - catalog name doesn't match, short-circuits early
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   @Test
   void testReturnsEmptyForNonSourceDeployable() {
     MaterializedView view = mock(MaterializedView.class);
-    Collection<Deployer> deployers = provider.deployers(view, connection);
+    Collection<Deployer> deployers = provider.deployers(view, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
@@ -116,7 +118,7 @@ class MySqlDeployerProviderTest {
   void testReturnsEmptyWhenCatalogIsNull() {
     // Source with only schema and table (2-level path) — catalog() returns null
     Source source = new Source("mysql", List.of("testdb", "users"), Collections.emptyMap());
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
@@ -131,7 +133,7 @@ class MySqlDeployerProviderTest {
     doReturn(catalogSubSchemaLookup).when(mysqlCatalogSchema).subSchemas();
     when(catalogSubSchemaLookup.get("nonexistent")).thenReturn(null);
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
@@ -147,28 +149,21 @@ class MySqlDeployerProviderTest {
     when(catalogSubSchemaLookup.get("testdb")).thenReturn(testdbSchema);
     when(testdbSchema.unwrap(HoptimatorJdbcSchema.class)).thenThrow(new RuntimeException("unwrap failed"));
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   // --- deployers() with non-HoptimatorConnection returns empty ---
 
   @Test
-  void testReturnsEmptyWhenConnectionIsNotHoptimatorConnection() {
+  void testReturnsEmptyWhenDatabaseUnresolvable() {
     Source source = new Source("mysql", List.of("MYSQL", "testdb", "users"), Collections.emptyMap());
 
-    // Use a Connection (not HoptimatorConnection) as the connection parameter
-    Connection rawConnection = mock(Connection.class);
-
-    // The provider uses a Connection param (not HoptimatorConnection typed directly here)
-    // But DeployerUtils.extractPropertiesFromJdbcSchema requires HoptimatorConnection
-    // We need to feed a non-HoptimatorConnection to trigger the branch
-    // MySqlDeployerProvider.deployers() takes Connection, not HoptimatorConnection
-    Collection<Deployer> deployers = provider.deployers(source, rawConnection);
-    // Without the isinstance check, this would try to cast and fail or create a broken deployer
-    // With the check, it should return empty
+    // A context that can't resolve the database (databaseProperties returns null) yields no deployers.
+    DeploymentContext unresolvable = mock(DeploymentContext.class);
+    Collection<Deployer> deployers = provider.deployers(source, unresolvable);
     assertTrue(deployers.isEmpty(),
-        "Expected empty deployers when connection is not a HoptimatorConnection");
+        "Expected empty deployers when the database cannot be resolved");
   }
 
   // --- catalog check: catalog name comparison is case-insensitive ---
@@ -179,7 +174,7 @@ class MySqlDeployerProviderTest {
     // but non-matching catalog returns empty
     Source source = new Source("mysql", List.of("OTHER", "testdb", "users"), Collections.emptyMap());
 
-    Collection<Deployer> deployers = provider.deployers(source, connection);
+    Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty(),
         "Expected empty deployers for non-MYSQL catalog name");
   }
