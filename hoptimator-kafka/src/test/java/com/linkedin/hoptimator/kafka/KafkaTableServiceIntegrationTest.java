@@ -53,13 +53,13 @@ public class KafkaTableServiceIntegrationTest {
     try {
       // Dry-run: previews the KafkaTopic YAML with the requested partition count, no mutation.
       HoptimatorDdlUtils.SpecifyResult preview = TableService.create(connection,
-          List.of("KAFKA", "create-table-test"), schema, Map.of("kafka.partitions", "5"), false, true);
+          List.of("KAFKA", "ts-create-table-test"), schema, Map.of("kafka.partitions", "5"), false, true);
       assertThat(preview.specs).anyMatch(s -> s.contains("kind: KafkaTopic"));
       assertThat(preview.specs).anyMatch(s -> s.contains("partitions: 5"));
 
       // Create for real with a different partition count.
       HoptimatorDdlUtils.SpecifyResult created = TableService.create(connection,
-          List.of("KAFKA", "create-table-test"), schema, Map.of("kafka.partitions", "10"), true, false);
+          List.of("KAFKA", "ts-create-table-test"), schema, Map.of("kafka.partitions", "10"), true, false);
       assertThat(created.sinkRowType.getFieldNames()).containsExactly("KEY", "VALUE");
       assertThat(created.sinkRowType.getField("KEY", false, false).getType().getSqlTypeName())
           .isEqualTo(SqlTypeName.VARCHAR);

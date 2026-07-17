@@ -49,7 +49,7 @@ public class VeniceTableServiceIntegrationTest {
   void veniceCreateTableLifecycle() throws SQLException {
     try {
       // Create a store with a record key (KEY_ prefixed) plus value fields.
-      HoptimatorDdlUtils.SpecifyResult created = create("integration-test-store",
+      HoptimatorDdlUtils.SpecifyResult created = create("directapi-store",
           nullable("KEY_id", Schema.Type.INT),
           nullable("i", Schema.Type.INT),
           nullable("s", Schema.Type.STRING));
@@ -58,7 +58,7 @@ public class VeniceTableServiceIntegrationTest {
       assertColumnType(created, "s", SqlTypeName.VARCHAR);
 
       // Backward-compatible evolution: add a new value field.
-      HoptimatorDdlUtils.SpecifyResult evolved = create("integration-test-store",
+      HoptimatorDdlUtils.SpecifyResult evolved = create("directapi-store",
           nullable("KEY_id", Schema.Type.INT),
           nullable("i", Schema.Type.INT),
           nullable("s", Schema.Type.STRING),
@@ -67,7 +67,7 @@ public class VeniceTableServiceIntegrationTest {
       assertColumnType(evolved, "new_field", SqlTypeName.DOUBLE);
 
       // Composite record key.
-      HoptimatorDdlUtils.SpecifyResult composite = create("integration-test-store-composite",
+      HoptimatorDdlUtils.SpecifyResult composite = create("directapi-store-composite",
           nullable("KEY_user_id", Schema.Type.INT),
           nullable("KEY_order_id", Schema.Type.INT),
           nullable("total", Schema.Type.DOUBLE),
@@ -76,25 +76,25 @@ public class VeniceTableServiceIntegrationTest {
           .containsExactly("KEY_user_id", "KEY_order_id", "total", "status");
 
       // Primitive key.
-      HoptimatorDdlUtils.SpecifyResult primitive = create("integration-test-store-primitive",
+      HoptimatorDdlUtils.SpecifyResult primitive = create("directapi-store-primitive",
           nullable("KEY", Schema.Type.INT),
           nullable("i", Schema.Type.INT),
           nullable("s", Schema.Type.STRING));
       assertThat(primitive.sinkRowType.getFieldNames()).containsExactly("KEY", "i", "s");
 
       // A store with no KEY field fails validation.
-      assertThatThrownBy(() -> create("no-key-store",
+      assertThatThrownBy(() -> create("directapi-nokey",
           nullable("i", Schema.Type.INT), nullable("s", Schema.Type.STRING)))
           .isInstanceOf(SQLException.class)
-          .hasMessageContaining("Failed to generate key schema for Venice store no-key-store");
+          .hasMessageContaining("Failed to generate key schema for Venice store directapi-nokey");
 
       // A store with only a KEY (no value fields) fails validation.
-      assertThatThrownBy(() -> create("no-value-store", nullable("KEY", Schema.Type.INT)))
+      assertThatThrownBy(() -> create("directapi-novalue", nullable("KEY", Schema.Type.INT)))
           .isInstanceOf(SQLException.class)
-          .hasMessageContaining("Failed to generate value schema for Venice store no-value-store");
+          .hasMessageContaining("Failed to generate value schema for Venice store directapi-novalue");
 
       // Changing the key fields is rejected (key schema evolution unsupported).
-      assertThatThrownBy(() -> create("integration-test-store",
+      assertThatThrownBy(() -> create("directapi-store",
           nullable("KEY_user_id", Schema.Type.INT),
           nullable("i", Schema.Type.INT),
           nullable("s", Schema.Type.STRING),
@@ -103,7 +103,7 @@ public class VeniceTableServiceIntegrationTest {
           .hasMessageContaining("Key schema evolution is not supported in Venice");
 
       // Changing a key field's type is rejected.
-      assertThatThrownBy(() -> create("integration-test-store",
+      assertThatThrownBy(() -> create("directapi-store",
           nullable("KEY_id", Schema.Type.STRING),
           nullable("i", Schema.Type.INT),
           nullable("s", Schema.Type.STRING),
@@ -112,7 +112,7 @@ public class VeniceTableServiceIntegrationTest {
           .hasMessageContaining("Key schema evolution is not supported in Venice");
 
       // Making an existing nullable value field non-nullable is backward-incompatible.
-      assertThatThrownBy(() -> create("integration-test-store",
+      assertThatThrownBy(() -> create("directapi-store",
           nullable("KEY_id", Schema.Type.INT),
           nullable("i", Schema.Type.INT),
           nullable("s", Schema.Type.STRING),
@@ -120,9 +120,9 @@ public class VeniceTableServiceIntegrationTest {
           .isInstanceOf(SQLException.class)
           .hasMessageContaining("Value schema is not backward compatible");
     } finally {
-      drop("integration-test-store");
-      drop("integration-test-store-composite");
-      drop("integration-test-store-primitive");
+      drop("directapi-store");
+      drop("directapi-store-composite");
+      drop("directapi-store-primitive");
     }
   }
 

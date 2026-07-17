@@ -48,7 +48,7 @@ public class MySqlTableServiceIntegrationTest {
   void mysqlCreateTableLifecycle() throws SQLException {
     try {
       // Create a table with a KEY_ prefixed primary key.
-      HoptimatorDdlUtils.SpecifyResult users = create("users",
+      HoptimatorDdlUtils.SpecifyResult users = create("ts_users",
           nullable("KEY_id", Schema.Type.INT),
           nullable("name", Schema.Type.STRING),
           nullable("email", Schema.Type.STRING));
@@ -57,14 +57,14 @@ public class MySqlTableServiceIntegrationTest {
           .isEqualTo(SqlTypeName.INTEGER);
 
       // Backward-compatible value-column change (add "age", widen/replace "name").
-      HoptimatorDdlUtils.SpecifyResult evolved = create("users",
+      HoptimatorDdlUtils.SpecifyResult evolved = create("ts_users",
           nullable("KEY_id", Schema.Type.INT),
           nullable("name", Schema.Type.STRING),
           nullable("age", Schema.Type.INT));
       assertThat(evolved.sinkRowType.getFieldNames()).containsExactly("KEY_id", "name", "age");
 
       // Composite primary key.
-      HoptimatorDdlUtils.SpecifyResult orders = create("orders",
+      HoptimatorDdlUtils.SpecifyResult orders = create("ts_orders",
           nullable("KEY_user_id", Schema.Type.INT),
           nullable("KEY_order_id", Schema.Type.INT),
           nullable("total", Schema.Type.DOUBLE),
@@ -73,29 +73,29 @@ public class MySqlTableServiceIntegrationTest {
           .containsExactly("KEY_user_id", "KEY_order_id", "total", "status");
 
       // A table with no KEY_ field fails validation.
-      assertThatThrownBy(() -> create("invalid_table",
+      assertThatThrownBy(() -> create("ts_invalid",
           nullable("id", Schema.Type.INT), nullable("data", Schema.Type.STRING)))
           .isInstanceOf(SQLException.class)
-          .hasMessageContaining("No KEY_ fields found in table invalid_table");
+          .hasMessageContaining("No KEY_ fields found in table ts_invalid");
 
       // Changing the KEY fields is rejected.
-      assertThatThrownBy(() -> create("users",
+      assertThatThrownBy(() -> create("ts_users",
           nullable("KEY_user_id", Schema.Type.INT),
           nullable("name", Schema.Type.STRING),
           nullable("email", Schema.Type.STRING)))
           .isInstanceOf(SQLException.class)
-          .hasMessageContaining("Cannot modify KEY fields for table users");
+          .hasMessageContaining("Cannot modify KEY fields for table ts_users");
 
       // Changing a KEY field's type is rejected.
-      assertThatThrownBy(() -> create("users",
+      assertThatThrownBy(() -> create("ts_users",
           nullable("KEY_id", Schema.Type.STRING),
           nullable("name", Schema.Type.STRING),
           nullable("email", Schema.Type.STRING)))
           .isInstanceOf(SQLException.class)
-          .hasMessageContaining("Cannot modify KEY field type for table users");
+          .hasMessageContaining("Cannot modify KEY field type for table ts_users");
     } finally {
-      drop("users");
-      drop("orders");
+      drop("ts_users");
+      drop("ts_orders");
     }
   }
 
