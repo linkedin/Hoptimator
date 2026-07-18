@@ -559,9 +559,9 @@ public final class HoptimatorDdlUtils {
         };
 
     Map<String, String> tableOptions = options(create.options);
-    return deployTableInternal(conn, conn.deploymentContext(), ctx, target.pair, target.isNewSchema,
-        target.database, target.tableName, rowType, ief, tableOptions, create.ifNotExists,
-        create.getReplace(), mode);
+    return deployTableInternal(conn, conn.deploymentContext(), ctx, target.pair, target.tablePath(),
+        target.isNewSchema, target.database, target.tableName, rowType, ief, tableOptions,
+        create.ifNotExists, create.getReplace(), mode);
   }
 
   /** Resolved location for a table to be created: its schema/catalog node, database, and name. */
@@ -576,6 +576,16 @@ public final class HoptimatorDdlUtils {
       this.isNewSchema = isNewSchema;
       this.database = database;
       this.tableName = tableName;
+    }
+
+    /** The fully-qualified table path (schema path + optional new database segment + table name). */
+    List<String> tablePath() {
+      List<String> path = new ArrayList<>(pair.left.path(null));
+      if (isNewSchema) {
+        path.add(database);
+      }
+      path.add(tableName);
+      return path;
     }
   }
 
@@ -629,11 +639,14 @@ public final class HoptimatorDdlUtils {
    * identically whether the row type came from Calcite column declarations or an Avro schema.
    */
   static SpecifyResult deployTableInternal(HoptimatorConnection conn, DeploymentContext context,
-      CalcitePrepare.Context ctx, Pair<CalciteSchema, String> pair, boolean isNewSchema, String database,
-      String tableName, RelDataType rowType, InitializerExpressionFactory ief, Map<String, String> options,
+      CalcitePrepare.Context ctx, @Nullable Pair<CalciteSchema, String> pair, List<String> tablePath,
+      boolean isNewSchema, String database, String tableName, RelDataType rowType,
+      InitializerExpressionFactory ief, Map<String, String> options,
       boolean ifNotExists, boolean orReplace, DdlMode mode) throws SQLException {
     HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
-    final SchemaPlus schemaPlus = pair.left.plus();
+    // The Calcite catalog handle is present only on the SQL path; the direct path passes a null
+    // pair and its precomputed tablePath, and touches no catalog (see manageCalciteSchema below).
+    final SchemaPlus schemaPlus = pair != null ? pair.left.plus() : null;
 
     // Only the SQL path mutates the Calcite catalog: it registers a temporary table (so
     // subsequent statements and Calcite-backed deployers can resolve the row type by name) and,
@@ -682,13 +695,6 @@ public final class HoptimatorDdlUtils {
       databaseSchema.add(tableName, new TemporaryTable(rowType, database, ief));
       logger.info("Added table {} to schema {}", tableName, databaseSchema.getName());
     }
-
-    final List<String> schemaPath = pair.left.path(null);
-    List<String> tablePath = new ArrayList<>(schemaPath);
-    if (isNewSchema) {
-      tablePath.add(database);
-    }
-    tablePath.add(tableName);
 
     Source source = new Source(database, tablePath, options);
 

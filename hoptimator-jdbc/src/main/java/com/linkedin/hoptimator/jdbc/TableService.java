@@ -71,21 +71,19 @@ public final class TableService {
       throw new SQLException("The Avro schema must be a record; got " + avroSchema.getType() + ".");
     }
 
-    SqlIdentifier name = new SqlIdentifier(path, SqlParserPos.ZERO);
-    HoptimatorDdlUtils.CreateTarget target =
-        HoptimatorDdlUtils.resolveCreateTarget(ctx, conn, mode.mutable(), name);
-
     // No SQL column strategies/defaults on the Avro path.
     InitializerExpressionFactory ief = new NullInitializerExpressionFactory();
 
-    // The direct path carries the resolved row type and resolves Database config through a
-    // registry-native resolver (K8s Database CRDs when available), so it needs no Calcite
-    // connection in the deploy SPI.
-    DirectDeploymentContext context = new DirectDeploymentContext(
-        conn.connectionProperties(), DatabaseConfigResolvers.forConnection(conn), rowType);
+    // The direct path resolves the target (database identifier) and Database config through a
+    // registry-native resolver (K8s Database CRDs when available) and carries the row type on its
+    // context, so it touches no Calcite catalog. The table path is exactly the caller's path.
+    DatabaseConfigResolver resolver = DatabaseConfigResolvers.forConnection(conn);
+    String database = resolver.databaseName(path);
+    String tableName = path.get(path.size() - 1);
+    DirectDeploymentContext context = new DirectDeploymentContext(conn.connectionProperties(), resolver, rowType);
 
-    return HoptimatorDdlUtils.deployTableInternal(conn, context, ctx, target.pair, target.isNewSchema,
-        target.database, target.tableName, rowType, ief, options, false, orReplace, mode);
+    return HoptimatorDdlUtils.deployTableInternal(conn, context, ctx, null, path, false,
+        database, tableName, rowType, ief, options, false, orReplace, mode);
   }
 
   /**

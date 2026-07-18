@@ -23,4 +23,12 @@ public interface DatabaseConfigResolver {
    * @param connectionPrefix the expected URL scheme prefix (e.g. {@code "jdbc:kafka://"})
    */
   @Nullable Properties databaseProperties(@Nullable String catalog, String database, String connectionPrefix);
+
+  /**
+   * Resolves the {@code database} identifier for a table at {@code tablePath} — the value exposed as
+   * {@link com.linkedin.hoptimator.Source#database()} and used to name/derive deployed resources.
+   * For a schema-style database this is the {@code Database} name; for a catalog-style database it
+   * is the schema segment of the path (an independent sub-database sharing the catalog connection).
+   */
+  String databaseName(java.util.List<String> tablePath) throws java.sql.SQLException;
 }

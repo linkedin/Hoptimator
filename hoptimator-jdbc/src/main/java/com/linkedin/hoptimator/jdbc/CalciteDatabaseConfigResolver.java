@@ -28,4 +28,12 @@ public final class CalciteDatabaseConfigResolver implements DatabaseConfigResolv
       String connectionPrefix) {
     return DeployerUtils.extractPropertiesFromJdbcSchema(catalog, database, connection, connectionPrefix, LOG);
   }
+
+  @Override
+  public String databaseName(java.util.List<String> tablePath) throws java.sql.SQLException {
+    org.apache.calcite.jdbc.CalcitePrepare.Context ctx = connection.createPrepareContext();
+    org.apache.calcite.sql.SqlIdentifier name =
+        new org.apache.calcite.sql.SqlIdentifier(tablePath, org.apache.calcite.sql.parser.SqlParserPos.ZERO);
+    return HoptimatorDdlUtils.resolveCreateTarget(ctx, connection, false, name).database;
+  }
 }

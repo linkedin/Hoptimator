@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Properties;
 
 
@@ -49,6 +50,20 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
       return null;
     }
     return properties;
+  }
+
+  @Override
+  public String databaseName(List<String> tablePath) {
+    String schema = tablePath.get(tablePath.size() - 2);
+    String catalog = tablePath.size() >= 3 ? tablePath.get(tablePath.size() - 3) : null;
+    K8sDatabaseTable.Row row = findDatabase(catalog, schema);
+    if (row == null) {
+      // Unknown to the registry: fall back to the schema segment (matches the new-sub-schema case).
+      return schema;
+    }
+    // Catalog-style: the requested schema is an independent sub-database sharing the catalog
+    // connection, so it is its own database identifier. Schema-style: the Database CRD name.
+    return catalog != null ? schema : row.NAME;
   }
 
   private @Nullable K8sDatabaseTable.Row findDatabase(@Nullable String catalog, String database) {
