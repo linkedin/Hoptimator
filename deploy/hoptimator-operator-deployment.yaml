@@ -17,8 +17,8 @@ spec:
       serviceAccountName: hoptimator-operator
       containers:
       - name: hoptimator-operator
-        image: docker.io/library/hoptimator
-        imagePullPolicy: Never
+        image: hoptimator:latest
+        imagePullPolicy: IfNotPresent
         command: ["./hoptimator-operator-integration/bin/hoptimator-operator-integration", "jdbc:calcite:model=/etc/config/model.yaml"]
         volumeMounts:
         - name: config-volume

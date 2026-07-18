@@ -274,6 +274,48 @@ spec:
 | `schedule`      | string  |          | Cron schedule. If set, the trigger fires on a schedule. If null, it fires on status patches. |
 | `paused`        | boolean |          | When true, the trigger does not fire (status updates are ignored).                         |
 
+### Input frontiers
+
+A trigger fires as its input advances to a new data-time **frontier**. When the input's `Database`
+schema exposes an `InputFrontierSource` (see [extending](../extending/index.md)), the operator
+advances the trigger's cursor to that source's reported frontier and launches the job over the
+newly-available window. The frontier is optimistic ("data has appeared through here"); sources that
+can report late changes have writes behind the cursor healed separately via one-off backfills, while
+sources that cannot must report a conservative frontier instead. Sources without any frontier
+capability fire on their cron `schedule` or on manual `FIRE`. Either way, the job is handed its
+output window and reads it directly:
+
+| Template variable | Meaning                                                         |
+| ----------------- | -------------------------------------------------------------- |
+| `{{watermark}}`   | Start of the window (the previous cursor position).            |
+| `{{timestamp}}`   | End of the window (the confirmed frontier / cron tick).        |
+
+The very first fire has no prior cursor, so `{{watermark}}` (and its derived forms) render as an
+empty string rather than skipping the job — the job decides how to treat that open lower bound.
+
+A job that needs a wider *trailing* read (e.g. to absorb late data) expresses that in its own SQL —
+that late-data tolerance is a per-job concern, handled by the job rather than by any platform-level
+schedule adjustment.
+
+Each window endpoint — `watermark` and `timestamp` — is also exported in a few convenience formats so
+a job can consume a value without parsing the ISO string. For base name `<v>`:
+
+| Variable | Example | Meaning |
+| -------- | ------- | ------- |
+| `{{<v>}}` | `2026-05-08T07:55Z` | ISO-8601 instant (e.g. `{{timestamp}}`). |
+| `{{<v>EpochMs}}` | `1778226900000` | Unix epoch milliseconds. |
+| `{{<v>Date}}` | `2026-05-08` | UTC calendar date (handy for `dt=`-style partitions). |
+| `{{<v>Hour}}` | `07` | UTC hour-of-day, zero-padded. |
+
+So `{{timestampDate}}`, `{{timestampEpochMs}}`, `{{watermarkHour}}`, etc. are all available.
+
+> **Window vars in a `JobTemplate`.** A `JobTemplate` referenced by `CREATE TRIGGER ... as
+> <template>` is rendered twice: once at `CREATE` (to fix the static vars — `{{name}}`, `{{table}}`,
+> `{{path}}`, `job.properties.*`, …) and again per-fire (to fill the window). The window vars above
+> are automatically deferred through the first render, so they reach the launched job intact. Any
+> *other* unresolved `{{variable}}` still fails the `CREATE` loudly — a `JobTemplate` that renders to
+> nothing is rejected rather than stored empty.
+
 ### Status fields
 
 | Field       | Type      | Description                                                                  |

@@ -486,15 +486,45 @@ SqlFire SqlFireTable(Span s) :
 SqlFire SqlFireTrigger(Span s) :
 {
     final SqlIdentifier id;
-    SqlNodeList options = null;
+    SqlNode from = null;
+    SqlNode to = null;
 }
 {
     <TRIGGER> id = CompoundIdentifier()
-    [ options = Options() ]
+    [ <FROM> from = FireBound() <TO> to = FireBound() ]
     {
-        return new SqlFireTrigger(s.end(this), id, options);
+        return new SqlFireTrigger(s.end(this), id, from, to);
     }
 }
+
+/**
+ * A time bound for FIRE TRIGGER ... FROM/TO. Resolved to an absolute instant by the executor.
+ * One of: an absolute timestamp string literal; a relative "<n> <unit> AGO"; or NOW.
+ * Relative and NOW forms are encoded as char-string literals ("-5m", "now") for the executor.
+ */
+SqlNode FireBound() :
+{
+    final SqlNode lit;
+    int amount;
+    String unit;
+}
+{
+    (
+        <NOW> { return SqlLiteral.createCharString("now", getPos()); }
+    |
+        amount = UnsignedIntLiteral()
+        (   ( <SECOND> | <SECONDS> ) { unit = "s"; }
+        |   ( <MINUTE> | <MINUTES> ) { unit = "m"; }
+        |   ( <HOUR> | <HOURS> ) { unit = "h"; }
+        |   ( <DAY> | <DAYS> ) { unit = "d"; }
+        )
+        <AGO>
+        { return SqlLiteral.createCharString("-" + amount + unit, getPos()); }
+    |
+        lit = StringLiteral() { return lit; }
+    )
+}
+
 
 SqlFire SqlFireView(Span s) :
 {

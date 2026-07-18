@@ -151,26 +151,26 @@ job, the sink, and any intermediate hops the planner created.
 ```
 CREATE [OR REPLACE] TRIGGER [IF NOT EXISTS] <name>
   ON <schema.table>
-  AS '<yaml-template>'
+  AS '<job-template-name>'
   [IN '<namespace>']
   [SCHEDULED '<cron>']
   [WITH ('<key>' '<value>', ...)]
 ```
 
-Equivalent to a `TableTrigger` CRD: runs the embedded YAML (typically a Job
-or CronJob) when the named table changes or on a cron schedule. The job spec
-is arbitrary, so triggers are how you wire up backfills, rETL refreshes,
-downstream notifications, and operational hooks without embedding that
-logic in the pipeline itself. See
+Creates a `TableTrigger` CRD. The `AS` clause names an existing
+[`JobTemplate`](../kubernetes/crd-reference.md#jobtemplate) (optionally qualified
+by `IN '<namespace>'`); when the named table changes or the cron schedule fires,
+the operator instantiates that JobTemplate — rendering its YAML with the
+trigger's variables — and runs the resulting Job. Triggers are how you wire up
+backfills, rETL refreshes, downstream notifications, and operational hooks
+without embedding that logic in the pipeline itself. See
 [TableTriggers in concepts](../getting-started/concepts.md#tabletriggers)
 for the bigger picture.
 
 ```sql
 CREATE TRIGGER refresh_audience
   ON KAFKA.existing-topic-1
-  AS 'apiVersion: batch/v1
-       kind: Job
-       ...'
+  AS 'refresh-audience-job'
   SCHEDULED '@hourly';
 ```
 
@@ -180,6 +180,78 @@ Pause and resume:
 PAUSE TRIGGER refresh_audience;
 RESUME TRIGGER refresh_audience;
 ```
+
+### Recognized `WITH` options
+
+Most `WITH (...)` keys flow through to the rendered job template, but a few are
+mapped onto structured `TableTrigger` spec fields:
+
+| Option | TableTrigger field | Meaning |
+| ------ | ------------------ | ------- |
+| `'paused'` | `spec.paused` | `true`/`false`. |
+| `'job.properties.<k>'` | `spec.jobProperties[<k>]` | Runtime job properties. |
+
+## FIRE TRIGGER
+
+```
+FIRE TRIGGER <name>
+  [ FROM <bound> TO <bound> ]
+```
+
+Fires a trigger on demand — useful for backfills, reprocessing, and testing
+without waiting for the schedule or an upstream change. `FIRE` is a pure
+imperative action: it carries no options and never modifies the trigger's spec
+(config changes go through `CREATE OR REPLACE TRIGGER`). A plain `FIRE TRIGGER x`
+processes everything since the last watermark up to now. The optional
+`FROM … TO …` clause instead fires a **specific output window**:
+
+| `<bound>` form | Meaning |
+| -------------- | ------- |
+| `'2026-05-01T00:00:00Z'` | An absolute ISO-8601 instant. |
+| `'2026-05-01'` | An absolute date (UTC midnight). |
+| `<n> SECOND[S]/MINUTE[S]/HOUR[S]/DAY[S] AGO` | Relative to now, e.g. `7 DAYS AGO`. |
+| `NOW` | The current time. |
+
+```sql
+-- backfill a fixed historical range
+FIRE TRIGGER engaged_sessions_hourly
+  FROM '2026-05-01' TO '2026-05-08';
+
+-- reprocess the last week of processed data (the end is capped at the watermark)
+FIRE TRIGGER engaged_sessions_hourly
+  FROM 7 DAYS AGO TO NOW;
+```
+
+`FROM … TO …` requests a **one-off backfill** over that output window. The
+backfill runs as a **separate Job** and does **not** move the trigger's
+incremental cursor — `watermark`/`timestamp` are left untouched, so a historical
+backfill never disturbs (or rewinds) live incremental processing. The job reads
+and writes the requested window `[from, to]`; because a backfill covers
+already-processed history, that input already exists.
+
+When the trigger has a **live forward cursor** (a watermark), a backfill can only
+cover **already-processed history**, so the end is automatically **capped at the
+watermark**: `NOW` (or any `to` past the watermark) means "up to the cursor." This
+makes relative windows like `FROM 7 DAYS AGO TO NOW` do the sensible thing on a
+lagging trigger, and the fire is *rejected* if the window starts at/after the
+watermark (nothing to backfill).
+
+A trigger with **no watermark** — one that is *paused*, or has never run — has no
+forward cursor to protect, so a backfill simply runs the requested window as-is
+(no cap, no rejection). This is the normal case for an **offline-tier backfill
+trigger**, which is created paused and only ever fires on-demand backfills: its
+forward path never advances a watermark, and that's fine. A windowed fire is
+independent of the forward path, so it is *never* blocked by an in-flight forward
+execution; the only hard rejection is an **inverted** window (`from` not before
+`to`). (A *plain* `FIRE` — no window — still bumps the forward cursor and is still
+rejected while a forward execution is in flight.)
+
+`FIRE ... FROM ... TO ...` **creates the backfill Job directly** — a one-off,
+trigger-owned `<job>-bf-<windowId>` Job — and nothing is recorded on the trigger.
+Its lifecycle belongs to the Kubernetes Job controller: retries via the template's
+`backoffLimit`, cleanup via `ttlSecondsAfterFinished`, and a failed backfill is
+its own inspectable record (a `Failed` Job labelled `backfill=true`). Re-issue the
+`FIRE` to launch a fresh one.
 
 ## CREATE TABLE
 
@@ -271,9 +343,9 @@ the parse alone.
 
 - `REFRESH MATERIALIZED VIEW <name>` — intended to re-run a batch-style
   materialization on demand.
-- `FIRE TABLE | TRIGGER | VIEW | MATERIALIZED VIEW <name>` — intended to
+- `FIRE TABLE | VIEW | MATERIALIZED VIEW <name>` — intended to
   manually fire a side effect (e.g. for testing without waiting for a
-  schedule).
+  schedule). (`FIRE TRIGGER` is fully implemented — see above.)
 - `PAUSE MATERIALIZED VIEW <name>` / `RESUME MATERIALIZED VIEW <name>` —
   parser support exists; executor does not. (`PAUSE TRIGGER` /
   `RESUME TRIGGER` above are fully implemented.)

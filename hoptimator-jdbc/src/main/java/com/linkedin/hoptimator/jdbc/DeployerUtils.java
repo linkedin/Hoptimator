@@ -128,6 +128,37 @@ public final class DeployerUtils {
   public static Properties extractPropertiesFromJdbcSchema(@Nullable String catalogName, String schemaName,
       Connection connection, String connectionPrefix, @Nullable Logger logger) {
 
+    HoptimatorJdbcSchema schema = jdbcSchema(catalogName, schemaName, connection, logger);
+    if (schema == null) {
+      return null;
+    }
+    try {
+      String jdbcUrl = ((BasicDataSource) schema.getDataSource()).getUrl();
+
+      if (!jdbcUrl.startsWith(connectionPrefix)) {
+        return null;
+      }
+
+      Properties properties = new Properties();
+      properties.putAll(ConnectStringParser.parse(jdbcUrl.substring(connectionPrefix.length())));
+      return properties;
+    } catch (Exception e) {
+      if (logger != null) {
+        logger.debug("Could not extract properties from schema '{}': {}", schemaName, e.getMessage());
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Resolves the {@link HoptimatorJdbcSchema} registered under {@code catalogName/schemaName} in the
+   * connection's root schema, or null when the schema is absent or not JDBC-backed. This is the
+   * shared resolution step behind {@link #extractPropertiesFromJdbcSchema} (which reads the URL) and
+   * capability lookups such as {@code HoptimatorJdbcSchema.inputFrontierSource()}.
+   */
+  public static HoptimatorJdbcSchema jdbcSchema(@Nullable String catalogName, String schemaName,
+      Connection connection, @Nullable Logger logger) {
+
     if (schemaName == null) {
       return null;
     }
@@ -152,23 +183,10 @@ public final class DeployerUtils {
         return null;
       }
 
-      HoptimatorJdbcSchema schema = subSchemaPlus.unwrap(HoptimatorJdbcSchema.class);
-      if (schema == null) {
-        return null;
-      }
-
-      String jdbcUrl = ((BasicDataSource) schema.getDataSource()).getUrl();
-
-      if (!jdbcUrl.startsWith(connectionPrefix)) {
-        return null;
-      }
-
-      Properties properties = new Properties();
-      properties.putAll(ConnectStringParser.parse(jdbcUrl.substring(connectionPrefix.length())));
-      return properties;
+      return subSchemaPlus.unwrap(HoptimatorJdbcSchema.class);
     } catch (Exception e) {
       if (logger != null) {
-        logger.debug("Could not extract properties from schema '{}': {}", schemaName, e.getMessage());
+        logger.debug("Could not resolve JDBC schema '{}': {}", schemaName, e.getMessage());
       }
     }
     return null;

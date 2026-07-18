@@ -15,6 +15,7 @@ both — pick the layer that matches what you're doing.
 | Build a dependency graph from some backing store (e.g. K8s).                                        | A `GraphProvider`. The K8s-backed default ships in `hoptimator-k8s`. |
 | Render the dependency graph in a format other than the ones shipped (DOT, an interactive web view, …). | A `GraphRenderer`. Mermaid and JSON renderers ship in `hoptimator-graph`. |
 | Customize what gets deployed for an existing system.                                                | Just a `TableTemplate` or `JobTemplate` — no Java needed. See [Templates and configuration](../kubernetes/templates.md). |
+| Fire a `TableTrigger` when your source has new data (event-time).                                   | An `InputFrontierSource` on your driver's schema. See [Firing triggers on data availability](#firing-triggers-on-data-availability). |
 
 ## How extensions are loaded
 
@@ -85,6 +86,43 @@ graphviz, an interactive web view). Add a `GraphProvider` if the
 pipeline state lives somewhere other than Kubernetes — the K8s
 implementation is the reference. Both register via `META-INF/services`
 like every other SPI here.
+
+### "I want a `TableTrigger` to fire when my source has new data"
+
+#### Firing triggers on data availability
+
+This one is **not** a `ServiceLoader` SPI. A `TableTrigger` fires when its input advances to a new
+data-time *frontier*; the source reports that frontier by having the Calcite `Schema` its JDBC
+driver already builds implement `com.linkedin.hoptimator.InputFrontierSource`:
+
+```java
+public interface InputFrontierSource {
+  Optional<Instant> frontier(String table);                        // latest data-time seen
+  default List<DataChange> changesSince(String table, Instant since) { … } // late/out-of-order repair
+}
+```
+
+The `frontier` is an **optimistic** signal — "data has appeared through here," not a guarantee that
+everything at or before it has arrived. **Repair is what licenses that optimism:** late or
+out-of-order writes that land behind the cursor are reported by `changesSince` and healed with
+one-off backfills, so completeness is achieved by *frontier + repair*. A source that does **not**
+implement `changesSince` has no safety net and **must** report a *conservative* frontier (a real
+watermark) or it will silently drop late data.
+
+Because the capability hangs off the schema — the object the driver constructs from *this*
+`Database`'s connection config — per-cluster configuration (which brokers to read, etc.) is
+inherent: there is no global config to reach for, and many clusters can each be their own
+`Database`. The source-agnostic `TableTriggerReconciler` resolves a trigger's `(catalog, schema)` to
+the `Database`'s schema via `HoptimatorJdbcSchema.inputFrontierSource()` (which walks the driver's
+inner schema and `unwrap`s this interface — exactly like the `LogicalSchemaMarker` one-bit marker,
+just with methods), then asks it about the specific `table`. A schema that doesn't implement the
+interface is simply not frontier-driven, and the trigger falls back to cron/manual `FIRE`.
+
+To participate, have your driver's inner schema `implements InputFrontierSource`. The Kafka
+`ClusterSchema` in `hoptimator-kafka` is the reference: it takes the conservative route — a bounded
+out-of-orderness watermark (per-partition min of the latest timestamp, minus a `frontier.lag.ms`
+lag, excluding partitions more than the lag behind the leader), so it's sound without any
+`changesSince` repair. No `META-INF/services` file is required.
 
 ## Register, then test
 

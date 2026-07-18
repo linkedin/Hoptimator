@@ -20,6 +20,11 @@ build:
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-runner -t hoptimator-flink-runner
 	docker build hoptimator-flink-runner -f hoptimator-flink-runner/Dockerfile-flink-operator -t hoptimator-flink-operator
 
+load-kind-cluster:
+	kind load docker-image hoptimator:latest --name hoptimator-kind
+	kind load docker-image hoptimator-flink-operator:latest --name hoptimator-kind
+	kind load docker-image hoptimator-flink-runner:latest --name hoptimator-kind
+
 bounce: build undeploy deploy
 
 clean:
@@ -64,7 +69,7 @@ deploy-flink: deploy
 	kubectl create namespace flink || echo "skipping"
 	kubectl create -f https://github.com/jetstack/cert-manager/releases/download/v1.8.2/cert-manager.yaml || echo "skipping"
 	helm repo add flink-operator-repo https://downloads.apache.org/flink/flink-kubernetes-operator-1.13.0/
-	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=docker.io/library/hoptimator-flink-operator,image.tag=latest --set-json='watchNamespaces=["default","flink"]' flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
+	helm upgrade --install --atomic --set webhook.create=false,image.pullPolicy=Never,image.repository=hoptimator-flink-operator,image.tag=latest --set-json='watchNamespaces=["default","flink"]' flink-kubernetes-operator flink-operator-repo/flink-kubernetes-operator
 	kubectl apply -f ./deploy/dev/flink-session-cluster.yaml
 	kubectl apply -f ./deploy/dev/flink-sql-gateway.yaml
 	kubectl apply -f ./deploy/samples/flink-template.yaml
@@ -124,24 +129,21 @@ deploy-logical: deploy deploy-flink deploy-kafka deploy-venice
 undeploy-logical:
 	kubectl delete -f ./deploy/samples/logicaldb.yaml || echo "skipping"
 
-deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-mysql deploy-venice deploy-logical
+create-kind-cluster:
+	kind create cluster -n hoptimator-kind --config ./etc/cluster.yaml || echo "skipping"
+
+deploy-dev-environment: create-kind-cluster load-kind-cluster deploy deploy-demo deploy-flink deploy-kafka deploy-mysql deploy-venice deploy-logical
 
 undeploy-dev-environment: undeploy-logical undeploy-venice undeploy-mysql undeploy-kafka undeploy-flink undeploy-demo undeploy
 	kubectl delete -f ./deploy/dev || echo "skipping"
+	kind delete cluster -n hoptimator-kind || echo "skipping"
 
-# Integration test setup intended to be run locally
+# End-to-end integration tests, used both locally and in CI (the GitHub workflow installs kind, then
+# runs this target). create-kind-cluster provisions the kind cluster with ./etc/cluster.yaml, which
+# maps the Kafka bootstrap/broker and Flink SQL gateway node ports to localhost — so the tests reach
+# the cluster from the host with no manual port-forwarding.
 integration-tests: deploy-dev-environment
-	kubectl port-forward -n kafka svc/one-kafka-external-bootstrap 9092 & echo $$! > port-forward.pid
-	kubectl port-forward -n flink svc/flink-sql-gateway 8083 & echo $$! > port-forward-2.pid
-	kubectl port-forward -n flink svc/basic-session-deployment-rest 8081 & echo $$! > port-forward-3.pid
-	./gradlew intTest --no-parallel || kill `cat port-forward.pid port-forward-2.pid port-forward-3.pid`
-	kill `cat port-forward.pid`
-	kill `cat port-forward-2.pid`
-	kill `cat port-forward-3.pid`
-
-# kind cluster used in github workflow needs to have different routing set up, avoiding the need to forward kafka ports
-integration-tests-kind: deploy-dev-environment
-	./gradlew intTest -i --no-parallel
+	./gradlew intTest --no-parallel
 
 generate-models:
 	./generate-models.sh
@@ -164,4 +166,4 @@ run-zeppelin: build-zeppelin
 	  --name hoptimator-zeppelin \
 	  hoptimator-zeppelin
 
-.PHONY: install test coverage build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice deploy-logical undeploy-logical build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test coverage build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice deploy-logical undeploy-logical build-zeppelin run-zeppelin integration-tests deploy-dev-environment undeploy-dev-environment generate-models release

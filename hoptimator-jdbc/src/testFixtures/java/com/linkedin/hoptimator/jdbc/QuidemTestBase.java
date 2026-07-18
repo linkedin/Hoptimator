@@ -10,6 +10,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Timeout;
 
 import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
@@ -31,9 +32,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 
+// Guard every Quidem script against hanging indefinitely against a live cluster: each test method
+// (one .id script) is bounded, so a wedged reconcile/deploy fails that test instead of blocking the
+// whole integration run. Applies to subclasses via JUnit's superclass @Timeout lookup.
+@Timeout(value = 3, unit = TimeUnit.MINUTES)
 public abstract class QuidemTestBase {
 
   protected void run(String resourceName) throws IOException, URISyntaxException {

@@ -32,6 +32,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -47,6 +48,11 @@ class K8sTriggerDeployerTest {
   private List<V1alpha1JobTemplate> jobTemplates;
   private FakeK8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> jobTemplateApi;
   private K8sSnapshot snapshot;
+  private Map<String, String> yamls;
+  private FakeK8sYamlApi fakeYamlApi;
+
+  private static final String JOB_TEMPLATE = String.join("\n",
+      "apiVersion: batch/v1", "kind: Job", "metadata:", "  name: bf-job");
 
   @BeforeEach
   void setUp() {
@@ -54,8 +60,8 @@ class K8sTriggerDeployerTest {
     triggerApi = new FakeK8sApi<>(triggers);
     jobTemplates = new ArrayList<>();
     jobTemplateApi = new FakeK8sApi<>(jobTemplates);
-    Map<String, String> yamls = new HashMap<>();
-    FakeK8sYamlApi fakeYamlApi = new FakeK8sYamlApi(yamls);
+    yamls = new HashMap<>();
+    fakeYamlApi = new FakeK8sYamlApi(yamls);
     snapshot = new K8sSnapshot(null) {
       @Override
       K8sYamlApi createYamlApi(K8sContext context) {
@@ -83,6 +89,11 @@ class K8sTriggerDeployerTest {
       @Override
       K8sApi<V1alpha1JobTemplate, V1alpha1JobTemplateList> createJobTemplateApi(K8sContext ctx) {
         return capturedJobTemplateApi;
+      }
+
+      @Override
+      K8sYamlApi createYamlApi(K8sContext ctx) {
+        return fakeYamlApi;
       }
 
       @Override
@@ -319,6 +330,7 @@ class K8sTriggerDeployerTest {
     assertTrue(specs.get(0).contains("parallelism"));
     assertTrue(specs.get(0).contains("restart-strategy"));
   }
+
 
   @Test
   void toK8sObjectOptionsPutAllIncludedInEnvironment() throws SQLException {
@@ -599,6 +611,33 @@ class K8sTriggerDeployerTest {
         "{{catalog}}.{{schema}}.{{table}} must render to OPENHOUSE.MYDB.MYTABLE — got: " + specs.get(0));
   }
 
+  @Test
+  void toK8sObjectDefersWindowVarsForThePerFireRender() throws SQLException {
+    // A JobTemplate that references the fire window must NOT be rejected at CREATE (the window is
+    // only known per-fire). The window vars must pass through toK8sObject untouched so the reconciler
+    // / FIRE render can resolve them later. Without deferral, {{watermark}} would render to null and
+    // the empty-yaml guard would reject the CREATE.
+    V1alpha1JobTemplate jobTemplate = new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("myjob").namespace("test-ns"))
+        .spec(new V1alpha1JobTemplateSpec().yaml(
+            "window: [{{watermark}}, {{timestamp}}] table: {{table}}"));
+    jobTemplates.add(jobTemplate);
+
+    Trigger trigger = new Trigger("MY_TRIGGER", new UserJob("test-ns", "MY_JOB"), "0 * * * *",
+        Collections.emptyMap(),
+        new Source(null, Arrays.asList("OPENHOUSE", "MYDB", "MYTABLE"), Collections.emptyMap()),
+        null);
+
+    K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
+    List<String> specs = deployer.specify();
+
+    assertFalse(specs.isEmpty());
+    assertTrue(specs.get(0).contains("window: [{{watermark}}, {{timestamp}}]"),
+        "window vars must survive the CREATE render for the per-fire render — got: " + specs.get(0));
+    assertTrue(specs.get(0).contains("table: MYTABLE"),
+        "static vars must still resolve at CREATE — got: " + specs.get(0));
+  }
+
   // ───────── toK8sObject() path derivation tests ─────────
 
   @Test
@@ -667,12 +706,11 @@ class K8sTriggerDeployerTest {
         "spec.paused=true must be present in rendered YAML when PAUSED_OPTION=true — got: " + specs.get(0));
   }
 
-  // ───────── update() FIRE_OPTION (fire-trigger) tests ─────────
+  // ───────── update() FIRE TRIGGER tests ─────────
 
-  private Trigger fireTrigger(Map<String, String> extraOptions) {
-    Map<String, String> options = new HashMap<>(extraOptions);
-    options.put(Trigger.FIRE_OPTION, "true");
-    return new Trigger("MY_TRIGGER", null, null, options, null, null);
+  private Trigger fireTrigger() {
+    return new Trigger("MY_TRIGGER", null, null, new HashMap<>(), null, null,
+        new Trigger.Fire(null, null));
   }
 
   @Test
@@ -683,7 +721,7 @@ class K8sTriggerDeployerTest {
     triggers.add(existing);
 
     OffsetDateTime before = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(1);
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(), mockContext);
     deployer.update();
 
     assertNotNull(existing.getStatus(), "status must be set after FIRE");
@@ -693,30 +731,141 @@ class K8sTriggerDeployerTest {
   }
 
   @Test
-  void updateWithFireOptionMergesJobPropertiesStrippingPrefix() throws SQLException {
-    // Pre-existing jobProperty value must be retained, and new WITH option (with
-    // job.properties. prefix) must be merged in with the prefix stripped — symmetric
-    // with the CREATE TRIGGER deployer behaviour.
+  void updateWithWindowedFireCreatesBackfillJobWithoutMovingCursor() throws SQLException {
+    // FIRE ... FROM/TO launches a one-off backfill Job directly (not tracked on the trigger) and
+    // must NOT touch the incremental cursor (watermark/timestamp). Control options must not leak.
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("mytrigger"))
-        .spec(new V1alpha1TableTriggerSpec()
-            .jobProperties(new HashMap<>(Collections.singletonMap("existing", "v0"))));
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE))
+        .status(new V1alpha1TableTriggerStatus()
+            .watermark(OffsetDateTime.parse("2026-06-01T00:00Z"))
+            .timestamp(OffsetDateTime.parse("2026-06-01T00:00Z")));
     triggers.add(existing);
 
-    Map<String, String> opts = new HashMap<>();
-    opts.put("job.properties.backfill.start.time", "2026-04-01");
-    opts.put("job.properties.backfill.end.time", "2026-04-08");
-
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(opts), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-05-01T00:00Z", "2026-05-08T00:00Z"), mockContext);
     deployer.update();
 
-    Map<String, String> jobProps = existing.getSpec().getJobProperties();
-    assertEquals("v0", jobProps.get("existing"), "pre-existing jobProperty must be retained");
-    assertEquals("2026-04-01", jobProps.get("backfill.start.time"),
-        "WITH option must be merged with job.properties. prefix stripped");
-    assertEquals("2026-04-08", jobProps.get("backfill.end.time"));
-    assertFalse(jobProps.containsKey(Trigger.FIRE_OPTION),
-        "FIRE marker must not leak into jobProperties");
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-05-08T00:00Z"), null)),
+        "a window-named backfill Job must be created");
+    assertEquals(OffsetDateTime.parse("2026-06-01T00:00Z"), existing.getStatus().getWatermark(),
+        "watermark (cursor) must be left untouched by a backfill");
+    assertEquals(OffsetDateTime.parse("2026-06-01T00:00Z"), existing.getStatus().getTimestamp(),
+        "timestamp (cursor) must be left untouched by a backfill");
+    assertNull(existing.getSpec().getJobProperties(),
+        "FIRE must not write spec.jobProperties at all");
+  }
+
+  private Trigger windowedFire(String from, String to) {
+    return new Trigger("MY_TRIGGER", null, null, new HashMap<>(), null, null,
+        new Trigger.Fire(OffsetDateTime.parse(from), OffsetDateTime.parse(to)));
+  }
+
+  @Test
+  void backfillEntirelyAtOrAfterWatermarkIsRejected() {
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec())
+        .status(new V1alpha1TableTriggerStatus().watermark(OffsetDateTime.parse("2026-06-01T00:00Z")));
+    triggers.add(existing);
+
+    // [2026-06-02, 2026-06-03] starts AFTER the watermark → nothing to backfill → rejected.
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-06-02T00:00Z", "2026-06-03T00:00Z"), mockContext);
+    SQLException e = assertThrows(SQLException.class, deployer::update);
+    assertTrue(e.getMessage().contains("entirely at or after the watermark"));
+    assertTrue(yamls.isEmpty(), "no backfill Job should be created on rejection");
+  }
+
+  @Test
+  void backfillEndIsCappedAtWatermark() throws SQLException {
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE))
+        .status(new V1alpha1TableTriggerStatus().watermark(OffsetDateTime.parse("2026-06-01T00:00Z")));
+    triggers.add(existing);
+
+    // from < watermark < to → end is capped to the watermark; from is kept.
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-05-20T00:00Z", "2026-06-15T00:00Z"), mockContext);
+    deployer.update();
+
+    // The backfill Job covers [from, watermark] — the capped window.
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-20T00:00Z"), OffsetDateTime.parse("2026-06-01T00:00Z"), null)),
+        "backfill end must be capped at the watermark");
+  }
+
+  @Test
+  void backfillWithNoWatermarkRunsRequestedWindow() throws SQLException {
+    // A trigger with no watermark (paused, or never run) has no forward cursor to protect, so a
+    // backfill runs the requested window as-is. This is the normal case for an offline-tier trigger,
+    // which is created paused and only ever does on-demand backfills.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE));
+    triggers.add(existing);
+
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-05-01T00:00Z", "2026-05-08T00:00Z"), mockContext);
+    deployer.update();
+
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-05-08T00:00Z"), null)),
+        "backfill must run the requested window when there is no watermark to cap against");
+  }
+
+  @Test
+  void backfillIgnoresInFlightForwardExecution() throws SQLException {
+    // A backfill is independent of the forward cursor, so an in-flight forward execution
+    // (timestamp > watermark) must NOT block it. This is what lets a paused offline trigger — which,
+    // once plain-fired, sits with timestamp set and watermark null forever — still be backfilled.
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE))
+        .status(new V1alpha1TableTriggerStatus()
+            .timestamp(OffsetDateTime.parse("2026-06-05T00:00Z")));   // set, watermark null → "in-flight"
+    triggers.add(existing);
+
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-05-01T00:00Z", "2026-05-08T00:00Z"), mockContext);
+    deployer.update();
+
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-05-08T00:00Z"), null)),
+        "a backfill must not be blocked by an in-flight forward execution");
+  }
+
+  @Test
+  void backfillWithEndBeforeStartIsRejected() {
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec())
+        .status(new V1alpha1TableTriggerStatus().watermark(OffsetDateTime.parse("2026-06-01T00:00Z")));
+    triggers.add(existing);
+
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-05-08T00:00Z", "2026-05-01T00:00Z"), mockContext);
+    SQLException e = assertThrows(SQLException.class, deployer::update);
+    assertTrue(e.getMessage().contains("must be before end"));
+  }
+
+  @Test
+  void backfillEndingAtWatermarkIsAccepted() throws SQLException {
+    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
+        .metadata(new V1ObjectMeta().name("mytrigger"))
+        .spec(new V1alpha1TableTriggerSpec().yaml(JOB_TEMPLATE))
+        .status(new V1alpha1TableTriggerStatus().watermark(OffsetDateTime.parse("2026-06-01T00:00Z")));
+    triggers.add(existing);
+
+    // Window ends exactly at the watermark → allowed (boundary is inclusive).
+    K8sTriggerDeployer deployer = makeDeployer(
+        windowedFire("2026-05-01T00:00Z", "2026-06-01T00:00Z"), mockContext);
+    deployer.update();
+
+    assertTrue(yamls.containsKey(K8sTriggerJobs.backfillJobName("bf-job",
+        OffsetDateTime.parse("2026-05-01T00:00Z"), OffsetDateTime.parse("2026-06-01T00:00Z"), null)));
   }
 
   @Test
@@ -728,7 +877,7 @@ class K8sTriggerDeployerTest {
         .status(new V1alpha1TableTriggerStatus().timestamp(OffsetDateTime.now(ZoneOffset.UTC)));
     triggers.add(existing);
 
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(), mockContext);
     SQLException ex = assertThrows(SQLException.class, deployer::update,
         "FIRE on an in-flight trigger must throw");
     assertTrue(ex.getMessage().contains("in-flight"),
@@ -745,7 +894,7 @@ class K8sTriggerDeployerTest {
         .status(new V1alpha1TableTriggerStatus().timestamp(t).watermark(t));
     triggers.add(existing);
 
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(), mockContext);
     deployer.update();
 
     assertTrue(existing.getStatus().getTimestamp().isAfter(t),
@@ -754,42 +903,9 @@ class K8sTriggerDeployerTest {
 
   @Test
   void updateWithFireOptionThrowsWhenTriggerNotFound() {
-    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(Collections.emptyMap()), mockContext);
+    K8sTriggerDeployer deployer = makeDeployer(fireTrigger(), mockContext);
     SQLException ex = assertThrows(SQLException.class, deployer::update);
     assertTrue(ex.getMessage().contains("not found"),
         "exception must mention not-found: " + ex.getMessage());
-  }
-
-  @Test
-  void updateWithFireOptionCreatesSpecIfNull() throws SQLException {
-    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
-        .metadata(new V1ObjectMeta().name("mytrigger"))
-        .spec(null);
-    triggers.add(existing);
-
-    K8sTriggerDeployer deployer = makeDeployer(
-        fireTrigger(Collections.singletonMap("job.properties.k", "v")), mockContext);
-    deployer.update();
-
-    assertNotNull(existing.getSpec(), "spec must be initialised by FIRE when previously null");
-    assertEquals("v", existing.getSpec().getJobProperties().get("k"));
-  }
-
-  @Test
-  void updateWithFireOptionKeepsUnprefixedOptionsVerbatim() throws SQLException {
-    // Unprefixed keys land in spec.jobProperties as-is — symmetric with CREATE which
-    // accepts both forms.
-    V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
-        .metadata(new V1ObjectMeta().name("mytrigger"))
-        .spec(new V1alpha1TableTriggerSpec());
-    triggers.add(existing);
-
-    K8sTriggerDeployer deployer = makeDeployer(
-        fireTrigger(Collections.singletonMap("backfill.start.time", "2026-04-01")), mockContext);
-    deployer.update();
-
-    assertEquals("2026-04-01",
-        existing.getSpec().getJobProperties().get("backfill.start.time"),
-        "unprefixed FIRE option must land in jobProperties verbatim");
   }
 }

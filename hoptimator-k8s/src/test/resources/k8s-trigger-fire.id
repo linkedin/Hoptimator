@@ -33,18 +33,50 @@ drop trigger testfire;
 
 !update
 
-# FIRE with WITH options: options should be merged into spec.jobProperties.
-create trigger testfirewith on ads_catalog.ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
+# FIRE with a backfill window: FROM/TO requests a one-off backfill without mutating the spec.
+# A trigger with no watermark (e.g. paused, or never run) has no forward cursor to protect, so the
+# backfill simply runs the requested window as-is — this is the normal offline-tier backfill case.
+create trigger testfirewindow on ads_catalog.ads.ad_clicks as 'my-app' in 'my-mp' with ('job.properties.foo' 'initial');
 (0 rows modified)
 
 !update
 
-fire trigger testfirewith with ('job.properties.backfill.start.time' '2026-04-01', 'job.properties.backfill.end.time' '2026-04-08');
+fire trigger testfirewindow from '2026-04-01' to '2026-04-08';
 (0 rows modified)
 
 !update
 
-drop trigger testfirewith;
+# The 3-part identifier is split into catalog/schema/table on the spec. The CATALOG is what routes a
+# TableTrigger's input to the matching InputWatermarkProvider (e.g. KAFKA vs OPENHOUSE), so the
+# source-agnostic reconciler can advance the cursor to that source's data-time frontier.
+select name, "CATALOG" from "k8s".table_triggers where name = 'testfirewindow';
++----------------+-------------+
+| NAME           | CATALOG     |
++----------------+-------------+
+| testfirewindow | ADS_CATALOG |
++----------------+-------------+
+(1 row)
+
+!ok
+
+# An inverted backfill window (start not before end) is rejected up front, before any status write.
+fire trigger testfirewindow from '2026-04-08' to '2026-04-01';
+Backfill window start
+!error
+
+# A relative window (<n> <unit> AGO) parses and resolves to absolute instants end-to-end and, with no
+# watermark to cap against, runs the requested window.
+fire trigger testfirewindow from 7 days ago to 1 day ago;
+(0 rows modified)
+
+!update
+
+# An unparseable absolute time bound is rejected by the executor before it reaches the deployer.
+fire trigger testfirewindow from 'not-a-time' to '2026-04-08';
+Invalid FIRE TRIGGER time bound
+!error
+
+drop trigger testfirewindow;
 (0 rows modified)
 
 !update

@@ -21,8 +21,20 @@ spec:
                 value: "{{trigger}}"
               - name: SOURCE_TABLE_NAME
                 value: "{{path}}"
+              # Optional: only set when the offline tier feeds an online tier (reverse-ETL).
+              # Defaults to empty so an offline-only LogicalTable's implicit trigger still renders.
               - name: ONLINE_TABLE_NAME
-                value: "{{job.properties.online.table.name}}"
-            command: ["bash",  "-c", "echo {{name}}-trigger fired at `date`"]
+                value: "{{job.properties.online.table.name:}}"
+              # Fire window [WINDOW_START, WINDOW_END]. On an incremental fire this is
+              # [watermark, timestamp]; on a backfill (FIRE ... FROM ... TO ...) it is [FROM, TO].
+              - name: WINDOW_START
+                value: "{{watermark}}"
+              - name: WINDOW_END
+                value: "{{timestamp}}"
+              - name: WINDOW_START_DATE
+                value: "{{watermarkDate}}"
+              - name: WINDOW_END_DATE
+                value: "{{timestampDate}}"
+            command: ["bash",  "-c", "echo {{name}}-trigger processing window [$WINDOW_START, $WINDOW_END] at `date`"]
           restartPolicy: Never
       backoffLimit: 4

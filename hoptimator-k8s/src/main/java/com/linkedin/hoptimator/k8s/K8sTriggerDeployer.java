@@ -10,6 +10,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
 import com.linkedin.hoptimator.util.Template;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.time.OffsetDateTime;
@@ -21,6 +23,8 @@ import java.util.Properties;
 
 
 public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alpha1TableTriggerList> {
+
+  private static final Logger logger = LoggerFactory.getLogger(K8sTriggerDeployer.class);
 
   private final K8sContext context;
   private final Trigger trigger;
@@ -43,12 +47,16 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     return new K8sApi<>(context, K8sApiEndpoints.JOB_TEMPLATES);
   }
 
+  K8sYamlApi createYamlApi(K8sContext context) {
+    return new K8sYamlApi(context);
+  }
+
   @Override
   public void update() throws SQLException {
     String canonicalName = K8sUtils.canonicalizeName(trigger.name());
     V1alpha1TableTrigger existingTrigger = triggerApi.getIfExists(context.namespace(), canonicalName);
 
-    if (trigger.options().containsKey(Trigger.FIRE_OPTION)) {
+    if (trigger.fire() != null) {
       fire(existingTrigger);
       return;
     }
@@ -80,42 +88,63 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
     super.update();
   }
 
-  /** Applies a FIRE intent: rejects on in-flight, merges WITH options into spec.jobProperties
-   *  (mirroring CREATE TRIGGER's prefix-stripping), then bumps status.timestamp so the
-   *  TableTriggerReconciler materialises a fresh Job. */
+  /** Applies a FIRE intent: rejects on an in-flight incremental execution, validates any requested
+   *  backfill window, then either bumps {@code status.timestamp} (a plain fire, materialised by the
+   *  reconciler) or launches a one-off backfill Job over {@code [from, to]} directly. A backfill
+   *  never touches the cursor and is not tracked on the trigger — it is just a Kubernetes Job. */
   private void fire(V1alpha1TableTrigger existingTrigger) throws SQLException {
     if (existingTrigger == null) {
       throw new SQLException("Trigger " + trigger.name() + " not found.");
     }
     V1alpha1TableTriggerStatus status = existingTrigger.getStatus();
+    Trigger.Fire fireRequest = trigger.fire();
+
+    // A windowed fire (backfill) is independent of the forward cursor: it runs a one-off Job over an
+    // explicit window and never moves the cursor. It deliberately bypasses the paused-forward gate
+    // (createBackfill launches the Job directly), which is exactly what an offline / batch-only
+    // trigger — created paused, fired on demand — needs. So we do NOT apply the in-flight guard here;
+    // that guard is about the forward path.
+    if (fireRequest.windowed()) {
+      OffsetDateTime from = fireRequest.from();
+      OffsetDateTime to = fireRequest.to();
+      if (!from.isBefore(to)) {
+        throw new SQLException("Backfill window start (" + from + ") must be before end ("
+            + to + ").");
+      }
+      // The watermark cap protects a *live forward cursor* — a backfill must not run ahead of it. A
+      // trigger with no watermark (paused, or never run) has no such cursor, so there is nothing to
+      // protect: run the requested window as-is. This is the normal case for an offline-tier backfill
+      // trigger, whose only mode is on-demand backfills.
+      OffsetDateTime watermark = status != null ? status.getWatermark() : null;
+      if (watermark != null) {
+        if (!from.isBefore(watermark)) {
+          throw new SQLException("Backfill window [" + from + ", " + to
+              + "] is entirely at or after the watermark (" + watermark + "); there is no processed "
+              + "history to backfill. The incremental cursor will reach this range on its own.");
+        }
+        if (to.isAfter(watermark)) {
+          logger.info("Capping backfill end for trigger {} from {} to the watermark {} "
+              + "(a backfill cannot cover data the cursor has not yet processed).",
+              trigger.name(), to, watermark);
+          to = watermark;
+        }
+      }
+      K8sTriggerJobs.createBackfill(createYamlApi(context), existingTrigger, from, to, null);
+      return;
+    }
+
+    // Plain (forward) fire: reject if a forward execution is already in flight (the cursor has been
+    // bumped past the watermark and the Job hasn't caught up).
     if (status != null && status.getTimestamp() != null
         && (status.getWatermark() == null || status.getTimestamp().isAfter(status.getWatermark()))) {
       throw new SQLException("Trigger " + trigger.name() + " has an in-flight execution (timestamp="
           + status.getTimestamp() + ", watermark=" + status.getWatermark()
-          + "). Wait for it to complete, or pause/resume to abort.");
+          + "). Wait for it to complete.");
     }
 
-    V1alpha1TableTriggerSpec spec = existingTrigger.getSpec();
-    if (spec == null) {
-      spec = new V1alpha1TableTriggerSpec();
-      existingTrigger.spec(spec);
-    }
-    Map<String, String> jobProps = spec.getJobProperties() != null
-        ? new HashMap<>(spec.getJobProperties())
-        : new HashMap<>();
-    trigger.options().forEach((key, value) -> {
-      if (Trigger.FIRE_OPTION.equals(key)) {
-        return;
-      }
-      if (key.startsWith("job.properties.")) {
-        jobProps.put(key.substring("job.properties.".length()), value);
-      } else {
-        jobProps.put(key, value);
-      }
-    });
-    spec.jobProperties(jobProps);
-    triggerApi.update(existingTrigger);
-
+    // A plain fire bumps the cursor for the reconciler to materialise: a single status write (the
+    // gating commit). If it fails (e.g. a 409 conflict), the FIRE surfaces an error and the client
+    // retries.
     V1alpha1TableTriggerStatus newStatus = status != null ? status : new V1alpha1TableTriggerStatus();
     newStatus.setTimestamp(OffsetDateTime.now(ZoneOffset.UTC));
     existingTrigger.setStatus(newStatus);
@@ -177,7 +206,14 @@ public class K8sTriggerDeployer extends K8sDeployer<V1alpha1TableTrigger, V1alph
         source != null ? Collections.singletonList(source) : Collections.emptyList(),
         trigger.sink() != null ? Collections.singletonList(trigger.sink()) : Collections.emptyList());
     String template = jobTemplate.getSpec().getYaml();
-    String rendered = new Template.SimpleTemplate(template).render(env);
+    String rendered = new Template.SimpleTemplate(template).render(env, K8sTriggerJobs::isWindowVar);
+    if (rendered == null || rendered.trim().isEmpty()) {
+      throw new SQLException("JobTemplate " + jobNamespace + "/" + jobName + " rendered to nothing for "
+          + "trigger " + trigger.name() + ". Its yaml is empty, or it references a template variable that "
+          + "was not provided — a single unresolved {{variable}} skips the whole template. Check the log "
+          + "for \"resolved to null. Skipping template.\" and supply it via WITH (...) (e.g. a "
+          + "job.properties.* value) or give the variable a {{var:default}}.");
+    }
     Map<String, String> jobProps = new HashMap<>();
     trigger.options().forEach((key, value) -> {
       if (key.startsWith("job.properties.")) {

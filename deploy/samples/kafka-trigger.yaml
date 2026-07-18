@@ -1,0 +1,36 @@
+# Sample: a TableTrigger that fires automatically when new records arrive on a Kafka topic.
+#
+# The KafkaInputWatermark provider (hoptimator-kafka-controller) reports the topic's latest record
+# timestamp as the input's data-time frontier. The generic TableTriggerReconciler advances this
+# trigger's cursor to that frontier and launches the Job below over the newly-available window
+# [watermark, timestamp]. No external scheduler/poker is needed — contrast
+# deploy/samples/crontrigger.yaml, which pokes a trigger's status on a cron.
+#
+# Requires the operator to know the Kafka cluster: set the bootstrap servers via the
+# `hoptimator.kafka.bootstrap.servers` system property or the `KAFKA_BOOTSTRAP_SERVERS` env var.
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: TableTrigger
+metadata:
+  name: kafka-arrival-trigger
+spec:
+  schema: KAFKA
+  table: existing-topic-1
+  yaml: |
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+      name: kafka-arrival-trigger-job
+    spec:
+      template:
+        spec:
+          containers:
+          - name: hello
+            image: alpine/k8s:1.33.0
+            command:
+            - /bin/bash
+            - -c
+            - >-
+              echo "New records on {{table}}: processing window [{{watermark}}, {{timestamp}}]"
+          restartPolicy: Never
+      backoffLimit: 4
+      ttlSecondsAfterFinished: 90

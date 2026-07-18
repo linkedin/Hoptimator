@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.util.planner;
 
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Engine;
+import com.linkedin.hoptimator.InputFrontierSource;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.adapter.jdbc.JdbcTable;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -25,6 +26,7 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 
@@ -39,6 +41,7 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
   private final HoptimatorJdbcConvention convention;
   private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
   private volatile Boolean cachedLogical;
+  private volatile Optional<InputFrontierSource> cachedFrontierSource;
 
   public static HoptimatorJdbcSchema create(String database, String catalog, String schema, DataSource dataSource,
       SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
@@ -123,6 +126,76 @@ public class HoptimatorJdbcSchema extends JdbcSchema implements Database {
         return sub.unwrap(LogicalSchemaMarker.class) != null;
       } catch (ClassCastException e) {
         return false;
+      }
+    }
+  }
+
+  /**
+   * Returns the source's {@link InputFrontierSource} capability when the underlying driver surfaces
+   * one at the configured catalog/schema path, so a {@code TableTrigger} over this {@code Database}
+   * can fire on data availability. Exactly parallels {@link #isLogical()}: lazily opens the
+   * downstream connection on first ask, walks its sub-schemas, and returns the inner schema unwrapped
+   * to {@link InputFrontierSource} (empty when the driver surfaces no such capability). Drivers
+   * participate simply by having their inner Calcite schema implement the interface — no SPI or
+   * shared string required.
+   *
+   * <p>The resolved capability is memoized for the schema's lifetime (like {@code cachedLogical}); a
+   * transient JDBC failure is <i>not</i> cached, so a flaky moment can't poison the resolver. The
+   * inner schema must remain usable after the downstream connection closes (it should read from its
+   * own retained config, not the live connection) — the Kafka {@code ClusterSchema}, which holds only
+   * connection properties, satisfies this.
+   */
+  public Optional<InputFrontierSource> inputFrontierSource() {
+    Optional<InputFrontierSource> cached = cachedFrontierSource;
+    if (cached != null) {
+      return cached;
+    }
+    try {
+      Optional<InputFrontierSource> resolved = detectFrontierSource();
+      cachedFrontierSource = resolved;
+      return resolved;
+    } catch (SQLException e) {
+      // Cache deliberately left unset — the next caller retries.
+      LOG.warn("Transient failure resolving InputFrontierSource for database {}; treating as "
+          + "non-frontier-driven for this call and will retry on next access", database, e);
+      return Optional.empty();
+    }
+  }
+
+  /**
+   * @throws SQLException when the downstream connection can't be acquired; the caller translates that
+   *     into a non-cached "no source" outcome so a transient blip doesn't poison the resolver. A
+   *     driver that simply doesn't implement {@link CalciteConnection} or the capability is a
+   *     permanent characteristic and is cached as absent instead of being treated as a failure.
+   */
+  private Optional<InputFrontierSource> detectFrontierSource() throws SQLException {
+    try (Connection downstream = getDataSource().getConnection()) {
+      CalciteConnection cc;
+      try {
+        cc = downstream.unwrap(CalciteConnection.class);
+      } catch (SQLException e) {
+        return Optional.empty();  // permanent: this driver doesn't surface a CalciteConnection.
+      }
+      SchemaPlus root = cc.getRootSchema();
+      if (root == null) {
+        return Optional.empty();
+      }
+      SchemaPlus sub = root;
+      if (catalog != null) {
+        sub = sub.subSchemas().get(catalog);
+      }
+      if (sub != null && schema != null) {
+        sub = sub.subSchemas().get(schema);
+      }
+      if (sub == null) {
+        return Optional.empty();
+      }
+      // SchemaPlus.unwrap throws ClassCastException for non-matching types — that's the dominant
+      // "looked and isn't a frontier source" outcome, not a crash.
+      try {
+        return Optional.ofNullable(sub.unwrap(InputFrontierSource.class));
+      } catch (ClassCastException e) {
+        return Optional.empty();
       }
     }
   }

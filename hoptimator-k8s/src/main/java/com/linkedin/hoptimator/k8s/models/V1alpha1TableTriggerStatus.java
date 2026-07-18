@@ -46,6 +46,10 @@ public class V1alpha1TableTriggerStatus {
   @SerializedName(SERIALIZED_NAME_WATERMARK)
   private OffsetDateTime watermark;
 
+  public static final String SERIALIZED_NAME_LATE_WATERMARK = "lateWatermark";
+  @SerializedName(SERIALIZED_NAME_LATE_WATERMARK)
+  private OffsetDateTime lateWatermark;
+
 
   public V1alpha1TableTriggerStatus jobs(Map<String, Map<String, String>> jobs) {
     
@@ -124,6 +128,30 @@ public class V1alpha1TableTriggerStatus {
   }
 
 
+  public V1alpha1TableTriggerStatus lateWatermark(OffsetDateTime lateWatermark) {
+    
+    this.lateWatermark = lateWatermark;
+    return this;
+  }
+
+   /**
+   * Internal cursor over the source's change stream (in arrival time), tracking how far late/out-of-order
+   * changes behind the watermark have been consumed and repaired via backfills. Not the user-facing watermark.
+   * @return lateWatermark
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "Internal cursor over the source's change stream for late-change repair.")
+
+  public OffsetDateTime getLateWatermark() {
+    return lateWatermark;
+  }
+
+
+  public void setLateWatermark(OffsetDateTime lateWatermark) {
+    this.lateWatermark = lateWatermark;
+  }
+
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -135,12 +163,13 @@ public class V1alpha1TableTriggerStatus {
     V1alpha1TableTriggerStatus v1alpha1TableTriggerStatus = (V1alpha1TableTriggerStatus) o;
     return Objects.equals(this.jobs, v1alpha1TableTriggerStatus.jobs) &&
         Objects.equals(this.timestamp, v1alpha1TableTriggerStatus.timestamp) &&
-        Objects.equals(this.watermark, v1alpha1TableTriggerStatus.watermark);
+        Objects.equals(this.watermark, v1alpha1TableTriggerStatus.watermark) &&
+        Objects.equals(this.lateWatermark, v1alpha1TableTriggerStatus.lateWatermark);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(jobs, timestamp, watermark);
+    return Objects.hash(jobs, timestamp, watermark, lateWatermark);
   }
 
 
@@ -151,6 +180,7 @@ public class V1alpha1TableTriggerStatus {
     sb.append("    jobs: ").append(toIndentedString(jobs)).append("\n");
     sb.append("    timestamp: ").append(toIndentedString(timestamp)).append("\n");
     sb.append("    watermark: ").append(toIndentedString(watermark)).append("\n");
+    sb.append("    lateWatermark: ").append(toIndentedString(lateWatermark)).append("\n");
     sb.append("}");
     return sb.toString();
   }

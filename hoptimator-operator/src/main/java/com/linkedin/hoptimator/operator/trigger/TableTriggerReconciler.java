@@ -4,14 +4,20 @@ import com.cronutils.model.definition.CronDefinition;
 import com.cronutils.model.definition.CronDefinitionBuilder;
 import com.cronutils.model.time.ExecutionTime;
 import com.cronutils.parser.CronParser;
+import com.linkedin.hoptimator.DataChange;
+import com.linkedin.hoptimator.InputFrontierSource;
+import com.linkedin.hoptimator.jdbc.DeployerUtils;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.k8s.K8sTriggerJobs;
 import com.linkedin.hoptimator.k8s.K8sYamlApi;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
+import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerStatus;
-import com.linkedin.hoptimator.util.Template;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import io.kubernetes.client.extended.controller.Controller;
 import io.kubernetes.client.extended.controller.builder.ControllerBuilder;
 import io.kubernetes.client.extended.controller.reconciler.Reconciler;
@@ -27,15 +33,18 @@ import org.slf4j.LoggerFactory;
 
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Properties;
 
 /**
  * Launches Jobs when TableTriggers are fired.
@@ -88,18 +97,41 @@ public final class TableTriggerReconciler implements Reconciler {
   private final K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi;
   private final K8sApi<V1Job, V1JobList> jobApi;
   private final K8sYamlApi yamlApi;
+  private final FrontierSourceResolver frontierSourceResolver;
 
   private TableTriggerReconciler(K8sContext context) {
     this(new K8sApi<>(context, K8sApiEndpoints.TABLE_TRIGGERS),
         new K8sApi<>(context, K8sApiEndpoints.JOBS),
-        new K8sYamlApi(context));
+        new K8sYamlApi(context),
+        frontierSourceResolver(context.connection()));
   }
 
   TableTriggerReconciler(K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
       K8sApi<V1Job, V1JobList> jobApi, K8sYamlApi yamlApi) {
+    this(tableTriggerApi, jobApi, yamlApi, (catalog, schema) -> null);
+  }
+
+  TableTriggerReconciler(K8sApi<V1alpha1TableTrigger, V1alpha1TableTriggerList> tableTriggerApi,
+      K8sApi<V1Job, V1JobList> jobApi, K8sYamlApi yamlApi,
+      FrontierSourceResolver frontierSourceResolver) {
     this.tableTriggerApi = tableTriggerApi;
     this.jobApi = jobApi;
     this.yamlApi = yamlApi;
+    this.frontierSourceResolver = frontierSourceResolver;
+  }
+
+  /**
+   * Production resolver: unwraps the operator's Calcite connection to the input {@code Database}'s
+   * {@link HoptimatorJdbcSchema} and returns its {@link InputFrontierSource} capability, or null when
+   * the input has no database or its driver surfaces no frontier capability. This is the seam that
+   * replaces per-source trigger controllers: the capability hangs off the schema the driver already
+   * builds, so per-cluster connection config is inherent.
+   */
+  private static FrontierSourceResolver frontierSourceResolver(HoptimatorConnection connection) {
+    return (catalog, schema) -> {
+      HoptimatorJdbcSchema jdbcSchema = DeployerUtils.jdbcSchema(catalog, schema, connection, log);
+      return jdbcSchema == null ? null : jdbcSchema.inputFrontierSource().orElse(null);
+    };
   }
 
   @Override
@@ -142,7 +174,13 @@ public final class TableTriggerReconciler implements Reconciler {
       }
 
       V1alpha1TableTriggerStatus status = object.getStatus();
-      if (status == null && object.getSpec().getSchedule() == null) {
+
+      // Ask the input's Database schema how far this input is complete in data time (the
+      // InputFrontierSource capability). Null means the input is not frontier-driven -> the trigger
+      // is cron-/manually-driven. This is the seam that replaces per-source trigger controllers.
+      OffsetDateTime frontier = inputFrontier(object);
+
+      if (status == null && frontier == null && object.getSpec().getSchedule() == null) {
         log.info("Trigger {} has not been fired yet. Skipping.", name);
         return new Result(false);
       } else if (status == null) {
@@ -161,6 +199,34 @@ public final class TableTriggerReconciler implements Reconciler {
 
       ExecutionTime scheduled = scheduledExecution(object);
       ZonedDateTime now = ZonedDateTime.now();
+
+      // Data-availability firing: when a source reports a data-time frontier for the input, advance
+      // the cursor to it and launch the Job over the newly-available window [watermark, timestamp].
+      // The frontier is an optimistic signal — the source has seen data through it, not a guarantee
+      // that everything at or before it has arrived — so late writes behind the cursor are healed
+      // separately via changesSince/backfill. Gated on job == null (like cron) so we process one
+      // window at a time. Uniform across every source: the source supplies a frontier; this
+      // reconciler owns the cursor and Job launching.
+      if (job == null && frontier != null
+          && (status.getTimestamp() == null || frontier.isAfter(status.getTimestamp()))) {
+        log.info("Advancing TableTrigger {} to input frontier {}.", name, frontier);
+        status.setTimestamp(frontier);
+        tableTriggerApi.updateStatus(object, status);
+        return new Result(true);
+      }
+
+      // Late-change repair: when a source reports a change that landed behind the cursor (a late or
+      // out-of-order write to already-processed history), replay that data-time window as a one-off
+      // backfill Job — which never moves the cursor. Consumed in arrival order via the internal
+      // lateWatermark. The user-facing watermark stays the monotone forward frontier.
+      if (job == null
+          && frontierSourceResolver.resolve(object.getSpec().getCatalog(), object.getSpec().getSchema()) != null
+          && status.getWatermark() != null) {
+        Result repair = maybeEnqueueLateRepair(object, status);
+        if (repair != null) {
+          return repair;
+        }
+      }
 
       if (job == null && scheduled != null && (status.getTimestamp() == null
           || status.getTimestamp().isBefore(scheduled.lastExecution(now).get().toOffsetDateTime()))) {
@@ -196,21 +262,20 @@ public final class TableTriggerReconciler implements Reconciler {
   }
 
   private String jobYaml(V1alpha1TableTrigger trigger) throws SQLException {
-    Template.SimpleEnvironment env = new Template.SimpleEnvironment()
-        .with("trigger", trigger.getMetadata().getName())
-        .with("schema", trigger.getSpec().getSchema())
-        .with("table", trigger.getSpec().getTable())
-        .with("timestamp", Optional.ofNullable(trigger.getStatus().getTimestamp())
-            .map(OffsetDateTime::toString).orElse(null))
-        .with("watermark", Optional.ofNullable(trigger.getStatus().getWatermark())
-            .map(OffsetDateTime::toString).orElse(null));
-    Map<String, String> jobProperties = trigger.getSpec().getJobProperties();
-    if (jobProperties != null) {
-      Properties props = new Properties();
-      props.putAll(jobProperties);
-      env = env.with(props);
-    }
-    return new Template.SimpleTemplate(trigger.getSpec().getYaml()).render(env);
+    V1alpha1TableTriggerStatus status = trigger.getStatus();
+    return renderJob(trigger,
+        status == null ? null : status.getWatermark(),
+        status == null ? null : status.getTimestamp());
+  }
+
+  /**
+   * Renders the trigger's Job template for an explicit output window {@code [watermark, timestamp]}.
+   * Incremental fires pass the cursor ({@code status.watermark}/{@code status.timestamp}). See
+   * {@link K8sTriggerJobs#render}.
+   */
+  private String renderJob(V1alpha1TableTrigger trigger, OffsetDateTime watermark,
+      OffsetDateTime timestamp) throws SQLException {
+    return K8sTriggerJobs.render(trigger, watermark, timestamp);
   }
 
   private void createJob(String yaml, V1alpha1TableTrigger trigger) throws SQLException {
@@ -239,6 +304,100 @@ public final class TableTriggerReconciler implements Reconciler {
       CronParser parser = new CronParser(CRON_DEFINITION);
       return ExecutionTime.forCron(parser.parse(object.getSpec().getSchedule()));
     }
+  }
+
+  /**
+   * Resolves the input's data-time frontier from the {@link InputFrontierSource} capability of the
+   * input's {@code Database} schema, in UTC, or null when the input is not frontier-driven (the
+   * trigger is then cron-/manually-driven). A source that throws is logged and skipped, so one
+   * misbehaving database never blocks a trigger.
+   */
+  private OffsetDateTime inputFrontier(V1alpha1TableTrigger trigger) {
+    V1alpha1TableTriggerSpec spec = trigger.getSpec();
+    InputFrontierSource source = frontierSourceResolver.resolve(spec.getCatalog(), spec.getSchema());
+    if (source == null) {
+      return null;
+    }
+    try {
+      Optional<Instant> frontier = source.frontier(spec.getTable());
+      return frontier.map(t -> t.atOffset(ZoneOffset.UTC)).orElse(null);
+    } catch (Exception e) {
+      log.warn("InputFrontierSource for {}.{} frontier failed; skipping.",
+          spec.getSchema(), spec.getTable(), e);
+      return null;
+    }
+  }
+
+  /**
+   * Consumes the source's change stream (in arrival order, via {@code status.lateWatermark}) and, on
+   * the first change whose data-time window lies behind the watermark, enqueues a one-off backfill
+   * over that window — clipped to the watermark so it never runs ahead of the cursor. Returns a
+   * requeue {@link Result} when it writes status (a repair enqueued or the cursor consumed), or null
+   * when there is nothing to do. On first sight (no {@code lateWatermark}) it initializes the cursor
+   * to now, so a freshly-created trigger reacts only to <em>future</em> late changes, not all history.
+   */
+  private Result maybeEnqueueLateRepair(V1alpha1TableTrigger object, V1alpha1TableTriggerStatus status)
+      throws SQLException {
+    V1alpha1TableTriggerSpec spec = object.getSpec();
+    OffsetDateTime watermark = status.getWatermark();
+
+    if (status.getLateWatermark() == null) {
+      status.setLateWatermark(OffsetDateTime.now(ZoneOffset.UTC));
+      tableTriggerApi.updateStatus(object, status);
+      return new Result(true);
+    }
+    Instant since = status.getLateWatermark().toInstant();
+
+    InputFrontierSource source = frontierSourceResolver.resolve(spec.getCatalog(), spec.getSchema());
+    List<DataChange> changes = new ArrayList<>();
+    if (source != null) {
+      try {
+        changes.addAll(source.changesSince(spec.getTable(), since));
+      } catch (Exception e) {
+        log.warn("InputFrontierSource for {}.{} changesSince failed; skipping.",
+            spec.getSchema(), spec.getTable(), e);
+      }
+    }
+    if (changes.isEmpty()) {
+      return null;
+    }
+    changes.sort(Comparator.comparing(DataChange::arrival));
+
+    OffsetDateTime maxArrival = status.getLateWatermark();
+    for (DataChange change : changes) {
+      OffsetDateTime arrival = change.arrival().atOffset(ZoneOffset.UTC);
+      if (!arrival.isAfter(status.getLateWatermark())) {
+        continue;  // already consumed
+      }
+      if (maxArrival == null || arrival.isAfter(maxArrival)) {
+        maxArrival = arrival;
+      }
+      OffsetDateTime windowStart = change.windowStart().atOffset(ZoneOffset.UTC);
+      OffsetDateTime windowEnd = change.windowEnd().atOffset(ZoneOffset.UTC);
+      // Only windows (at least partly) behind the watermark need repair; ahead-of-cursor changes are
+      // handled by normal forward processing. Clip the end to the watermark so the backfill never
+      // runs ahead of the cursor.
+      if (windowStart.isBefore(watermark)) {
+        OffsetDateTime cappedEnd = windowEnd.isAfter(watermark) ? watermark : windowEnd;
+        log.info("Repairing late change to TableTrigger {} over [{}, {}] via backfill (arrival {}).",
+            object.getMetadata().getName(), windowStart, cappedEnd, arrival);
+        // Launch the repair as a one-off backfill Job (owned by the trigger, keyed by window +
+        // arrival so genuinely new late data gets a fresh Job) and forget it — the Job controller
+        // owns its lifecycle. Advancing lateWatermark only after the create means a crash before the
+        // status write re-detects the same change and re-creates the same (idempotent) Job.
+        K8sTriggerJobs.createBackfill(yamlApi, object, windowStart, cappedEnd, arrival);
+        status.setLateWatermark(arrival);
+        tableTriggerApi.updateStatus(object, status);
+        return new Result(true);
+      }
+    }
+    // No repair needed in this batch; consume it so we don't re-scan the same changes.
+    if (maxArrival != null && maxArrival.isAfter(status.getLateWatermark())) {
+      status.setLateWatermark(maxArrival);
+      tableTriggerApi.updateStatus(object, status);
+      return new Result(true);
+    }
+    return null;
   }
 
   // TODO load from configuration
