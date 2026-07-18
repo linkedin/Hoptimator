@@ -128,6 +128,15 @@ class LogicalTableDeployerTest {
     return ctx;
   }
 
+  /** A context representing the SQL path — it carries a connection, so tier TemporaryTables are
+   * registered/removed in the Calcite catalog. (The connection-free direct path is covered by
+   * {@code LogicalTableServiceIntegrationTest}.) */
+  private static K8sContext mockContextWithConnection() {
+    K8sContext ctx = mockContext();
+    lenient().when(ctx.connection()).thenReturn(mock(HoptimatorConnection.class));
+    return ctx;
+  }
+
   private static Source testSource() {
     return new Source("logical", Arrays.asList("logical", "testevent"), Collections.emptyMap());
   }
@@ -244,8 +253,12 @@ class LogicalTableDeployerTest {
 
   /** Builds a 2-tier deployer with mocked CRD deployer and a pre-populated fake Database API. */
   private LogicalTableDeployer deployerWithApis(Properties props, List<V1alpha1Database> dbs) {
+    return deployerWithApis(props, dbs, mockContext());
+  }
+
+  private LogicalTableDeployer deployerWithApis(Properties props, List<V1alpha1Database> dbs, K8sContext ctx) {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(new ArrayList<>(dbs));
-    return new LogicalTableDeployer(testSource(), props, mockContext(), dbApi) {
+    return new LogicalTableDeployer(testSource(), props, ctx, dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
           String crdName, String databaseLabel, Map<String, String> tierMap) {
@@ -312,7 +325,7 @@ class LogicalTableDeployerTest {
   void deleteRemovesTierEntriesFromConnectionSchema() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
-        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")), mockContextWithConnection());
 
     Deployer tierDeployer = mock(Deployer.class);
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
@@ -340,7 +353,7 @@ class LogicalTableDeployerTest {
     // The failed tier's schema entry must NOT be removed; the succeeded tier's must be.
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
-        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")), mockContextWithConnection());
 
     Deployer failingTier = mock(Deployer.class);
     Deployer succeedingTier = mock(Deployer.class);
