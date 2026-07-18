@@ -71,9 +71,9 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
 import javax.annotation.Nullable;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -121,7 +121,11 @@ public final class HoptimatorDdlUtils {
    * resolve to {@link DdlMode#UPDATE}, making CREATE idempotent.
    */
   static DdlMode effectiveMode(boolean orReplace, HoptimatorConnection conn) {
-    if (isApplyMode(conn)) {
+    return effectiveMode(orReplace, conn.connectionProperties());
+  }
+
+  static DdlMode effectiveMode(boolean orReplace, Properties connectionProperties) {
+    if (isApplyMode(connectionProperties)) {
       return DdlMode.UPDATE;
     }
     return orReplace ? DdlMode.UPDATE : DdlMode.CREATE;
@@ -129,7 +133,10 @@ public final class HoptimatorDdlUtils {
 
   /** Whether the connection is configured for apply-mode DDL. */
   static boolean isApplyMode(HoptimatorConnection conn) {
-    Properties props = conn.connectionProperties();
+    return isApplyMode(conn.connectionProperties());
+  }
+
+  static boolean isApplyMode(Properties props) {
     if (props == null) {
       return false;
     }
@@ -167,7 +174,7 @@ public final class HoptimatorDdlUtils {
   enum DdlMode {
     CREATE {
       @Override
-      List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException {
+      List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException {
         DeploymentService.create(deployers);
         return Collections.emptyList();
       }
@@ -179,7 +186,7 @@ public final class HoptimatorDdlUtils {
     },
     UPDATE {
       @Override
-      List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException {
+      List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException {
         DeploymentService.update(deployers);
         return Collections.emptyList();
       }
@@ -191,7 +198,7 @@ public final class HoptimatorDdlUtils {
     },
     SPECIFY {
       @Override
-      List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException {
+      List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException {
         List<String> specs = new ArrayList<>();
         for (Deployer deployer : deployers) {
           specs.addAll(deployer.specify());
@@ -205,7 +212,7 @@ public final class HoptimatorDdlUtils {
       }
     };
 
-    abstract List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException;
+    abstract List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException;
 
     abstract boolean mutable();
   }
@@ -451,7 +458,7 @@ public final class HoptimatorDdlUtils {
       } else {
         logger.info("Specifying materialized view {}", viewName);
       }
-      List<String> specs = mode.executeDeployers(deployers, conn);
+      List<String> specs = mode.executeDeployers(deployers);
       if (mode.mutable()) {
         logger.info("Deployed materialized view {}", viewName);
       } else {
@@ -559,7 +566,7 @@ public final class HoptimatorDdlUtils {
         };
 
     Map<String, String> tableOptions = options(create.options);
-    return deployTableInternal(conn, conn.deploymentContext(), ctx, target.pair, target.tablePath(),
+    return deployTableInternal(conn.logHooks(), conn.deploymentContext(), target.pair, target.tablePath(),
         target.isNewSchema, target.database, target.tableName, rowType, ief, tableOptions,
         create.ifNotExists, create.getReplace(), mode);
   }
@@ -638,12 +645,13 @@ public final class HoptimatorDdlUtils {
    * existence checks, temporary-table registration, validation, deployment, and rollback behave
    * identically whether the row type came from Calcite column declarations or an Avro schema.
    */
-  static SpecifyResult deployTableInternal(HoptimatorConnection conn, DeploymentContext context,
-      CalcitePrepare.Context ctx, @Nullable Pair<CalciteSchema, String> pair, List<String> tablePath,
+  static SpecifyResult deployTableInternal(List<Consumer<String>> logHooks, DeploymentContext context,
+      @Nullable Pair<CalciteSchema, String> pair, List<String> tablePath,
       boolean isNewSchema, String database, String tableName, RelDataType rowType,
       InitializerExpressionFactory ief, Map<String, String> options,
       boolean ifNotExists, boolean orReplace, DdlMode mode) throws SQLException {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+    HoptimatorConnection.HoptimatorConnectionDualLogger logger =
+        new HoptimatorConnection.HoptimatorConnectionDualLogger(HoptimatorDdlUtils.class, logHooks);
     // The Calcite catalog handle is present only on the SQL path; the direct path passes a null
     // pair and its precomputed tablePath, and touches no catalog (see manageCalciteSchema below).
     final SchemaPlus schemaPlus = pair != null ? pair.left.plus() : null;
@@ -714,7 +722,7 @@ public final class HoptimatorDdlUtils {
       } else {
         logger.info("Specifying table {}", source);
       }
-      List<String> specs = mode.executeDeployers(deployers, conn);
+      List<String> specs = mode.executeDeployers(deployers);
       if (mode.mutable()) {
         logger.info("Deployed table {}", source);
       } else {
@@ -786,7 +794,7 @@ public final class HoptimatorDdlUtils {
       deployers = DeploymentService.deployers(database, conn.deploymentContext());
       ValidationService.validateOrThrow(deployers, conn.deploymentContext());
 
-      List<String> specs = mode.executeDeployers(deployers, conn);
+      List<String> specs = mode.executeDeployers(deployers);
       if (mode.mutable()) {
         logger.info("Deployed database {}", name);
       } else {

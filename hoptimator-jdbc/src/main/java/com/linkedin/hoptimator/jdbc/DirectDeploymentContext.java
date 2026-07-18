@@ -26,17 +26,22 @@ public final class DirectDeploymentContext implements DeploymentContext {
 
   private final Properties properties;
   private final DatabaseConfigResolver databaseConfigResolver;
-  private final RelDataType rowType;
+  private final @Nullable RelDataType rowType;
 
   public DirectDeploymentContext(Properties properties, DatabaseConfigResolver databaseConfigResolver,
-      RelDataType rowType) {
+      @Nullable RelDataType rowType) {
     this.properties = properties;
     this.databaseConfigResolver = databaseConfigResolver;
     this.rowType = rowType;
   }
 
-  /** The carried row type for the table being deployed. */
+  /** The carried row type for the table being deployed, or {@code null} for schema-free operations
+   * such as delete. */
   public RelDataType rowType() {
+    if (rowType == null) {
+      throw new IllegalStateException("No row type is carried by this context (e.g. a delete). "
+          + "A deployer requested a row type on a schema-free operation.");
+    }
     return rowType;
   }
 

@@ -859,7 +859,7 @@ class HoptimatorDdlUtilsTest {
     when(deployer2.specify()).thenReturn(List.of("spec2"));
 
     List<String> result = HoptimatorDdlUtils.DdlMode.SPECIFY.executeDeployers(
-        List.of(deployer1, deployer2), null);
+        List.of(deployer1, deployer2));
 
     assertEquals(List.of("spec1a", "spec1b", "spec2"), result);
   }
@@ -867,7 +867,7 @@ class HoptimatorDdlUtilsTest {
   @Test
   void ddlModeSpecifyExecuteDeployersWithNoDeployersReturnsEmptyList() throws SQLException {
     List<String> result = HoptimatorDdlUtils.DdlMode.SPECIFY.executeDeployers(
-        Collections.emptyList(), null);
+        Collections.emptyList());
 
     assertTrue(result.isEmpty());
   }

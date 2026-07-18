@@ -174,6 +174,11 @@ public class HoptimatorConnection extends DelegatingConnection {
     logHooks.add(hook);
   }
 
+  /** The connection's log hooks, so deploy machinery can log to them without holding the connection. */
+  public List<Consumer<String>> logHooks() {
+    return logHooks;
+  }
+
   private void registerMaterialization(List<String> viewPath, RelNode tableRel, RelNode queryRel) {
     materializations.add(new RelOptMaterialization(tableRel, queryRel, null, viewPath));
   }
