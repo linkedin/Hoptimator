@@ -42,7 +42,21 @@ public final class GraphService {
     if (depth < 0) {
       throw new SQLException("depth must be non-negative; got: " + depth);
     }
-    GraphTarget target = resolve(identifier, connection);
+    return buildGraph(resolve(identifier, connection), depth, connection);
+  }
+
+  /**
+   * Build a {@link PipelineGraph} for an already-resolved {@link GraphTarget}. Lets callers that
+   * already hold a target (e.g. after {@link #resolve}) build a subgraph without round-tripping
+   * through a string identifier and the schema resolver again.
+   *
+   * @throws SQLException if depth is negative, no provider supports the target, or the provider throws.
+   */
+  public static PipelineGraph buildGraph(GraphTarget target, int depth, HoptimatorConnection connection)
+      throws SQLException {
+    if (depth < 0) {
+      throw new SQLException("depth must be non-negative; got: " + depth);
+    }
     for (GraphProvider provider : providers()) {
       if (provider.supports(target)) {
         return provider.forTarget(target, depth, connection);

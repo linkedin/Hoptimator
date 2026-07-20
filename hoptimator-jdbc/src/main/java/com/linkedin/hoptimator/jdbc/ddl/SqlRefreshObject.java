@@ -25,36 +25,52 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlSpecialOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
-
-import com.google.common.collect.ImmutableList;
+import org.apache.calcite.util.ImmutableNullableList;
 
 import java.util.List;
 
 /**
- * Parse tree for {@code REFRESH MATERIALIZED VIEW} statement.
+ * Parse tree for {@code REFRESH <table> [FROM <bound> TO <bound>]}.
+ *
+ * <p>REFRESH backfills a physical table by firing the trigger(s) that produce it. It reuses the
+ * {@code FIRE TRIGGER} machinery: an optional {@code FROM ... TO ...} window requests a one-off
+ * backfill over {@code [from, to]}, exactly as for FIRE.
+ *
+ * <p>The target is a plain table — Hoptimator does not distinguish logical from physical, and a
+ * consumer always reads a specific physical table (tier). Refreshing that table fires whatever
+ * trigger writes to it.
  */
-public class SqlRefreshMaterializedView extends SqlRefresh {
+public class SqlRefreshObject extends SqlRefresh {
 
   private static final SqlOperator OPERATOR =
-      new SqlSpecialOperator("REFRESH MATERIALIZED VIEW", SqlKind.OTHER_DDL);
-  public final SqlIdentifier name;
+      new SqlSpecialOperator("REFRESH", SqlKind.OTHER_DDL);
 
-  /**
-   * Creates a SqlRefreshMaterializedView.
-   */
-  public SqlRefreshMaterializedView(SqlParserPos pos, SqlIdentifier name) {
+  public final SqlIdentifier name;
+  /** Backfill window start bound, or {@code null} for a plain refresh. */
+  public final SqlNode from;
+  /** Backfill window end bound, or {@code null} for a plain refresh. */
+  public final SqlNode to;
+
+  public SqlRefreshObject(SqlParserPos pos, SqlIdentifier name, SqlNode from, SqlNode to) {
     super(OPERATOR, pos);
     this.name = name;
+    this.from = from;
+    this.to = to;
   }
 
+  @SuppressWarnings("nullness")
   @Override public List<SqlNode> getOperandList() {
-    return ImmutableList.of(name);
+    return ImmutableNullableList.of(name, from, to);
   }
 
   @Override public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
     writer.keyword("REFRESH");
-    writer.keyword("MATERIALIZED");
-    writer.keyword("VIEW");
     name.unparse(writer, leftPrec, rightPrec);
+    if (from != null) {
+      writer.keyword("FROM");
+      from.unparse(writer, 0, 0);
+      writer.keyword("TO");
+      to.unparse(writer, 0, 0);
+    }
   }
 }

@@ -48,7 +48,7 @@ data: {
       "com.linkedin.hoptimator.jdbc.ddl.SqlResumeMaterializedView"
       "com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger"
       "com.linkedin.hoptimator.jdbc.ddl.SqlRefresh"
-      "com.linkedin.hoptimator.jdbc.ddl.SqlRefreshMaterializedView"
+      "com.linkedin.hoptimator.jdbc.ddl.SqlRefreshObject"
     ]
 
     # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is

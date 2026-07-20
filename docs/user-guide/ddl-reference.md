@@ -253,6 +253,46 @@ Its lifecycle belongs to the Kubernetes Job controller: retries via the template
 its own inspectable record (a `Failed` Job labelled `backfill=true`). Re-issue the
 `FIRE` to launch a fresh one.
 
+## REFRESH
+
+```
+REFRESH <table>
+  [ FROM <bound> TO <bound> ]
+```
+
+Backfills a **physical table** by firing the trigger(s) that **produce** it. It is
+the table-level counterpart to `FIRE TRIGGER`: rather than naming a trigger, you
+name the table you want refreshed, and Hoptimator finds and fires whatever writes
+to it. The optional `FROM … TO …` window behaves exactly as it does for
+`FIRE TRIGGER` (same bounds, same one-off backfill semantics — see above).
+
+```sql
+-- fire the trigger that produces this table ("run now")
+REFRESH "ADS"."MEMBERS";
+
+-- backfill it over a fixed historical window
+REFRESH "ADS"."MEMBERS" FROM '2026-05-01' TO '2026-05-08';
+```
+
+REFRESH targets a **physical** table on purpose. Hoptimator doesn't really
+distinguish logical from physical — a logical table is just a physical table with
+extra moving parts (tiers, an inter-tier pipeline, a trigger) — and a consumer
+always reads a *specific* physical table (tier). So "refresh the tier I read" is
+unambiguous, whereas "refresh the logical table" isn't (which tier's data do you
+want fresh?). Refreshing a **logical table** by name is therefore rejected with a
+hint to refresh a specific physical tier instead. In practice a physical table has
+zero or one producing trigger, so there's no fan-out.
+
+A `REFRESH` errors when the table doesn't exist, or when **nothing produces it** (no
+trigger writes to it) — a refresh that silently does nothing is a footgun, not a
+no-op.
+
+How the producing trigger is discovered is a backend concern. Discovery reuses the
+pipeline dependency **graph** (`GraphService` / the `GraphProvider` SPI): the table
+identifier is resolved via the Calcite schema, and the one-hop graph around it
+exposes its producing triggers as `trigger → table` edges. `hoptimator-jdbc` never
+touches Kubernetes directly.
+
 ## CREATE TABLE
 
 ```
@@ -341,11 +381,9 @@ the parse alone.
 
 **Parses but not yet executed:**
 
-- `REFRESH MATERIALIZED VIEW <name>` — intended to re-run a batch-style
-  materialization on demand.
 - `FIRE TABLE | VIEW | MATERIALIZED VIEW <name>` — intended to
   manually fire a side effect (e.g. for testing without waiting for a
-  schedule). (`FIRE TRIGGER` is fully implemented — see above.)
+  schedule). (`FIRE TRIGGER` and `REFRESH` are fully implemented — see above.)
 - `PAUSE MATERIALIZED VIEW <name>` / `RESUME MATERIALIZED VIEW <name>` —
   parser support exists; executor does not. (`PAUSE TRIGGER` /
   `RESUME TRIGGER` above are fully implemented.)

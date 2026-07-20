@@ -33,6 +33,7 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlDropTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlFireTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
+import com.linkedin.hoptimator.jdbc.ddl.SqlRefreshObject;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
@@ -338,28 +339,74 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     // FIRE carries no user options — it is a pure "run now" action. A windowed fire resolves its
     // bounds to absolute instants here; a plain fire has neither. Nothing touches the spec.
-    Trigger.Fire fireRequest;
-    if (fire.from != null) {
-      fireRequest = new Trigger.Fire(
-          resolveFireBound(((SqlLiteral) fire.from).getValueAs(String.class), fire),
-          resolveFireBound(((SqlLiteral) fire.to).getValueAs(String.class), fire));
-    } else {
-      fireRequest = new Trigger.Fire(null, null);
-    }
-    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null, null, fireRequest);
+    Trigger.Fire fireRequest = buildFireRequest(fire.from, fire.to, fire);
+    fireTriggerByName(name, fireRequest, fire);
+    logger.info("FIRE TRIGGER {} completed", name);
+  }
 
+  /** Builds a {@link Trigger.Fire} from the optional {@code FROM ... TO ...} bounds shared by
+   *  {@code FIRE TRIGGER} and {@code REFRESH}. A windowed fire resolves both bounds to absolute
+   *  instants; a plain fire (no window) has neither. */
+  private Trigger.Fire buildFireRequest(SqlNode from, SqlNode to, SqlNode node) {
+    if (from != null) {
+      return new Trigger.Fire(
+          resolveFireBound(((SqlLiteral) from).getValueAs(String.class), node),
+          resolveFireBound(((SqlLiteral) to).getValueAs(String.class), node));
+    }
+    return new Trigger.Fire(null, null);
+  }
+
+  /** Fires a single trigger by name, reusing the {@code FIRE TRIGGER} deploy path: build a
+   *  name-only {@link Trigger} carrying the {@link Trigger.Fire} intent and update it. Restores the
+   *  deployers and rethrows as a {@link DdlException} on any failure. */
+  private void fireTriggerByName(String name, Trigger.Fire fireRequest, SqlNode node) {
+    Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null, null, fireRequest);
     Collection<Deployer> deployers = null;
     try {
       logger.info("Firing trigger {}", name);
       deployers = DeploymentService.deployers(trigger, connection);
       DeploymentService.update(deployers);
-      logger.info("FIRE TRIGGER {} completed", name);
     } catch (Exception e) {
       if (deployers != null) {
         DeploymentService.restore(deployers);
       }
-      throw new DdlException(fire, e.getMessage(), e);
+      throw new DdlException(node, e.getMessage(), e);
     }
+  }
+
+  /** Executes a {@code REFRESH} command: a windowed backfill of a physical table.
+   *  REFRESH backfills a physical table by firing the trigger(s) that produce it, reusing the
+   *  {@code FIRE TRIGGER} machinery. Discovering those triggers is delegated to
+   *  {@link RefreshService} (via the dependency graph), so the DDL layer stays decoupled from the
+   *  backend. Errors when the table is unknown, is a logical table (refresh a tier instead), or has
+   *  no trigger producing it. */
+  public void execute(SqlRefreshObject refresh, CalcitePrepare.Context context) {
+    logger.info("Validating statement: {}", refresh);
+    try {
+      ValidationService.validateOrThrow(refresh, connection);
+    } catch (SQLException e) {
+      throw new DdlException(refresh, e.getMessage(), e);
+    }
+
+    String objectName = String.join(".", refresh.name.names);
+    List<String> triggers;
+    try {
+      triggers = RefreshService.producingTriggers(refresh.name.names, connection);
+    } catch (SQLException e) {
+      throw new DdlException(refresh, e.getMessage(), e);
+    }
+
+    // A REFRESH that fires nothing is a footgun — fail loudly instead of silently doing nothing.
+    if (triggers.isEmpty()) {
+      throw new DdlException(refresh, "Cannot REFRESH " + objectName
+          + ": no trigger produces it.");
+    }
+
+    Trigger.Fire fireRequest = buildFireRequest(refresh.from, refresh.to, refresh);
+    for (String triggerName : triggers) {
+      fireTriggerByName(triggerName, fireRequest, refresh);
+    }
+    logger.info("REFRESH {} completed ({} trigger(s) fired)", objectName, triggers.size());
   }
 
   private static final Pattern FIRE_RELATIVE = Pattern.compile("^-(\\d+)([smhd])$");

@@ -23,3 +23,17 @@ spec:
   url: jdbc:logical://nearline=ads-database;offline=ads-catalog-database
   schema: LOGICAL-OFFLINE
   dialect: Calcite
+
+---
+
+# Reverse-ETL logical table: offline (demo) -> online (demo). Its implicit offline-tier
+# trigger writes to the ONLINE tier, which is the real physical table ADS.<name>. Used to
+# exercise `REFRESH <physical table>` (backfill the tier a consumer reads).
+apiVersion: hoptimator.linkedin.com/v1alpha1
+kind: Database
+metadata:
+  name: logical-retl
+spec:
+  url: jdbc:logical://offline=ads-catalog-database;online=ads-database
+  schema: LOGICAL-RETL
+  dialect: Calcite

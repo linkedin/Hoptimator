@@ -42,6 +42,22 @@ class K8sTriggerJobsTest {
   }
 
   @Test
+  void backfillJobNameStaysWithinKubernetesLimit() {
+    // Real trigger names overflow: logical-<table>-offline-trigger-<template>-job is already ~50+.
+    String longBase = "logical-adclicks-offline-trigger-retl-job-template-job";
+    String name = K8sTriggerJobs.backfillJobName(longBase, A, B, null);
+    assertTrue(name.length() <= 63, "name must fit K8s 63-char limit; was " + name.length());
+    assertTrue(name.contains("-bf-"), "name must keep the -bf- infix");
+    assertFalse(name.contains("--"), "name must not contain empty segments");
+    // Still deterministic and window-distinct even when shortened.
+    assertEquals(name, K8sTriggerJobs.backfillJobName(longBase, A, B, null));
+    assertNotEquals(name, K8sTriggerJobs.backfillJobName(longBase, A, C, null));
+    // A different long base with the same window gets a different name (base hash preserves it).
+    assertNotEquals(name,
+        K8sTriggerJobs.backfillJobName("logical-widgets-offline-trigger-retl-job-template-job", A, B, null));
+  }
+
+  @Test
   void renderExposesWindowVars() throws Exception {
     V1alpha1TableTrigger trigger = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("t"))

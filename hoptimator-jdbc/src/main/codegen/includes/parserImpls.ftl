@@ -428,26 +428,16 @@ SqlDrop SqlDropFunction(Span s, boolean replace) :
 SqlRefresh SqlRefresh() :
 {
     final Span s;
-    final SqlRefresh refresh;
+    final SqlIdentifier id;
+    SqlNode from = null;
+    SqlNode to = null;
 }
 {
     <REFRESH> { s = span(); }
-    (
-        refresh = SqlRefreshMaterializedView(s)
-    )
+    id = CompoundIdentifier()
+    [ <FROM> from = FireBound() <TO> to = FireBound() ]
     {
-        return refresh;
-    }
-}
-
-SqlRefresh SqlRefreshMaterializedView(Span s) :
-{
-    final SqlIdentifier id;
-}
-{
-    <MATERIALIZED> <VIEW> id = CompoundIdentifier()
-    {
-        return new SqlRefreshMaterializedView(s.end(this), id);
+        return new SqlRefreshObject(s.end(this), id, from, to);
     }
 }
 
