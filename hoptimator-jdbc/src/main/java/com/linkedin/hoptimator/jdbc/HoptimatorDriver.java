@@ -3,6 +3,8 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
+import org.apache.avro.Schema;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -188,6 +190,37 @@ public class HoptimatorDriver implements Driver {
       throw new SQLException("Table " + name + " not found in schema " + schema.getName() + ".");
     }
     return table.getRowType(typeFactory);
+  }
+
+  /**
+   * Returns the native Avro value schema for a table when it is backed by native Avro metadata (an
+   * {@link AvroSchemaSource} in the Calcite catalog), or {@code null} otherwise. Callers (e.g. a
+   * connector rendering {@code {{avroValueSchema}}}) fall back to synthesizing a schema from the row
+   * type when this returns {@code null}. It is always {@code null} on the direct path: a freshly
+   * created table has no native source schema — exactly like a SQL {@code CREATE TABLE}, whose value
+   * schema is likewise synthesized from the column types. Native schemas only exist for pre-existing
+   * source tables resolved through the Calcite catalog (the SQL/pipeline path).
+   */
+  public static Schema valueSchema(Source source, DeploymentContext context) {
+    if (context instanceof CalciteDeploymentContext) {
+      return valueSchema(source, ((CalciteDeploymentContext) context).connection());
+    }
+    return null;
+  }
+
+  private static Schema valueSchema(Source source, HoptimatorConnection connection) {
+    if (connection == null) {
+      return null;
+    }
+    SchemaPlus schema = connection.calciteConnection().getRootSchema();
+    for (String part : Util.skipLast(source.path())) {
+      if (schema == null) {
+        return null;
+      }
+      schema = schema.subSchemas().get(part);
+    }
+    Table table = schema == null ? null : schema.tables().get(source.table());
+    return table instanceof AvroSchemaSource ? ((AvroSchemaSource) table).valueSchema() : null;
   }
 
   private static final class ConnectionHolder {

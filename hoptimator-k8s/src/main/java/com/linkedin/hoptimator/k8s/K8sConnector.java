@@ -7,7 +7,6 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.avro.AvroSchemas;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateList;
@@ -16,9 +15,6 @@ import com.linkedin.hoptimator.util.Template;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.util.Util;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -123,32 +119,14 @@ class K8sConnector implements Connector {
    * record identities.
    */
   private Schema avroValueSchema(Source source, RelDataType sourceRowType) {
-    Table table = lookupTable(source);
-    if (table instanceof AvroSchemaSource) {
-      Schema provided = ((AvroSchemaSource) table).valueSchema();
-      if (provided != null) {
-        return provided;
-      }
+    // Prefer a table's native Avro schema when it has one (a pre-existing source table resolved
+    // via the Calcite catalog); otherwise synthesize from the row type. The direct path always
+    // synthesizes — the schema it needs is carried on the context, no catalog/connection required.
+    Schema provided = HoptimatorDriver.valueSchema(source, context.deploymentContext());
+    if (provided != null) {
+      return provided;
     }
     return AvroConverter.avro("com.linkedin.hoptimator", source.table(), sourceRowType);
-  }
-
-  private Table lookupTable(Source source) {
-    // The direct (non-SQL) path has no Calcite connection: there is no catalog to look up an
-    // existing native-Avro table in, so fall back to synthesizing the value schema from the row
-    // type. Existing-schema resolution for that path is handled store-natively by the deployers.
-    HoptimatorConnection connection = context.connection();
-    if (connection == null) {
-      return null;
-    }
-    SchemaPlus schema = connection.calciteConnection().getRootSchema();
-    for (String part : Util.skipLast(source.path())) {
-      if (schema == null) {
-        return null;
-      }
-      schema = schema.subSchemas().get(part);
-    }
-    return schema == null ? null : schema.tables().get(source.table());
   }
 
   @VisibleForTesting
