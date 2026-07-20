@@ -12,9 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,45 +34,6 @@ class ValidationServiceTest {
   @AfterEach
   void tearDown() {
     ValidatorProviderTest.reset();
-  }
-
-  @Test
-  void testWalkVisitsTablesInSchema() throws SQLException {
-    try (HoptimatorConnection conn =
-        (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://")) {
-      // Create the table while errors are disabled so the DDL itself does not fail
-      try (Statement stmt = conn.createStatement()) {
-        stmt.executeUpdate("CREATE TABLE WALK_VST (X VARCHAR)");
-      }
-      ValidatorProviderTest.enableErrors();
-      Validator.Issues issues = ValidationService.validate(conn);
-      assertFalse(issues.valid(),
-          "walk() must visit tables so that ValidatorProviderTest can record errors");
-    }
-  }
-
-  // util catalog has sub-schemas; if walk() skips recursion, no errors fire.
-  @Test
-  void testWalkVisitsSubSchemas() throws SQLException {
-    try (HoptimatorConnection conn =
-        (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://catalogs=util")) {
-      ValidatorProviderTest.enableErrors();
-      Validator.Issues issues = ValidationService.validate(conn);
-      assertFalse(issues.valid(),
-          "walk() must recurse into sub-schemas so that errors in children are propagated");
-    }
-  }
-
-  // Uses the util catalog (always has schemas) to ensure traversal fires.
-  @Test
-  void testValidateConnectionCallsWalk() throws SQLException {
-    try (HoptimatorConnection conn =
-        (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://catalogs=util")) {
-      ValidatorProviderTest.enableErrors();
-      Validator.Issues issues = ValidationService.validate(conn);
-      assertFalse(issues.valid(),
-          "validate(connection) must call walk() so that provider errors are propagated");
-    }
   }
 
   /**

@@ -3,9 +3,6 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.ValidatorProvider;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.schema.lookup.LikePattern;
 
 import java.sql.SQLDataException;
 import java.sql.SQLException;
@@ -19,28 +16,6 @@ import java.util.stream.Collectors;
 public final class ValidationService {
 
   private ValidationService() {
-  }
-
-  /** Validates the entire catalog reachable from the connection (Calcite-specific entry point). */
-  public static Validator.Issues validate(HoptimatorConnection connection) {
-    DeploymentContext context = connection.deploymentContext();
-    Validator.Issues issues = new Validator.Issues("");
-    walk(connection.calciteConnection().getRootSchema(), issues, context);
-    return issues;
-  }
-
-  private static void walk(SchemaPlus schema, Validator.Issues issues, DeploymentContext context) {
-    validate(schema, issues, context);
-    for (String x : schema.subSchemas().getNames(LikePattern.any())) {
-      walk(schema.subSchemas().get(x), issues.child(x), context);
-    }
-    for (String x : schema.tables().getNames(LikePattern.any())) {
-      walk(schema.tables().get(x), issues.child(x), context);
-    }
-  }
-
-  private static void walk(Table table, Validator.Issues issues, DeploymentContext context) {
-    validate(table, issues, context);
   }
 
   public static <T> void validate(T obj, Validator.Issues issues, DeploymentContext context) {
