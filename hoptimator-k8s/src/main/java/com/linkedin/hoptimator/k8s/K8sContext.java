@@ -1,8 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.DeploymentContext;
-import com.linkedin.hoptimator.jdbc.ConnectionBackedContext;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import io.kubernetes.client.apimachinery.GroupVersion;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
@@ -53,11 +51,10 @@ public final class K8sContext {
   private final V1OwnerReference ownerReference;
   private final Map<String, String> labels;
   private final DeploymentContext deploymentContext;
-  private final HoptimatorConnection connection;
 
   K8sContext(String namespace, String watchNamespace, String clientInfo, ApiClient apiClient,
       SharedInformerFactory informerFactory, V1OwnerReference ownerReference, Map<String, String> labels,
-      DeploymentContext deploymentContext, HoptimatorConnection connection) {
+      DeploymentContext deploymentContext) {
     this.namespace = namespace;
     this.watchNamespace = watchNamespace;
     this.clientInfo = clientInfo;
@@ -66,26 +63,22 @@ public final class K8sContext {
     this.ownerReference = ownerReference;
     this.labels = labels;
     this.deploymentContext = deploymentContext;
-    this.connection = connection;
   }
 
   public static K8sContext create(DeploymentContext deploymentContext) {
-    HoptimatorConnection hoptimatorConnection = deploymentContext instanceof ConnectionBackedContext
-        ? ((ConnectionBackedContext) deploymentContext).connection() : null;
-    return create(deploymentContext.properties(), hoptimatorConnection, deploymentContext);
+    return create(deploymentContext.properties(), deploymentContext);
   }
 
   /**
-   * Builds a context from raw connection-level properties, with no backing {@code Connection} or
-   * {@code DeploymentContext}. Used by connection-free callers (e.g. a K8s-native
-   * {@code DatabaseConfigResolver}) that only need K8s API access, not a Calcite catalog.
+   * Builds a context from raw connection-level properties, with no backing {@code DeploymentContext}.
+   * Used by connection-free callers (e.g. a K8s-native {@code DatabaseConfigResolver}) that only
+   * need K8s API access, not a Calcite catalog.
    */
   public static K8sContext createFromProperties(Properties connectionProperties) {
-    return create(connectionProperties, null, null);
+    return create(connectionProperties, null);
   }
 
-  private static K8sContext create(Properties connectionProperties, HoptimatorConnection hoptimatorConnection,
-      DeploymentContext deploymentContext) {
+  private static K8sContext create(Properties connectionProperties, DeploymentContext deploymentContext) {
     String namespace;
     ApiClient apiClient;
     String info;
@@ -168,19 +161,19 @@ public final class K8sContext {
     }
 
     return new K8sContext(namespace, watchNamespace, info, apiClient, new SharedInformerFactory(apiClient),
-        null, Collections.emptyMap(), deploymentContext, hoptimatorConnection);
+        null, Collections.emptyMap(), deploymentContext);
   }
 
   public K8sContext withOwner(V1OwnerReference owner) {
     return new K8sContext(namespace, watchNamespace, clientInfo + " Owner is " + owner.getName() + ".", apiClient,
-        informerFactory, owner, labels, deploymentContext, connection);
+        informerFactory, owner, labels, deploymentContext);
   }
 
   public K8sContext withLabel(String key, String value) {
     Map<String, String> newLabels = new HashMap<>(labels);
     newLabels.put(key, value);
     return new K8sContext(namespace, watchNamespace, clientInfo + " Label " + key + "=" + value + ".", apiClient,
-        informerFactory, ownerReference, newLabels, deploymentContext, connection);
+        informerFactory, ownerReference, newLabels, deploymentContext);
   }
 
   public ApiClient apiClient() {
@@ -252,10 +245,6 @@ public final class K8sContext {
         obj.getMetadata().namespace(namespace).ownerReferences(owners);
       }
     }
-  }
-
-  public HoptimatorConnection connection() {
-    return connection;
   }
 
   public DeploymentContext deploymentContext() {

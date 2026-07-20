@@ -133,7 +133,8 @@ class LogicalTableDeployerTest {
    * {@code LogicalTableServiceIntegrationTest}.) */
   private static K8sContext mockContextWithConnection() {
     K8sContext ctx = mockContext();
-    lenient().when(ctx.connection()).thenReturn(mock(HoptimatorConnection.class));
+    lenient().when(ctx.deploymentContext())
+        .thenReturn(new CalciteDeploymentContext(mock(HoptimatorConnection.class)));
     return ctx;
   }
 
@@ -737,7 +738,7 @@ class LogicalTableDeployerTest {
   void ensureTierRowTypesRegisteredWithConnectionRecordsRowTypeError() throws Exception {
     HoptimatorConnection mockConn = mock(HoptimatorConnection.class);
     K8sContext ctx = mock(K8sContext.class);
-    when(ctx.connection()).thenReturn(mockConn);
+    when(ctx.deploymentContext()).thenReturn(new CalciteDeploymentContext(mockConn));
 
     hoptimatorDriverMock
         .when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))

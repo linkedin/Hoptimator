@@ -50,6 +50,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.util.DeploymentService;
 
+import com.linkedin.hoptimator.jdbc.ConnectionBackedContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
@@ -153,7 +154,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
     if (!schemaRollbacks.isEmpty()) {
       return; // Already registered (e.g. validate() was called before create/update).
     }
-    HoptimatorConnection conn = context.connection();
+    HoptimatorConnection conn = ConnectionBackedContext.connectionOrNull(context.deploymentContext());
     if (conn == null) {
       return;
     }
@@ -260,9 +261,10 @@ public class LogicalTableDeployer implements Deployer, Validated {
               tierSource.pathString(), e.getMessage(), e);
         }
       }
-      if (tierSucceeded && context.connection() != null) {
+      HoptimatorConnection conn = ConnectionBackedContext.connectionOrNull(context.deploymentContext());
+      if (tierSucceeded && conn != null) {
         // Only the SQL path registered a tier TemporaryTable to deregister; the direct path did not.
-        HoptimatorDdlUtils.removeTableFromSchema(context.connection(),
+        HoptimatorDdlUtils.removeTableFromSchema(conn,
             tierSource.catalog(), tierSource.schema(), tierSource.table());
       }
     }
@@ -350,7 +352,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * <p>Shared by {@link #deployPipelineBundle} and {@link #specifyPipelineJob}.
    */
   private Pipeline planPipeline(Source fromSource, Source toSource, String pipelineName) throws Exception {
-    HoptimatorConnection conn = context.connection();
+    HoptimatorConnection conn = ConnectionBackedContext.connectionOrNull(context.deploymentContext());
     final RelNode query;
     final RelDataType rowType;
     final ImmutablePairList<Integer, String> targetFields;

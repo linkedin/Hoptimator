@@ -39,15 +39,12 @@ class K8sContextTest {
   @Mock
   private SharedInformerFactory informerFactory;
 
-  @Mock
-  private HoptimatorConnection connection;
-
   private K8sContext context;
 
   @BeforeEach
   void setUp() {
     context = new K8sContext("test-ns", "", "test context", apiClient, informerFactory, null,
-        Collections.emptyMap(), null, connection);
+        Collections.emptyMap(), null);
   }
 
   @Test
@@ -68,11 +65,6 @@ class K8sContextTest {
   @Test
   void informerFactoryReturnsConfiguredFactory() {
     assertSame(informerFactory, context.informerFactory());
-  }
-
-  @Test
-  void connectionReturnsConfiguredConnection() {
-    assertSame(connection, context.connection());
   }
 
   @Test
@@ -205,7 +197,7 @@ class K8sContextTest {
   void dynamicWithApiVersionAndPlural() {
     ApiClient realClient = newTestApiClient();
     K8sContext realContext = new K8sContext("test-ns", "", "test context", realClient,
-        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null, null);
+        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null);
 
     assertNotNull(realContext.dynamic("apps/v1", "deployments"));
   }
@@ -214,7 +206,7 @@ class K8sContextTest {
   void dynamicWithGroupVersionPlural() {
     ApiClient realClient = newTestApiClient();
     K8sContext realContext = new K8sContext("test-ns", "", "test context", realClient,
-        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null, null);
+        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null);
 
     assertNotNull(realContext.dynamic("apps", "v1", "deployments"));
   }
@@ -223,7 +215,7 @@ class K8sContextTest {
   void dynamicWithEndpoint() {
     ApiClient realClient = newTestApiClient();
     K8sContext realContext = new K8sContext("test-ns", "", "test context", realClient,
-        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null, null);
+        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null);
 
     assertNotNull(realContext.dynamic(K8sApiEndpoints.PIPELINES));
   }
@@ -232,7 +224,7 @@ class K8sContextTest {
   void genericWithEndpoint() {
     ApiClient realClient = newTestApiClient();
     K8sContext realContext = new K8sContext("test-ns", "", "test context", realClient,
-        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null, null);
+        new SharedInformerFactory(realClient), null, Collections.emptyMap(), null);
 
     assertNotNull(realContext.generic(K8sApiEndpoints.PIPELINES));
   }
