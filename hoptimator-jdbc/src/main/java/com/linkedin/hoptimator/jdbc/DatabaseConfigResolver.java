@@ -10,9 +10,10 @@ import javax.annotation.Nullable;
 /**
  * Resolves per-{@code Database} connection config, decoupled from how the {@code Database} registry
  * is stored. This is the seam that lets a {@link com.linkedin.hoptimator.DeploymentContext} answer
- * {@code databaseProperties(...)} without holding a Calcite {@link HoptimatorConnection}: the SQL
- * path supplies a resolver that reads the Calcite catalog; the direct path can supply a resolver
- * that reads {@code Database} CRDs (or any other registry) directly.
+ * {@code databaseProperties(...)} — and the direct table API resolve a database identifier —
+ * without holding a Calcite {@link HoptimatorConnection}. A registry-native module (e.g.
+ * {@code hoptimator-k8s}) supplies an implementation that reads {@code Database} CRDs (or any other
+ * registry) directly; see {@link DatabaseConfigResolverProvider}.
  */
 public interface DatabaseConfigResolver {
 

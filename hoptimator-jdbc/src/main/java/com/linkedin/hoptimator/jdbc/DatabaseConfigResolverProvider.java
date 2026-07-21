@@ -6,11 +6,11 @@ import java.util.Properties;
 /**
  * Service-loaded factory for a {@link DatabaseConfigResolver}. This lets a registry-native module
  * (e.g. {@code hoptimator-k8s}) supply a resolver that reads {@code Database} config directly from
- * its source — inverting the dependency so the connection-free direct path in
+ * its source — inverting the dependency so both the SQL path and the connection-free direct path in
  * {@code hoptimator-jdbc} can resolve config without a Calcite catalog.
  *
- * <p>The highest-{@link #priority()} provider wins; when none is registered, callers fall back to
- * {@link CalciteDatabaseConfigResolver}.
+ * <p>The highest-{@link #priority()} provider wins. At least one provider must be registered; there
+ * is no built-in fallback, so a registry-native module must always be on the classpath.
  */
 public interface DatabaseConfigResolverProvider {
 

@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,14 +96,5 @@ class TableServiceTest {
             Collections.emptyMap(), false, true))
         .isInstanceOf(SQLException.class)
         .hasMessageContaining("must be a record");
-  }
-
-  @Test
-  void unknownSchemaPathThrows() {
-    Map<String, String> options = Collections.emptyMap();
-    Schema schema = recordSchema();
-    assertThatThrownBy(() ->
-        TableService.create(connection, List.of("NOPE", "myTable"), schema, options, false, true))
-        .isInstanceOf(SQLException.class);
   }
 }

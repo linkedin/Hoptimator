@@ -5,30 +5,27 @@ import java.util.Properties;
 import java.util.ServiceLoader;
 
 
-/** Discovers the {@link DatabaseConfigResolver} to use, preferring a registry-native provider. */
+/** Discovers the registry-native {@link DatabaseConfigResolver} to use. */
 public final class DatabaseConfigResolvers {
 
   private DatabaseConfigResolvers() {
   }
 
   /**
-   * Returns the highest-priority service-loaded {@link DatabaseConfigResolver} built from the
-   * connection's properties, or a {@link CalciteDatabaseConfigResolver} over the connection when no
-   * provider is registered.
+   * Returns the highest-priority service-loaded {@link DatabaseConfigResolver}, built from the
+   * connection's properties. Equivalent to {@link #forProperties} — the resolver is always
+   * registry-native (e.g. the {@code hoptimator-k8s} provider); the connection is used only for its
+   * properties.
    */
   public static DatabaseConfigResolver forConnection(HoptimatorConnection connection) {
-    return ServiceLoader.load(DatabaseConfigResolverProvider.class).stream()
-        .map(ServiceLoader.Provider::get)
-        .max(Comparator.comparingInt(DatabaseConfigResolverProvider::priority))
-        .map(provider -> provider.resolver(connection.connectionProperties()))
-        .orElseGet(() -> new CalciteDatabaseConfigResolver(connection));
+    return forProperties(connection.connectionProperties());
   }
 
   /**
-   * Returns the highest-priority service-loaded {@link DatabaseConfigResolver} built from raw
-   * connection properties, for the connection-free direct path. Unlike {@link #forConnection}, there
-   * is no Calcite fallback (that would need a connection), so a registry-native provider — e.g. the
-   * K8s one — must be on the classpath.
+   * Returns the highest-priority service-loaded {@link DatabaseConfigResolver}, built from raw
+   * connection properties. A registry-native provider — e.g. the {@code hoptimator-k8s} one — must
+   * be on the classpath; there is no Calcite-based fallback, so config resolution is identical on
+   * the SQL and connection-free direct paths.
    */
   public static DatabaseConfigResolver forProperties(Properties connectionProperties) {
     return ServiceLoader.load(DatabaseConfigResolverProvider.class).stream()
@@ -36,7 +33,7 @@ public final class DatabaseConfigResolvers {
         .max(Comparator.comparingInt(DatabaseConfigResolverProvider::priority))
         .map(provider -> provider.resolver(connectionProperties))
         .orElseThrow(() -> new IllegalStateException(
-            "No DatabaseConfigResolverProvider registered; the direct API requires a registry-native "
-                + "resolver (e.g. hoptimator-k8s) on the classpath."));
+            "No DatabaseConfigResolverProvider registered; a registry-native resolver "
+                + "(e.g. hoptimator-k8s) must be on the classpath."));
   }
 }
