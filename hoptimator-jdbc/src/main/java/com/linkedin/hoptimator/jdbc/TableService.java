@@ -51,8 +51,11 @@ public final class TableService {
    *                             {@code [CATALOG, DATABASE, TABLE]})
    * @param avroSchema           the Avro schema describing the table's row type
    * @param options              table options (equivalent to DDL {@code WITH (...)}); may be empty
-   * @param orReplace            whether an existing table may be replaced/updated (like
-   *                             {@code CREATE OR REPLACE}); ignored in {@code apply} mode
+   * @param updateIfExists       when {@code false}, creating a table that already
+   *                             exists fails. When {@code true}, an existing table is updated in
+   *                             place (schema evolution / config change), and a table that does not
+   *                             yet exist is still created. This flag is authoritative on the direct
+   *                             path and is not overridden by the connection's {@code mode}.
    * @param dryRun               when {@code true}, validate and render specs without mutating
    *                             anything (like {@code !specify} / the {@code Plan} RPC)
    * @return the specs (populated only for dry-run), the resolved row type, and the table path
@@ -60,21 +63,21 @@ public final class TableService {
    */
   public static HoptimatorDdlUtils.SpecifyResult create(Properties connectionProperties,
       List<Consumer<String>> logHooks, List<String> path, Schema avroSchema, Map<String, String> options,
-      boolean orReplace, boolean dryRun) throws SQLException {
+      boolean updateIfExists, boolean dryRun) throws SQLException {
     return create(connectionProperties, logHooks, DatabaseConfigResolvers.forProperties(connectionProperties),
-        path, avroSchema, options, orReplace, dryRun);
+        path, avroSchema, options, updateIfExists, dryRun);
   }
 
   /** Convenience overload for callers that already hold a {@link HoptimatorConnection}. */
   public static HoptimatorDdlUtils.SpecifyResult create(HoptimatorConnection conn, List<String> path,
-      Schema avroSchema, Map<String, String> options, boolean orReplace, boolean dryRun) throws SQLException {
+      Schema avroSchema, Map<String, String> options, boolean updateIfExists, boolean dryRun) throws SQLException {
     return create(conn.connectionProperties(), conn.logHooks(), DatabaseConfigResolvers.forConnection(conn),
-        path, avroSchema, options, orReplace, dryRun);
+        path, avroSchema, options, updateIfExists, dryRun);
   }
 
   private static HoptimatorDdlUtils.SpecifyResult create(Properties connectionProperties,
       List<Consumer<String>> logHooks, DatabaseConfigResolver resolver, List<String> path, Schema avroSchema,
-      Map<String, String> options, boolean orReplace, boolean dryRun) throws SQLException {
+      Map<String, String> options, boolean updateIfExists, boolean dryRun) throws SQLException {
     if (path == null || path.size() < 2) {
       throw new SQLException("A table path must include at least a database and a table name.");
     }
@@ -82,9 +85,12 @@ public final class TableService {
       throw new SQLException("An Avro schema is required to create a table.");
     }
 
+    // updateIfExists is authoritative for the direct path: it maps straight to CREATE (fail if the
+    // table already exists, enforced store-natively by the deployers) or UPDATE (create-or-update),
+    // independent of the connection's mode. Dry-run always resolves to SPECIFY.
     HoptimatorDdlUtils.DdlMode mode = dryRun
         ? HoptimatorDdlUtils.DdlMode.SPECIFY
-        : HoptimatorDdlUtils.effectiveMode(orReplace, connectionProperties);
+        : (updateIfExists ? HoptimatorDdlUtils.DdlMode.UPDATE : HoptimatorDdlUtils.DdlMode.CREATE);
 
     RelDataType rowType = AvroConverter.rel(avroSchema, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
     if (!rowType.isStruct()) {
@@ -101,7 +107,7 @@ public final class TableService {
     DirectDeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, rowType);
 
     return HoptimatorDdlUtils.deployTableInternal(logHooks, context, null, path, false,
-        database, tableName, rowType, ief, options, false, orReplace, mode);
+        database, tableName, rowType, ief, options, false, updateIfExists, mode);
   }
 
   /**

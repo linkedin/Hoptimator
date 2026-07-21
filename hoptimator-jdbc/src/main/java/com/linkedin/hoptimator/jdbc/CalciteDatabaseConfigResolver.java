@@ -1,9 +1,14 @@
 package com.linkedin.hoptimator.jdbc;
 
+import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.sql.SQLException;
+import java.util.List;
 import java.util.Properties;
 
 
@@ -30,10 +35,9 @@ public final class CalciteDatabaseConfigResolver implements DatabaseConfigResolv
   }
 
   @Override
-  public String databaseName(java.util.List<String> tablePath) throws java.sql.SQLException {
-    org.apache.calcite.jdbc.CalcitePrepare.Context ctx = connection.createPrepareContext();
-    org.apache.calcite.sql.SqlIdentifier name =
-        new org.apache.calcite.sql.SqlIdentifier(tablePath, org.apache.calcite.sql.parser.SqlParserPos.ZERO);
+  public String databaseName(List<String> tablePath) throws SQLException {
+    CalcitePrepare.Context ctx = connection.createPrepareContext();
+    SqlIdentifier name = new SqlIdentifier(tablePath, SqlParserPos.ZERO);
     return HoptimatorDdlUtils.resolveCreateTarget(ctx, connection, false, name).database;
   }
 }

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import java.util.List;
 import java.util.Properties;
 
 import javax.annotation.Nullable;
@@ -30,5 +31,5 @@ public interface DatabaseConfigResolver {
    * For a schema-style database this is the {@code Database} name; for a catalog-style database it
    * is the schema segment of the path (an independent sub-database sharing the catalog connection).
    */
-  String databaseName(java.util.List<String> tablePath) throws java.sql.SQLException;
+  String databaseName(List<String> tablePath) throws java.sql.SQLException;
 }
