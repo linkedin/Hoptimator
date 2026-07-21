@@ -14,6 +14,16 @@ import javax.annotation.Nullable;
  * without holding a Calcite {@link HoptimatorConnection}. A registry-native module (e.g.
  * {@code hoptimator-k8s}) supplies an implementation that reads {@code Database} CRDs (or any other
  * registry) directly; see {@link DatabaseConfigResolverProvider}.
+ *
+ * <p>{@link #databaseProperties} deliberately mirrors {@link
+ * com.linkedin.hoptimator.DeploymentContext#databaseProperties}: on the direct path {@link
+ * DirectDeploymentContext} answers that SPI method by forwarding here, while {@link
+ * CalciteDeploymentContext} answers the same method from the Calcite catalog. They are separate
+ * interfaces (rather than one) because {@code DeploymentContext} is the engine-neutral SPI in
+ * {@code hoptimator-api} and must not depend on a registry-native module, whereas this resolver is
+ * the {@code ServiceLoader} backend that supplies the direct path's answer. This interface also
+ * carries {@link #databaseName}, which {@code DeploymentContext} does not — so the two are not
+ * interchangeable.
  */
 public interface DatabaseConfigResolver {
 
