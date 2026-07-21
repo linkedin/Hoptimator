@@ -4,6 +4,8 @@ import com.linkedin.hoptimator.DeploymentContext;
 
 import java.util.Properties;
 
+import javax.annotation.Nullable;
+
 
 /** Minimal no-op {@link DeploymentContext} for unit tests that don't exercise config resolution. */
 public class TestDeploymentContext implements DeploymentContext {
@@ -24,7 +26,8 @@ public class TestDeploymentContext implements DeploymentContext {
   }
 
   @Override
-  public Properties databaseProperties(String catalog, String database, String connectionPrefix) {
+  public Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
+      String connectionPrefix) {
     return null;
   }
 }

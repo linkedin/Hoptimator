@@ -51,8 +51,8 @@ public final class DirectDeploymentContext implements DeploymentContext {
   }
 
   @Override
-  public @Nullable Properties databaseProperties(@Nullable String catalog, String database,
+  public @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
       String connectionPrefix) {
-    return databaseConfigResolver.databaseProperties(catalog, database, connectionPrefix);
+    return databaseConfigResolver.databaseProperties(catalog, schema, connectionPrefix);
   }
 }

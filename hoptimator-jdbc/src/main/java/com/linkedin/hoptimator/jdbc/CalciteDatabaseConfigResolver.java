@@ -29,9 +29,9 @@ public final class CalciteDatabaseConfigResolver implements DatabaseConfigResolv
   }
 
   @Override
-  public @Nullable Properties databaseProperties(@Nullable String catalog, String database,
+  public @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
       String connectionPrefix) {
-    return DeployerUtils.extractPropertiesFromJdbcSchema(catalog, database, connection, connectionPrefix, LOG);
+    return DeployerUtils.extractPropertiesFromJdbcSchema(catalog, schema, connection, connectionPrefix, LOG);
   }
 
   @Override

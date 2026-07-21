@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
 
@@ -17,13 +18,15 @@ public interface DatabaseConfigResolver {
 
   /**
    * Returns the parsed connection properties for a database, or {@code null} when the database is
-   * unknown or its URL does not start with {@code connectionPrefix}.
+   * unknown or its URL does not start with {@code connectionPrefix}. The {@code Database} is keyed
+   * by a catalog and/or a schema; both are individually optional, but at least one must be provided.
    *
-   * @param catalog          optional catalog name, or {@code null}
-   * @param database         the database (schema) name
+   * @param catalog          the catalog name, or {@code null}
+   * @param schema           the schema name, or {@code null}
    * @param connectionPrefix the expected URL scheme prefix (e.g. {@code "jdbc:kafka://"})
    */
-  @Nullable Properties databaseProperties(@Nullable String catalog, String database, String connectionPrefix);
+  @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
+      String connectionPrefix);
 
   /**
    * Resolves the {@code database} identifier for a table at {@code tablePath} — the value exposed as
@@ -31,5 +34,5 @@ public interface DatabaseConfigResolver {
    * For a schema-style database this is the {@code Database} name; for a catalog-style database it
    * is the schema segment of the path (an independent sub-database sharing the catalog connection).
    */
-  String databaseName(List<String> tablePath) throws java.sql.SQLException;
+  String databaseName(List<String> tablePath) throws SQLException;
 }

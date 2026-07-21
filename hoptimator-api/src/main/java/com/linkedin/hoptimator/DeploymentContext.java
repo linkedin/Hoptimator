@@ -34,9 +34,15 @@ public interface DeploymentContext {
    * after stripping {@code connectionPrefix}, or {@code null} when the database is unknown or its
    * URL does not start with {@code connectionPrefix}.
    *
-   * @param catalog          optional catalog name, or {@code null}
-   * @param database         the database (schema) name
+   * <p>The {@code Database} it identifies is keyed by a catalog and/or a schema: catalog-style
+   * databases (e.g. MySQL) are matched by catalog, while schema-style databases (e.g. Kafka,
+   * Venice) are matched by schema. Both are individually optional — mirroring the {@code Database}
+   * CRD, where {@code catalog} and {@code schema} are optional — but at least one must be provided.
+   *
+   * @param catalog          the catalog name, or {@code null}
+   * @param schema           the schema name, or {@code null}
    * @param connectionPrefix the expected URL scheme prefix (e.g. {@code "jdbc:kafka://"})
    */
-  @Nullable Properties databaseProperties(@Nullable String catalog, String database, String connectionPrefix);
+  @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
+      String connectionPrefix);
 }

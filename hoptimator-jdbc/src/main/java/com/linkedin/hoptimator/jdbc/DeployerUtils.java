@@ -125,7 +125,7 @@ public final class DeployerUtils {
    * @param logger optional logger for debug messages
    * @return Properties extracted from the JDBC URL, or null if schema not found or not JDBC-backed
    */
-  public static Properties extractPropertiesFromJdbcSchema(@Nullable String catalogName, String schemaName,
+  public static Properties extractPropertiesFromJdbcSchema(@Nullable String catalogName, @Nullable String schemaName,
       Connection connection, String connectionPrefix, @Nullable Logger logger) {
 
     if (schemaName == null) {

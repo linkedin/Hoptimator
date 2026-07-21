@@ -32,12 +32,12 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   }
 
   @Override
-  public @Nullable Properties databaseProperties(@Nullable String catalog, String database,
+  public @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
       String connectionPrefix) {
-    if (database == null) {
+    if (catalog == null && schema == null) {
       return null;
     }
-    K8sDatabaseTable.Row row = findDatabase(catalog, database);
+    K8sDatabaseTable.Row row = findDatabase(catalog, schema);
     if (row == null || row.URL == null || !row.URL.startsWith(connectionPrefix)) {
       return null;
     }
@@ -46,7 +46,7 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
     try {
       properties.putAll(ConnectStringParser.parse(joined.substring(connectionPrefix.length())));
     } catch (SQLException e) {
-      LOG.debug("Could not parse URL for database '{}': {}", database, e.getMessage());
+      LOG.debug("Could not parse URL for schema '{}': {}", schema, e.getMessage());
       return null;
     }
     return properties;
@@ -66,28 +66,28 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
     return catalog != null ? schema : row.NAME;
   }
 
-  private @Nullable K8sDatabaseTable.Row findDatabase(@Nullable String catalog, String database) {
+  private @Nullable K8sDatabaseTable.Row findDatabase(@Nullable String catalog, @Nullable String schema) {
     try {
       for (V1alpha1Database db : api().list()) {
         K8sDatabaseTable.Row row = K8sDatabaseTable.rowOf(db);
-        if (matches(row, catalog, database)) {
+        if (matches(row, catalog, schema)) {
           return row;
         }
       }
     } catch (SQLException e) {
-      LOG.debug("Could not list Database CRDs while resolving config for '{}': {}", database, e.getMessage());
+      LOG.debug("Could not list Database CRDs while resolving config for '{}': {}", schema, e.getMessage());
     }
     return null;
   }
 
-  private static boolean matches(K8sDatabaseTable.Row row, @Nullable String catalog, String database) {
+  private static boolean matches(K8sDatabaseTable.Row row, @Nullable String catalog, @Nullable String schema) {
     if (catalog != null) {
       // Catalog-style Database (e.g. MYSQL): config lives on the catalog CRD; the requested
-      // `database` is a sub-schema that shares this connection.
+      // `schema` is a sub-schema that shares this connection.
       return catalog.equalsIgnoreCase(row.CATALOG);
     }
     // Schema-style Database (e.g. KAFKA, VENICE): match by schema name.
-    return row.CATALOG == null && database.equalsIgnoreCase(K8sDatabaseTable.schemaName(row));
+    return row.CATALOG == null && schema != null && schema.equalsIgnoreCase(K8sDatabaseTable.schemaName(row));
   }
 
   private K8sApi<V1alpha1Database, V1alpha1DatabaseList> api() {

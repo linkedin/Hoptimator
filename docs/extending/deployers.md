@@ -84,7 +84,7 @@ move on to the next provider.
 
 The `DeploymentContext` is a Calcite-free handle onto everything a deployer
 needs: connection-level `properties()` (namespace, hints, cluster config) and
-per-`Database` connection config via `databaseProperties(catalog, database,
+per-`Database` connection config via `databaseProperties(catalog, schema,
 urlPrefix)`. The SQL path supplies a Calcite-backed implementation
 (`CalciteDeploymentContext`); the direct table-create API supplies a
 `DirectDeploymentContext` that carries the resolved row type. A deployer that
