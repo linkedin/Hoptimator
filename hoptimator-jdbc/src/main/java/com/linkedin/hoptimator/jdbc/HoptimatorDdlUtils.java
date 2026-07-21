@@ -598,8 +598,11 @@ public final class HoptimatorDdlUtils {
 
   /**
    * Resolves the schema/catalog node, database, and table name for a to-be-created table from a
-   * (possibly multi-level) identifier. Shared by the DDL {@code CREATE TABLE} path and the
-   * SQL-free direct path so both agree on how a path maps to a {@code (database, table)} pair.
+   * (possibly multi-level) identifier by walking the Calcite catalog. This is the Calcite/SQL-path
+   * resolution: it backs the DDL {@code CREATE TABLE} path ({@link #processCreateTable}) and
+   * {@link CalciteDatabaseConfigResolver#databaseName}. The connection-free direct path does not
+   * use this; it resolves the database identifier registry-natively via
+   * {@link DatabaseConfigResolver#databaseName} instead.
    */
   static CreateTarget resolveCreateTarget(CalcitePrepare.Context ctx, HoptimatorConnection conn,
       boolean mutable, SqlIdentifier name) throws SQLException {

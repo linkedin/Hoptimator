@@ -14,8 +14,10 @@ import java.util.Properties;
 /**
  * Provides {@link MySqlDeployer} instances for MySQL-backed tables.
  *
- * <p>Detection works by looking up the source's schema in the deployment context,
- * checking if it is a MySQL schema (TableSchema).
+ * <p>Detection uses {@link DeploymentContext#databaseProperties} to resolve the source's
+ * {@code Database} config and checks whether its connection URL starts with
+ * {@code jdbc:mysql-hoptimator://}. This is Calcite-free: it works identically whether the config
+ * comes from the Calcite catalog (SQL path) or from a {@code Database} CRD (direct path).
  */
 public class MySqlDeployerProvider implements DeployerProvider {
 
