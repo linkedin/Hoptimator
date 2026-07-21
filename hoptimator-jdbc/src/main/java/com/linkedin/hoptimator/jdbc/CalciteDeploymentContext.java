@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.util.Properties;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 
 /**
  * A {@link DeploymentContext} backed by a Calcite {@link HoptimatorConnection}. This is the
@@ -13,7 +15,7 @@ import java.util.Properties;
  * URL from the Calcite catalog, and the table's row type is resolved from the Calcite catalog
  * (see {@link HoptimatorDriver#rowType}).
  */
-public final class CalciteDeploymentContext implements ConnectionBackedContext {
+public final class CalciteDeploymentContext implements DeploymentContext {
 
   private static final Logger LOG = LoggerFactory.getLogger(CalciteDeploymentContext.class);
 
@@ -24,7 +26,6 @@ public final class CalciteDeploymentContext implements ConnectionBackedContext {
   }
 
   /** The underlying connection. Retained for the Calcite-only planning path (not the deploy SPI). */
-  @Override
   public HoptimatorConnection connection() {
     return connection;
   }

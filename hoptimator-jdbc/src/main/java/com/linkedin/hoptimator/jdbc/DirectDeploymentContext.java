@@ -19,7 +19,7 @@ import java.util.Properties;
  *       so this context does not depend on how the {@code Database} registry is stored.
  * </ul>
  *
- * <p>Because it is not {@link ConnectionBackedContext}, deployers cannot reach a
+ * <p>Because it is not a {@link CalciteDeploymentContext}, deployers cannot reach a
  * {@code java.sql.Connection} through it -- the direct path stays decoupled from Calcite.
  */
 public final class DirectDeploymentContext implements DeploymentContext {

@@ -50,7 +50,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.util.DeploymentService;
 
-import com.linkedin.hoptimator.jdbc.ConnectionBackedContext;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
@@ -154,10 +154,12 @@ public class LogicalTableDeployer implements Deployer, Validated {
     if (!schemaRollbacks.isEmpty()) {
       return; // Already registered (e.g. validate() was called before create/update).
     }
-    HoptimatorConnection conn = ConnectionBackedContext.connectionOrNull(context.deploymentContext());
-    if (conn == null) {
+    // Only the SQL path registers Calcite TemporaryTables so deployers can resolve tier row types;
+    // the direct path carries the row type on its context and needs no catalog registration.
+    if (!(context.deploymentContext() instanceof CalciteDeploymentContext)) {
       return;
     }
+    HoptimatorConnection conn = ((CalciteDeploymentContext) context.deploymentContext()).connection();
     RelDataType rowType = HoptimatorDriver.rowType(source, context.deploymentContext());
     for (Source tierSource : buildTierSources().values()) {
       schemaRollbacks.add(HoptimatorDdlUtils.registerTemporaryTableInSchema(
@@ -261,9 +263,9 @@ public class LogicalTableDeployer implements Deployer, Validated {
               tierSource.pathString(), e.getMessage(), e);
         }
       }
-      HoptimatorConnection conn = ConnectionBackedContext.connectionOrNull(context.deploymentContext());
-      if (tierSucceeded && conn != null) {
+      if (tierSucceeded && context.deploymentContext() instanceof CalciteDeploymentContext) {
         // Only the SQL path registered a tier TemporaryTable to deregister; the direct path did not.
+        HoptimatorConnection conn = ((CalciteDeploymentContext) context.deploymentContext()).connection();
         HoptimatorDdlUtils.removeTableFromSchema(conn,
             tierSource.catalog(), tierSource.schema(), tierSource.table());
       }
@@ -352,13 +354,14 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * <p>Shared by {@link #deployPipelineBundle} and {@link #specifyPipelineJob}.
    */
   private Pipeline planPipeline(Source fromSource, Source toSource, String pipelineName) throws Exception {
-    HoptimatorConnection conn = ConnectionBackedContext.connectionOrNull(context.deploymentContext());
+    DeploymentContext deploymentContext = context.deploymentContext();
     final RelNode query;
     final RelDataType rowType;
     final ImmutablePairList<Integer, String> targetFields;
     final Map<String, String> hints;
-    if (conn != null) {
+    if (deploymentContext instanceof CalciteDeploymentContext) {
       // SQL path: plan SELECT * FROM <source tier> against the Calcite catalog.
+      HoptimatorConnection conn = ((CalciteDeploymentContext) deploymentContext).connection();
       Properties props = conn.connectionProperties();
       props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
       RelRoot root = HoptimatorDriver.convert(conn, buildSelectSql(fromSource)).root;
@@ -370,11 +373,11 @@ public class LogicalTableDeployer implements Deployer, Validated {
       // Connection-free (direct API) path: a logical table's tiers share the row type we created
       // both tables from, so the inter-tier pipeline is a pure identity copy — build the scan
       // RelNode without a Calcite connection or catalog.
-      rowType = HoptimatorDriver.rowType(fromSource, context.deploymentContext());
+      rowType = HoptimatorDriver.rowType(fromSource, deploymentContext);
       query = IdentityQuery.scan(fromSource.path(), rowType);
       targetFields = IdentityQuery.fields(rowType);
       Properties props = new Properties();
-      props.putAll(context.deploymentContext().properties());
+      props.putAll(deploymentContext.properties());
       props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
       hints = DeploymentService.parseHints(props);
     }
