@@ -41,9 +41,10 @@ public interface DatabaseConfigResolver {
 
   /**
    * Resolves the {@code database} identifier for a table at {@code tablePath} — the value exposed as
-   * {@link com.linkedin.hoptimator.Source#database()} and used to name/derive deployed resources.
-   * For a schema-style database this is the {@code Database} name; for a catalog-style database it
-   * is the schema segment of the path (an independent sub-database sharing the catalog connection).
+   * {@link com.linkedin.hoptimator.Source#database()} and used to name/derive deployed resources and
+   * to match template {@code databases} filters. This is the registered {@code Database} name for
+   * both schema-style and catalog-style databases; the store-level schema (e.g. the target MySQL
+   * database) is carried separately by {@link com.linkedin.hoptimator.Source#schema()}.
    */
   String databaseName(List<String> tablePath) throws SQLException;
 }

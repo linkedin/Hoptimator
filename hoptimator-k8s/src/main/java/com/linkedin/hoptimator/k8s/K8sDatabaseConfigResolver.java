@@ -53,17 +53,19 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   }
 
   @Override
-  public String databaseName(List<String> tablePath) {
+  public String databaseName(List<String> tablePath) throws SQLException {
     String schema = tablePath.get(tablePath.size() - 2);
     String catalog = tablePath.size() >= 3 ? tablePath.get(tablePath.size() - 3) : null;
     K8sDatabaseTable.Row row = findDatabase(catalog, schema);
     if (row == null) {
-      // Unknown to the registry: fall back to the schema segment (matches the new-sub-schema case).
-      return schema;
+      throw new SQLException("No Database is registered for "
+          + (catalog != null ? catalog + "." + schema : schema) + ".");
     }
-    // Catalog-style: the requested schema is an independent sub-database sharing the catalog
-    // connection, so it is its own database identifier. Schema-style: the Database CRD name.
-    return catalog != null ? schema : row.NAME;
+    // The database identifier is always the Database CRD name, for both schema- and catalog-style
+    // Databases — matching the SQL path, which injects it into the JDBC URL as database=<name> (see
+    // K8sDatabaseTable#joinedUrl). It names deployed resources and matches Table/Job template
+    // `databases` filters; the store-level schema is carried separately by Source#schema().
+    return row.NAME;
   }
 
   private @Nullable K8sDatabaseTable.Row findDatabase(@Nullable String catalog, @Nullable String schema) {
