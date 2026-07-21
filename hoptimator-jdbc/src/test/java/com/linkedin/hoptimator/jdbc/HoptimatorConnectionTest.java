@@ -158,7 +158,7 @@ class HoptimatorConnectionTest {
     Consumer<String> hook = logged::add;
     connection.addLogHook(hook);
 
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = connection.getLogger(HoptimatorConnectionTest.class);
+    DualLogger logger = connection.getLogger(HoptimatorConnectionTest.class);
     logger.info("test message {}", "arg1");
 
     assertEquals(1, logged.size());
@@ -168,7 +168,7 @@ class HoptimatorConnectionTest {
 
   @Test
   void testGetLoggerReturnsNonNull() {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = connection.getLogger(String.class);
+    DualLogger logger = connection.getLogger(String.class);
 
     assertNotNull(logger);
   }
@@ -323,7 +323,7 @@ class HoptimatorConnectionTest {
     connection.addLogHook(hook1Messages::add);
     connection.addLogHook(hook2Messages::add);
 
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = connection.getLogger(HoptimatorConnectionTest.class);
+    DualLogger logger = connection.getLogger(HoptimatorConnectionTest.class);
     logger.info("hello");
 
     assertEquals(1, hook1Messages.size());

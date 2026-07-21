@@ -18,9 +18,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.util.Util;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.helpers.MessageFormatter;
 
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -162,8 +159,8 @@ public class HoptimatorConnection extends DelegatingConnection {
   /**
    * Returns a logger for a client of this connection. The logger logs to both SLF4J and hooks.
    */
-  HoptimatorConnectionDualLogger getLogger(Class<?> clazz) {
-    return new HoptimatorConnectionDualLogger(clazz, logHooks);
+  DualLogger getLogger(Class<?> clazz) {
+    return new DualLogger(clazz, logHooks);
   }
 
   /**
@@ -197,30 +194,5 @@ public class HoptimatorConnection extends DelegatingConnection {
       throw new SQLException(tablePath + " is not a physical database.");
     }
     return ((Database) schema.schema).databaseName();
-  }
-
-  /**
-   * A logger that logs to both SLF4J logger and registered hooks.
-   */
-  static class HoptimatorConnectionDualLogger {
-    private final String className;
-    private final Logger slf4jLogger;
-    private final List<Consumer<String>> hooks;
-
-    HoptimatorConnectionDualLogger(Class<?> clazz, List<Consumer<String>> hooks) {
-      this.className = clazz.getSimpleName();
-      this.slf4jLogger = LoggerFactory.getLogger(clazz);
-      this.hooks = hooks;
-    }
-
-    /**
-     * Log a message with slf4j format at the INFO level.
-     */
-    public void info(String format, Object... arguments) {
-      slf4jLogger.info(format, arguments);
-      String msg = MessageFormatter.arrayFormat(format, arguments).getMessage();
-      String msgWithClassName = String.format("[%s] %s", className, msg);
-      hooks.forEach(hook -> hook.accept(msgWithClassName));
-    }
   }
 }

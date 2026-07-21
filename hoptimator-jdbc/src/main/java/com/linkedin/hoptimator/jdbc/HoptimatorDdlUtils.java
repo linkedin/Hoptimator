@@ -344,7 +344,7 @@ public final class HoptimatorDdlUtils {
   static SpecifyResult processCreateMaterializedView(CalcitePrepare.Context ctx,
       HoptimatorDriver.Prepare prepare, HoptimatorConnection conn,
       SqlCreateMaterializedView create, DdlMode mode) throws SQLException {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+    DualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
     // Validate the DDL statement.
     logger.info("Validating statement: {}", create);
     ValidationService.validateOrThrow(create, conn.deploymentContext());
@@ -505,7 +505,7 @@ public final class HoptimatorDdlUtils {
    */
   static SpecifyResult processCreateTable(CalcitePrepare.Context ctx, HoptimatorConnection conn,
       SqlCreateTable create, DdlMode mode) throws SQLException {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+    DualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
     ValidationService.validateOrThrow(create, conn.deploymentContext());
@@ -648,8 +648,8 @@ public final class HoptimatorDdlUtils {
       boolean isNewSchema, String database, String tableName, RelDataType rowType,
       InitializerExpressionFactory ief, Map<String, String> options,
       boolean ifNotExists, boolean orReplace, DdlMode mode) throws SQLException {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger =
-        new HoptimatorConnection.HoptimatorConnectionDualLogger(HoptimatorDdlUtils.class, logHooks);
+    DualLogger logger =
+        new DualLogger(HoptimatorDdlUtils.class, logHooks);
     // The Calcite catalog handle is present only on the SQL path; the direct path passes a null
     // pair and its precomputed tablePath, and touches no catalog (see manageCalciteSchema below).
     final SchemaPlus schemaPlus = pair != null ? pair.left.plus() : null;
@@ -772,7 +772,7 @@ public final class HoptimatorDdlUtils {
    */
   static SpecifyResult processCreateDatabase(HoptimatorConnection conn,
       SqlCreateDatabase create, DdlMode mode) throws SQLException {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+    DualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
     ValidationService.validateOrThrow(create, conn.deploymentContext());

@@ -74,7 +74,7 @@ import java.util.Map;
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   private final HoptimatorConnection connection;
-  private final HoptimatorConnection.HoptimatorConnectionDualLogger logger;
+  private final DualLogger logger;
 
   public HoptimatorDdlExecutor(HoptimatorConnection connection) {
     try {
