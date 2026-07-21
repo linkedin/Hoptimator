@@ -206,7 +206,7 @@ class HoptimatorConnectionTest {
       RelDataType result =
           HoptimatorDriver.rowType(
               new Source("UTIL", Arrays.asList("UTIL", "PRINT"), Collections.emptyMap()),
-              conn);
+              new CalciteDeploymentContext(conn));
       assertNotNull(result, "resolve() must find the PRINT table");
       assertTrue(result.getFieldCount() > 0, "resolve() must return a non-empty row type");
       // "OUTPUT" is a known field in UTIL.PRINT — ensures correct path math, not empty Optional

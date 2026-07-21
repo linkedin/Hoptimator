@@ -132,10 +132,6 @@ public final class HoptimatorDdlUtils {
   }
 
   /** Whether the connection is configured for apply-mode DDL. */
-  static boolean isApplyMode(HoptimatorConnection conn) {
-    return isApplyMode(conn.connectionProperties());
-  }
-
   static boolean isApplyMode(Properties props) {
     if (props == null) {
       return false;

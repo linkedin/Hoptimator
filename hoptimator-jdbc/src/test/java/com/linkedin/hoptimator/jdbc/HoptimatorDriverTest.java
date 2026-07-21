@@ -119,7 +119,7 @@ class HoptimatorDriverTest {
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       Source source = new Source("UTIL", Arrays.asList("UTIL", "PRINT"), Collections.emptyMap());
 
-      RelDataType rowType = HoptimatorDriver.rowType(source, connection);
+      RelDataType rowType = HoptimatorDriver.rowType(source, new CalciteDeploymentContext(connection));
 
       assertNotNull(rowType);
       assertEquals(1, rowType.getFieldCount());
@@ -133,7 +133,7 @@ class HoptimatorDriverTest {
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       Source source = new Source("UTIL", Arrays.asList("UTIL", "NONEXISTENT"), Collections.emptyMap());
 
-      assertThrows(SQLException.class, () -> HoptimatorDriver.rowType(source, connection));
+      assertThrows(SQLException.class, () -> HoptimatorDriver.rowType(source, new CalciteDeploymentContext(connection)));
     }
   }
 

@@ -158,7 +158,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
     if (conn == null) {
       return;
     }
-    RelDataType rowType = HoptimatorDriver.rowType(source, conn);
+    RelDataType rowType = HoptimatorDriver.rowType(source, context.deploymentContext());
     for (Source tierSource : buildTierSources().values()) {
       schemaRollbacks.add(HoptimatorDdlUtils.registerTemporaryTableInSchema(
           conn, tierSource.catalog(), tierSource.schema(),

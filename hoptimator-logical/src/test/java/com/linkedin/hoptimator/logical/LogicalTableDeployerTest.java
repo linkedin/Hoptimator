@@ -23,6 +23,7 @@ import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.Validated;
@@ -741,7 +742,7 @@ class LogicalTableDeployerTest {
     when(ctx.deploymentContext()).thenReturn(new CalciteDeploymentContext(mockConn));
 
     hoptimatorDriverMock
-        .when(() -> HoptimatorDriver.rowType(any(Source.class), any(HoptimatorConnection.class)))
+        .when(() -> HoptimatorDriver.rowType(any(Source.class), any(DeploymentContext.class)))
         .thenThrow(new SQLException("schema not found"));
 
     Properties oneTierProps = new Properties();

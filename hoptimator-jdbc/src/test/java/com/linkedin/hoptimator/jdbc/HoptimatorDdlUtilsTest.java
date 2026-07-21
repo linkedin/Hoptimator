@@ -1776,12 +1776,12 @@ class HoptimatorDdlUtilsTest {
   void testIsApplyMode() {
     Properties applyProps = new Properties();
     applyProps.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_APPLY);
-    assertTrue(HoptimatorDdlUtils.isApplyMode(connectionWith(applyProps)));
+    assertTrue(HoptimatorDdlUtils.isApplyMode(applyProps));
 
     Properties createProps = new Properties();
     createProps.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_CREATE);
-    assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(createProps)));
+    assertFalse(HoptimatorDdlUtils.isApplyMode(createProps));
 
-    assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(new Properties())));
+    assertFalse(HoptimatorDdlUtils.isApplyMode(new Properties()));
   }
 }

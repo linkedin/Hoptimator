@@ -32,7 +32,6 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.sql.SQLTransientException;
-import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.logging.LogManager;
@@ -171,25 +170,20 @@ public class HoptimatorDriver implements Driver {
       return ((DirectDeploymentContext) context).rowType();
     }
     if (context instanceof CalciteDeploymentContext) {
-      return rowType(source, ((CalciteDeploymentContext) context).connection());
+      HoptimatorConnection connection = ((CalciteDeploymentContext) context).connection();
+      SchemaPlus schema = Objects.requireNonNull(connection.calciteConnection().getRootSchema());
+      for (String p : Util.skipLast(source.path())) {
+        schema = Objects.requireNonNull(schema.subSchemas().get(p));
+      }
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      Table table = schema.tables().get(source.table());
+      if (table == null) {
+        throw new SQLException("Table " + source.table() + " not found in schema " + schema.getName() + ".");
+      }
+      return table.getRowType(typeFactory);
     }
     throw new SQLException("Cannot resolve row type for " + source + " from a "
         + context.getClass().getSimpleName() + ".");
-  }
-
-  public static RelDataType rowType(Source source, HoptimatorConnection connection) throws SQLException {
-    final List<String> path = Util.skipLast(source.path());
-    String name = source.table();
-    SchemaPlus schema = Objects.requireNonNull(connection.calciteConnection().getRootSchema());
-    for (String p : path) {
-      schema = Objects.requireNonNull(schema.subSchemas().get(p));
-    }
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    Table table = schema.tables().get(name);
-    if (table == null) {
-      throw new SQLException("Table " + name + " not found in schema " + schema.getName() + ".");
-    }
-    return table.getRowType(typeFactory);
   }
 
   /**
@@ -202,13 +196,10 @@ public class HoptimatorDriver implements Driver {
    * source tables resolved through the Calcite catalog (the SQL/pipeline path).
    */
   public static Schema valueSchema(Source source, DeploymentContext context) {
-    if (context instanceof CalciteDeploymentContext) {
-      return valueSchema(source, ((CalciteDeploymentContext) context).connection());
+    if (!(context instanceof CalciteDeploymentContext)) {
+      return null;
     }
-    return null;
-  }
-
-  private static Schema valueSchema(Source source, HoptimatorConnection connection) {
+    HoptimatorConnection connection = ((CalciteDeploymentContext) context).connection();
     if (connection == null) {
       return null;
     }
