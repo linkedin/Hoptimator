@@ -123,7 +123,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       throw new DdlException(create,
           "Cannot overwrite physical table " + pair.right + " with a view.");
     }
-    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
     for (Function function : schemaPlus.getFunctions(pair.right)) {
       if (function.getParameters().isEmpty()) {
         if (mode == HoptimatorDdlUtils.DdlMode.CREATE) {
@@ -178,7 +178,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code CREATE MATERIALIZED VIEW} command. */
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", create);
-    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
     try {
       HoptimatorDdlUtils.processCreateMaterializedView(
           context,
@@ -240,7 +240,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
       ValidationService.validateOrThrow(deployers, connection.deploymentContext());
       logger.info("Validated trigger {}", name);
-      HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+      HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
       if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
         logger.info("Updating trigger {}", name);
         DeploymentService.update(deployers);
@@ -279,7 +279,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   /** Executes a {@code CREATE TABLE} command. */
   public void execute(SqlCreateTable create, CalcitePrepare.Context context) {
-    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
     try {
       HoptimatorDdlUtils.processCreateTable(context, connection, create, mode);
     } catch (SQLException | RuntimeException e) {
@@ -291,7 +291,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   /** Executes a {@code CREATE DATABASE} command. */
   public void execute(SqlCreateDatabase create, CalcitePrepare.Context context) {
-    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
     try {
       HoptimatorDdlUtils.processCreateDatabase(connection, create, mode);
     } catch (SQLException | RuntimeException e) {

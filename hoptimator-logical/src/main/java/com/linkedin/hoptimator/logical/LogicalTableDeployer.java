@@ -362,7 +362,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
     if (deploymentContext instanceof CalciteDeploymentContext) {
       // SQL path: plan SELECT * FROM <source tier> against the Calcite catalog.
       HoptimatorConnection conn = ((CalciteDeploymentContext) deploymentContext).connection();
-      Properties props = conn.connectionProperties();
+      Properties props = deploymentContext.properties();
       props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
       RelRoot root = HoptimatorDriver.convert(conn, buildSelectSql(fromSource)).root;
       query = root.rel;

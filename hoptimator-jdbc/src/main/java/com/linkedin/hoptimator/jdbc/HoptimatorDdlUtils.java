@@ -120,12 +120,8 @@ public final class HoptimatorDdlUtils {
    * {@code CREATE OR REPLACE} → {@link DdlMode#UPDATE}. In {@code apply} mode: both forms
    * resolve to {@link DdlMode#UPDATE}, making CREATE idempotent.
    */
-  static DdlMode effectiveMode(boolean orReplace, HoptimatorConnection conn) {
-    return effectiveMode(orReplace, conn.connectionProperties());
-  }
-
-  static DdlMode effectiveMode(boolean orReplace, Properties connectionProperties) {
-    if (isApplyMode(connectionProperties)) {
+  static DdlMode effectiveMode(boolean orReplace, DeploymentContext context) {
+    if (isApplyMode(context.properties())) {
       return DdlMode.UPDATE;
     }
     return orReplace ? DdlMode.UPDATE : DdlMode.CREATE;
