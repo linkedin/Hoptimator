@@ -129,7 +129,7 @@ public class VeniceTableServiceIntegrationTest {
   private HoptimatorDdlUtils.SpecifyResult create(String store, Schema.Field... fields) throws SQLException {
     Schema schema = Schema.createRecord(sanitize(store), null, "com.linkedin.hoptimator.test", false,
         Arrays.asList(fields));
-    return TableService.create(connection, List.of("VENICE", store), schema, Map.of(), true, false);
+    return TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("VENICE", store), schema, Map.of(), true, false);
   }
 
   private void assertColumnType(HoptimatorDdlUtils.SpecifyResult result, String field, SqlTypeName expected) {
@@ -138,7 +138,7 @@ public class VeniceTableServiceIntegrationTest {
 
   private void drop(String store) {
     try {
-      TableService.delete(connection, List.of("VENICE", store));
+      TableService.delete(connection.connectionProperties(), List.of("VENICE", store));
     } catch (SQLException ignored) {
       // best-effort cleanup
     }

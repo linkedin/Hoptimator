@@ -51,13 +51,13 @@ public class K8sTableServiceIntegrationTest {
             nullable("s", Schema.Type.STRING)));
     try {
       HoptimatorDdlUtils.SpecifyResult result =
-          TableService.create(connection, List.of("ADS", "newtable"), schema, Map.of(), true, false);
+          TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("ADS", "newtable"), schema, Map.of(), true, false);
 
       assertEquals(List.of("i", "s"), result.sinkRowType.getFieldNames());
       assertEquals(SqlTypeName.INTEGER, result.sinkRowType.getField("i", false, false).getType().getSqlTypeName());
       assertEquals(SqlTypeName.VARCHAR, result.sinkRowType.getField("s", false, false).getType().getSqlTypeName());
     } finally {
-      TableService.delete(connection, List.of("ADS", "newtable"));
+      TableService.delete(connection.connectionProperties(), List.of("ADS", "newtable"));
     }
   }
 
@@ -67,7 +67,7 @@ public class K8sTableServiceIntegrationTest {
         Arrays.asList(nullable("i", Schema.Type.INT)));
 
     HoptimatorDdlUtils.SpecifyResult result =
-        TableService.create(connection, List.of("ADS", "dryruntable"), schema, Map.of(), false, true);
+        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("ADS", "dryruntable"), schema, Map.of(), false, true);
 
     // Dry-run returns the rendered specs and resolved schema, but deploys nothing.
     assertEquals(List.of("i"), result.sinkRowType.getFieldNames());

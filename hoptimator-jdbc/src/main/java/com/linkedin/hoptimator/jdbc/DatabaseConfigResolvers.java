@@ -12,16 +12,6 @@ public final class DatabaseConfigResolvers {
   }
 
   /**
-   * Returns the highest-priority service-loaded {@link DatabaseConfigResolver}, built from the
-   * connection's properties. Equivalent to {@link #forProperties} — the resolver is always
-   * registry-native (e.g. the {@code hoptimator-k8s} provider); the connection is used only for its
-   * properties.
-   */
-  public static DatabaseConfigResolver forConnection(HoptimatorConnection connection) {
-    return forProperties(connection.connectionProperties());
-  }
-
-  /**
    * Returns the highest-priority service-loaded {@link DatabaseConfigResolver}, built from raw
    * connection properties. A registry-native provider — e.g. the {@code hoptimator-k8s} one — must
    * be on the classpath; there is no Calcite-based fallback, so config resolution is identical on

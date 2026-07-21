@@ -30,12 +30,10 @@ import java.util.function.Consumer;
  * table is validated and deployed through exactly the same {@code Validator} / {@code Deployer}
  * SPI as the DDL path.
  *
- * <p>The primary entry points are <em>connection-free</em>: they take connection-level
+ * <p>These entry points are <em>connection-free</em>: they take connection-level
  * {@link Properties} (and, for create, log hooks) and resolve the {@code Database} registry and
  * per-database config registry-natively (see {@link DatabaseConfigResolvers#forProperties}) — the
- * direct API opens no JDBC {@link java.sql.Connection}. Overloads that accept a
- * {@link HoptimatorConnection} are provided as a convenience for callers that already have one
- * (e.g. tests, SQL-adjacent tools); they resolve config via {@link DatabaseConfigResolvers#forConnection}.
+ * direct API opens no JDBC {@link java.sql.Connection}.
  */
 public final class TableService {
 
@@ -64,26 +62,13 @@ public final class TableService {
   public static HoptimatorDdlUtils.SpecifyResult create(Properties connectionProperties,
       List<Consumer<String>> logHooks, List<String> path, Schema avroSchema, Map<String, String> options,
       boolean updateIfExists, boolean dryRun) throws SQLException {
-    return create(connectionProperties, logHooks, DatabaseConfigResolvers.forProperties(connectionProperties),
-        path, avroSchema, options, updateIfExists, dryRun);
-  }
-
-  /** Convenience overload for callers that already hold a {@link HoptimatorConnection}. */
-  public static HoptimatorDdlUtils.SpecifyResult create(HoptimatorConnection conn, List<String> path,
-      Schema avroSchema, Map<String, String> options, boolean updateIfExists, boolean dryRun) throws SQLException {
-    return create(conn.connectionProperties(), conn.logHooks(), DatabaseConfigResolvers.forConnection(conn),
-        path, avroSchema, options, updateIfExists, dryRun);
-  }
-
-  private static HoptimatorDdlUtils.SpecifyResult create(Properties connectionProperties,
-      List<Consumer<String>> logHooks, DatabaseConfigResolver resolver, List<String> path, Schema avroSchema,
-      Map<String, String> options, boolean updateIfExists, boolean dryRun) throws SQLException {
     if (path == null || path.size() < 2) {
       throw new SQLException("A table path must include at least a database and a table name.");
     }
     if (avroSchema == null) {
       throw new SQLException("An Avro schema is required to create a table.");
     }
+    DatabaseConfigResolver resolver = DatabaseConfigResolvers.forProperties(connectionProperties);
 
     // updateIfExists is authoritative for the direct path: it maps straight to CREATE (fail if the
     // table already exists, enforced store-natively by the deployers) or UPDATE (create-or-update),
@@ -120,20 +105,11 @@ public final class TableService {
    * @throws SQLException on validation or teardown errors
    */
   public static void delete(Properties connectionProperties, List<String> path) throws SQLException {
-    delete(connectionProperties, DatabaseConfigResolvers.forProperties(connectionProperties), path);
-  }
-
-  /** Convenience overload for callers that already hold a {@link HoptimatorConnection}. */
-  public static void delete(HoptimatorConnection conn, List<String> path) throws SQLException {
-    delete(conn.connectionProperties(), DatabaseConfigResolvers.forConnection(conn), path);
-  }
-
-  private static void delete(Properties connectionProperties, DatabaseConfigResolver resolver,
-      List<String> path) throws SQLException {
     if (path == null || path.size() < 2) {
       throw new SQLException("A table path must include at least a database and a table name.");
     }
 
+    DatabaseConfigResolver resolver = DatabaseConfigResolvers.forProperties(connectionProperties);
     String database = resolver.databaseName(path);
     Source source = new Source(database, path, Map.of());
     DeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, null);

@@ -47,7 +47,7 @@ class TableServiceTest {
   @Test
   void dryRunDerivesRowTypeFromAvroSchema() throws SQLException {
     HoptimatorDdlUtils.SpecifyResult result =
-        TableService.create(connection, List.of("UTIL", "myTable"), recordSchema(),
+        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("UTIL", "myTable"), recordSchema(),
             Collections.emptyMap(), false, true);
 
     assertThat(result).isNotNull();
@@ -62,7 +62,7 @@ class TableServiceTest {
 
   @Test
   void dryRunDoesNotMutateTheSchema() throws SQLException {
-    TableService.create(connection, List.of("UTIL", "ghostTable"), recordSchema(),
+    TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("UTIL", "ghostTable"), recordSchema(),
         Collections.emptyMap(), false, true);
 
     // The temporary table registered during specify() must be rolled back.
@@ -73,7 +73,7 @@ class TableServiceTest {
   @Test
   void rejectsPathWithoutDatabaseAndTable() {
     assertThatThrownBy(() ->
-        TableService.create(connection, List.of("onlyOne"), recordSchema(),
+        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("onlyOne"), recordSchema(),
             Collections.emptyMap(), false, true))
         .isInstanceOf(SQLException.class)
         .hasMessageContaining("database and a table name");
@@ -82,7 +82,7 @@ class TableServiceTest {
   @Test
   void rejectsNullSchema() {
     assertThatThrownBy(() ->
-        TableService.create(connection, List.of("UTIL", "myTable"), null,
+        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("UTIL", "myTable"), null,
             Collections.emptyMap(), false, true))
         .isInstanceOf(SQLException.class)
         .hasMessageContaining("Avro schema is required");
@@ -92,7 +92,7 @@ class TableServiceTest {
   void rejectsNonRecordSchema() {
     Schema primitive = Schema.create(Schema.Type.STRING);
     assertThatThrownBy(() ->
-        TableService.create(connection, List.of("UTIL", "myTable"), primitive,
+        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("UTIL", "myTable"), primitive,
             Collections.emptyMap(), false, true))
         .isInstanceOf(SQLException.class)
         .hasMessageContaining("must be a record");

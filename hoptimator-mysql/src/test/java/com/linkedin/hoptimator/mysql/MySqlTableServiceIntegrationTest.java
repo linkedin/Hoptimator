@@ -102,12 +102,12 @@ public class MySqlTableServiceIntegrationTest {
   private HoptimatorDdlUtils.SpecifyResult create(String table, Schema.Field... fields) throws SQLException {
     Schema schema = Schema.createRecord(table, null, "com.linkedin.hoptimator.test", false,
         Arrays.asList(fields));
-    return TableService.create(connection, List.of("MYSQL", "test_database", table), schema, Map.of(), true, false);
+    return TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("MYSQL", "test_database", table), schema, Map.of(), true, false);
   }
 
   private void drop(String table) {
     try {
-      TableService.delete(connection, List.of("MYSQL", "test_database", table));
+      TableService.delete(connection.connectionProperties(), List.of("MYSQL", "test_database", table));
     } catch (SQLException ignored) {
       // best-effort cleanup
     }
