@@ -132,13 +132,23 @@ class K8sDatabaseConfigResolverTest {
   }
 
   @Test
-  void databaseNameReportsNoMatchWhenListFails() {
+  void databaseNameThrowsWhenListFails() {
     K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(new Properties(), contextWithListFailure());
 
-    // A failed list is swallowed by findDatabase, so databaseName reports no match.
+    // A failed list must surface as an error, not be swallowed into "no Database registered".
     assertThatThrownBy(() -> resolver.databaseName(Arrays.asList("KAFKA", "t")))
         .isInstanceOf(java.sql.SQLException.class)
-        .hasMessageContaining("No Database is registered");
+        .hasMessageNotContaining("No Database is registered");
+  }
+
+  @Test
+  void databasePropertiesThrowsWhenListFails() {
+    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(new Properties(), contextWithListFailure());
+
+    // Must fail loudly rather than returning null (which reads as "no config, deploy nothing").
+    assertThatThrownBy(() -> resolver.databaseProperties(null, "KAFKA", "jdbc:kafka://"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Failed to resolve Database config");
   }
 
   @Test

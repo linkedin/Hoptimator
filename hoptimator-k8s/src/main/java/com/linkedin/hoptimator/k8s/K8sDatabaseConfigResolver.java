@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -45,7 +44,16 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
     if (catalog == null && schema == null) {
       return null;
     }
-    K8sDatabaseTable.Row row = findDatabase(catalog, schema);
+    K8sDatabaseTable.Row row;
+    try {
+      row = findDatabase(catalog, schema);
+    } catch (SQLException e) {
+      // Fail loudly rather than returning null: the deployer providers treat a null here as "no
+      // config for this store" and deploy nothing, which would report success while a K8s error
+      // meant we never figured out what to deploy. The SPI signature can't throw, so wrap it.
+      throw new IllegalStateException("Failed to resolve Database config for "
+          + (catalog != null ? catalog : schema) + ": " + e.getMessage(), e);
+    }
     if (row == null || row.URL == null || !row.URL.startsWith(connectionPrefix)) {
       return null;
     }
@@ -76,7 +84,8 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
     return row.NAME;
   }
 
-  private @Nullable K8sDatabaseTable.Row findDatabase(@Nullable String catalog, @Nullable String schema) {
+  private @Nullable K8sDatabaseTable.Row findDatabase(@Nullable String catalog, @Nullable String schema)
+      throws SQLException {
     for (K8sDatabaseTable.Row row : listDatabases()) {
       if (matches(row, catalog, schema)) {
         return row;
@@ -99,19 +108,16 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
    * list-and-filter for now: cardinality is low (one CRD per database) and it mirrors how
    * {@link K8sDatabaseTable} (the SQL/catalog path) enumerates Databases.
    */
-  private List<K8sDatabaseTable.Row> listDatabases() {
+  private List<K8sDatabaseTable.Row> listDatabases() throws SQLException {
     if (cachedDatabases == null) {
       List<K8sDatabaseTable.Row> rows = new ArrayList<>();
-      try {
-        for (V1alpha1Database db : new K8sApi<>(context, K8sApiEndpoints.DATABASES).list()) {
-          rows.add(K8sDatabaseTable.rowOf(db));
-        }
-        cachedDatabases = rows;
-      } catch (SQLException e) {
-        // Don't cache a failed list, so a transient error can recover on the next call.
-        LOG.debug("Could not list Database CRDs: {}", e.getMessage());
-        return Collections.emptyList();
+      // No catch: a failed list must surface (see databaseName/databaseProperties) rather than be
+      // swallowed into an empty list that reads as "no Databases". cachedDatabases stays null on
+      // failure, so it is not cached and a transient error can recover on the next call.
+      for (V1alpha1Database db : new K8sApi<>(context, K8sApiEndpoints.DATABASES).list()) {
+        rows.add(K8sDatabaseTable.rowOf(db));
       }
+      cachedDatabases = rows;
     }
     return cachedDatabases;
   }
