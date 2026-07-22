@@ -23,9 +23,6 @@ import org.apache.calcite.schema.Table;
  */
 public final class CatalogResolver {
 
-  private static final long DEFAULT_TIMEOUT_MILLIS = 60_000;
-  private static final long POLL_INTERVAL_MILLIS = 2_000;
-
   private CatalogResolver() {
   }
 
@@ -50,47 +47,16 @@ public final class CatalogResolver {
     }
   }
 
-  /** Polls until {@code path} resolves (store provisioning may be asynchronous), then returns it. */
-  public static RelDataType awaitResolved(List<String> path) throws SQLException {
-    long deadline = System.currentTimeMillis() + DEFAULT_TIMEOUT_MILLIS;
-    RuntimeException last = null;
-    while (System.currentTimeMillis() < deadline) {
-      try {
-        RelDataType rowType = resolveRowType(path);
-        if (rowType != null) {
-          return rowType;
-        }
-      } catch (RuntimeException e) {
-        last = e;
-      }
-      sleep();
+  /**
+   * Resolves {@code path} immediately, failing if it is not present. The store deployers run
+   * synchronously, so a table must be resolvable right after {@code create} returns — there is no
+   * polling or waiting here on purpose.
+   */
+  public static RelDataType resolve(List<String> path) throws SQLException {
+    RelDataType rowType = resolveRowType(path);
+    if (rowType == null) {
+      throw new SQLException("Table not resolvable after create: " + path);
     }
-    throw last != null ? new SQLException(last)
-        : new SQLException("Table not resolvable after create: " + path);
-  }
-
-  /** Polls until {@code path} no longer resolves (teardown may be asynchronous). */
-  public static void awaitAbsent(List<String> path) throws SQLException {
-    long deadline = System.currentTimeMillis() + DEFAULT_TIMEOUT_MILLIS;
-    while (System.currentTimeMillis() < deadline) {
-      try {
-        if (resolveRowType(path) == null) {
-          return;
-        }
-      } catch (RuntimeException ignored) {
-        // Mid-teardown loads can fail transiently; keep polling until a clean absent.
-      }
-      sleep();
-    }
-    throw new SQLException("Table still resolvable after delete: " + path);
-  }
-
-  private static void sleep() throws SQLException {
-    try {
-      Thread.sleep(POLL_INTERVAL_MILLIS);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new SQLException(e);
-    }
+    return rowType;
   }
 }

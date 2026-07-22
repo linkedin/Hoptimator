@@ -45,7 +45,7 @@ public class KafkaTableServiceIntegrationTest {
       assertThat(created.sinkRowType.getFieldNames()).containsExactly("KEY", "VALUE");
 
       // Verify it registered by resolving the created topic from the live catalog (mirrors !describe).
-      RelDataType resolved = CatalogResolver.awaitResolved(List.of(SCHEMA, table));
+      RelDataType resolved = CatalogResolver.resolve(List.of(SCHEMA, table));
       assertThat(resolved.getFieldNames()).containsExactly("KEY", "VALUE");
       assertThat(resolved.getField("KEY", false, false).getType().getSqlTypeName())
           .isEqualTo(SqlTypeName.VARCHAR);

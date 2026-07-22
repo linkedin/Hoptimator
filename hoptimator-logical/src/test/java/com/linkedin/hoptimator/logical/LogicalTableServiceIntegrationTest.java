@@ -1,9 +1,11 @@
 package com.linkedin.hoptimator.logical;
 
+import com.linkedin.hoptimator.jdbc.CatalogResolver;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.TableService;
 import org.apache.avro.Schema;
+import org.apache.calcite.rel.type.RelDataType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -22,14 +24,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Java port of {@code logical-ddl.id} (the online LOGICAL = kafka nearline → venice online case) via
- * the SQL-free {@link TableService} direct API. Mirrors the quidem's mix: dry-run ({@code !specify})
- * asserts the rendered inter-tier pipeline specs; the real-create lifecycle deploys and verifies the
+ * Integration tests using the SQL-free {@link TableService} direct API.
+ * Asserts the rendered inter-tier pipeline specs; the real-create lifecycle deploys and verifies the
  * pipeline CRD/elements (querying the {@code k8s.pipelines} / {@code k8s.pipeline_element_map}
- * metadata tables), then verifies drop cascades. Tier row types are not resolved here: the online
- * tier is Kafka-nearline backed and there is no local schema registry, so a catalog resolve would
- * only return the raw {@code KEY}/{@code VALUE} columns. Table names differ from the quidem's.
- * Requires the integration environment.
+ * metadata tables) and the online (Venice) tier's resolved row type. The nearline (Kafka) tier is
+ * not resolved for its row type: there is no local schema registry, so it would resolve only to the
+ * raw {@code KEY}/{@code VALUE} columns — but the Venice online tier has a real value schema.
  */
 @Tag("integration")
 public class LogicalTableServiceIntegrationTest {
@@ -84,9 +84,12 @@ public class LogicalTableServiceIntegrationTest {
       create(table, nullable("KEY", Schema.Type.STRING), nullable("memberId", Schema.Type.LONG),
           nullable("pageKey", Schema.Type.STRING));
 
-      // Note: row-type verification via resolve is intentionally omitted here — there is no local
-      // schema registry, so a Kafka-nearline-backed logical table resolves only to its raw KEY/VALUE.
-      // The deployment is instead verified structurally via the pipeline CRD and its elements: the
+      // The online (Venice) physical tier has a real value schema, so unlike the raw Kafka nearline
+      // tier it resolves to the full row type. Verify the online store's columns directly.
+      RelDataType onlineRowType = CatalogResolver.resolve(List.of("VENICE", table));
+      assertThat(onlineRowType.getFieldNames()).contains("memberId", "pageKey");
+
+      // The deployment is also verified structurally via the pipeline CRD and its elements: the
       // nearline KafkaTopic physical table plus the identity FlinkSessionJob.
       assertThat(pipelineNames()).contains(pipeline);
       List<String> elements = pipelineElements(pipeline);
@@ -94,10 +97,11 @@ public class LogicalTableServiceIntegrationTest {
       assertThat(elements).anyMatch(e -> e.startsWith("KafkaTopic/"));
 
       // CREATE OR REPLACE — add a column; each tier validates backward compatibility. The pipeline
-      // remains in place.
+      // remains in place and the online tier's schema evolves.
       create(table, nullable("KEY", Schema.Type.STRING), nullable("memberId", Schema.Type.LONG),
           nullable("pageKey", Schema.Type.STRING), nullable("sessionId", Schema.Type.STRING));
       assertThat(pipelineNames()).contains(pipeline);
+      assertThat(CatalogResolver.resolve(List.of("VENICE", table)).getFieldNames()).contains("sessionId");
 
       // Drop cascades: the implicit pipeline is removed.
       TableService.delete(connection.connectionProperties(), List.of(DB, table));

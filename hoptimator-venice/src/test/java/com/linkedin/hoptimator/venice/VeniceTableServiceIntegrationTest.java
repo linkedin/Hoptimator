@@ -1,21 +1,19 @@
 package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.jdbc.CatalogResolver;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.TableService;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -23,25 +21,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Integration tests using the SQL-free {@link TableService} direct API.
  * Exercises Venice CREATE TABLE key/value schema derivation, backward-compatible evolution and validation failures.
+ *
+ * <p>{@code TableService} is connection-free (a {@link Properties} bag + log hooks, no JDBC connection), so
+ * these tests pass an empty {@code Properties} and no hooks.
  */
 @Tag("integration")
 public class VeniceTableServiceIntegrationTest {
 
   private static final String SCHEMA = "VENICE";
 
-  private HoptimatorConnection connection;
-
-  @BeforeEach
-  void setUp() throws SQLException {
-    connection = (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://catalogs=k8s");
-  }
-
-  @AfterEach
-  void tearDown() throws SQLException {
-    if (connection != null && !connection.isClosed()) {
-      connection.close();
-    }
-  }
+  private final Properties properties = new Properties();
+  private final List<java.util.function.Consumer<String>> noHooks = Collections.emptyList();
 
   @Test
   void storeLifecycle() throws SQLException {
@@ -55,7 +45,7 @@ public class VeniceTableServiceIntegrationTest {
       assertThat(created.sinkRowType.getFieldNames()).containsExactly("KEY_id", "i", "s");
 
       // Verify it registered in Venice.
-      RelDataType resolved = CatalogResolver.awaitResolved(List.of(SCHEMA, store));
+      RelDataType resolved = CatalogResolver.resolve(List.of(SCHEMA, store));
       assertThat(resolved.getFieldNames()).contains("i", "s");
 
       // Backward-compatible evolution: add a nullable value field.
@@ -65,7 +55,7 @@ public class VeniceTableServiceIntegrationTest {
           nullable("s", Schema.Type.STRING),
           nullable("new_field", Schema.Type.DOUBLE));
       assertThat(evolved.sinkRowType.getFieldNames()).contains("new_field");
-      assertThat(CatalogResolver.awaitResolved(List.of(SCHEMA, store)).getFieldNames()).contains("new_field");
+      assertThat(CatalogResolver.resolve(List.of(SCHEMA, store)).getFieldNames()).contains("new_field");
 
       // Invalid updates on the same store must fail.
       assertThatThrownBy(() -> create(store,
@@ -107,7 +97,7 @@ public class VeniceTableServiceIntegrationTest {
           nullable("status", Schema.Type.STRING));
       assertThat(created.sinkRowType.getFieldNames())
           .containsExactly("KEY_user_id", "KEY_order_id", "total", "status");
-      assertThat(CatalogResolver.awaitResolved(List.of(SCHEMA, store)).getFieldNames())
+      assertThat(CatalogResolver.resolve(List.of(SCHEMA, store)).getFieldNames())
           .contains("total", "status");
     } finally {
       drop(store);
@@ -123,7 +113,7 @@ public class VeniceTableServiceIntegrationTest {
           nullable("i", Schema.Type.INT),
           nullable("s", Schema.Type.STRING));
       assertThat(created.sinkRowType.getFieldNames()).containsExactly("KEY", "i", "s");
-      assertThat(CatalogResolver.awaitResolved(List.of(SCHEMA, store)).getFieldNames()).contains("i", "s");
+      assertThat(CatalogResolver.resolve(List.of(SCHEMA, store)).getFieldNames()).contains("i", "s");
     } finally {
       drop(store);
     }
@@ -146,7 +136,7 @@ public class VeniceTableServiceIntegrationTest {
 
   @Test
   void createInUnknownDatabaseFails() {
-    assertThatThrownBy(() -> TableService.create(connection.connectionProperties(), connection.logHooks(),
+    assertThatThrownBy(() -> TableService.create(properties, noHooks,
         List.of("NOSUCHDB", "t"), recordOf("t", nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT)),
         Map.of(), true, false))
         .isInstanceOf(SQLException.class);
@@ -158,7 +148,7 @@ public class VeniceTableServiceIntegrationTest {
     try {
       create(store, nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT));
       // Re-creating the same store with updateIfExists=false must fail rather than silently skip.
-      assertThatThrownBy(() -> TableService.create(connection.connectionProperties(), connection.logHooks(),
+      assertThatThrownBy(() -> TableService.create(properties, noHooks,
           List.of(SCHEMA, store),
           recordOf(sanitize(store), nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT)),
           Map.of(), false, false))
@@ -170,12 +160,12 @@ public class VeniceTableServiceIntegrationTest {
   }
 
   private HoptimatorDdlUtils.SpecifyResult create(String store, Schema.Field... fields) throws SQLException {
-    return TableService.create(connection.connectionProperties(), connection.logHooks(),
+    return TableService.create(properties, noHooks,
         List.of(SCHEMA, store), recordOf(sanitize(store), fields), Map.of(), true, false);
   }
 
   private void drop(String store) throws SQLException {
-    TableService.delete(connection.connectionProperties(), List.of(SCHEMA, store));
+    TableService.delete(properties, List.of(SCHEMA, store));
   }
 
   private static Schema recordOf(String name, Schema.Field... fields) {

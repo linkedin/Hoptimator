@@ -1,22 +1,20 @@
 package com.linkedin.hoptimator.mysql;
 
 import com.linkedin.hoptimator.jdbc.CatalogResolver;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.TableService;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -26,6 +24,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * create/update/drop of one table (verifying registration with {@link CatalogResolver}, mirroring
  * {@code !describe}); independent validation/error checks are separate tests. MySQL is a
  * catalog-style database ({@code MYSQL.test_database.<name>}).
+ *
+ * <p>{@code TableService} is connection-free (a {@link Properties} bag + log hooks, no JDBC connection), so
+ * these tests pass an empty {@code Properties} and no hooks.
  */
 @Tag("integration")
 public class MySqlTableServiceIntegrationTest {
@@ -33,19 +34,8 @@ public class MySqlTableServiceIntegrationTest {
   private static final String CATALOG = "MYSQL";
   private static final String DB = "test_database";
 
-  private HoptimatorConnection connection;
-
-  @BeforeEach
-  void setUp() throws SQLException {
-    connection = (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://catalogs=k8s");
-  }
-
-  @AfterEach
-  void tearDown() throws SQLException {
-    if (connection != null && !connection.isClosed()) {
-      connection.close();
-    }
-  }
+  private final Properties properties = new Properties();
+  private final List<java.util.function.Consumer<String>> noHooks = Collections.emptyList();
 
   @Test
   void usersTableLifecycle() throws SQLException {
@@ -60,7 +50,7 @@ public class MySqlTableServiceIntegrationTest {
 
       // Verify it registered in MySQL. MySQL maps KEY_ fields to the primary key with the prefix
       // stripped, so the physical columns are id/name/email (not KEY_id).
-      RelDataType resolved = CatalogResolver.awaitResolved(List.of(CATALOG, DB, table));
+      RelDataType resolved = CatalogResolver.resolve(List.of(CATALOG, DB, table));
       assertThat(resolved.getFieldNames()).contains("id", "name", "email");
       assertThat(resolved.getField("id", false, false).getType().getSqlTypeName())
           .isEqualTo(SqlTypeName.INTEGER);
@@ -72,7 +62,7 @@ public class MySqlTableServiceIntegrationTest {
           nullable("email", Schema.Type.STRING),
           nullable("age", Schema.Type.INT));
       assertThat(evolved.sinkRowType.getFieldNames()).contains("age");
-      assertThat(CatalogResolver.awaitResolved(List.of(CATALOG, DB, table)).getFieldNames()).contains("age");
+      assertThat(CatalogResolver.resolve(List.of(CATALOG, DB, table)).getFieldNames()).contains("age");
 
       // Drop (cleanup + exercises the delete path).
       drop(table);
@@ -94,7 +84,7 @@ public class MySqlTableServiceIntegrationTest {
       assertThat(created.sinkRowType.getFieldNames())
           .containsExactly("KEY_user_id", "KEY_order_id", "total", "status");
 
-      assertThat(CatalogResolver.awaitResolved(List.of(CATALOG, DB, table)).getFieldNames())
+      assertThat(CatalogResolver.resolve(List.of(CATALOG, DB, table)).getFieldNames())
           .contains("user_id", "order_id", "total", "status");
 
       drop(table);
@@ -142,7 +132,7 @@ public class MySqlTableServiceIntegrationTest {
 
   @Test
   void createInUnknownCatalogFails() {
-    assertThatThrownBy(() -> TableService.create(connection.connectionProperties(), connection.logHooks(),
+    assertThatThrownBy(() -> TableService.create(properties, noHooks,
         List.of("NOSUCHCATALOG", DB, "t"), recordOf("t", nullable("KEY_id", Schema.Type.INT)),
         Map.of(), true, false))
         .isInstanceOf(SQLException.class);
@@ -155,7 +145,7 @@ public class MySqlTableServiceIntegrationTest {
       create(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING));
       // Re-creating the same table with updateIfExists=false must fail rather than silently skip,
       // mirroring the SQL path's CREATE (without OR REPLACE) on an existing table.
-      assertThatThrownBy(() -> TableService.create(connection.connectionProperties(), connection.logHooks(),
+      assertThatThrownBy(() -> TableService.create(properties, noHooks,
           List.of(CATALOG, DB, table),
           recordOf(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING)),
           Map.of(), false, false))
@@ -168,12 +158,12 @@ public class MySqlTableServiceIntegrationTest {
 
   /** Creates (updateIfExists) a MySQL table at {@code MYSQL.test_database.<name>}. */
   private HoptimatorDdlUtils.SpecifyResult create(String table, Schema.Field... fields) throws SQLException {
-    return TableService.create(connection.connectionProperties(), connection.logHooks(),
+    return TableService.create(properties, noHooks,
         List.of(CATALOG, DB, table), recordOf(table, fields), Map.of(), true, false);
   }
 
   private void drop(String table) throws SQLException {
-    TableService.delete(connection.connectionProperties(), List.of(CATALOG, DB, table));
+    TableService.delete(properties, List.of(CATALOG, DB, table));
   }
 
   private static Schema recordOf(String table, Schema.Field... fields) {
