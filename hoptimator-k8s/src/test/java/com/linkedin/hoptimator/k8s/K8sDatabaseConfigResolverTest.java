@@ -15,6 +15,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 
 class K8sDatabaseConfigResolverTest {
@@ -126,5 +128,21 @@ class K8sDatabaseConfigResolverTest {
 
     assertThatThrownBy(() -> resolver.databaseName(Arrays.asList("KAFKA", "t")))
         .isInstanceOf(RuntimeException.class);
+  }
+
+  @Test
+  void listsDatabasesOncePerResolverAcrossMultipleResolutions() throws SQLException {
+    V1alpha1Database kafka = db("kafka-database",
+        "jdbc:kafka://bootstrap.servers=localhost:9092", null, "KAFKA");
+    K8sApi<V1alpha1Database, V1alpha1DatabaseList> api = apiReturning(kafka);
+    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(api);
+
+    // Several resolutions on the same resolver, as a logical table's tiers would trigger.
+    resolver.databaseName(Arrays.asList("KAFKA", "t1"));
+    resolver.databaseProperties(null, "KAFKA", "jdbc:kafka://");
+    resolver.databaseName(Arrays.asList("KAFKA", "t2"));
+
+    // The per-resolver cache means the Database CRDs are listed only once.
+    verify(api, times(1)).list();
   }
 }

@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -27,6 +29,7 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   private final Properties connectionProperties;
   private final K8sApi<V1alpha1Database, V1alpha1DatabaseList> injectedApi;
   private K8sContext context;
+  private List<K8sDatabaseTable.Row> cachedDatabases;
 
   public K8sDatabaseConfigResolver(Properties connectionProperties) {
     this.connectionProperties = connectionProperties;
@@ -77,17 +80,43 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   }
 
   private @Nullable K8sDatabaseTable.Row findDatabase(@Nullable String catalog, @Nullable String schema) {
-    try {
-      for (V1alpha1Database db : api().list()) {
-        K8sDatabaseTable.Row row = K8sDatabaseTable.rowOf(db);
-        if (matches(row, catalog, schema)) {
-          return row;
-        }
+    for (K8sDatabaseTable.Row row : listDatabases()) {
+      if (matches(row, catalog, schema)) {
+        return row;
       }
-    } catch (SQLException e) {
-      LOG.debug("Could not list Database CRDs while resolving config for '{}': {}", schema, e.getMessage());
     }
     return null;
+  }
+
+  /**
+   * The Database CRDs, listed once and cached for this resolver's lifetime. A resolver is built once
+   * per direct-path operation ({@code TableService.create}/{@code delete}), which may resolve
+   * several databases (e.g. a logical table's tiers each hit this), so listing once per operation
+   * avoids repeated K8s round-trips. Deliberately instance-scoped rather than static/global: a fresh
+   * resolver per operation still observes newly created/deleted Databases.
+   *
+   * <p>TODO: This lists all Database CRDs and filters client-side ({@link #matches}) because the K8s
+   * API cannot field-select on {@code spec.catalog}/{@code spec.schema} — only {@code metadata.name}
+   * (via {@code K8sApi#get}) or labels (via {@code K8sApi#select(labelSelector)}). If Databases were
+   * labelled with their catalog/schema at creation, the filter could be pushed server-side. Left as
+   * list-and-filter for now: cardinality is low (one CRD per database) and it mirrors how
+   * {@link K8sDatabaseTable} (the SQL/catalog path) enumerates Databases.
+   */
+  private List<K8sDatabaseTable.Row> listDatabases() {
+    if (cachedDatabases == null) {
+      List<K8sDatabaseTable.Row> rows = new ArrayList<>();
+      try {
+        for (V1alpha1Database db : api().list()) {
+          rows.add(K8sDatabaseTable.rowOf(db));
+        }
+        cachedDatabases = rows;
+      } catch (SQLException e) {
+        // Don't cache a failed list, so a transient error can recover on the next call.
+        LOG.debug("Could not list Database CRDs: {}", e.getMessage());
+        return Collections.emptyList();
+      }
+    }
+    return cachedDatabases;
   }
 
   private static boolean matches(K8sDatabaseTable.Row row, @Nullable String catalog, @Nullable String schema) {
