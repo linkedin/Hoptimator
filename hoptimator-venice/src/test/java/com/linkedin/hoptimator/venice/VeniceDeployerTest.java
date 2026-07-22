@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.venice;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
+import com.linkedin.hoptimator.jdbc.DirectDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import com.linkedin.venice.controllerapi.ControllerClient;
@@ -12,6 +13,11 @@ import com.linkedin.venice.controllerapi.SchemaResponse;
 import com.linkedin.venice.controllerapi.StoreResponse;
 import com.linkedin.venice.meta.StoreInfo;
 import org.apache.avro.Schema;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,6 +32,7 @@ import java.util.List;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -289,6 +296,27 @@ class VeniceDeployerTest {
     VeniceDeployer deployer = createDeployer(source);
 
     assertTrue(deployer.specify().isEmpty());
+  }
+
+  @Test
+  public void testGetKeyPayloadSchemaSplitsRowTypeFromDirectContext() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    // A DirectDeploymentContext carries the row type; KEY_-prefixed fields form the key schema and
+    // the rest form the payload. This exercises the real getKeyPayloadSchema() (no override).
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = factory.builder()
+        .add("KEY_id", factory.createSqlType(SqlTypeName.INTEGER))
+        .add("name", factory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+    VeniceDeployer deployer =
+        new VeniceDeployer(source, properties, new DirectDeploymentContext(properties, null, rowType));
+
+    Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
+
+    assertNotNull(keyPayload.left, "key schema");
+    assertNotNull(keyPayload.right, "payload schema");
+    assertNotNull(keyPayload.left.getField("id"), "key field id");
+    assertNotNull(keyPayload.right.getField("name"), "payload field name");
   }
 
   // --- validate() tests ---

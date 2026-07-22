@@ -373,6 +373,35 @@ class K8sContextTest {
   }
 
   @Test
+  void createFromPropertiesBuildsContextWithoutDeploymentContext() {
+    Properties props = new Properties();
+    props.setProperty(K8sContext.NAMESPACE_KEY, "direct-ns");
+    props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
+    props.setProperty(K8sContext.TOKEN_KEY, "token");
+
+    K8sContext ctx = K8sContext.createFromProperties(props);
+
+    assertNotNull(ctx);
+    assertEquals("direct-ns", ctx.namespace());
+    assertNull(ctx.deploymentContext());
+  }
+
+  @Test
+  void deploymentContextReturnsBackingContext() {
+    HoptimatorConnection mockConn = mock(HoptimatorConnection.class);
+    Properties props = new Properties();
+    props.setProperty(K8sContext.NAMESPACE_KEY, "ns");
+    props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
+    props.setProperty(K8sContext.TOKEN_KEY, "token");
+    when(mockConn.connectionProperties()).thenReturn(props);
+    CalciteDeploymentContext backing = new CalciteDeploymentContext(mockConn);
+
+    K8sContext ctx = K8sContext.create(backing);
+
+    assertSame(backing, ctx.deploymentContext());
+  }
+
+  @Test
   void constantsAreDefined() {
     assertEquals("k8s.namespace", K8sContext.NAMESPACE_KEY);
     assertEquals("k8s.watch.namespace", K8sContext.WATCH_NAMESPACE_KEY);

@@ -1,11 +1,17 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeploymentContext;
+import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.util.DeploymentService;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
 import java.util.Collections;
@@ -14,8 +20,17 @@ import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 
 
+/**
+ * Unit tests for the SQL-free direct {@link TableService} API.
+ */
+@ExtendWith(MockitoExtension.class)
 class TableServiceTest {
 
   private static final String RECORD_SCHEMA = "{"
@@ -25,29 +40,20 @@ class TableServiceTest {
       + "{\"name\":\"name\",\"type\":\"string\"}"
       + "]}";
 
-  private HoptimatorConnection connection;
+  private final List<String> path = List.of("UTIL", "myTable");
 
-  @BeforeEach
-  void setUp() throws SQLException {
-    HoptimatorDriver driver = new HoptimatorDriver();
-    connection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties());
-  }
+  @Mock
+  private MockedStatic<DatabaseConfigResolvers> resolvers;
 
-  @AfterEach
-  void tearDown() throws SQLException {
-    if (connection != null && !connection.isClosed()) {
-      connection.close();
-    }
-  }
-
-  private static Schema recordSchema() {
-    return new Schema.Parser().parse(RECORD_SCHEMA);
-  }
+  @Mock
+  private MockedStatic<DeploymentService> deployment;
 
   @Test
-  void dryRunDerivesRowTypeFromAvroSchema() throws SQLException {
+  void createDryRunDerivesRowTypeFromAvroSchema() throws SQLException {
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
     HoptimatorDdlUtils.SpecifyResult result =
-        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("UTIL", "myTable"), recordSchema(),
+        TableService.create(new Properties(), Collections.emptyList(), path, recordSchema(),
             Collections.emptyMap(), false, true);
 
     assertThat(result).isNotNull();
@@ -61,28 +67,18 @@ class TableServiceTest {
   }
 
   @Test
-  void dryRunDoesNotMutateTheSchema() throws SQLException {
-    TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("UTIL", "ghostTable"), recordSchema(),
-        Collections.emptyMap(), false, true);
-
-    // The temporary table registered during specify() must be rolled back.
-    assertThat(connection.calciteConnection().getRootSchema()
-        .subSchemas().get("UTIL").tables().get("ghostTable")).isNull();
-  }
-
-  @Test
-  void rejectsPathWithoutDatabaseAndTable() {
+  void createRejectsPathWithoutDatabaseAndTable() {
     assertThatThrownBy(() ->
-        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("onlyOne"), recordSchema(),
+        TableService.create(new Properties(), Collections.emptyList(), List.of("onlyOne"), recordSchema(),
             Collections.emptyMap(), false, true))
         .isInstanceOf(SQLException.class)
         .hasMessageContaining("database and a table name");
   }
 
   @Test
-  void rejectsNullSchema() {
+  void createRejectsNullSchema() {
     assertThatThrownBy(() ->
-        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("UTIL", "myTable"), null,
+        TableService.create(new Properties(), Collections.emptyList(), path, null,
             Collections.emptyMap(), false, true))
         .isInstanceOf(SQLException.class)
         .hasMessageContaining("Avro schema is required");
@@ -92,9 +88,63 @@ class TableServiceTest {
   void rejectsNonRecordSchema() {
     Schema primitive = Schema.create(Schema.Type.STRING);
     assertThatThrownBy(() ->
-        TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("UTIL", "myTable"), primitive,
+        TableService.create(new Properties(), Collections.emptyList(), path, primitive,
             Collections.emptyMap(), false, true))
         .isInstanceOf(SQLException.class)
         .hasMessageContaining("must be a record");
+  }
+
+  @Test
+  void deleteRejectsPathWithoutDatabaseAndTable() {
+    assertThatThrownBy(() -> TableService.delete(new Properties(), List.of("onlyOne")))
+        .isInstanceOf(SQLException.class)
+        .hasMessageContaining("database and a table name");
+  }
+
+  @Test
+  void deleteRunsValidationAndDeployerTeardown() throws SQLException {
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = Collections.singletonList(deployer);
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
+        .thenReturn(deployers);
+
+    TableService.delete(new Properties(), path);
+
+    deployment.verify(() -> DeploymentService.delete(deployers), times(1));
+    deployment.verify(() -> DeploymentService.restore(any()), never());
+  }
+
+  @Test
+  void deleteRestoresAndRethrowsWhenTeardownFails() {
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = Collections.singletonList(deployer);
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
+        .thenReturn(deployers);
+    deployment.when(() -> DeploymentService.delete(deployers))
+        .thenThrow(new SQLException("teardown boom"));
+
+    assertThatThrownBy(() -> TableService.delete(new Properties(), path))
+        .isInstanceOf(SQLException.class)
+        .hasMessageContaining("teardown boom");
+
+    deployment.verify(() -> DeploymentService.restore(deployers), times(1));
+  }
+
+  private static Schema recordSchema() {
+    return new Schema.Parser().parse(RECORD_SCHEMA);
+  }
+
+  private DatabaseConfigResolver stubResolver() {
+    DatabaseConfigResolver resolver = mock(DatabaseConfigResolver.class);
+    try {
+      when(resolver.databaseName(path)).thenReturn("test-database");
+    } catch (SQLException e) {
+      throw new RuntimeException(e);
+    }
+    return resolver;
   }
 }

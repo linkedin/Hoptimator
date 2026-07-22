@@ -25,10 +25,18 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   private static final Logger LOG = LoggerFactory.getLogger(K8sDatabaseConfigResolver.class);
 
   private final Properties connectionProperties;
+  private final K8sApi<V1alpha1Database, V1alpha1DatabaseList> injectedApi;
   private K8sContext context;
 
   public K8sDatabaseConfigResolver(Properties connectionProperties) {
     this.connectionProperties = connectionProperties;
+    this.injectedApi = null;
+  }
+
+  /** Test seam: inject the {@code Database} API directly, bypassing K8s context/client creation. */
+  K8sDatabaseConfigResolver(K8sApi<V1alpha1Database, V1alpha1DatabaseList> injectedApi) {
+    this.connectionProperties = new Properties();
+    this.injectedApi = injectedApi;
   }
 
   @Override
@@ -93,6 +101,9 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   }
 
   private K8sApi<V1alpha1Database, V1alpha1DatabaseList> api() {
+    if (injectedApi != null) {
+      return injectedApi;
+    }
     if (context == null) {
       context = K8sContext.createFromProperties(connectionProperties);
     }

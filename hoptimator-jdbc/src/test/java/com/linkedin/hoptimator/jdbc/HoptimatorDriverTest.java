@@ -1,9 +1,15 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
+import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.SqlNode;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -22,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -134,6 +141,55 @@ class HoptimatorDriverTest {
       Source source = new Source("UTIL", Arrays.asList("UTIL", "NONEXISTENT"), Collections.emptyMap());
 
       assertThrows(SQLException.class, () -> HoptimatorDriver.rowType(source, new CalciteDeploymentContext(connection)));
+    }
+  }
+
+  @Test
+  void testRowTypeReturnsCarriedTypeFromDirectContext() throws SQLException {
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType carried = factory.builder().add("ID", factory.createSqlType(SqlTypeName.INTEGER)).build();
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, carried);
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+
+    assertSame(carried, HoptimatorDriver.rowType(source, context));
+  }
+
+  @Test
+  void testRowTypeThrowsForUnknownContextType() {
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+    DeploymentContext unknown = new DeploymentContext() {
+      @Override
+      public Properties properties() {
+        return new Properties();
+      }
+
+      @Override
+      public Properties databaseProperties(String catalog, String schema, String connectionPrefix) {
+        return null;
+      }
+    };
+
+    assertThrows(SQLException.class, () -> HoptimatorDriver.rowType(source, unknown));
+  }
+
+  @Test
+  void testValueSchemaReturnsNullForDirectContext() {
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, null);
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+
+    assertNull(HoptimatorDriver.valueSchema(source, context));
+  }
+
+  @Test
+  void testValueSchemaReturnsNullForTableWithoutNativeAvro() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // UTIL.PRINT is a real catalog table but not an AvroSchemaSource, so no native value schema.
+      Source source = new Source("UTIL", Arrays.asList("UTIL", "PRINT"), Collections.emptyMap());
+
+      Schema schema = HoptimatorDriver.valueSchema(source, new CalciteDeploymentContext(connection));
+
+      assertNull(schema);
     }
   }
 
