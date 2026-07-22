@@ -558,8 +558,9 @@ public final class HoptimatorDdlUtils {
         };
 
     Map<String, String> tableOptions = options(create.options);
-    return deployTableInternal(conn.logHooks(), conn.deploymentContext(), target.pair, target.tablePath(),
-        target.isNewSchema, target.database, target.tableName, rowType, ief, tableOptions,
+    CalciteSchemaTarget calcite = new CalciteSchemaTarget(target.pair, target.isNewSchema, ief);
+    return deployTableInternal(conn.logHooks(), conn.deploymentContext(), calcite, target.tablePath(),
+        target.database, target.tableName, rowType, tableOptions,
         create.ifNotExists, create.getReplace(), mode);
   }
 
@@ -633,29 +634,57 @@ public final class HoptimatorDdlUtils {
   }
 
   /**
+   * Bundles the Calcite-catalog parameters used only by the SQL DDL path. Present ({@code non-null})
+   * on the SQL path ({@link #processCreateTable}) and absent ({@code null}) on the connection-free
+   * direct path ({@code TableService}).
+   *
+   * <p>Grouping these fields into one nullable holder makes the two paths structurally distinct: a
+   * caller either supplies the whole Calcite handle or none of it.
+   */
+  static final class CalciteSchemaTarget {
+    // The Calcite schema/catalog node and the (compound) table name
+    final Pair<CalciteSchema, String> pair;
+    // Whether a brand-new JDBC-backed sub-schema must be registered (3-level CATALOG.SCHEMA.TABLE)
+    final boolean isNewSchema;
+    // Default-value/generation strategy for the temporary table
+    final InitializerExpressionFactory ief;
+
+    CalciteSchemaTarget(Pair<CalciteSchema, String> pair, boolean isNewSchema, InitializerExpressionFactory ief) {
+      this.pair = requireNonNull(pair, "pair");
+      requireNonNull(pair.left, "pair.left (Calcite schema node)");
+      this.isNewSchema = isNewSchema;
+      this.ief = ief;
+    }
+
+    SchemaPlus schemaPlus() {
+      return pair.left.plus();
+    }
+  }
+
+  /**
    * Shared core that deploys (or, in SPECIFY mode, dry-run specifies) a single table given an
    * already-resolved schema target and row type. Used by both the DDL {@code CREATE TABLE} path
    * ({@link #processCreateTable}) and the SQL-free direct path ({@code TableService}), so that
    * existence checks, temporary-table registration, validation, deployment, and rollback behave
    * identically whether the row type came from Calcite column declarations or an Avro schema.
+   *
+   * <p>The SQL path passes a non-null {@code calcite} holder. The direct path passes
+   * {@code null} and touches no catalog.
    */
   static SpecifyResult deployTableInternal(List<Consumer<String>> logHooks, DeploymentContext context,
-      @Nullable Pair<CalciteSchema, String> pair, List<String> tablePath,
-      boolean isNewSchema, String database, String tableName, RelDataType rowType,
-      InitializerExpressionFactory ief, Map<String, String> options,
-      boolean ifNotExists, boolean orReplace, DdlMode mode) throws SQLException {
-    DualLogger logger =
-        new DualLogger(HoptimatorDdlUtils.class, logHooks);
-    // The Calcite catalog handle is present only on the SQL path; the direct path passes a null
-    // pair and its precomputed tablePath, and touches no catalog (see manageCalciteSchema below).
-    final SchemaPlus schemaPlus = pair != null ? pair.left.plus() : null;
+      @Nullable CalciteSchemaTarget calcite, List<String> tablePath, String database, String tableName,
+      RelDataType rowType, Map<String, String> options, boolean ifNotExists, boolean orReplace, DdlMode mode)
+      throws SQLException {
+    DualLogger logger = new DualLogger(HoptimatorDdlUtils.class, logHooks);
 
     // Only the SQL path mutates the Calcite catalog: it registers a temporary table (so
     // subsequent statements and Calcite-backed deployers can resolve the row type by name) and,
     // for a new schema, a JDBC-backed sub-schema. The direct API path carries the row type on its
     // DirectDeploymentContext and resolves Database config registry-natively, so it neither reads
     // nor mutates the catalog here — existence is enforced store-natively by the deployers.
-    final boolean manageCalciteSchema = context instanceof CalciteDeploymentContext;
+    final boolean manageCalciteSchema = calcite != null;
+    final SchemaPlus schemaPlus = manageCalciteSchema ? calcite.schemaPlus() : null;
+    final boolean isNewSchema = manageCalciteSchema && calcite.isNewSchema;
 
     if (manageCalciteSchema && !isNewSchema && schemaPlus.tables().get(tableName) != null) {
       // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
@@ -694,7 +723,7 @@ public final class HoptimatorDdlUtils {
         databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
         logger.info("Added schema {} to catalog {}", database, schemaPlus.getName());
       }
-      databaseSchema.add(tableName, new TemporaryTable(rowType, database, ief));
+      databaseSchema.add(tableName, new TemporaryTable(rowType, database, calcite.ief));
       logger.info("Added table {} to schema {}", tableName, databaseSchema.getName());
     }
 
@@ -740,7 +769,7 @@ public final class HoptimatorDdlUtils {
       //   - CREATE/UPDATE on failure: undo.
       if (manageCalciteSchema && (!success || !mode.mutable())) {
         if (isNewSchema) {
-          pair.left.removeSubSchema(database);
+          calcite.pair.left.removeSubSchema(database);
           logger.info("Removed schema {} from catalog", database);
         } else if (schemaSnapshot != null) {
           // Restore the temporary table's prior state.

@@ -10,8 +10,6 @@ import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
-import org.apache.calcite.sql2rel.InitializerExpressionFactory;
-import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 
 import java.sql.SQLException;
 import java.util.Collection;
@@ -82,17 +80,14 @@ public final class TableService {
       throw new SQLException("The Avro schema must be a record; got " + avroSchema.getType() + ".");
     }
 
-    // No SQL column strategies/defaults on the Avro path.
-    InitializerExpressionFactory ief = new NullInitializerExpressionFactory();
-
     // Resolve the target database identifier registry-natively and carry the row type on the
     // context: the direct path touches no Calcite catalog. The table path is the caller's path.
     String database = resolver.databaseName(path);
     String tableName = path.get(path.size() - 1);
     DirectDeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, rowType);
 
-    return HoptimatorDdlUtils.deployTableInternal(logHooks, context, null, path, false,
-        database, tableName, rowType, ief, options, false, updateIfExists, mode);
+    return HoptimatorDdlUtils.deployTableInternal(logHooks, context, null, path,
+        database, tableName, rowType, options, false, updateIfExists, mode);
   }
 
   /**
