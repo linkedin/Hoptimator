@@ -717,7 +717,7 @@ class LogicalTableDeployerTest {
     Properties tierProps = new Properties();
     tierProps.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
     deployerUtilsMock.when(() -> DeployerUtils.extractPropertiesFromJdbcSchema(
-        any(), any(), any(), anyString(), any()))
+        any(), any(), any(), anyString()))
         .thenReturn(tierProps);
 
     K8sContext mockCtx = mock(K8sContext.class);

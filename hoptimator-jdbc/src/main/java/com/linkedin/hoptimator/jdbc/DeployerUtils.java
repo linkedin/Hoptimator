@@ -122,11 +122,10 @@ public final class DeployerUtils {
    * @param schemaName the name of the schema to look up
    * @param connection the connection to search in
    * @param connectionPrefix the JDBC connection prefix to strip (e.g., "jdbc:kafka://")
-   * @param logger optional logger for debug messages
    * @return Properties extracted from the JDBC URL, or null if schema not found or not JDBC-backed
    */
   public static Properties extractPropertiesFromJdbcSchema(@Nullable String catalogName, @Nullable String schemaName,
-      Connection connection, String connectionPrefix, @Nullable Logger logger) {
+      Connection connection, String connectionPrefix) {
 
     if (schemaName == null) {
       return null;
@@ -167,9 +166,7 @@ public final class DeployerUtils {
       properties.putAll(ConnectStringParser.parse(jdbcUrl.substring(connectionPrefix.length())));
       return properties;
     } catch (Exception e) {
-      if (logger != null) {
-        logger.debug("Could not extract properties from schema '{}': {}", schemaName, e.getMessage());
-      }
+        log.warn("Could not extract properties from schema '{}': {}", schemaName, e.getMessage());
     }
     return null;
   }

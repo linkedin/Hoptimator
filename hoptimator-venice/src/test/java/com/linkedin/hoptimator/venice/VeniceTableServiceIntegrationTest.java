@@ -21,17 +21,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Integration tests using the SQL-free {@link TableService} direct API.
  * Exercises Venice CREATE TABLE key/value schema derivation, backward-compatible evolution and validation failures.
- *
- * <p>{@code TableService} is connection-free (a {@link Properties} bag + log hooks, no JDBC connection), so
- * these tests pass an empty {@code Properties} and no hooks.
  */
 @Tag("integration")
 public class VeniceTableServiceIntegrationTest {
 
   private static final String SCHEMA = "VENICE";
-
-  private final Properties properties = new Properties();
-  private final List<java.util.function.Consumer<String>> noHooks = Collections.emptyList();
 
   @Test
   void storeLifecycle() throws SQLException {
@@ -136,7 +130,7 @@ public class VeniceTableServiceIntegrationTest {
 
   @Test
   void createInUnknownDatabaseFails() {
-    assertThatThrownBy(() -> TableService.create(properties, noHooks,
+    assertThatThrownBy(() -> TableService.create(new Properties(), Collections.emptyList(),
         List.of("NOSUCHDB", "t"), recordOf("t", nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT)),
         Map.of(), true, false))
         .isInstanceOf(SQLException.class);
@@ -148,7 +142,7 @@ public class VeniceTableServiceIntegrationTest {
     try {
       create(store, nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT));
       // Re-creating the same store with updateIfExists=false must fail rather than silently skip.
-      assertThatThrownBy(() -> TableService.create(properties, noHooks,
+      assertThatThrownBy(() -> TableService.create(new Properties(), Collections.emptyList(),
           List.of(SCHEMA, store),
           recordOf(sanitize(store), nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT)),
           Map.of(), false, false))
@@ -160,12 +154,12 @@ public class VeniceTableServiceIntegrationTest {
   }
 
   private HoptimatorDdlUtils.SpecifyResult create(String store, Schema.Field... fields) throws SQLException {
-    return TableService.create(properties, noHooks,
+    return TableService.create(new Properties(), Collections.emptyList(),
         List.of(SCHEMA, store), recordOf(sanitize(store), fields), Map.of(), true, false);
   }
 
   private void drop(String store) throws SQLException {
-    TableService.delete(properties, List.of(SCHEMA, store));
+    TableService.delete(new Properties(), List.of(SCHEMA, store));
   }
 
   private static Schema recordOf(String name, Schema.Field... fields) {

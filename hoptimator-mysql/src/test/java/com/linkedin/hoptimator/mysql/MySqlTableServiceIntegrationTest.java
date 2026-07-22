@@ -15,6 +15,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.Consumer;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -24,18 +25,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * create/update/drop of one table (verifying registration with {@link CatalogResolver}, mirroring
  * {@code !describe}); independent validation/error checks are separate tests. MySQL is a
  * catalog-style database ({@code MYSQL.test_database.<name>}).
- *
- * <p>{@code TableService} is connection-free (a {@link Properties} bag + log hooks, no JDBC connection), so
- * these tests pass an empty {@code Properties} and no hooks.
  */
 @Tag("integration")
 public class MySqlTableServiceIntegrationTest {
 
   private static final String CATALOG = "MYSQL";
   private static final String DB = "test_database";
-
-  private final Properties properties = new Properties();
-  private final List<java.util.function.Consumer<String>> noHooks = Collections.emptyList();
 
   @Test
   void usersTableLifecycle() throws SQLException {
@@ -132,7 +127,7 @@ public class MySqlTableServiceIntegrationTest {
 
   @Test
   void createInUnknownCatalogFails() {
-    assertThatThrownBy(() -> TableService.create(properties, noHooks,
+    assertThatThrownBy(() -> TableService.create(new Properties(), Collections.emptyList(),
         List.of("NOSUCHCATALOG", DB, "t"), recordOf("t", nullable("KEY_id", Schema.Type.INT)),
         Map.of(), true, false))
         .isInstanceOf(SQLException.class);
@@ -145,7 +140,7 @@ public class MySqlTableServiceIntegrationTest {
       create(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING));
       // Re-creating the same table with updateIfExists=false must fail rather than silently skip,
       // mirroring the SQL path's CREATE (without OR REPLACE) on an existing table.
-      assertThatThrownBy(() -> TableService.create(properties, noHooks,
+      assertThatThrownBy(() -> TableService.create(new Properties(), Collections.emptyList(),
           List.of(CATALOG, DB, table),
           recordOf(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING)),
           Map.of(), false, false))
@@ -158,12 +153,12 @@ public class MySqlTableServiceIntegrationTest {
 
   /** Creates (updateIfExists) a MySQL table at {@code MYSQL.test_database.<name>}. */
   private HoptimatorDdlUtils.SpecifyResult create(String table, Schema.Field... fields) throws SQLException {
-    return TableService.create(properties, noHooks,
+    return TableService.create(new Properties(), Collections.emptyList(),
         List.of(CATALOG, DB, table), recordOf(table, fields), Map.of(), true, false);
   }
 
   private void drop(String table) throws SQLException {
-    TableService.delete(properties, List.of(CATALOG, DB, table));
+    TableService.delete(new Properties(), List.of(CATALOG, DB, table));
   }
 
   private static Schema recordOf(String table, Schema.Field... fields) {

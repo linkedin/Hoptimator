@@ -27,9 +27,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * Integration tests using the SQL-free {@link TableService} direct API.
  * Asserts the rendered inter-tier pipeline specs; the real-create lifecycle deploys and verifies the
  * pipeline CRD/elements (querying the {@code k8s.pipelines} / {@code k8s.pipeline_element_map}
- * metadata tables) and the online (Venice) tier's resolved row type. The nearline (Kafka) tier is
- * not resolved for its row type: there is no local schema registry, so it would resolve only to the
- * raw {@code KEY}/{@code VALUE} columns — but the Venice online tier has a real value schema.
+ * metadata tables) and the online (Venice) tier's resolved row type.
  */
 @Tag("integration")
 public class LogicalTableServiceIntegrationTest {

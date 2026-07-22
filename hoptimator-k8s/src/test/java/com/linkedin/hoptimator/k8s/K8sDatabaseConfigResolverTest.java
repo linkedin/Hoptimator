@@ -10,6 +10,7 @@ import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.options.ListOptions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
@@ -55,9 +56,9 @@ class K8sDatabaseConfigResolverTest {
     return mock(KubernetesApiResponse.class);
   }
 
-  @SuppressWarnings("unchecked")
   private static K8sContext contextListing(KubernetesApiResponse<V1alpha1DatabaseList> resp) {
     K8sContext context = mock(K8sContext.class);
+    @SuppressWarnings("unchecked")
     GenericKubernetesApi<V1alpha1Database, V1alpha1DatabaseList> generic = mock(GenericKubernetesApi.class);
     when(context.namespace()).thenReturn(NAMESPACE);
     when(context.generic(K8sApiEndpoints.DATABASES)).thenReturn(generic);
@@ -127,7 +128,7 @@ class K8sDatabaseConfigResolverTest {
   @Test
   void databaseNameThrowsWhenNoDatabaseRegistered() {
     assertThatThrownBy(() -> resolver().databaseName(Arrays.asList("UNKNOWN", "t")))
-        .isInstanceOf(java.sql.SQLException.class)
+        .isInstanceOf(SQLException.class)
         .hasMessageContaining("No Database is registered");
   }
 
@@ -137,7 +138,7 @@ class K8sDatabaseConfigResolverTest {
 
     // A failed list must surface as an error, not be swallowed into "no Database registered".
     assertThatThrownBy(() -> resolver.databaseName(Arrays.asList("KAFKA", "t")))
-        .isInstanceOf(java.sql.SQLException.class)
+        .isInstanceOf(SQLException.class)
         .hasMessageNotContaining("No Database is registered");
   }
 

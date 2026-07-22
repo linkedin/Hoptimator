@@ -156,7 +156,7 @@ class DeployerUtilsTest {
   @Test
   void testExtractPropertiesReturnsNullForNullSchemaName() {
     Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, null,
-        mockNonHoptimatorConnection, "jdbc:test://", null);
+        mockNonHoptimatorConnection, "jdbc:test://");
 
     assertNull(result);
   }
@@ -164,7 +164,7 @@ class DeployerUtilsTest {
   @Test
   void testExtractPropertiesReturnsNullForNonHoptimatorConnection() {
     Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "mySchema",
-        mockNonHoptimatorConnection, "jdbc:test://", null);
+        mockNonHoptimatorConnection, "jdbc:test://");
 
     assertNull(result);
   }
@@ -176,7 +176,7 @@ class DeployerUtilsTest {
     HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://", props);
 
     Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "nonexistent-schema",
-        hoptimatorConnection, "jdbc:test://", null);
+        hoptimatorConnection, "jdbc:test://");
 
     assertNull(result);
     hoptimatorConnection.close();
@@ -189,7 +189,7 @@ class DeployerUtilsTest {
     HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://", props);
 
     Properties result = DeployerUtils.extractPropertiesFromJdbcSchema("nonexistent-catalog", "schema",
-        hoptimatorConnection, "jdbc:test://", null);
+        hoptimatorConnection, "jdbc:test://");
 
     assertNull(result);
     hoptimatorConnection.close();
@@ -203,21 +203,7 @@ class DeployerUtilsTest {
 
     // "util" schema exists but is not a HoptimatorJdbcSchema, so unwrap returns null
     Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "util",
-        hoptimatorConnection, "jdbc:test://", null);
-
-    assertNull(result);
-    hoptimatorConnection.close();
-  }
-
-  @Test
-  void testExtractPropertiesWithLoggerOnException() throws SQLException {
-    HoptimatorDriver driver = new HoptimatorDriver();
-    Properties props = new Properties();
-    HoptimatorConnection hoptimatorConnection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", props);
-
-    Logger testLogger = LoggerFactory.getLogger(DeployerUtilsTest.class);
-    Properties result = DeployerUtils.extractPropertiesFromJdbcSchema(null, "util",
-        hoptimatorConnection, "jdbc:test://", testLogger);
+        hoptimatorConnection, "jdbc:test://");
 
     assertNull(result);
     hoptimatorConnection.close();

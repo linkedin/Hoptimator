@@ -10,9 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 
 /**
- * Direct unit tests for {@link DualLogger}. It used to be exercised only via
- * {@link HoptimatorConnection}, where the logic lived; now that it is its own class it is tested on
- * its own — constructed from a class and a hook list, with no JDBC connection.
+ * Unit tests for {@link DualLogger}.
  */
 class DualLoggerTest {
 

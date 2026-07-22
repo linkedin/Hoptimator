@@ -38,6 +38,6 @@ public final class CalciteDeploymentContext implements DeploymentContext {
   @Override
   public @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
       String connectionPrefix) {
-    return DeployerUtils.extractPropertiesFromJdbcSchema(catalog, schema, connection, connectionPrefix, LOG);
+    return DeployerUtils.extractPropertiesFromJdbcSchema(catalog, schema, connection, connectionPrefix);
   }
 }

@@ -27,7 +27,7 @@ public final class CatalogResolver {
   }
 
   /** Resolves the row type for {@code path}, or {@code null} if the table is not present. */
-  public static RelDataType resolveRowType(List<String> path) {
+  private static RelDataType resolveRowType(List<String> path) {
     try (HoptimatorConnection conn =
         (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://catalogs=k8s")) {
       SchemaPlus schema = conn.calciteConnection().getRootSchema();
@@ -49,8 +49,7 @@ public final class CatalogResolver {
 
   /**
    * Resolves {@code path} immediately, failing if it is not present. The store deployers run
-   * synchronously, so a table must be resolvable right after {@code create} returns — there is no
-   * polling or waiting here on purpose.
+   * synchronously, so a table must be resolvable right after {@code create} returns
    */
   public static RelDataType resolve(List<String> path) throws SQLException {
     RelDataType rowType = resolveRowType(path);

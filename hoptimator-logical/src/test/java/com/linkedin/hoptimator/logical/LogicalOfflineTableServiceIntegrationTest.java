@@ -20,11 +20,10 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Java port of {@code logical-offline-ddl.id}: creating a logical table with an offline tier
- * (LOGICAL-OFFLINE = ads-database → ads-catalog-database, no Venice) really deploys, and
- * auto-creates a paused {@code TableTrigger} for the offline tier. Verified by querying the
- * {@code k8s.table_triggers} metadata table, mirroring the quidem's SELECTs. Table names differ from
- * the quidem's. Requires the integration environment.
+ * Integration tests using the SQL-free {@link TableService} direct API.
+ * Tests creating a logical table with an offline tier (LOGICAL-OFFLINE = ads-database → ads-catalog-database,
+ * no Venice) really deploys, and auto-creates a paused {@code TableTrigger} for the offline tier.
+ * Verified by querying the {@code k8s.table_triggers} metadata table.
  */
 @Tag("integration")
 public class LogicalOfflineTableServiceIntegrationTest {
