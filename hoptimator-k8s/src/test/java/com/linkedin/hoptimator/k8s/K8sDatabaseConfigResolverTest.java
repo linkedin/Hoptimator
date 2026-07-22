@@ -3,30 +3,70 @@ package com.linkedin.hoptimator.k8s;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
+import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
+import io.kubernetes.client.util.generic.GenericKubernetesApi;
+import io.kubernetes.client.util.generic.KubernetesApiResponse;
+import io.kubernetes.client.util.generic.options.ListOptions;
 import org.junit.jupiter.api.Test;
 
-import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 class K8sDatabaseConfigResolverTest {
 
+  private static final String NAMESPACE = "test-ns";
+
+  /** A K8sContext whose {@code Database} list returns {@code dbs} (Databases are namespaced). */
+  private static K8sContext contextReturning(V1alpha1Database... dbs) {
+    V1alpha1DatabaseList list = new V1alpha1DatabaseList();
+    list.setItems(Arrays.asList(dbs));
+    KubernetesApiResponse<V1alpha1DatabaseList> resp = mockResponse();
+    when(resp.getObject()).thenReturn(list);
+    return contextListing(resp);
+  }
+
+  /** A K8sContext whose {@code Database} list fails with an API error (non-transient status). */
+  private static K8sContext contextWithListFailure() {
+    KubernetesApiResponse<V1alpha1DatabaseList> resp = mockResponse();
+    when(resp.getHttpStatusCode()).thenReturn(500);
+    try {
+      doThrow(new ApiException("boom")).when(resp).throwsApiException();
+    } catch (ApiException e) {
+      throw new RuntimeException(e);
+    }
+    return contextListing(resp);
+  }
+
   @SuppressWarnings("unchecked")
-  private static K8sApi<V1alpha1Database, V1alpha1DatabaseList> apiReturning(V1alpha1Database... dbs)
-      throws SQLException {
-    K8sApi<V1alpha1Database, V1alpha1DatabaseList> api = mock(K8sApi.class);
-    doReturn(Arrays.asList(dbs)).when(api).list();
-    return api;
+  private static KubernetesApiResponse<V1alpha1DatabaseList> mockResponse() {
+    return mock(KubernetesApiResponse.class);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static K8sContext contextListing(KubernetesApiResponse<V1alpha1DatabaseList> resp) {
+    K8sContext context = mock(K8sContext.class);
+    GenericKubernetesApi<V1alpha1Database, V1alpha1DatabaseList> generic = mock(GenericKubernetesApi.class);
+    when(context.namespace()).thenReturn(NAMESPACE);
+    when(context.generic(K8sApiEndpoints.DATABASES)).thenReturn(generic);
+    when(generic.list(eq(NAMESPACE), any(ListOptions.class))).thenReturn(resp);
+    return context;
+  }
+
+  private static K8sDatabaseConfigResolver resolver(V1alpha1Database... dbs) {
+    return new K8sDatabaseConfigResolver(new Properties(), contextReturning(dbs));
   }
 
   private static V1alpha1Database db(String name, String url, String catalog, String schema) {
@@ -36,19 +76,16 @@ class K8sDatabaseConfigResolverTest {
   }
 
   @Test
-  void databasePropertiesReturnsNullWhenNoCatalogOrSchema() throws SQLException {
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(apiReturning());
-
-    assertThat(resolver.databaseProperties(null, null, "jdbc:kafka://")).isNull();
+  void databasePropertiesReturnsNullWhenNoCatalogOrSchema() {
+    assertThat(resolver().databaseProperties(null, null, "jdbc:kafka://")).isNull();
   }
 
   @Test
-  void databasePropertiesParsesUrlForSchemaStyleDatabase() throws SQLException {
+  void databasePropertiesParsesUrlForSchemaStyleDatabase() {
     V1alpha1Database kafka = db("kafka-database",
         "jdbc:kafka://bootstrap.servers=localhost:9092", null, "KAFKA");
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(apiReturning(kafka));
 
-    Properties props = resolver.databaseProperties(null, "KAFKA", "jdbc:kafka://");
+    Properties props = resolver(kafka).databaseProperties(null, "KAFKA", "jdbc:kafka://");
 
     assertThat(props).isNotNull();
     assertThat(props.getProperty("bootstrap.servers")).isEqualTo("localhost:9092");
@@ -57,85 +94,67 @@ class K8sDatabaseConfigResolverTest {
   }
 
   @Test
-  void databasePropertiesReturnsNullWhenUrlDoesNotMatchPrefix() throws SQLException {
+  void databasePropertiesReturnsNullWhenUrlDoesNotMatchPrefix() {
     V1alpha1Database venice = db("venice", "jdbc:venice://clusters=venice-cluster0", null, "VENICE");
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(apiReturning(venice));
 
     // Database exists for VENICE but the requested prefix is a different store type.
-    assertThat(resolver.databaseProperties(null, "VENICE", "jdbc:kafka://")).isNull();
+    assertThat(resolver(venice).databaseProperties(null, "VENICE", "jdbc:kafka://")).isNull();
   }
 
   @Test
-  void databasePropertiesReturnsNullWhenNoDatabaseMatches() throws SQLException {
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(apiReturning());
-
-    assertThat(resolver.databaseProperties(null, "MISSING", "jdbc:kafka://")).isNull();
+  void databasePropertiesReturnsNullWhenNoDatabaseMatches() {
+    assertThat(resolver().databaseProperties(null, "MISSING", "jdbc:kafka://")).isNull();
   }
 
   @Test
-  void databaseNameReturnsCrdNameForSchemaStyle() throws SQLException {
+  void databaseNameReturnsCrdNameForSchemaStyle() throws Exception {
     V1alpha1Database kafka = db("kafka-database",
         "jdbc:kafka://bootstrap.servers=localhost:9092", null, "KAFKA");
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(apiReturning(kafka));
 
-    assertThat(resolver.databaseName(Arrays.asList("KAFKA", "my_topic"))).isEqualTo("kafka-database");
+    assertThat(resolver(kafka).databaseName(Arrays.asList("KAFKA", "my_topic"))).isEqualTo("kafka-database");
   }
 
   @Test
-  void databaseNameMatchesCatalogStyleByCatalog() throws SQLException {
+  void databaseNameMatchesCatalogStyleByCatalog() throws Exception {
     V1alpha1Database mysql = db("mysql", "jdbc:mysql-hoptimator://url=jdbc:mysql://localhost:3306",
         "MYSQL", null);
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(apiReturning(mysql));
 
     // Catalog-style: three-segment path [CATALOG, SCHEMA, TABLE] matches on the catalog CRD.
-    assertThat(resolver.databaseName(Arrays.asList("MYSQL", "test_database", "orders")))
+    assertThat(resolver(mysql).databaseName(Arrays.asList("MYSQL", "test_database", "orders")))
         .isEqualTo("mysql");
   }
 
   @Test
-  void databaseNameThrowsWhenNoDatabaseRegistered() throws SQLException {
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(apiReturning());
-
-    assertThatThrownBy(() -> resolver.databaseName(Arrays.asList("UNKNOWN", "t")))
-        .isInstanceOf(SQLException.class)
+  void databaseNameThrowsWhenNoDatabaseRegistered() {
+    assertThatThrownBy(() -> resolver().databaseName(Arrays.asList("UNKNOWN", "t")))
+        .isInstanceOf(java.sql.SQLException.class)
         .hasMessageContaining("No Database is registered");
   }
 
   @Test
-  @SuppressWarnings("unchecked")
-  void databaseNameThrowsWhenApiListFails() throws SQLException {
-    K8sApi<V1alpha1Database, V1alpha1DatabaseList> api = mock(K8sApi.class);
-    doThrow(new SQLException("boom")).when(api).list();
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(api);
+  void databaseNameReportsNoMatchWhenListFails() {
+    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(new Properties(), contextWithListFailure());
 
-    // A failed list is swallowed by findDatabase (returns null), so databaseName reports no match.
+    // A failed list is swallowed by findDatabase, so databaseName reports no match.
     assertThatThrownBy(() -> resolver.databaseName(Arrays.asList("KAFKA", "t")))
-        .isInstanceOf(SQLException.class)
+        .isInstanceOf(java.sql.SQLException.class)
         .hasMessageContaining("No Database is registered");
   }
 
   @Test
-  void realApiPathBuildsContextAndPropagatesConnectionFailure() {
-    // Uses the public constructor so api() creates a real K8sContext + K8sApi. There is no live
-    // cluster, so list() fails to connect. NOTE: K8sApi.list() surfaces connection failures as an
-    // IllegalStateException (not SQLException), which findDatabase's catch (SQLException) does not
-    // swallow -- so it propagates. This exercises the non-injected api() branch without a backend.
-    Properties props = new Properties();
-    props.setProperty(K8sContext.NAMESPACE_KEY, "ns");
-    props.setProperty(K8sContext.SERVER_KEY, "https://k8s.invalid:6443");
-    props.setProperty(K8sContext.TOKEN_KEY, "token");
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(props);
-
-    assertThatThrownBy(() -> resolver.databaseName(Arrays.asList("KAFKA", "t")))
-        .isInstanceOf(RuntimeException.class);
-  }
-
-  @Test
-  void listsDatabasesOncePerResolverAcrossMultipleResolutions() throws SQLException {
-    V1alpha1Database kafka = db("kafka-database",
-        "jdbc:kafka://bootstrap.servers=localhost:9092", null, "KAFKA");
-    K8sApi<V1alpha1Database, V1alpha1DatabaseList> api = apiReturning(kafka);
-    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(api);
+  void listsDatabasesOncePerResolverAcrossMultipleResolutions() throws Exception {
+    V1alpha1DatabaseList list = new V1alpha1DatabaseList();
+    list.setItems(Collections.singletonList(
+        db("kafka-database", "jdbc:kafka://bootstrap.servers=localhost:9092", null, "KAFKA")));
+    KubernetesApiResponse<V1alpha1DatabaseList> resp = mockResponse();
+    when(resp.getObject()).thenReturn(list);
+    @SuppressWarnings("unchecked")
+    GenericKubernetesApi<V1alpha1Database, V1alpha1DatabaseList> generic = mock(GenericKubernetesApi.class);
+    K8sContext context = mock(K8sContext.class);
+    when(context.namespace()).thenReturn(NAMESPACE);
+    when(context.generic(K8sApiEndpoints.DATABASES)).thenReturn(generic);
+    when(generic.list(eq(NAMESPACE), any(ListOptions.class))).thenReturn(resp);
+    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(new Properties(), context);
 
     // Several resolutions on the same resolver, as a logical table's tiers would trigger.
     resolver.databaseName(Arrays.asList("KAFKA", "t1"));
@@ -143,6 +162,6 @@ class K8sDatabaseConfigResolverTest {
     resolver.databaseName(Arrays.asList("KAFKA", "t2"));
 
     // The per-resolver cache means the Database CRDs are listed only once.
-    verify(api, times(1)).list();
+    verify(generic, times(1)).list(eq(NAMESPACE), any(ListOptions.class));
   }
 }

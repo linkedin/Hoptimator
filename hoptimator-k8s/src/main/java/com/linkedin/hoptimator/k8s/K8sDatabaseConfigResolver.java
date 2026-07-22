@@ -2,7 +2,6 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.DatabaseConfigResolver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
-import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,19 +26,17 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   private static final Logger LOG = LoggerFactory.getLogger(K8sDatabaseConfigResolver.class);
 
   private final Properties connectionProperties;
-  private final K8sApi<V1alpha1Database, V1alpha1DatabaseList> injectedApi;
-  private K8sContext context;
+  private final K8sContext context;
   private List<K8sDatabaseTable.Row> cachedDatabases;
 
   public K8sDatabaseConfigResolver(Properties connectionProperties) {
-    this.connectionProperties = connectionProperties;
-    this.injectedApi = null;
+    this(connectionProperties, K8sContext.createFromProperties(connectionProperties));
   }
 
-  /** Test seam: inject the {@code Database} API directly, bypassing K8s context/client creation. */
-  K8sDatabaseConfigResolver(K8sApi<V1alpha1Database, V1alpha1DatabaseList> injectedApi) {
-    this.connectionProperties = new Properties();
-    this.injectedApi = injectedApi;
+  /** Test seam: inject a (mockable) {@link K8sContext} instead of building one from the properties. */
+  K8sDatabaseConfigResolver(Properties connectionProperties, K8sContext context) {
+    this.connectionProperties = connectionProperties;
+    this.context = context;
   }
 
   @Override
@@ -106,7 +103,7 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
     if (cachedDatabases == null) {
       List<K8sDatabaseTable.Row> rows = new ArrayList<>();
       try {
-        for (V1alpha1Database db : api().list()) {
+        for (V1alpha1Database db : new K8sApi<>(context, K8sApiEndpoints.DATABASES).list()) {
           rows.add(K8sDatabaseTable.rowOf(db));
         }
         cachedDatabases = rows;
@@ -127,15 +124,5 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
     }
     // Schema-style Database (e.g. KAFKA, VENICE): match by schema name.
     return row.CATALOG == null && schema != null && schema.equalsIgnoreCase(K8sDatabaseTable.schemaName(row));
-  }
-
-  private K8sApi<V1alpha1Database, V1alpha1DatabaseList> api() {
-    if (injectedApi != null) {
-      return injectedApi;
-    }
-    if (context == null) {
-      context = K8sContext.createFromProperties(connectionProperties);
-    }
-    return new K8sApi<>(context, K8sApiEndpoints.DATABASES);
   }
 }
