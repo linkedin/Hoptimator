@@ -18,7 +18,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.net.ConnectException;
+import java.net.SocketTimeoutException;
+import java.net.UnknownHostException;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientException;
 import java.util.Arrays;
 import java.util.Collection;
@@ -239,7 +243,7 @@ class K8sApiTest {
   @Test
   void listNormalizesConnectivityFailureToTransient() {
     IllegalStateException connectivityFailure =
-        new IllegalStateException("java.net.SocketTimeoutException: Connect timed out");
+        new IllegalStateException(new SocketTimeoutException("Connect timed out"));
     when(mockGenericApi.list(eq("test-ns"), any(ListOptions.class))).thenThrow(connectivityFailure);
 
     SQLTransientException thrown = assertThrows(SQLTransientException.class, () -> api.list());
@@ -249,7 +253,8 @@ class K8sApiTest {
 
   @Test
   void getNormalizesConnectivityFailureToTransient() {
-    IllegalStateException connectivityFailure = new IllegalStateException("java.net.UnknownHostException");
+    IllegalStateException connectivityFailure =
+        new IllegalStateException(new UnknownHostException("k8s.invalid"));
     when(mockGenericApi.get(eq("test-ns"), eq("my-pipeline"))).thenThrow(connectivityFailure);
 
     SQLTransientException thrown = assertThrows(SQLTransientException.class, () -> api.get("my-pipeline"));
@@ -260,7 +265,8 @@ class K8sApiTest {
   @Test
   void createNormalizesConnectivityFailureToTransient() {
     V1alpha1Pipeline pipeline = makePipeline("new-pipeline", "test-ns");
-    IllegalStateException connectivityFailure = new IllegalStateException("Connection refused");
+    IllegalStateException connectivityFailure =
+        new IllegalStateException(new ConnectException("Connection refused"));
     when(mockGenericApi.create(any(V1alpha1Pipeline.class))).thenThrow(connectivityFailure);
 
     SQLTransientException thrown = assertThrows(SQLTransientException.class, () -> api.create(pipeline));
@@ -270,13 +276,26 @@ class K8sApiTest {
 
   @Test
   void deleteNormalizesConnectivityFailureToTransient() {
-    IllegalStateException connectivityFailure = new IllegalStateException("Connection refused");
+    IllegalStateException connectivityFailure =
+        new IllegalStateException(new ConnectException("Connection refused"));
     when(mockGenericApi.delete(eq("test-ns"), eq("name"), any(DeleteOptions.class)))
         .thenThrow(connectivityFailure);
 
     SQLTransientException thrown = assertThrows(SQLTransientException.class, () -> api.delete("name"));
 
     assertSame(connectivityFailure, thrown.getCause());
+  }
+
+  @Test
+  void nonIoIllegalStateIsClassifiedNonTransient() {
+    // An IllegalStateException NOT wrapping an IOException is not a known-retryable connectivity
+    // failure, so it must surface as non-transient rather than being masked as retryable.
+    IllegalStateException notConnectivity = new IllegalStateException("unexpected client state");
+    when(mockGenericApi.list(eq("test-ns"), any(ListOptions.class))).thenThrow(notConnectivity);
+
+    SQLNonTransientException thrown = assertThrows(SQLNonTransientException.class, () -> api.list());
+
+    assertSame(notConnectivity, thrown.getCause());
   }
 
   @Test

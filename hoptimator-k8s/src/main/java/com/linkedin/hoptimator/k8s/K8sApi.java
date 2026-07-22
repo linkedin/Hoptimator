@@ -12,7 +12,9 @@ import io.kubernetes.client.util.generic.options.ListOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientException;
 import java.util.Collection;
 import java.util.Collections;
@@ -41,20 +43,26 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
   /**
    * Executes a Kubernetes client call, normalizing connectivity failures to a typed transient error.
    *
-   * <p>The Kubernetes client surfaces connectivity failures (connection refused, unknown host,
-   * socket timeout) as an unchecked {@link IllegalStateException} wrapping an {@code IOException},
-   * thrown from the terminal {@code generic().list/get/create/delete/update} call. Left unchecked it
-   * escapes the {@link SQLException} contract as an unclassified error, and — worse — a swallowed
-   * read could report success while nothing was actually resolved or deployed. Wrapping every backend
-   * call here gives all SPIs (config resolution and deployer execution alike) a single, uniform
-   * classification: a {@link SQLTransientException}, marking the failure as transient so callers can
-   * distinguish a retryable connectivity blip from a permanent error.
+   * <p>The Kubernetes client reports a genuine connectivity failure (connection refused, unknown
+   * host, socket timeout) as an unchecked {@link IllegalStateException} wrapping an
+   * {@link IOException}, thrown from the terminal {@code generic().list/get/create/delete/update}
+   * call — HTTP-status errors (404, 409, ...) instead come back in the response and are classified by
+   * {@link K8sUtils#checkResponse}. Left unchecked, the connectivity failure would escape the
+   * {@link SQLException} contract as an unclassified error, and — worse — a swallowed read could
+   * report success while nothing was actually resolved or deployed. So this wraps every backend call,
+   * giving all SPIs (config resolution and deployer execution alike) a uniform classification: an
+   * IOException-caused failure is a {@link SQLTransientException} (a retryable connectivity blip);
+   * any other {@link IllegalStateException} is surfaced as a {@link SQLNonTransientException} rather
+   * than being masked as retryable.
    */
   private <R> R call(String action, Supplier<R> request) throws SQLException {
     try {
       return request.get();
     } catch (IllegalStateException e) {
-      throw new SQLTransientException("Could not reach Kubernetes to " + action + ": " + e.getMessage(), e);
+      if (e.getCause() instanceof IOException) {
+        throw new SQLTransientException("Could not reach Kubernetes to " + action + ": " + e.getMessage(), e);
+      }
+      throw new SQLNonTransientException("Kubernetes call failed to " + action + ": " + e.getMessage(), e);
     }
   }
 

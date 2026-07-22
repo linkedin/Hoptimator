@@ -97,13 +97,21 @@ public final class K8sUtils {
       resp.throwsApiException();
     } catch (ApiException e) {
       switch (resp.getHttpStatusCode()) {
-      case 404: // not found
-      case 408: // timeout
-      case 409: // conflict
-      case 410: // gone
+      case 408: // request timeout
+      case 409: // conflict (e.g. optimistic-concurrency resourceVersion clash)
+      case 410: // gone (stale resourceVersion)
       case 412: // precondition failed
+      case 429: // too many requests (rate limited)
+      case 500: // internal server error
+      case 502: // bad gateway
+      case 503: // service unavailable
+      case 504: // gateway timeout
+        // Retryable: server-side or optimistic-concurrency failures that may succeed on retry.
         throw new SQLTransientException(msgSupplier.get(), null, resp.getHttpStatusCode(), e);
       default:
+        // Definitive client errors (e.g. 404 not found, 400 bad request, 403 forbidden): the
+        // request won't succeed on retry, so surface a non-transient error rather than masking it
+        // as retryable.
         throw new SQLNonTransientException(msgSupplier.get(), null, resp.getHttpStatusCode(), e);
       }
     }

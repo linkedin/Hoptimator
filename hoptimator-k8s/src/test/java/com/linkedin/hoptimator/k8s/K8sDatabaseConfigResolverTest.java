@@ -163,7 +163,7 @@ class K8sDatabaseConfigResolverTest {
     when(context.namespace()).thenReturn(NAMESPACE);
     when(context.generic(K8sApiEndpoints.DATABASES)).thenReturn(generic);
     when(generic.list(eq(NAMESPACE), any(ListOptions.class)))
-        .thenThrow(new IllegalStateException("java.net.UnknownHostException: k8s.invalid"));
+        .thenThrow(new IllegalStateException(new java.net.UnknownHostException("k8s.invalid")));
     K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(new Properties(), context);
 
     assertThatThrownBy(() -> resolver.databaseProperties(null, "KAFKA", "jdbc:kafka://"))
