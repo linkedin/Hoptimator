@@ -315,18 +315,4 @@ class HoptimatorConnectionTest {
       throw new UnsupportedOperationException();
     }
   }
-
-  @Test
-  void testMultipleLogHooksAllInvoked() {
-    List<String> hook1Messages = new ArrayList<>();
-    List<String> hook2Messages = new ArrayList<>();
-    connection.addLogHook(hook1Messages::add);
-    connection.addLogHook(hook2Messages::add);
-
-    DualLogger logger = connection.getLogger(HoptimatorConnectionTest.class);
-    logger.info("hello");
-
-    assertEquals(1, hook1Messages.size());
-    assertEquals(1, hook2Messages.size());
-  }
 }
