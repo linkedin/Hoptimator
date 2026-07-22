@@ -137,6 +137,15 @@ public class VeniceDeployer implements Deployer, Validated {
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    try (ControllerClient controllerClient = createControllerClient()) {
+      return checkStoreExists(controllerClient);
+    } catch (RuntimeException e) {
+      throw new SQLException("Failed to check whether Venice store exists: " + source.table(), e);
+    }
+  }
+
+  @Override
   public void delete() throws SQLException {
     try (ControllerClient controllerClient = createControllerClient()) {
       if (!checkStoreExists(controllerClient)) {

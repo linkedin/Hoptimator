@@ -21,12 +21,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Java port of {@code venice-ddl-create-table.id}: exercises Venice CREATE TABLE key/value schema
- * derivation, backward-compatible evolution and validation failures via the SQL-free
- * {@link TableService} direct API. Same-store create/update/drop is grouped into one lifecycle test
- * (registration verified with {@link CatalogResolver}, mirroring {@code !describe}); operations on
- * distinct stores and independent error checks are separate tests. Store names differ from the
- * quidem's so both can run against one environment. Requires the integration environment.
+ * Integration tests using the SQL-free {@link TableService} direct API.
+ * Exercises Venice CREATE TABLE key/value schema derivation, backward-compatible evolution and validation failures.
  */
 @Tag("integration")
 public class VeniceTableServiceIntegrationTest {
@@ -154,6 +150,23 @@ public class VeniceTableServiceIntegrationTest {
         List.of("NOSUCHDB", "t"), recordOf("t", nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT)),
         Map.of(), true, false))
         .isInstanceOf(SQLException.class);
+  }
+
+  @Test
+  void createWithoutUpdateIfExistsFailsWhenStoreExists() throws SQLException {
+    String store = "directapi-exists";
+    try {
+      create(store, nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT));
+      // Re-creating the same store with updateIfExists=false must fail rather than silently skip.
+      assertThatThrownBy(() -> TableService.create(connection.connectionProperties(), connection.logHooks(),
+          List.of(SCHEMA, store),
+          recordOf(sanitize(store), nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT)),
+          Map.of(), false, false))
+          .isInstanceOf(SQLException.class)
+          .hasMessageContaining("already exists");
+    } finally {
+      drop(store);
+    }
   }
 
   private HoptimatorDdlUtils.SpecifyResult create(String store, Schema.Field... fields) throws SQLException {

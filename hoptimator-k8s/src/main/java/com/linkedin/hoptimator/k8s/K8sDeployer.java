@@ -47,6 +47,17 @@ public abstract class K8sDeployer<T extends KubernetesObject, U extends Kubernet
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    T obj = toK8sObject();
+    String namespace = obj.getMetadata().getNamespace();
+    String name = obj.getMetadata().getName();
+    if (namespace != null) {
+      return api.getIfExists(namespace, name) != null;
+    }
+    return api.getIfExists(name) != null;
+  }
+
+  @Override
   public void delete() throws SQLException {
     T obj = toK8sObject();
     snapshot.store(obj);

@@ -22,12 +22,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Java port of {@code mysql-ddl-create-table.id}: exercises MySQL CREATE TABLE key handling and
- * evolution via the SQL-free {@link TableService} direct API. A single lifecycle test groups the
+ * Integration tests using the SQL-free {@link TableService} direct API. A single lifecycle test groups the
  * create/update/drop of one table (verifying registration with {@link CatalogResolver}, mirroring
  * {@code !describe}); independent validation/error checks are separate tests. MySQL is a
- * catalog-style database ({@code MYSQL.test_database.<name>}). Table names differ from the quidem's
- * so both can run against one environment. Requires the integration environment, hence {@code @Tag}.
+ * catalog-style database ({@code MYSQL.test_database.<name>}).
  */
 @Tag("integration")
 public class MySqlTableServiceIntegrationTest {
@@ -148,6 +146,24 @@ public class MySqlTableServiceIntegrationTest {
         List.of("NOSUCHCATALOG", DB, "t"), recordOf("t", nullable("KEY_id", Schema.Type.INT)),
         Map.of(), true, false))
         .isInstanceOf(SQLException.class);
+  }
+
+  @Test
+  void createWithoutUpdateIfExistsFailsWhenTableExists() throws SQLException {
+    String table = "ts_exists";
+    try {
+      create(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING));
+      // Re-creating the same table with updateIfExists=false must fail rather than silently skip,
+      // mirroring the SQL path's CREATE (without OR REPLACE) on an existing table.
+      assertThatThrownBy(() -> TableService.create(connection.connectionProperties(), connection.logHooks(),
+          List.of(CATALOG, DB, table),
+          recordOf(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING)),
+          Map.of(), false, false))
+          .isInstanceOf(SQLException.class)
+          .hasMessageContaining("already exists");
+    } finally {
+      drop(table);
+    }
   }
 
   /** Creates (updateIfExists) a MySQL table at {@code MYSQL.test_database.<name>}. */

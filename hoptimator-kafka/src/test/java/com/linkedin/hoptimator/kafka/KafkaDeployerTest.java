@@ -93,6 +93,33 @@ class KafkaDeployerTest {
   }
 
   @Test
+  void testExistsReturnsFalseWhenTopicMissing() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "NewTopic"), Collections.emptyMap());
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<?> failedFuture = mock(KafkaFuture.class);
+    doThrow(new ExecutionException(new UnknownTopicOrPartitionException("not found"))).when(failedFuture).get();
+    doReturn(Map.of("NewTopic", failedFuture)).when(describeResult).topicNameValues();
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    assertFalse(createDeployer(source).exists());
+    verify(mockAdmin).close();
+  }
+
+  @Test
+  void testExistsReturnsTrueWhenTopicPresent() throws Exception {
+    Source source = new Source("db", List.of("KAFKA", "ExistingTopic"), Collections.emptyMap());
+
+    DescribeTopicsResult describeResult = mock(DescribeTopicsResult.class);
+    KafkaFuture<TopicDescription> future = KafkaFuture.completedFuture(mockTopicWithPartitions(3));
+    when(describeResult.topicNameValues()).thenReturn(Map.of("ExistingTopic", future));
+    when(mockAdmin.describeTopics(anyList())).thenReturn(describeResult);
+
+    assertTrue(createDeployer(source).exists());
+    verify(mockAdmin).close();
+  }
+
+  @Test
   void testUpdateExistingTopicSkipsCreation() throws Exception {
     Source source = new Source("db", List.of("KAFKA", "ExistingTopic"), Collections.emptyMap());
 

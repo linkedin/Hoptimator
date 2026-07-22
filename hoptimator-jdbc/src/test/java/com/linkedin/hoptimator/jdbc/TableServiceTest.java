@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
@@ -132,6 +133,57 @@ class TableServiceTest {
         .hasMessageContaining("teardown boom");
 
     deployment.verify(() -> DeploymentService.restore(deployers), times(1));
+  }
+
+  @Test
+  void createFailsWhenTableAlreadyExists() throws SQLException {
+    // Direct-path CREATE (updateIfExists=false) against an existing table must fail, mirroring the
+    // SQL path's "already exists, use OR REPLACE" instead of silently skipping per deployer.
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    Deployer deployer = mock(Deployer.class);
+    when(deployer.exists()).thenReturn(true);
+    deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
+        .thenReturn(Collections.singletonList(deployer));
+
+    assertThatThrownBy(() -> TableService.create(new Properties(), Collections.emptyList(), path,
+        recordSchema(), Collections.emptyMap(), false, false))
+        .isInstanceOf(SQLException.class)
+        .hasMessageContaining("already exists");
+
+    deployment.verify(() -> DeploymentService.create(any()), never());
+  }
+
+  @Test
+  void createProceedsWhenTableDoesNotExist() throws SQLException {
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    Deployer deployer = mock(Deployer.class);
+    when(deployer.exists()).thenReturn(false);
+    List<Deployer> deployers = Collections.singletonList(deployer);
+    deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
+        .thenReturn(deployers);
+
+    TableService.create(new Properties(), Collections.emptyList(), path, recordSchema(),
+        Collections.emptyMap(), false, false);
+
+    deployment.verify(() -> DeploymentService.create(deployers), times(1));
+  }
+
+  @Test
+  void updateIfExistsBypassesTheGuardAndDoesNotConsultExists() throws SQLException {
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = Collections.singletonList(deployer);
+    deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
+        .thenReturn(deployers);
+
+    TableService.create(new Properties(), Collections.emptyList(), path, recordSchema(),
+        Collections.emptyMap(), true, false);
+
+    deployment.verify(() -> DeploymentService.update(deployers), times(1));
+    verify(deployer, never()).exists();
   }
 
   private static Schema recordSchema() {

@@ -218,6 +218,17 @@ public class MySqlDeployer implements Deployer, Validated {
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    String database = source.schema();
+    if (database == null) {
+      return false;
+    }
+    try (Connection conn = getConnection()) {
+      return tableExists(conn, database, source.table());
+    }
+  }
+
+  @Override
   public void delete() throws SQLException {
     String tableName = source.table();
     String database = source.schema();

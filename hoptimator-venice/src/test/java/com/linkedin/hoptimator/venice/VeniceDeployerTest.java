@@ -299,13 +299,34 @@ class VeniceDeployerTest {
   }
 
   @Test
-  public void testGetKeyPayloadSchemaSplitsRowTypeFromDirectContext() throws Exception {
+  public void testExistsReturnsTrueWhenStorePresent() throws Exception {
     Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
-    // A DirectDeploymentContext carries the row type; KEY_-prefixed fields form the key schema and
-    // the rest form the payload. This exercises the real getKeyPayloadSchema() (no override).
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(mock(StoreInfo.class));
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    assertTrue(createDeployer(source).exists());
+  }
+
+  @Test
+  public void testExistsReturnsFalseWhenStoreAbsent() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(null);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    assertFalse(createDeployer(source).exists());
+  }
+
+  @Test
+  public void testGetKeyPayloadSchemaProducesPayloadFromRowType() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    // A DirectDeploymentContext carries the row type. Without a resolved "keys" option (there is no
+    // connector on this unit-test classpath to supply one), avroKeyPayloadSchema treats the whole
+    // row type as the payload; the real key/payload split is covered by the Venice integration test.
     RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = factory.builder()
-        .add("KEY_id", factory.createSqlType(SqlTypeName.INTEGER))
+        .add("id", factory.createSqlType(SqlTypeName.INTEGER))
         .add("name", factory.createSqlType(SqlTypeName.VARCHAR))
         .build();
     VeniceDeployer deployer =
@@ -313,9 +334,8 @@ class VeniceDeployerTest {
 
     Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
 
-    assertNotNull(keyPayload.left, "key schema");
     assertNotNull(keyPayload.right, "payload schema");
-    assertNotNull(keyPayload.left.getField("id"), "key field id");
+    assertNotNull(keyPayload.right.getField("id"), "payload field id");
     assertNotNull(keyPayload.right.getField("name"), "payload field name");
   }
 

@@ -735,6 +735,17 @@ public final class HoptimatorDdlUtils {
       logger.info("Validating new table {}", source);
       ValidationService.validateOrThrow(source, context);
       deployers = DeploymentService.deployers(source, context);
+      // Enforce CREATE (not OR REPLACE) semantics on the connection-free direct path, mirroring the
+      // Calcite existence check the SQL path ran above. Gated on !manageCalciteSchema so the SQL/DDL
+      // path (which already checked existence + OR REPLACE) never double-checks or calls exists().
+      if (!manageCalciteSchema && mode == DdlMode.CREATE) {
+        for (Deployer deployer : deployers) {
+          if (deployer.exists()) {
+            throw new SQLException("Table " + tableName
+                + " already exists. Set updateIfExists=true to update it.");
+          }
+        }
+      }
       logger.info("Validating deployable resources for table {}", tableName);
       ValidationService.validateOrThrow(deployers, context);
 

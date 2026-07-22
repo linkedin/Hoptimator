@@ -183,6 +183,30 @@ class MySqlDeployerTest {
   }
 
   @Test
+  void testExistsReturnsTrueWhenTableExists() throws Exception {
+    Source source = new Source("db", List.of("MYSQL", DATABASE, "ExistingTable"), Collections.emptyMap());
+
+    ResultSet existingRs = mock(ResultSet.class);
+    when(existingRs.next()).thenReturn(true);
+    when(mockMetaData.getTables(eq(DATABASE), any(), eq("ExistingTable"), any())).thenReturn(existingRs);
+
+    assertTrue(createDeployer(source).exists());
+    verify(mockConnection).close();
+  }
+
+  @Test
+  void testExistsReturnsFalseWhenTableMissing() throws Exception {
+    Source source = new Source("db", List.of("MYSQL", DATABASE, "NewTable"), Collections.emptyMap());
+
+    ResultSet emptyRs = mock(ResultSet.class);
+    when(emptyRs.next()).thenReturn(false);
+    when(mockMetaData.getTables(eq(DATABASE), any(), eq("NewTable"), any())).thenReturn(emptyRs);
+
+    assertFalse(createDeployer(source).exists());
+    verify(mockConnection).close();
+  }
+
+  @Test
   void testCreatePropagatesException() throws Exception {
     Source source = new Source("db", List.of("MYSQL", DATABASE, "ErrorTable"), Collections.emptyMap());
 

@@ -110,6 +110,13 @@ public class KafkaDeployer implements Deployer, Validated {
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    try (AdminClient admin = AdminClient.create(properties)) {
+      return topicExists(admin, source.table());
+    }
+  }
+
+  @Override
   public void delete() throws SQLException {
     String topicName = source.table();
     try (AdminClient admin = AdminClient.create(properties)) {

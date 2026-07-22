@@ -19,12 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Java port of {@code kafka-ddl-create-table.id}: mirrors the same behaviors via the SQL-free
- * {@link TableService} direct API instead of quidem SQL. The lifecycle test covers dry-run
- * ({@code !specify}), real create ({@code !update}), schema verification ({@code !describe}, via
- * {@link CatalogResolver}) and drop (verified by resolving to absent). Independent error checks live
- * in their own tests. Table names differ from the quidem's so both can run against one environment.
- * Requires the integration environment, hence {@code @Tag}.
+ * Integration tests using the SQL-free  {@link TableService}. The lifecycle test covers dry-run,
+ * real create, schema verification, via {@link CatalogResolver}) and drop (verified by resolving to absent).
  */
 @Tag("integration")
 public class KafkaTableServiceIntegrationTest {
@@ -73,7 +69,8 @@ public class KafkaTableServiceIntegrationTest {
       // updateIfExists=false against an existing table must fail.
       assertThatThrownBy(() ->
           TableService.create(properties, List.of(), List.of(SCHEMA, table), schema, Map.of(), false, false))
-          .isInstanceOf(SQLException.class);
+          .isInstanceOf(SQLException.class)
+          .hasMessageContaining("already exists");
     } finally {
       TableService.delete(properties, List.of(SCHEMA, table));
     }
