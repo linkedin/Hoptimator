@@ -1,9 +1,11 @@
 package com.linkedin.hoptimator.mysql;
 
+import com.linkedin.hoptimator.jdbc.CatalogResolver;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.TableService;
 import org.apache.avro.Schema;
+import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,19 +23,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Java port of {@code mysql-ddl-create-table.id}: exercises MySQL CREATE TABLE key handling and
- * evolution validation via the SQL-free {@link TableService} direct API instead of quidem SQL.
- * Requires the integration environment, hence {@code @Tag}.
+ * evolution via the SQL-free {@link TableService} direct API. A single lifecycle test groups the
+ * create/update/drop of one table (verifying registration with {@link CatalogResolver}, mirroring
+ * {@code !describe}); independent validation/error checks are separate tests. MySQL is a
+ * catalog-style database ({@code MYSQL.test_database.<name>}). Table names differ from the quidem's
+ * so both can run against one environment. Requires the integration environment, hence {@code @Tag}.
  */
 @Tag("integration")
 public class MySqlTableServiceIntegrationTest {
 
-  private static final String URL = "jdbc:hoptimator://catalogs=k8s";
+  private static final String CATALOG = "MYSQL";
+  private static final String DB = "test_database";
 
   private HoptimatorConnection connection;
 
   @BeforeEach
   void setUp() throws SQLException {
-    connection = (HoptimatorConnection) DriverManager.getConnection(URL);
+    connection = (HoptimatorConnection) DriverManager.getConnection("jdbc:hoptimator://catalogs=k8s");
   }
 
   @AfterEach
@@ -44,73 +50,118 @@ public class MySqlTableServiceIntegrationTest {
   }
 
   @Test
-  void mysqlCreateTableLifecycle() throws SQLException {
+  void usersTableLifecycle() throws SQLException {
+    String table = "ts_users";
     try {
-      // Create a table with a KEY_ prefixed primary key.
-      HoptimatorDdlUtils.SpecifyResult users = create("ts_users",
+      // Create with a KEY_ prefixed primary key.
+      HoptimatorDdlUtils.SpecifyResult created = create(table,
           nullable("KEY_id", Schema.Type.INT),
           nullable("name", Schema.Type.STRING),
           nullable("email", Schema.Type.STRING));
-      assertThat(users.sinkRowType.getFieldNames()).containsExactly("KEY_id", "name", "email");
-      assertThat(users.sinkRowType.getField("KEY_id", false, false).getType().getSqlTypeName())
+      assertThat(created.sinkRowType.getFieldNames()).containsExactly("KEY_id", "name", "email");
+
+      // Verify it registered in MySQL. MySQL maps KEY_ fields to the primary key with the prefix
+      // stripped, so the physical columns are id/name/email (not KEY_id).
+      RelDataType resolved = CatalogResolver.awaitResolved(List.of(CATALOG, DB, table));
+      assertThat(resolved.getFieldNames()).contains("id", "name", "email");
+      assertThat(resolved.getField("id", false, false).getType().getSqlTypeName())
           .isEqualTo(SqlTypeName.INTEGER);
 
-      // Backward-compatible value-column change (add "age", widen/replace "name").
-      HoptimatorDdlUtils.SpecifyResult evolved = create("ts_users",
+      // Backward-compatible evolution: add a value column (MySQL adds columns, never drops).
+      HoptimatorDdlUtils.SpecifyResult evolved = create(table,
           nullable("KEY_id", Schema.Type.INT),
           nullable("name", Schema.Type.STRING),
+          nullable("email", Schema.Type.STRING),
           nullable("age", Schema.Type.INT));
-      assertThat(evolved.sinkRowType.getFieldNames()).containsExactly("KEY_id", "name", "age");
+      assertThat(evolved.sinkRowType.getFieldNames()).contains("age");
+      assertThat(CatalogResolver.awaitResolved(List.of(CATALOG, DB, table)).getFieldNames()).contains("age");
 
-      // Composite primary key.
-      HoptimatorDdlUtils.SpecifyResult orders = create("ts_orders",
+      // Drop (cleanup + exercises the delete path).
+      drop(table);
+    } catch (SQLException | RuntimeException e) {
+      drop(table);
+      throw e;
+    }
+  }
+
+  @Test
+  void ordersCompositeKeyLifecycle() throws SQLException {
+    String table = "ts_orders";
+    try {
+      HoptimatorDdlUtils.SpecifyResult created = create(table,
           nullable("KEY_user_id", Schema.Type.INT),
           nullable("KEY_order_id", Schema.Type.INT),
           nullable("total", Schema.Type.DOUBLE),
           nullable("status", Schema.Type.STRING));
-      assertThat(orders.sinkRowType.getFieldNames())
+      assertThat(created.sinkRowType.getFieldNames())
           .containsExactly("KEY_user_id", "KEY_order_id", "total", "status");
 
-      // A table with no KEY_ field fails validation.
-      assertThatThrownBy(() -> create("ts_invalid",
-          nullable("id", Schema.Type.INT), nullable("data", Schema.Type.STRING)))
-          .isInstanceOf(SQLException.class)
-          .hasMessageContaining("No KEY_ fields found in table ts_invalid");
+      assertThat(CatalogResolver.awaitResolved(List.of(CATALOG, DB, table)).getFieldNames())
+          .contains("user_id", "order_id", "total", "status");
 
-      // Changing the KEY fields is rejected.
-      assertThatThrownBy(() -> create("ts_users",
-          nullable("KEY_user_id", Schema.Type.INT),
-          nullable("name", Schema.Type.STRING),
-          nullable("email", Schema.Type.STRING)))
-          .isInstanceOf(SQLException.class)
-          .hasMessageContaining("Cannot modify KEY fields for table ts_users");
-
-      // Changing a KEY field's type is rejected.
-      assertThatThrownBy(() -> create("ts_users",
-          nullable("KEY_id", Schema.Type.STRING),
-          nullable("name", Schema.Type.STRING),
-          nullable("email", Schema.Type.STRING)))
-          .isInstanceOf(SQLException.class)
-          .hasMessageContaining("Cannot modify KEY field type for table ts_users");
-    } finally {
-      drop("ts_users");
-      drop("ts_orders");
+      drop(table);
+    } catch (SQLException | RuntimeException e) {
+      drop(table);
+      throw e;
     }
   }
 
-  /** Creates (CREATE OR REPLACE) a MySQL table at {@code MYSQL.test_database.<name>}. */
-  private HoptimatorDdlUtils.SpecifyResult create(String table, Schema.Field... fields) throws SQLException {
-    Schema schema = Schema.createRecord(table, null, "com.linkedin.hoptimator.test", false,
-        Arrays.asList(fields));
-    return TableService.create(connection.connectionProperties(), connection.logHooks(), List.of("MYSQL", "test_database", table), schema, Map.of(), true, false);
+  @Test
+  void createWithoutKeyFieldsFails() {
+    assertThatThrownBy(() -> create("ts_nokey",
+        nullable("id", Schema.Type.INT), nullable("data", Schema.Type.STRING)))
+        .isInstanceOf(SQLException.class)
+        .hasMessageContaining("No KEY_ fields found in table ts_nokey");
   }
 
-  private void drop(String table) {
+  @Test
+  void changingKeyFieldsFails() throws SQLException {
+    String table = "ts_keychange";
     try {
-      TableService.delete(connection.connectionProperties(), List.of("MYSQL", "test_database", table));
-    } catch (SQLException ignored) {
-      // best-effort cleanup
+      create(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING));
+      assertThatThrownBy(() -> create(table,
+          nullable("KEY_user_id", Schema.Type.INT), nullable("name", Schema.Type.STRING)))
+          .isInstanceOf(SQLException.class)
+          .hasMessageContaining("Cannot modify KEY fields for table " + table);
+    } finally {
+      drop(table);
     }
+  }
+
+  @Test
+  void changingKeyFieldTypeFails() throws SQLException {
+    String table = "ts_keytype";
+    try {
+      create(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING));
+      assertThatThrownBy(() -> create(table,
+          nullable("KEY_id", Schema.Type.STRING), nullable("name", Schema.Type.STRING)))
+          .isInstanceOf(SQLException.class)
+          .hasMessageContaining("Cannot modify KEY field type for table " + table);
+    } finally {
+      drop(table);
+    }
+  }
+
+  @Test
+  void createInUnknownCatalogFails() {
+    assertThatThrownBy(() -> TableService.create(connection.connectionProperties(), connection.logHooks(),
+        List.of("NOSUCHCATALOG", DB, "t"), recordOf("t", nullable("KEY_id", Schema.Type.INT)),
+        Map.of(), true, false))
+        .isInstanceOf(SQLException.class);
+  }
+
+  /** Creates (updateIfExists) a MySQL table at {@code MYSQL.test_database.<name>}. */
+  private HoptimatorDdlUtils.SpecifyResult create(String table, Schema.Field... fields) throws SQLException {
+    return TableService.create(connection.connectionProperties(), connection.logHooks(),
+        List.of(CATALOG, DB, table), recordOf(table, fields), Map.of(), true, false);
+  }
+
+  private void drop(String table) throws SQLException {
+    TableService.delete(connection.connectionProperties(), List.of(CATALOG, DB, table));
+  }
+
+  private static Schema recordOf(String table, Schema.Field... fields) {
+    return Schema.createRecord(table, null, "com.linkedin.hoptimator.test", false, Arrays.asList(fields));
   }
 
   private static Schema.Field nullable(String name, Schema.Type type) {
