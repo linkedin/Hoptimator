@@ -72,6 +72,7 @@ import org.apache.calcite.util.Util;
 
 import javax.annotation.Nullable;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.util.ArrayList;
 import java.util.function.Consumer;
 import java.util.Arrays;
@@ -741,7 +742,7 @@ public final class HoptimatorDdlUtils {
       if (!manageCalciteSchema && mode == DdlMode.CREATE) {
         for (Deployer deployer : deployers) {
           if (deployer.exists()) {
-            throw new SQLException("Table " + tableName
+            throw new SQLNonTransientException("Table " + tableName
                 + " already exists. Set updateIfExists=true to update it.");
           }
         }

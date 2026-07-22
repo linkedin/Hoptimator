@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +70,7 @@ public class KafkaTableServiceIntegrationTest {
       // updateIfExists=false against an existing table must fail.
       assertThatThrownBy(() ->
           TableService.create(properties, List.of(), List.of(SCHEMA, table), schema, Map.of(), false, false))
-          .isInstanceOf(SQLException.class)
+          .isInstanceOf(SQLNonTransientException.class)
           .hasMessageContaining("already exists");
     } finally {
       TableService.delete(properties, List.of(SCHEMA, table));

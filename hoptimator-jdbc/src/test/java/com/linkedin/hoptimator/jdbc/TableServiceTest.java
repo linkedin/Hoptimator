@@ -14,6 +14,7 @@ import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -148,7 +149,7 @@ class TableServiceTest {
 
     assertThatThrownBy(() -> TableService.create(new Properties(), Collections.emptyList(), path,
         recordSchema(), Collections.emptyMap(), false, false))
-        .isInstanceOf(SQLException.class)
+        .isInstanceOf(SQLNonTransientException.class)
         .hasMessageContaining("already exists");
 
     deployment.verify(() -> DeploymentService.create(any()), never());

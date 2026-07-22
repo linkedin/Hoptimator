@@ -3,6 +3,8 @@ package com.linkedin.hoptimator.venice;
 import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.DeploymentContext;
 
+import java.sql.SQLException;
+
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
@@ -56,12 +58,12 @@ class VeniceDeployerProviderTest {
   }
 
   @Test
-  void testPriority() {
+  void testPriority() throws SQLException {
     assertEquals(2, provider.priority());
   }
 
   @Test
-  void testReturnsDeployerForVeniceSchema() {
+  void testReturnsDeployerForVeniceSchema() throws SQLException {
     Source source = new Source("venice", List.of("VENICE", "MyStore"), Collections.emptyMap());
 
     // Mock the chain: connection -> calciteConnection -> rootSchema -> subSchema -> HoptimatorJdbcSchema -> BasicDataSource
@@ -82,7 +84,7 @@ class VeniceDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyForNonVeniceDatabase() {
+  void testReturnsEmptyForNonVeniceDatabase() throws SQLException {
     // Database name "test" doesn't match "venice" — short-circuits before schema lookup
     Source source = new Source("test", List.of("TEST", "MyStore"), Collections.emptyMap());
 
@@ -91,7 +93,7 @@ class VeniceDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyWhenSchemaNotFound() {
+  void testReturnsEmptyWhenSchemaNotFound() throws SQLException {
     Source source = new Source("venice", List.of("UNKNOWN", "MyStore"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
@@ -104,14 +106,14 @@ class VeniceDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyForNonSourceDeployable() {
+  void testReturnsEmptyForNonSourceDeployable() throws SQLException {
     MaterializedView view = mock(MaterializedView.class);
     Collection<Deployer> deployers = provider.deployers(view, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   @Test
-  void testReturnsEmptyWhenSchemaNameIsNull() {
+  void testReturnsEmptyWhenSchemaNameIsNull() throws SQLException {
     // Source with only a table name (single-element path) — schema() returns null
     Source source = new Source("venice", List.of("MyStore"), Collections.emptyMap());
     Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
@@ -119,14 +121,14 @@ class VeniceDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyWhenDatabaseIsNull() {
+  void testReturnsEmptyWhenDatabaseIsNull() throws SQLException {
     Source source = new Source(null, List.of("VENICE", "MyStore"), Collections.emptyMap());
     Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   @Test
-  void testReturnsEmptyWhenDatabaseUnresolvable() {
+  void testReturnsEmptyWhenDatabaseUnresolvable() throws SQLException {
     // A context that can't resolve the database (databaseProperties returns null) yields no deployers.
     Source source = new Source("venice", List.of("VENICE", "MyStore"), Collections.emptyMap());
     DeploymentContext unresolvable = mock(DeploymentContext.class);
@@ -135,7 +137,7 @@ class VeniceDeployerProviderTest {
   }
 
   @Test
-  void testReturnsDeployerForCaseInsensitiveVeniceDatabase() {
+  void testReturnsDeployerForCaseInsensitiveVeniceDatabase() throws SQLException {
     // equalsIgnoreCase — database name "venice" (lowercase) should still match CATALOG_NAME "VENICE"
     Source source = new Source("venice", List.of("VENICE", "MyStore"), Collections.emptyMap());
 
@@ -157,7 +159,7 @@ class VeniceDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyWhenUnwrapThrowsException() {
+  void testReturnsEmptyWhenUnwrapThrowsException() throws SQLException {
     Source source = new Source("venice", List.of("VENICE", "MyStore"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);

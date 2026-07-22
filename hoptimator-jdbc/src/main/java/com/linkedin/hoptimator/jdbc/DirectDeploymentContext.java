@@ -4,6 +4,7 @@ import com.linkedin.hoptimator.DeploymentContext;
 import org.apache.calcite.rel.type.RelDataType;
 
 import javax.annotation.Nullable;
+import java.sql.SQLException;
 import java.util.Properties;
 
 
@@ -52,7 +53,7 @@ public final class DirectDeploymentContext implements DeploymentContext {
 
   @Override
   public @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
-      String connectionPrefix) {
+      String connectionPrefix) throws SQLException {
     return databaseConfigResolver.databaseProperties(catalog, schema, connectionPrefix);
   }
 }

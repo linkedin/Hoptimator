@@ -37,7 +37,7 @@ public interface DatabaseConfigResolver {
    * @param connectionPrefix the expected URL scheme prefix (e.g. {@code "jdbc:kafka://"})
    */
   @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
-      String connectionPrefix);
+      String connectionPrefix) throws SQLException;
 
   /**
    * Resolves the {@code database} identifier for a table at {@code tablePath} — the value exposed as

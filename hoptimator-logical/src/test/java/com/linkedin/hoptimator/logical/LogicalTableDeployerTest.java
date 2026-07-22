@@ -713,7 +713,7 @@ class LogicalTableDeployerTest {
   }
 
   @Test
-  void deployerProviderReturnsDeployerWhenLogicalSchemaFound() {
+  void deployerProviderReturnsDeployerWhenLogicalSchemaFound() throws SQLException {
     Properties tierProps = new Properties();
     tierProps.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
     deployerUtilsMock.when(() -> DeployerUtils.extractPropertiesFromJdbcSchema(

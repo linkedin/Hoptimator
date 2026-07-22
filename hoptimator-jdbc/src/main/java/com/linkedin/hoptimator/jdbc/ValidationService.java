@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.ServiceLoader;
-import java.util.stream.Collectors;
 
 
 public final class ValidationService {
@@ -18,7 +17,7 @@ public final class ValidationService {
   private ValidationService() {
   }
 
-  public static <T> void validate(T obj, Validator.Issues issues, DeploymentContext context) {
+  public static <T> void validate(T obj, Validator.Issues issues, DeploymentContext context) throws SQLException {
     validators(obj, context).forEach(x -> x.validate(issues, context));
   }
 
@@ -47,7 +46,12 @@ public final class ValidationService {
     return providers;
   }
 
-  public static <T> Collection<Validator> validators(T obj, DeploymentContext context) {
-    return providers().stream().flatMap(x -> x.validators(obj, context).stream()).collect(Collectors.toList());
+  public static <T> Collection<Validator> validators(T obj, DeploymentContext context) throws SQLException {
+    // A loop (not a stream) so provider.validators() can propagate a checked SQLException.
+    List<Validator> validators = new ArrayList<>();
+    for (ValidatorProvider provider : providers()) {
+      validators.addAll(provider.validators(obj, context));
+    }
+    return validators;
   }
 }

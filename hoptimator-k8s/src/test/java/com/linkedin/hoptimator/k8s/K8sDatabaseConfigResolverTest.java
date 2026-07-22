@@ -11,6 +11,7 @@ import io.kubernetes.client.util.generic.options.ListOptions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.sql.SQLTransientException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
@@ -77,12 +78,12 @@ class K8sDatabaseConfigResolverTest {
   }
 
   @Test
-  void databasePropertiesReturnsNullWhenNoCatalogOrSchema() {
+  void databasePropertiesReturnsNullWhenNoCatalogOrSchema() throws Exception {
     assertThat(resolver().databaseProperties(null, null, "jdbc:kafka://")).isNull();
   }
 
   @Test
-  void databasePropertiesParsesUrlForSchemaStyleDatabase() {
+  void databasePropertiesParsesUrlForSchemaStyleDatabase() throws Exception {
     V1alpha1Database kafka = db("kafka-database",
         "jdbc:kafka://bootstrap.servers=localhost:9092", null, "KAFKA");
 
@@ -95,7 +96,7 @@ class K8sDatabaseConfigResolverTest {
   }
 
   @Test
-  void databasePropertiesReturnsNullWhenUrlDoesNotMatchPrefix() {
+  void databasePropertiesReturnsNullWhenUrlDoesNotMatchPrefix() throws Exception {
     V1alpha1Database venice = db("venice", "jdbc:venice://clusters=venice-cluster0", null, "VENICE");
 
     // Database exists for VENICE but the requested prefix is a different store type.
@@ -103,7 +104,7 @@ class K8sDatabaseConfigResolverTest {
   }
 
   @Test
-  void databasePropertiesReturnsNullWhenNoDatabaseMatches() {
+  void databasePropertiesReturnsNullWhenNoDatabaseMatches() throws Exception {
     assertThat(resolver().databaseProperties(null, "MISSING", "jdbc:kafka://")).isNull();
   }
 
@@ -147,9 +148,27 @@ class K8sDatabaseConfigResolverTest {
     K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(new Properties(), contextWithListFailure());
 
     // Must fail loudly rather than returning null (which reads as "no config, deploy nothing").
+    // A 500 from the API surfaces as a (non-transient) SQLException.
     assertThatThrownBy(() -> resolver.databaseProperties(null, "KAFKA", "jdbc:kafka://"))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("Failed to resolve Database config");
+        .isInstanceOf(SQLException.class);
+  }
+
+  @Test
+  void listConnectionFailureIsNormalizedToTransient() {
+    // K8sApi.list() surfaces a connectivity failure as an unchecked exception; it must be normalized
+    // to a typed SQLTransientException so callers can classify it as a retryable transient failure.
+    K8sContext context = mock(K8sContext.class);
+    @SuppressWarnings("unchecked")
+    GenericKubernetesApi<V1alpha1Database, V1alpha1DatabaseList> generic = mock(GenericKubernetesApi.class);
+    when(context.namespace()).thenReturn(NAMESPACE);
+    when(context.generic(K8sApiEndpoints.DATABASES)).thenReturn(generic);
+    when(generic.list(eq(NAMESPACE), any(ListOptions.class)))
+        .thenThrow(new IllegalStateException("java.net.UnknownHostException: k8s.invalid"));
+    K8sDatabaseConfigResolver resolver = new K8sDatabaseConfigResolver(new Properties(), context);
+
+    assertThatThrownBy(() -> resolver.databaseProperties(null, "KAFKA", "jdbc:kafka://"))
+        .isInstanceOf(SQLTransientException.class)
+        .hasMessageContaining("Could not reach Kubernetes");
   }
 
   @Test

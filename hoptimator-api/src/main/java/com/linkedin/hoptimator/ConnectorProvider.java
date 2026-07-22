@@ -1,10 +1,11 @@
 package com.linkedin.hoptimator;
 
+import java.sql.SQLException;
 import java.util.Collection;
 
 
 public interface ConnectorProvider {
 
   /** Find connectors capable of configuring data plane connectors for the obj. */
-  <T> Collection<Connector> connectors(T obj, DeploymentContext context);
+  <T> Collection<Connector> connectors(T obj, DeploymentContext context) throws SQLException;
 }
