@@ -18,7 +18,7 @@ import java.util.Properties;
  *
  * <ul>
  *   <li>the caller's original Avro schema is <em>carried</em> (rather than a table being looked up
- *       from a Calcite {@code Table}); deployers that speak Avro (schema registry, Venice, ...) use
+ *       from a Calcite {@code Table}); deployers that speak Avro (e.g. Venice) use
  *       it verbatim via {@link #avroSchema()}, and {@link #rowType()} is derived from it on demand —
  *       the schema is the single source of truth, so the two can't drift;
  *   <li>connection-level {@link #properties()} are a plain bag;
