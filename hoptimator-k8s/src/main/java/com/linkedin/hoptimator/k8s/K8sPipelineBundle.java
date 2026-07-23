@@ -62,6 +62,12 @@ public class K8sPipelineBundle implements Deployer {
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    // The bundle's identity is its Pipeline CRD; the owned YAML elements cascade from it.
+    return pipelineDeployer.exists();
+  }
+
+  @Override
   public void update() throws SQLException {
     deployers.add(pipelineDeployer);
     V1OwnerReference pipelineRef = pipelineDeployer.updateAndReference();

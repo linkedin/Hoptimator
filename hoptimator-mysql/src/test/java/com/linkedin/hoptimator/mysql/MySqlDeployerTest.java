@@ -207,6 +207,22 @@ class MySqlDeployerTest {
   }
 
   @Test
+  void testExistsReturnsFalseWhenSchemaDoesNotExist() throws Exception {
+    // When the target schema (MySQL catalog) doesn't exist, DatabaseMetaData.getTables against that
+    // catalog returns an empty result set rather than throwing (verified against MySQL Connector/J
+    // 8.0.33). So exists() reports false — "the table isn't a duplicate" — and lets the CREATE guard
+    // proceed; the real "unknown database" error then surfaces at create() time, not here.
+    Source source = new Source("db", List.of("MYSQL", "ghost_db", "SomeTable"), Collections.emptyMap());
+
+    ResultSet emptyRs = mock(ResultSet.class);
+    when(emptyRs.next()).thenReturn(false);
+    when(mockMetaData.getTables(eq("ghost_db"), any(), eq("SomeTable"), any())).thenReturn(emptyRs);
+
+    assertFalse(createDeployer(source).exists());
+    verify(mockConnection).close();
+  }
+
+  @Test
   void testCreatePropagatesException() throws Exception {
     Source source = new Source("db", List.of("MYSQL", DATABASE, "ErrorTable"), Collections.emptyMap());
 
