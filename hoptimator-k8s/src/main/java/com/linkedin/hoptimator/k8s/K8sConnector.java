@@ -5,7 +5,6 @@ import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
-import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
@@ -112,16 +111,14 @@ class K8sConnector implements Connector {
   }
 
   /**
-   * Renders the value Avro schema for the {@code {{avroValueSchema}}} template variable. Prefers
-   * the upstream table's native value schema when it implements {@link AvroSchemaSource} — keys
-   * aren't included, because the connector handles them separately via {@code key.fields}. Falls
-   * back to synthesizing from the flat row type, which loses source-level namespaces and nested
-   * record identities.
+   * Renders the value Avro schema for the {@code {{avroValueSchema}}} template variable. Prefers the
+   * schema {@link HoptimatorDriver#valueSchema} resolves — the caller's carried value schema on the
+   * direct path, or the upstream table's native value schema on the SQL path — both value-only, with
+   * keys handled separately via {@code key.fields}. Falls back to synthesizing from the flat row type
+   * only when neither exists (a SQL source with no native Avro, e.g. a MySQL table or a view), which
+   * loses source-level namespaces and nested record identities.
    */
   private Schema avroValueSchema(Source source, RelDataType sourceRowType) {
-    // Prefer a table's native Avro schema when it has one (a pre-existing source table resolved
-    // via the Calcite catalog); otherwise synthesize from the row type. The direct path always
-    // synthesizes — the schema it needs is carried on the context, no catalog/connection required.
     Schema provided = HoptimatorDriver.valueSchema(source, context.deploymentContext());
     if (provided != null) {
       return provided;

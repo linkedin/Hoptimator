@@ -836,4 +836,38 @@ public class AvroConverterTest {
     assertNull(result.getKey());
     assertEquals(merged, result.getValue()); // caller's schema verbatim
   }
+
+  @Test
+  public void valueSchemaOfDropsKeyPrefixedFieldsLosslessly() {
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"StoreValue\",\"namespace\":\"com.example\",\"fields\":["
+        + "{\"name\":\"KEY_id\",\"type\":\"int\"},"
+        + "{\"name\":\"widget\",\"type\":{\"type\":\"record\",\"name\":\"Widget\","
+        + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
+        + "]}");
+
+    Schema value = AvroConverter.valueSchemaOf(merged, "KEY_");
+
+    assertNull(value.getField("KEY_id"), "key field dropped");
+    assertNotNull(value.getField("widget"), "value field kept");
+    assertEquals("com.example", value.getNamespace(), "merged record identity preserved");
+    assertEquals("com.example.custom", value.getField("widget").schema().getNamespace(),
+        "nested namespace preserved");
+  }
+
+  @Test
+  public void valueSchemaOfReturnsRecordUnchangedWhenNoKeyFields() {
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"R\",\"namespace\":\"com.example\",\"fields\":["
+        + "{\"name\":\"a\",\"type\":\"int\"}]}");
+
+    assertEquals(merged, AvroConverter.valueSchemaOf(merged, "KEY_"));
+  }
+
+  @Test
+  public void valueSchemaOfReturnsNonRecordUnchanged() {
+    Schema primitive = Schema.create(Schema.Type.STRING);
+
+    assertEquals(primitive, AvroConverter.valueSchemaOf(primitive, "KEY_"));
+  }
 }

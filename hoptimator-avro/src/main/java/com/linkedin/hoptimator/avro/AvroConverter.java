@@ -203,6 +203,28 @@ public final class AvroConverter {
     return new Pair<>(keySchema, payloadSchema);
   }
 
+  /**
+   * Extracts the value (payload) portion of a merged key+value Avro record, treating fields whose
+   * names start with {@code keyPrefix} as keys and dropping them. The result keeps the merged
+   * record's own identity (name, namespace, doc, aliases, props) and clones nested field schemas by
+   * reference, so namespaces, nested record names, unions, enums/fixed, and defaults survive — the
+   * value-only counterpart of {@link #avroKeyPayloadSchema(String, Schema, Map)}. A non-record or a
+   * record with no key-prefixed fields is returned unchanged.
+   */
+  public static Schema valueSchemaOf(Schema mergedAvro, String keyPrefix) {
+    if (mergedAvro.getType() != Schema.Type.RECORD) {
+      return mergedAvro;
+    }
+    List<Schema.Field> payloadFields = mergedAvro.getFields().stream()
+        .filter(f -> !f.name().startsWith(keyPrefix))
+        .map(f -> AvroSchemas.cloneField(f.name(), f))
+        .collect(Collectors.toList());
+    if (payloadFields.size() == mergedAvro.getFields().size()) {
+      return mergedAvro;
+    }
+    return recordLike(mergedAvro, payloadFields);
+  }
+
   /** Builds a record that inherits {@code template}'s identity (name/namespace/doc/aliases/props). */
   private static Schema recordLike(Schema template, List<Schema.Field> fields) {
     Schema schema = record(template.getName(), template.getDoc(), template.getNamespace(), fields);

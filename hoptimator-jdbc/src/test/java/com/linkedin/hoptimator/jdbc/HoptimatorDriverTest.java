@@ -171,11 +171,33 @@ class HoptimatorDriverTest {
   }
 
   @Test
-  void testValueSchemaReturnsNullForDirectContext() {
+  void testValueSchemaReturnsNullForSchemaFreeDirectContext() {
     DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, null);
     Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
 
     assertNull(HoptimatorDriver.valueSchema(source, context));
+  }
+
+  @Test
+  void testValueSchemaSplitsValueFromCarriedMergedAvroOnDirectContext() {
+    // The caller's carried Avro is a merged key+value record (KEY_-prefixed key fields). valueSchema
+    // must return only the value portion (keys handled separately via key.fields) and preserve a
+    // nested record's namespace losslessly rather than re-synthesizing from the flat row type.
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"StoreValue\",\"namespace\":\"com.example.kafka\",\"fields\":["
+        + "{\"name\":\"KEY_id\",\"type\":\"int\"},"
+        + "{\"name\":\"widget\",\"type\":{\"type\":\"record\",\"name\":\"Widget\","
+        + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
+        + "]}");
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, merged);
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+
+    Schema value = HoptimatorDriver.valueSchema(source, context);
+
+    assertNull(value.getField("KEY_id"), "key field excluded from value schema");
+    assertNotNull(value.getField("widget"), "value field retained");
+    assertEquals("com.example.custom", value.getField("widget").schema().getNamespace(),
+        "nested namespace preserved losslessly");
   }
 
   @Test

@@ -385,8 +385,8 @@ class K8sConnectorTest {
 
   @Test
   void configureAvroValueSchemaFallsBackToRowTypeSynthesisWhenNoSource() throws SQLException {
-    // No native Avro schema from the context (valueSchema returns null, as on the direct path)
-    // → synthesize from the row type using AvroConverter.avro.
+    // No value schema resolvable from the context (valueSchema returns null: a SQL source with no
+    // native Avro, e.g. a MySQL table or a view) → synthesize from the row type using AvroConverter.avro.
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("name", SqlTypeName.VARCHAR).build();
     hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))

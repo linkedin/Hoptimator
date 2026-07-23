@@ -3,7 +3,9 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import org.apache.avro.Schema;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -188,15 +190,27 @@ public class HoptimatorDriver implements Driver {
   }
 
   /**
-   * Returns the native Avro value schema for a table when it is backed by native Avro metadata (an
-   * {@link AvroSchemaSource} in the Calcite catalog), or {@code null} otherwise. Callers (e.g. a
-   * connector rendering {@code {{avroValueSchema}}}) fall back to synthesizing a schema from the row
-   * type when this returns {@code null}. It is always {@code null} on the direct path: a freshly
-   * created table has no native source schema — exactly like a SQL {@code CREATE TABLE}, whose value
-   * schema is likewise synthesized from the column types. Native schemas only exist for pre-existing
-   * source tables resolved through the Calcite catalog (the SQL/pipeline path).
+   * Returns the value (payload) Avro schema for a table — the data record without any
+   * {@code KEY_}-prefixed key scaffolding — on either path, or {@code null} when none is available:
+   *
+   * <ul>
+   *   <li><b>Direct path</b> ({@link DirectDeploymentContext}): the value portion of the caller's
+   *       carried Avro schema, split off losslessly via {@link AvroConverter#valueSchemaOf}. The
+   *       caller handed us the exact schema, so we preserve its namespaces, nested record identities,
+   *       unions, and defaults instead of re-synthesizing from the flat row type.
+   *   <li><b>SQL path</b> ({@link CalciteDeploymentContext}): the native value schema of a
+   *       pre-existing source table that implements {@link AvroSchemaSource} (e.g. a Venice store or
+   *       a schema-registry-backed topic resolved through the Calcite catalog).
+   *   <li>Otherwise {@code null} — e.g. a delete (no schema carried), or a SQL source with no native
+   *       Avro (a MySQL table, a computed view). Callers rendering {@code {{avroValueSchema}}} then
+   *       synthesize a value schema from the row type.
+   * </ul>
    */
   public static Schema valueSchema(Source source, DeploymentContext context) {
+    if (context instanceof DirectDeploymentContext) {
+      Schema avroSchema = ((DirectDeploymentContext) context).avroSchema();
+      return avroSchema == null ? null : AvroConverter.valueSchemaOf(avroSchema, AvroSchemas.KEY_PREFIX);
+    }
     if (!(context instanceof CalciteDeploymentContext)) {
       return null;
     }
