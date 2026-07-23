@@ -87,11 +87,11 @@ needs: connection-level `properties()` (namespace, hints, cluster config) and
 per-`Database` connection config via `databaseProperties(catalog, schema,
 urlPrefix)`. The SQL path supplies a Calcite-backed implementation
 (`CalciteDeploymentContext`); the direct table-create API supplies a
-`DirectDeploymentContext` that carries the resolved row type. A deployer that
+`DirectDeploymentContext` that carries the caller's Avro schema. A deployer that
 needs the row type calls `HoptimatorDriver.rowType(source, context)`, which
-resolves it from the Calcite catalog (SQL path) or from the carried type
-(direct path) — so a deployer never touches `java.sql.Connection` or a Calcite
-`SchemaPlus` directly.
+resolves it from the Calcite catalog (SQL path) or derives it from the carried
+Avro schema (direct path) — so a deployer never touches `java.sql.Connection` or
+a Calcite `SchemaPlus` directly.
 
 `priority()` controls ordering: providers with **lower priority numbers
 run first**. If two providers can both deploy the same object, the lower-

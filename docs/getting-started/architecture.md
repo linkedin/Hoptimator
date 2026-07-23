@@ -148,9 +148,7 @@ an **Avro schema** and runs the *same* validation and deployment as
 `CREATE TABLE` — the row type is derived from the Avro schema (via
 `AvroConverter`) instead of from SQL column declarations. Both paths converge on
 `HoptimatorDdlUtils.deployTableInternal`, so validators, deployers, and rollback
-behave identically regardless of where the schema came from. (A convenience
-overload accepts a `HoptimatorConnection` for callers that already have one,
-e.g. tests.)
+behave identically regardless of where the schema came from.
 
 This is what lets a caller (e.g. a gRPC service) create a table by handing over
 a name and a schema, with no SQL parsing, no planning, and no JDBC connection. A
@@ -163,8 +161,9 @@ This works because the deploy/validate SPI is decoupled from Calcite. Providers
 need: connection-level properties and per-`Database` config. The row type is
 resolved on demand via `HoptimatorDriver.rowType(source, context)`. The SQL path
 supplies a Calcite-backed `DeploymentContext` (row type read from the catalog);
-the direct path supplies a `DirectDeploymentContext` that carries the row type
-and resolves `Database` config registry-natively via a `DatabaseConfigResolver`
+the direct path supplies a `DirectDeploymentContext` that carries the caller's
+Avro schema (deriving the row type on demand) and resolves `Database` config
+registry-natively via a `DatabaseConfigResolver`
 (the K8s implementation reads `Database` CRDs directly — see
 `DatabaseConfigResolvers`). The direct path opens no connection and touches no
 Calcite catalog; only the SQL engine's read/plan path still uses the JDBC
