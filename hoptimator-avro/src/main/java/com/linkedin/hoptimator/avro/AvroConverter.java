@@ -13,6 +13,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Pair;
 
 import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -146,6 +147,77 @@ public final class AvroConverter {
     RelDataType key = keyBuilder.build();
     Schema keySchema = key.getFieldCount() == 0 ? null : avro(namespace, keySchemaName, key);
     return new Pair<>(keySchema, payloadSchema);
+  }
+
+  /**
+   * Lossless twin of {@link #avroKeyPayloadSchema(String, String, String, RelDataType, Map)} that
+   * splits an already-Avro merged record (e.g. the schema a direct-API caller supplied) into its
+   * key and payload schemas, instead of synthesizing them from a {@link RelDataType}. Field types
+   * are cloned by reference via {@link AvroSchemas#cloneField}, so nested record identities,
+   * namespaces, unions, enums/fixed, and defaults survive intact — the whole point of preferring
+   * the caller's Avro over the lossy round-trip.
+   *
+   * <p>Key selection mirrors the RelDataType twin: {@code key.fields} (semicolon-separated) names
+   * the key fields and {@code key.fields-prefix} is stripped from each. A single key field whose
+   * stripped name is {@link AvroSchemas#PRIMITIVE_KEY_NAME} yields a primitive key (that field's own
+   * schema). The payload record keeps the merged record's identity (name, namespace, doc, aliases,
+   * props) so a value schema registered elsewhere still matches.
+   *
+   * @return {@code Pair<key schema, payload schema>}; either side may be {@code null} (no key, or an
+   *     all-key record with no payload).
+   */
+  public static Pair<Schema, Schema> avroKeyPayloadSchema(String namespace, String keySchemaName,
+      String payloadSchemaName, Schema mergedAvro, Map<String, String> keyOptions) {
+    String keys = keyOptions.get(KEY_OPTION);
+    String keyPrefix = keyOptions.getOrDefault(KEY_PREFIX_OPTION, "");
+
+    if (keys == null || keys.isEmpty() || mergedAvro.getType() != Schema.Type.RECORD) {
+      // No key configured (or not a record): the caller's schema is the payload verbatim.
+      return new Pair<>(null, mergedAvro);
+    }
+
+    List<String> keyNames = List.of(keys.split(";"));
+    List<Schema.Field> keyFields = new ArrayList<>();
+    List<Schema.Field> payloadFields = new ArrayList<>();
+    Schema primitiveKeySchema = null;
+    for (Schema.Field field : mergedAvro.getFields()) {
+      if (keyNames.contains(field.name())) {
+        String keyName = field.name().substring(keyPrefix.length());
+        if (keyNames.size() == 1 && keyName.equals(AvroSchemas.PRIMITIVE_KEY_NAME)) {
+          primitiveKeySchema = field.schema();
+        } else {
+          keyFields.add(AvroSchemas.cloneField(keyName, field));
+        }
+      } else {
+        payloadFields.add(AvroSchemas.cloneField(field.name(), field));
+      }
+    }
+
+    Schema payloadSchema = payloadFields.isEmpty() ? null
+        : recordLike(mergedAvro, payloadFields);
+    if (primitiveKeySchema != null) {
+      return new Pair<>(primitiveKeySchema, payloadSchema);
+    }
+    Schema keySchema = keyFields.isEmpty() ? null
+        : recordOf(sanitize(keySchemaName), mergedAvro.getNamespace(), keyFields);
+    return new Pair<>(keySchema, payloadSchema);
+  }
+
+  /** Builds a record that inherits {@code template}'s identity (name/namespace/doc/aliases/props). */
+  private static Schema recordLike(Schema template, List<Schema.Field> fields) {
+    Schema record = Schema.createRecord(template.getName(), template.getDoc(),
+        template.getNamespace(), template.isError());
+    record.setFields(fields);
+    template.getAliases().forEach(record::addAlias);
+    template.getObjectProps().forEach(record::addProp);
+    return record;
+  }
+
+  /** Builds a plain record with the given name and namespace. */
+  private static Schema recordOf(String name, String namespace, List<Schema.Field> fields) {
+    Schema record = Schema.createRecord(name, null, namespace, false);
+    record.setFields(fields);
+    return record;
   }
 
   private static Schema createAvroSchemaWithNullability(Schema schema, boolean nullable) {

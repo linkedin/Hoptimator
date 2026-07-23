@@ -1,8 +1,12 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.CatalogResolver;
+import com.linkedin.hoptimator.jdbc.DatabaseConfigResolvers;
+import com.linkedin.hoptimator.jdbc.DirectDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.TableService;
+import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.junit.jupiter.api.Tag;
@@ -135,6 +139,38 @@ public class VeniceTableServiceIntegrationTest {
         List.of("NOSUCHDB", "t"), recordOf("t", nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT)),
         Map.of(), true, false))
         .isInstanceOf(SQLException.class);
+  }
+
+  @Test
+  void providedValueSchemaNamespaceIsPreservedInVenice() throws Exception {
+    // End-to-end proof that the direct API deploys the caller's Avro verbatim (no lossy
+    // Avro->RelDataType->Avro round-trip): a value field whose type is a nested record in its own
+    // namespace must come back from Venice with that namespace intact.
+    String store = "directapi-nsvalue";
+    try {
+      Schema.Field widget = new Schema.Field("widget",
+          Schema.createRecord("Widget", null, "com.example.custom", false,
+              List.of(new Schema.Field("w", Schema.create(Schema.Type.STRING), null, null))),
+          null, null);
+      TableService.create(new Properties(), Collections.emptyList(), List.of(SCHEMA, store),
+          recordOf(sanitize(store), nullable("KEY_id", Schema.Type.INT), widget),
+          Map.of(), true, false);
+
+      // Read the value schema back from real Venice and assert the nested namespace survived.
+      Properties veniceProps = DatabaseConfigResolvers.forProperties(new Properties())
+          .databaseProperties(null, SCHEMA, "jdbc:venice://");
+      Source source = new Source(store, List.of(SCHEMA, store), Map.of());
+      VeniceDeployer reader = new VeniceDeployer(source, veniceProps,
+          new DirectDeploymentContext(veniceProps, null, null));
+      try (StoreSchemaFetcher fetcher = reader.createStoreSchemaFetcher(store)) {
+        Schema registeredValue = fetcher.getLatestValueSchema();
+        Schema nested = registeredValue.getField("widget").schema();
+        assertThat(nested.getName()).isEqualTo("Widget");
+        assertThat(nested.getNamespace()).isEqualTo("com.example.custom");
+      }
+    } finally {
+      drop(store);
+    }
   }
 
   @Test

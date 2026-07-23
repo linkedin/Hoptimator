@@ -84,7 +84,7 @@ public final class TableService {
     // context: the direct path touches no Calcite catalog. The table path is the caller's path.
     String database = resolver.databaseName(path);
     String tableName = path.get(path.size() - 1);
-    DirectDeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, rowType);
+    DirectDeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, rowType, avroSchema);
 
     return HoptimatorDdlUtils.deployTableInternal(logHooks, context, null, path,
         database, tableName, rowType, options, false, updateIfExists, mode);

@@ -30,6 +30,7 @@ import java.sql.SQLNonTransientException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 import java.util.Properties;
 
 
@@ -197,11 +198,22 @@ public class VeniceDeployer implements Deployer, Validated {
   }
 
   protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+    Map<String, String> keyOptions = ConnectionService.configure(source, context);
+    // On the direct API path the caller supplied the exact Avro schema; split it losslessly instead
+    // of re-synthesizing from the row type (which would drop namespaces, nested record names, ...).
+    Schema provided = HoptimatorDriver.providedAvroSchema(source, context);
+    if (provided != null) {
+      return AvroConverter.avroKeyPayloadSchema("com.linkedin.hoptimator",
+          source.table() + "_Key",
+          source.table() + "_Value",
+          provided,
+          keyOptions);
+    }
     return AvroConverter.avroKeyPayloadSchema("com.linkedin.hoptimator",
         source.table() + "_Key",
         source.table() + "_Value",
         HoptimatorDriver.rowType(source, context),
-        ConnectionService.configure(source, context));
+        keyOptions);
   }
 
   private boolean checkStoreExists(ControllerClient controllerClient) {

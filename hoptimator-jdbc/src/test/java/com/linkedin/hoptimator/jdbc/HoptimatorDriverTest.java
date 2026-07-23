@@ -181,6 +181,26 @@ class HoptimatorDriverTest {
   }
 
   @Test
+  void testProvidedAvroSchemaReturnsCarriedSchemaFromDirectContext() {
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType carried = factory.builder().add("ID", factory.createSqlType(SqlTypeName.INTEGER)).build();
+    Schema avro = new Schema.Parser().parse("{\"type\":\"record\",\"name\":\"R\","
+        + "\"namespace\":\"com.example\",\"fields\":[{\"name\":\"ID\",\"type\":\"int\"}]}");
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, carried, avro);
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+
+    assertSame(avro, HoptimatorDriver.providedAvroSchema(source, context));
+  }
+
+  @Test
+  void testProvidedAvroSchemaReturnsNullWhenNoneCarried() {
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, null);
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+
+    assertNull(HoptimatorDriver.providedAvroSchema(source, context));
+  }
+
+  @Test
   void testValueSchemaReturnsNullForTableWithoutNativeAvro() throws SQLException {
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {

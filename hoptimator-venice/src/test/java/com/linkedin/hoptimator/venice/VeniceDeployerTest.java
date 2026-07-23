@@ -31,6 +31,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -316,6 +317,33 @@ class VeniceDeployerTest {
     when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
 
     assertFalse(createDeployer(source).exists());
+  }
+
+  @Test
+  public void testGetKeyPayloadSchemaPrefersProvidedAvroLosslessly() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    // The direct path carries the caller's Avro. getKeyPayloadSchema must use it verbatim rather
+    // than re-synthesizing from the row type, so a nested value record's namespace survives.
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = factory.builder()
+        .add("id", factory.createSqlType(SqlTypeName.INTEGER))
+        .build();
+    Schema provided = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"StoreValue\",\"namespace\":\"com.example.venice\",\"fields\":["
+        + "{\"name\":\"widget\",\"type\":{\"type\":\"record\",\"name\":\"Widget\","
+        + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
+        + "]}");
+    VeniceDeployer deployer = new VeniceDeployer(
+        source, properties, new DirectDeploymentContext(properties, null, rowType, provided));
+
+    Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
+
+    Schema payload = keyPayload.right;
+    assertNotNull(payload, "payload schema");
+    assertEquals("com.example.venice", payload.getNamespace());
+    Schema nested = payload.getField("widget").schema();
+    assertEquals("com.example.custom", nested.getNamespace(), "nested namespace preserved losslessly");
+    assertEquals("Widget", nested.getName());
   }
 
   @Test

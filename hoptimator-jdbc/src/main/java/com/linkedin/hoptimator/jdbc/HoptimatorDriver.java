@@ -23,6 +23,7 @@ import org.apache.calcite.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -212,6 +213,22 @@ public class HoptimatorDriver implements Driver {
     }
     Table table = schema == null ? null : schema.tables().get(source.table());
     return table instanceof AvroSchemaSource ? ((AvroSchemaSource) table).valueSchema() : null;
+  }
+
+  /**
+   * Returns the caller-provided (merged key+value) Avro schema on the direct path, or {@code null}
+   * otherwise. On the direct API path the caller hands us the exact Avro schema they want deployed;
+   * carrying it verbatim lets deployers that speak Avro (schema registry, Venice, ...) avoid the
+   * lossy Avro&nbsp;&rarr;&nbsp;RelDataType&nbsp;&rarr;&nbsp;Avro round-trip, preserving namespaces,
+   * nested record names, unions, and defaults. Returns {@code null} on the SQL path (where the
+   * native schema, if any, comes from {@link #valueSchema}) and whenever no Avro was supplied
+   * (e.g. a delete).
+   */
+  public static @Nullable Schema providedAvroSchema(Source source, DeploymentContext context) {
+    if (context instanceof DirectDeploymentContext) {
+      return ((DirectDeploymentContext) context).avroSchema();
+    }
+    return null;
   }
 
   private static final class ConnectionHolder {
