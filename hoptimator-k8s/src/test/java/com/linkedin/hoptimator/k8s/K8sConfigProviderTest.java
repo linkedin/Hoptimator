@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1ConfigMapList;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
@@ -9,7 +11,6 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,7 +29,7 @@ import static org.mockito.Mockito.when;
 class K8sConfigProviderTest {
 
   @Mock
-  private Connection connection;
+  private DeploymentContext connection;
 
   @Mock
   private MockedStatic<K8sContext> k8sContextStatic;
@@ -61,7 +62,7 @@ class K8sConfigProviderTest {
     K8sApi<V1ConfigMap, V1ConfigMapList> mockApi = mock(K8sApi.class);
     when(mockContext.namespace()).thenReturn("test-ns");
     when(mockApi.get("test-ns", "hoptimator-configmap")).thenReturn(configMap);
-    k8sContextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(mockContext);
+    k8sContextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(mockContext);
 
     K8sConfigProvider provider = new K8sConfigProvider() {
       @Override
@@ -90,7 +91,7 @@ class K8sConfigProviderTest {
     K8sApi<V1ConfigMap, V1ConfigMapList> mockApi = mock(K8sApi.class);
     when(mockContext.namespace()).thenReturn("");
     when(mockApi.get("hoptimator-configmap")).thenReturn(configMap);
-    k8sContextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(mockContext);
+    k8sContextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(mockContext);
 
     K8sConfigProvider provider = new K8sConfigProvider() {
       @Override
@@ -110,7 +111,7 @@ class K8sConfigProviderTest {
     K8sApi<V1ConfigMap, V1ConfigMapList> mockApi = mock(K8sApi.class);
     when(mockContext.namespace()).thenReturn("test-ns");
     when(mockApi.get("test-ns", "hoptimator-configmap")).thenThrow(new SQLException("Not found"));
-    k8sContextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(mockContext);
+    k8sContextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(mockContext);
 
     K8sConfigProvider provider = new K8sConfigProvider() {
       @Override
@@ -132,7 +133,7 @@ class K8sConfigProviderTest {
     K8sApi<V1ConfigMap, V1ConfigMapList> mockApi = mock(K8sApi.class);
     when(mockContext.namespace()).thenReturn("test-ns");
     when(mockApi.get("test-ns", "hoptimator-configmap")).thenReturn(configMap);
-    k8sContextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(mockContext);
+    k8sContextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(mockContext);
 
     K8sConfigProvider provider = new K8sConfigProvider() {
       @Override

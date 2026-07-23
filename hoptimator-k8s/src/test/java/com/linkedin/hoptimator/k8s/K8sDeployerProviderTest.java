@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.DatabaseDeployable;
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
@@ -14,7 +16,6 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.util.Collection;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -28,7 +29,7 @@ import static org.mockito.Mockito.mock;
 class K8sDeployerProviderTest {
 
   @Mock
-  private Connection connection;
+  private DeploymentContext connection;
 
   @Mock
   private K8sContext context;
@@ -44,7 +45,7 @@ class K8sDeployerProviderTest {
 
   @Test
   void deployersForMaterializedViewReturnsMaterializedViewDeployer() {
-    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
     K8sDeployerProvider provider = new K8sDeployerProvider();
     MaterializedView mv = mock(MaterializedView.class);
 
@@ -56,7 +57,7 @@ class K8sDeployerProviderTest {
 
   @Test
   void deployersForViewReturnsViewDeployer() {
-    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
     K8sDeployerProvider provider = new K8sDeployerProvider();
     View view = mock(View.class);
 
@@ -68,7 +69,7 @@ class K8sDeployerProviderTest {
 
   @Test
   void deployersForJobReturnsJobDeployer() {
-    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
     K8sDeployerProvider provider = new K8sDeployerProvider();
     Job job = mock(Job.class);
 
@@ -80,7 +81,7 @@ class K8sDeployerProviderTest {
 
   @Test
   void deployersForSourceReturnsSourceDeployer() {
-    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
     K8sDeployerProvider provider = new K8sDeployerProvider();
     Source source = mock(Source.class);
 
@@ -92,7 +93,7 @@ class K8sDeployerProviderTest {
 
   @Test
   void deployersForTriggerReturnsTriggerDeployer() {
-    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
     K8sDeployerProvider provider = new K8sDeployerProvider();
     Trigger trigger = mock(Trigger.class);
 
@@ -104,7 +105,7 @@ class K8sDeployerProviderTest {
 
   @Test
   void deployersForDatabaseDeployableReturnsDatabaseDeployer() {
-    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
     K8sDeployerProvider provider = new K8sDeployerProvider();
     DatabaseDeployable database = mock(DatabaseDeployable.class);
 
@@ -116,7 +117,7 @@ class K8sDeployerProviderTest {
 
   @Test
   void deployersForUnknownTypeReturnsEmpty() {
-    contextStatic.when(() -> K8sContext.create(any(Connection.class))).thenReturn(context);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(context);
     K8sDeployerProvider provider = new K8sDeployerProvider();
     Deployable unknown = mock(Deployable.class);
 

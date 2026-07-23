@@ -138,6 +138,37 @@ Triggers (`TableTrigger`, `CronJob`) plug in here too — they let upstream
 events or schedules drive downstream side-effects without modeling them inside
 the pipeline.
 
+## Creating a table without SQL
+
+A single table (a `Source`) doesn't need a query to describe it — just a row
+type. For that case there's a SQL-free, **connection-free** entrypoint,
+`TableService.create(...)` (and `TableService.delete(...)`) in
+`hoptimator-jdbc`, which takes connection-level properties plus a table path and
+an **Avro schema** and runs the *same* validation and deployment as
+`CREATE TABLE` — the row type is derived from the Avro schema (via
+`AvroConverter`) instead of from SQL column declarations. Both paths converge on
+`HoptimatorDdlUtils.deployTableInternal`, so validators, deployers, and rollback
+behave identically regardless of where the schema came from.
+
+This is what lets a caller (e.g. a gRPC service) create a table by handing over
+a name and a schema, with no SQL parsing, no planning, and no JDBC connection. A
+`dryRun` flag mirrors `!specify` / the MCP `plan` tool: it validates and renders
+the specs without deploying anything.
+
+This works because the deploy/validate SPI is decoupled from Calcite. Providers
+(`Deployer`, `Validator`, `Connector`, `Config`) receive a neutral
+`DeploymentContext` — not a `java.sql.Connection` — that exposes only what they
+need: connection-level properties and per-`Database` config. The row type is
+resolved on demand via `HoptimatorDriver.rowType(source, context)`. The SQL path
+supplies a Calcite-backed `DeploymentContext` (row type read from the catalog);
+the direct path supplies a `DirectDeploymentContext` that carries the caller's
+Avro schema (deriving the row type on demand) and resolves `Database` config
+registry-natively via a `DatabaseConfigResolver`
+(the K8s implementation reads `Database` CRDs directly — see
+`DatabaseConfigResolvers`). The direct path opens no connection and touches no
+Calcite catalog; only the SQL engine's read/plan path still uses the JDBC
+driver layer.
+
 ## Module map
 
 The repo is split into focused modules. The ones you'll touch most often:

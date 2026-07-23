@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.util.planner;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.adapter.jdbc.JdbcCatalogSchema;
 import org.apache.calcite.adapter.jdbc.JdbcSchema;
@@ -36,9 +37,9 @@ public class HoptimatorJdbcCatalogSchema extends JdbcCatalogSchema implements Da
   private final HoptimatorJdbcConvention convention;
 
   public static HoptimatorJdbcCatalogSchema create(String database, String catalog, String schema, DataSource dataSource,
-      SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, Connection connection) {
+      SchemaPlus parentSchema, SqlDialect dialect, List<Engine> engines, DeploymentContext context) {
     Expression expression = Schemas.subSchemaExpression(parentSchema, schema, HoptimatorJdbcCatalogSchema.class);
-    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(dialect, expression, database, engines, connection);
+    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(dialect, expression, database, engines, context);
     return new HoptimatorJdbcCatalogSchema(database, catalog, dataSource, dialect, convention, engines);
   }
 

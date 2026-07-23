@@ -10,6 +10,7 @@ dependencies {
   implementation project(':hoptimator-util')
   implementation libs.calcite.core
   implementation libs.kafka.clients
+  testImplementation libs.avro
   compileOnly libs.findbugs
 
   testImplementation libs.assertj

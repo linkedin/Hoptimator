@@ -4,6 +4,7 @@ import com.google.common.base.Splitter;
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import com.linkedin.hoptimator.util.planner.PipelineRules;
 import org.apache.calcite.plan.RelOptMaterialization;
@@ -16,7 +17,6 @@ import org.apache.calcite.tools.Programs;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -62,10 +62,10 @@ public final class DeploymentService {
   }
 
   // Since nothing about specify needs to be stateful, the deployers can be fetched on demand
-  public static <T extends Deployable> List<String> specify(T obj, Connection connection)
+  public static <T extends Deployable> List<String> specify(T obj, DeploymentContext context)
       throws SQLException {
     List<String> specs = new ArrayList<>();
-    for (Deployer deployer : deployers(obj, connection)) {
+    for (Deployer deployer : deployers(obj, context)) {
       specs.addAll(deployer.specify());
     }
     return specs;
@@ -85,11 +85,11 @@ public final class DeploymentService {
     return providers;
   }
 
-  public static <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
-    return deployers(obj, connection, providers());
+  public static <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context) {
+    return deployers(obj, context, providers());
   }
 
-  static <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection,
+  static <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context,
       Collection<DeployerProvider> providers) {
     // Filter out base classes when subclasses exist
     Set<DeployerProvider> filteredProviders = new HashSet<>();
@@ -109,7 +109,7 @@ public final class DeploymentService {
 
     // Now collect deployers from filtered providers
     return filteredProviders.stream()
-        .flatMap(x -> x.deployers(obj, connection).stream())
+        .flatMap(x -> x.deployers(obj, context).stream())
         .collect(Collectors.toList());
   }
 

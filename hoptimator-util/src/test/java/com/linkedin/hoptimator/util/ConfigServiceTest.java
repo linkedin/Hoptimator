@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -21,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ConfigServiceTest {
 
   @Mock
-  private Connection mockConnection;
+  private DeploymentContext mockConnection;
 
   @BeforeEach
   void setUp() {

@@ -72,7 +72,7 @@ A `Deployer` doesn't get loaded directly. Instead, you ship a
 
 ```java
 public interface DeployerProvider {
-  <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection);
+  <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context);
   int priority();
 }
 ```
@@ -81,6 +81,17 @@ For each `Deployable` (typically a `Source`, `Sink`, or `Job`), the
 provider returns the deployers that apply to it. Return an empty
 collection when the deployable isn't yours — the runtime will skip you and
 move on to the next provider.
+
+The `DeploymentContext` is a Calcite-free handle onto everything a deployer
+needs: connection-level `properties()` (namespace, hints, cluster config) and
+per-`Database` connection config via `databaseProperties(catalog, schema,
+urlPrefix)`. The SQL path supplies a Calcite-backed implementation
+(`CalciteDeploymentContext`); the direct table-create API supplies a
+`DirectDeploymentContext` that carries the caller's Avro schema. A deployer that
+needs the row type calls `HoptimatorDriver.rowType(source, context)`, which
+resolves it from the Calcite catalog (SQL path) or derives it from the carried
+Avro schema (direct path) — so a deployer never touches `java.sql.Connection` or
+a Calcite `SchemaPlus` directly.
 
 `priority()` controls ordering: providers with **lower priority numbers
 run first**. If two providers can both deploy the same object, the lower-
@@ -103,9 +114,9 @@ com.example.hoptimator.mysystem.MySystemDeployerProvider
 The bundled Kafka path is a good shape to copy:
 
 - [`KafkaDeployerProvider`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-kafka/src/main/java/com/linkedin/hoptimator/kafka/KafkaDeployerProvider.java)
-  — type-checks the `Deployable`, extracts per-schema connection
-  properties from the Calcite schema (i.e. the JDBC URL the `Database`
-  CRD points at), and constructs the deployer.
+  — type-checks the `Deployable`, resolves the `Database`'s connection
+  config via `context.databaseProperties(catalog, schema, "jdbc:kafka://")`
+  (the JDBC URL the `Database` CRD points at), and constructs the deployer.
 - [`KafkaDeployer`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-kafka/src/main/java/com/linkedin/hoptimator/kafka/KafkaDeployer.java)
   — `create()` calls Kafka's AdminClient API to create the topic;
   `restore()` walks back and deletes any topic the current operation
@@ -115,7 +126,7 @@ The shape any provider should follow:
 
 - Type-check the `Deployable` and return an empty collection if it's not
   what you handle.
-- Extract any per-schema configuration from the connection.
+- Extract any per-schema configuration from the context.
 - Construct one or more deployer instances and return them.
 
 ## Validation
@@ -126,7 +137,7 @@ Deployers can opt into pre-deploy validation by also implementing
 ```java
 public class MyDeployer implements Deployer, Validated {
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, DeploymentContext context) {
     // emit warnings or errors before any side effects
   }
 }
@@ -143,7 +154,7 @@ The validate-then-specify path is the main test surface:
 ```java
 Source source = new Source("my-database", List.of("MYSYS", "foo"), Map.of());
 DeployerProvider provider = new MyDeployerProvider();
-Collection<Deployer> deployers = provider.deployers(source, mockConnection);
+Collection<Deployer> deployers = provider.deployers(source, context);
 
 assertThat(deployers).hasSize(1);
 List<String> specs = deployers.iterator().next().specify();

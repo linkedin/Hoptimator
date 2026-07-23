@@ -79,6 +79,17 @@ class K8sDeployerTest {
   }
 
   @Test
+  void existsReflectsWhetherObjectIsPresent() throws SQLException {
+    K8sDeployer<V1alpha1Pipeline, V1alpha1PipelineList> deployer = makeDeployer(fakeApi, snapshot);
+
+    assertFalse(deployer.exists());
+
+    deployer.create();
+
+    assertTrue(deployer.exists());
+  }
+
+  @Test
   void deleteRemovesObjectFromApi() throws SQLException {
     V1alpha1Pipeline pipeline = createTestPipeline();
     objects.add(pipeline);

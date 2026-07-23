@@ -331,13 +331,13 @@ public class HoptimatorMcpServer {
       PipelineRel.Implementor sqlPlan = DeploymentService.plan(root, conn.materializations(), connectionProperties);
       schemaSnapshot = HoptimatorDdlUtils.snapshotAndSetSinkSchema(conn.createPrepareContext(),
             new HoptimatorDriver.Prepare(conn), sqlPlan, create, querySql);
-      Pipeline pipeline = sqlPlan.pipeline(viewName, conn);
+      Pipeline pipeline = sqlPlan.pipeline(viewName, conn.deploymentContext());
       List<String> specs = new ArrayList<>();
       for (Source source : pipeline.sources()) {
-        specs.addAll(DeploymentService.specify(source, conn));
+        specs.addAll(DeploymentService.specify(source, conn.deploymentContext()));
       }
-      specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-      specs.addAll(DeploymentService.specify(pipeline.job(), conn));
+      specs.addAll(DeploymentService.specify(pipeline.sink(), conn.deploymentContext()));
+      specs.addAll(DeploymentService.specify(pipeline.job(), conn.deploymentContext()));
       List<Object> mappedObjs = new ArrayList<>();
       for (String spec : specs) {
         mappedObjs.add(yamlMapper.readValue(spec, Object.class));

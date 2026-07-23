@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.ConnectorProvider;
 import org.junit.jupiter.api.Test;
@@ -9,7 +11,6 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,7 +28,7 @@ import static org.mockito.Mockito.when;
 class ConnectionServiceTest {
 
   @Mock
-  private Connection mockConnection;
+  private DeploymentContext mockConnection;
 
   @Mock(answer = Answers.CALLS_REAL_METHODS)
   private MockedStatic<ConnectionService> mockedConnectionService;
@@ -67,7 +68,7 @@ class ConnectionServiceTest {
 
     ConnectorProvider provider = new ConnectorProvider() {
       @Override
-      public <T> Collection<Connector> connectors(T obj, Connection conn) {
+      public <T> Collection<Connector> connectors(T obj, DeploymentContext conn) {
         return Collections.singletonList(mockConnector);
       }
     };
@@ -92,7 +93,7 @@ class ConnectionServiceTest {
 
     ConnectorProvider provider = new ConnectorProvider() {
       @Override
-      public <T> Collection<Connector> connectors(T obj, Connection conn) {
+      public <T> Collection<Connector> connectors(T obj, DeploymentContext conn) {
         return Collections.singletonList(mockConnector);
       }
     };

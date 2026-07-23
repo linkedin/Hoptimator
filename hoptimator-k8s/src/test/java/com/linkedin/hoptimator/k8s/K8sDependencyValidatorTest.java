@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
-import java.sql.Connection;
+import com.linkedin.hoptimator.DeploymentContext;
+
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +41,7 @@ class K8sDependencyValidatorTest {
   private MockedStatic<DependencyChecker> checkerStatic;
 
   @Mock
-  private Connection connection;
+  private DeploymentContext connection;
 
   @Mock
   private K8sContext context;

@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
@@ -17,9 +18,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.util.Util;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.helpers.MessageFormatter;
 
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -42,11 +40,24 @@ public class HoptimatorConnection extends DelegatingConnection {
   private final List<RelOptMaterialization> materializations = new ArrayList<>();
 
   private final List<Consumer<String>> logHooks = new ArrayList<>();
+  private DeploymentContext deploymentContext;
 
   public HoptimatorConnection(CalciteConnection connection, Properties connectionProperties) {
     super(connection);
     this.connection = connection;
     this.connectionProperties = connectionProperties;
+  }
+
+  /**
+   * The Calcite-backed {@link DeploymentContext} for this connection, created once and reused.
+   * This is the neutral handle the deploy/validate SPI operates on; callers should pass this
+   * rather than constructing a fresh {@code CalciteDeploymentContext} per operation.
+   */
+  public DeploymentContext deploymentContext() {
+    if (deploymentContext == null) {
+      deploymentContext = new CalciteDeploymentContext(this);
+    }
+    return deploymentContext;
   }
 
   public ResolvedTable resolve(List<String> tablePath, Map<String, String> hints) throws SQLException {
@@ -68,8 +79,9 @@ public class HoptimatorConnection extends DelegatingConnection {
       String database = databaseName(this.createPrepareContext(), tablePath);
       Source source = new Source(database, tablePath, hints);
       Sink sink = new Sink(database, tablePath, hints);
-      return new ResolvedTable(tablePath, avroSchema, ConnectionService.configure(source, this),
-          ConnectionService.configure(sink, this));
+      DeploymentContext context = this.deploymentContext();
+      return new ResolvedTable(tablePath, avroSchema, ConnectionService.configure(source, context),
+          ConnectionService.configure(sink, context));
     } catch (Exception e) {
       throw new SQLException("Failed to resolve " + String.join(".", tablePath) + ": " + e.getMessage(), e);
     }
@@ -147,8 +159,8 @@ public class HoptimatorConnection extends DelegatingConnection {
   /**
    * Returns a logger for a client of this connection. The logger logs to both SLF4J and hooks.
    */
-  HoptimatorConnectionDualLogger getLogger(Class<?> clazz) {
-    return new HoptimatorConnectionDualLogger(clazz, logHooks);
+  DualLogger getLogger(Class<?> clazz) {
+    return new DualLogger(clazz, logHooks);
   }
 
   /**
@@ -157,6 +169,11 @@ public class HoptimatorConnection extends DelegatingConnection {
    */
   public void addLogHook(Consumer<String> hook) {
     logHooks.add(hook);
+  }
+
+  /** The connection's log hooks, so deploy machinery can log to them without holding the connection. */
+  public List<Consumer<String>> logHooks() {
+    return logHooks;
   }
 
   private void registerMaterialization(List<String> viewPath, RelNode tableRel, RelNode queryRel) {
@@ -177,30 +194,5 @@ public class HoptimatorConnection extends DelegatingConnection {
       throw new SQLException(tablePath + " is not a physical database.");
     }
     return ((Database) schema.schema).databaseName();
-  }
-
-  /**
-   * A logger that logs to both SLF4J logger and registered hooks.
-   */
-  static class HoptimatorConnectionDualLogger {
-    private final String className;
-    private final Logger slf4jLogger;
-    private final List<Consumer<String>> hooks;
-
-    HoptimatorConnectionDualLogger(Class<?> clazz, List<Consumer<String>> hooks) {
-      this.className = clazz.getSimpleName();
-      this.slf4jLogger = LoggerFactory.getLogger(clazz);
-      this.hooks = hooks;
-    }
-
-    /**
-     * Log a message with slf4j format at the INFO level.
-     */
-    public void info(String format, Object... arguments) {
-      slf4jLogger.info(format, arguments);
-      String msg = MessageFormatter.arrayFormat(format, arguments).getMessage();
-      String msgWithClassName = String.format("[%s] %s", className, msg);
-      hooks.forEach(hook -> hook.accept(msgWithClassName));
-    }
   }
 }

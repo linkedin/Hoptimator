@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.util;
 
 import com.linkedin.hoptimator.ConfigProvider;
+import com.linkedin.hoptimator.DeploymentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.StringReader;
-import java.sql.Connection;
 import java.util.Properties;
 import java.util.ServiceLoader;
 
@@ -21,12 +21,12 @@ public final class ConfigService {
   // Ex:
   //  log.properties: |
   //    level=INFO
-  public static Properties config(Connection connection, boolean loadTopLevelConfigs, String... expansionFields) {
+  public static Properties config(DeploymentContext context, boolean loadTopLevelConfigs, String... expansionFields) {
     ServiceLoader<ConfigProvider> loader = ServiceLoader.load(ConfigProvider.class);
     Properties properties = new Properties();
     for (ConfigProvider provider : loader) {
       try {
-        Properties loadedProperties = provider.loadConfig(connection);
+        Properties loadedProperties = provider.loadConfig(context);
         if (loadTopLevelConfigs) {
           log.debug("Loaded properties={} from provider={}", loadedProperties, provider);
           properties.putAll(loadedProperties);
@@ -45,7 +45,7 @@ public final class ConfigService {
     return properties;
   }
 
-  public static Properties config(Connection connection, String... expansionFields) {
-    return config(connection, true, expansionFields);
+  public static Properties config(DeploymentContext context, String... expansionFields) {
+    return config(context, true, expansionFields);
   }
 }

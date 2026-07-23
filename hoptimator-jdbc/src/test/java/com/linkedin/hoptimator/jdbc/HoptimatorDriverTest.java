@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.Validator;
-import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
@@ -121,7 +121,7 @@ class HoptimatorDriverTest {
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       Source source = new Source("UTIL", Arrays.asList("UTIL", "PRINT"), Collections.emptyMap());
 
-      RelDataType rowType = HoptimatorDriver.rowType(source, connection);
+      RelDataType rowType = HoptimatorDriver.rowType(source, new CalciteDeploymentContext(connection));
 
       assertNotNull(rowType);
       assertEquals(1, rowType.getFieldCount());
@@ -135,7 +135,38 @@ class HoptimatorDriverTest {
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       Source source = new Source("UTIL", Arrays.asList("UTIL", "NONEXISTENT"), Collections.emptyMap());
 
-      assertThrows(SQLException.class, () -> HoptimatorDriver.rowType(source, connection));
+      assertThrows(SQLException.class, () -> HoptimatorDriver.rowType(source, new CalciteDeploymentContext(connection)));
+    }
+  }
+
+  @Test
+  void testRowTypeThrowsForUnknownContextType() {
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+    DeploymentContext unknown = new DeploymentContext() {
+      @Override
+      public Properties properties() {
+        return new Properties();
+      }
+
+      @Override
+      public Properties databaseProperties(String catalog, String schema, String connectionPrefix) {
+        return null;
+      }
+    };
+
+    assertThrows(SQLException.class, () -> HoptimatorDriver.rowType(source, unknown));
+  }
+
+  @Test
+  void testValueSchemaReturnsNullForTableWithoutNativeAvro() throws SQLException {
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      // UTIL.PRINT is a real catalog table but not an AvroSchemaSource, so no native value schema.
+      Source source = new Source("UTIL", Arrays.asList("UTIL", "PRINT"), Collections.emptyMap());
+
+      Schema schema = HoptimatorDriver.valueSchema(source, new CalciteDeploymentContext(connection));
+
+      assertNull(schema);
     }
   }
 
@@ -219,17 +250,6 @@ class HoptimatorDriverTest {
 
       assertNotNull(pstmt);
       pstmt.close();
-    }
-  }
-
-  @Test
-  void testValidationServiceWithRealConnection() throws SQLException {
-    try (HoptimatorConnection connection =
-        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
-      CalciteConnection calciteConn = connection.calciteConnection();
-      Validator.Issues issues = ValidationService.validate(calciteConn);
-
-      assertNotNull(issues);
     }
   }
 

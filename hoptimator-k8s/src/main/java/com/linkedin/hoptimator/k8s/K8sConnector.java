@@ -5,7 +5,6 @@ import com.linkedin.hoptimator.Connector;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
-import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplate;
@@ -15,9 +14,6 @@ import com.linkedin.hoptimator.util.Template;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.schema.SchemaPlus;
-import org.apache.calcite.schema.Table;
-import org.apache.calcite.util.Util;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -55,7 +51,7 @@ class K8sConnector implements Connector {
 
   @Override
   public Map<String, String> configure() throws SQLException {
-    RelDataType sourceRowType = HoptimatorDriver.rowType(source, context.connection());
+    RelDataType sourceRowType = HoptimatorDriver.rowType(source, context.deploymentContext());
     Map<String, String> options = addKeysAsOption(source.options(), sourceRowType);
 
     Template.Environment env =
@@ -115,32 +111,19 @@ class K8sConnector implements Connector {
   }
 
   /**
-   * Renders the value Avro schema for the {@code {{avroValueSchema}}} template variable. Prefers
-   * the upstream table's native value schema when it implements {@link AvroSchemaSource} — keys
-   * aren't included, because the connector handles them separately via {@code key.fields}. Falls
-   * back to synthesizing from the flat row type, which loses source-level namespaces and nested
-   * record identities.
+   * Renders the value Avro schema for the {@code {{avroValueSchema}}} template variable. Prefers the
+   * schema {@link HoptimatorDriver#valueSchema} resolves — the caller's carried value schema on the
+   * direct path, or the upstream table's native value schema on the SQL path — both value-only, with
+   * keys handled separately via {@code key.fields}. Falls back to synthesizing from the flat row type
+   * only when neither exists (a SQL source with no native Avro, e.g. a MySQL table or a view), which
+   * loses source-level namespaces and nested record identities.
    */
   private Schema avroValueSchema(Source source, RelDataType sourceRowType) {
-    Table table = lookupTable(source);
-    if (table instanceof AvroSchemaSource) {
-      Schema provided = ((AvroSchemaSource) table).valueSchema();
-      if (provided != null) {
-        return provided;
-      }
+    Schema provided = HoptimatorDriver.valueSchema(source, context.deploymentContext());
+    if (provided != null) {
+      return provided;
     }
     return AvroConverter.avro("com.linkedin.hoptimator", source.table(), sourceRowType);
-  }
-
-  private Table lookupTable(Source source) {
-    SchemaPlus schema = context.connection().calciteConnection().getRootSchema();
-    for (String part : Util.skipLast(source.path())) {
-      if (schema == null) {
-        return null;
-      }
-      schema = schema.subSchemas().get(part);
-    }
-    return schema == null ? null : schema.tables().get(source.table());
   }
 
   @VisibleForTesting

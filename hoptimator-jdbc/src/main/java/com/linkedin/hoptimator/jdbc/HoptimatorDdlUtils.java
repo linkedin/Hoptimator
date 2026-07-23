@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.DatabaseDeployable;
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Source;
@@ -70,9 +71,9 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 
 import javax.annotation.Nullable;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -119,16 +120,15 @@ public final class HoptimatorDdlUtils {
    * {@code CREATE OR REPLACE} → {@link DdlMode#UPDATE}. In {@code apply} mode: both forms
    * resolve to {@link DdlMode#UPDATE}, making CREATE idempotent.
    */
-  static DdlMode effectiveMode(boolean orReplace, HoptimatorConnection conn) {
-    if (isApplyMode(conn)) {
+  static DdlMode effectiveMode(boolean orReplace, DeploymentContext context) {
+    if (isApplyMode(context.properties())) {
       return DdlMode.UPDATE;
     }
     return orReplace ? DdlMode.UPDATE : DdlMode.CREATE;
   }
 
   /** Whether the connection is configured for apply-mode DDL. */
-  static boolean isApplyMode(HoptimatorConnection conn) {
-    Properties props = conn.connectionProperties();
+  static boolean isApplyMode(Properties props) {
     if (props == null) {
       return false;
     }
@@ -152,7 +152,7 @@ public final class HoptimatorDdlUtils {
     /** Fully-qualified path of the sink (catalog + schema + table). */
     public final List<String> viewPath;
 
-    SpecifyResult(List<String> specs, RelDataType sinkRowType, List<String> viewPath) {
+    public SpecifyResult(List<String> specs, RelDataType sinkRowType, List<String> viewPath) {
       this.specs = Collections.unmodifiableList(specs);
       this.sinkRowType = sinkRowType;
       this.viewPath = Collections.unmodifiableList(viewPath);
@@ -166,7 +166,7 @@ public final class HoptimatorDdlUtils {
   enum DdlMode {
     CREATE {
       @Override
-      List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException {
+      List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException {
         DeploymentService.create(deployers);
         return Collections.emptyList();
       }
@@ -178,7 +178,7 @@ public final class HoptimatorDdlUtils {
     },
     UPDATE {
       @Override
-      List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException {
+      List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException {
         DeploymentService.update(deployers);
         return Collections.emptyList();
       }
@@ -190,7 +190,7 @@ public final class HoptimatorDdlUtils {
     },
     SPECIFY {
       @Override
-      List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException {
+      List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException {
         List<String> specs = new ArrayList<>();
         for (Deployer deployer : deployers) {
           specs.addAll(deployer.specify());
@@ -204,7 +204,7 @@ public final class HoptimatorDdlUtils {
       }
     };
 
-    abstract List<String> executeDeployers(Collection<Deployer> deployers, Connection conn) throws SQLException;
+    abstract List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException;
 
     abstract boolean mutable();
   }
@@ -340,10 +340,10 @@ public final class HoptimatorDdlUtils {
   static SpecifyResult processCreateMaterializedView(CalcitePrepare.Context ctx,
       HoptimatorDriver.Prepare prepare, HoptimatorConnection conn,
       SqlCreateMaterializedView create, DdlMode mode) throws SQLException {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+    DualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
     // Validate the DDL statement.
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create, conn);
+    ValidationService.validateOrThrow(create, conn.deploymentContext());
 
     // Extract query SQL (rename columns if a column list was provided) and plan the query.
     // This is done first — before schema/conflict checks — so that:
@@ -431,15 +431,15 @@ public final class HoptimatorDdlUtils {
     boolean success = false;
     try {
       // Build the pipeline and create the MaterializedView hook.
-      Pipeline pipeline = plan.pipeline(viewName, conn);
+      Pipeline pipeline = plan.pipeline(viewName, conn.deploymentContext());
       MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().sql(), pipeline);
 
       // Validate the hook and its deployers.
       logger.info("Validating materialized view {}", viewName);
-      ValidationService.validateOrThrow(hook, conn);
-      deployers = DeploymentService.deployers(hook, conn);
+      ValidationService.validateOrThrow(hook, conn.deploymentContext());
+      deployers = DeploymentService.deployers(hook, conn.deploymentContext());
       logger.info("Validating deployable resources for materialized view {}", viewName);
-      ValidationService.validateOrThrow(deployers, conn);
+      ValidationService.validateOrThrow(deployers, conn.deploymentContext());
       logger.info("Validated materialized view {}", viewName);
 
       // Execute (create/update) or collect specs (specify).
@@ -450,7 +450,7 @@ public final class HoptimatorDdlUtils {
       } else {
         logger.info("Specifying materialized view {}", viewName);
       }
-      List<String> specs = mode.executeDeployers(deployers, conn);
+      List<String> specs = mode.executeDeployers(deployers);
       if (mode.mutable()) {
         logger.info("Deployed materialized view {}", viewName);
       } else {
@@ -501,10 +501,10 @@ public final class HoptimatorDdlUtils {
    */
   static SpecifyResult processCreateTable(CalcitePrepare.Context ctx, HoptimatorConnection conn,
       SqlCreateTable create, DdlMode mode) throws SQLException {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+    DualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create, conn);
+    ValidationService.validateOrThrow(create, conn.deploymentContext());
 
     // TODO: Add support for populating new tables from a query as a one-time operation.
     if (create.query != null) {
@@ -514,49 +514,7 @@ public final class HoptimatorDdlUtils {
       throw new SQLException("No columns provided.");
     }
 
-    boolean isNewSchema = false;
-    Pair<CalciteSchema, String> pair = schema(ctx, mode.mutable(), create.name);
-    if (pair.left == null) {
-      // If the schema is not found, it might be because it's a 3-level path (CATALOG.SCHEMA.TABLE)
-      if (create.name.names.size() > 2) {
-        pair = catalog(ctx, mode.mutable(), create.name);
-        isNewSchema = true;
-        if (pair.left == null) {
-          throw new SQLException("Catalog for " + create.name + " not found.");
-        }
-      } else {
-        throw new SQLException("Schema for " + create.name + " not found.");
-      }
-    }
-
-    final SchemaPlus schemaPlus = pair.left.plus();
-    String database = null;
-    String tableName;
-    if (isNewSchema) {
-      int idx = pair.right.indexOf(".");
-      database = pair.right.substring(0, idx);
-      tableName = pair.right.substring(idx + 1);
-    } else {
-      tableName = pair.right;
-    }
-
-    if (!isNewSchema && schemaPlus.tables().get(tableName) != null) {
-      // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
-      // (apply mode or explicit OR REPLACE) targets the existing table; SPECIFY
-      // (dry-run) preserves its syntax-driven semantics.
-      boolean wouldFail;
-      if (mode == DdlMode.UPDATE) {
-        wouldFail = false;
-      } else if (mode == DdlMode.CREATE) {
-        wouldFail = !create.ifNotExists;
-      } else { // SPECIFY
-        wouldFail = !create.ifNotExists && !create.getReplace();
-      }
-      if (wouldFail) {
-        throw new SQLException(
-            "Table " + tableName + " already exists. Use CREATE OR REPLACE to update.");
-      }
-    }
+    CreateTarget target = resolveCreateTarget(ctx, conn, mode.mutable(), create.name);
 
     // Build row type and column definitions.
     final JavaTypeFactory typeFactory = ctx.getTypeFactory();
@@ -599,6 +557,72 @@ public final class HoptimatorDdlUtils {
           }
         };
 
+    Map<String, String> tableOptions = options(create.options);
+    CalciteSchemaTarget calcite = new CalciteSchemaTarget(target.pair, target.isNewSchema, ief, rowType);
+    return deployTableInternal(conn.logHooks(), conn.deploymentContext(), calcite, target.tablePath(),
+        target.database, target.tableName, tableOptions,
+        create.ifNotExists, create.getReplace(), mode);
+  }
+
+  /** Resolved location for a table to be created: its schema/catalog node, database, and name. */
+  static final class CreateTarget {
+    final Pair<CalciteSchema, String> pair;
+    final boolean isNewSchema;
+    final String database;
+    final String tableName;
+
+    CreateTarget(Pair<CalciteSchema, String> pair, boolean isNewSchema, String database, String tableName) {
+      this.pair = pair;
+      this.isNewSchema = isNewSchema;
+      this.database = database;
+      this.tableName = tableName;
+    }
+
+    /** The fully-qualified table path (schema path + optional new database segment + table name). */
+    List<String> tablePath() {
+      List<String> path = new ArrayList<>(pair.left.path(null));
+      if (isNewSchema) {
+        path.add(database);
+      }
+      path.add(tableName);
+      return path;
+    }
+  }
+
+  /**
+   * Resolves the schema/catalog node, database, and table name for a to-be-created table from a
+   * (possibly multi-level) identifier by walking the Calcite catalog. This is the Calcite/SQL-path
+   * resolution, used by the DDL {@code CREATE TABLE} path ({@link #processCreateTable}). The
+   * connection-free direct path does not use this; it resolves the database identifier
+   * registry-natively via {@link DatabaseConfigResolver#databaseName} instead.
+   */
+  static CreateTarget resolveCreateTarget(CalcitePrepare.Context ctx, HoptimatorConnection conn,
+      boolean mutable, SqlIdentifier name) throws SQLException {
+    boolean isNewSchema = false;
+    Pair<CalciteSchema, String> pair = schema(ctx, mutable, name);
+    if (pair.left == null) {
+      // If the schema is not found, it might be because it's a 3-level path (CATALOG.SCHEMA.TABLE)
+      if (name.names.size() > 2) {
+        pair = catalog(ctx, mutable, name);
+        isNewSchema = true;
+        if (pair.left == null) {
+          throw new SQLException("Catalog for " + name + " not found.");
+        }
+      } else {
+        throw new SQLException("Schema for " + name + " not found.");
+      }
+    }
+
+    String database = null;
+    String tableName;
+    if (isNewSchema) {
+      int idx = pair.right.indexOf(".");
+      database = pair.right.substring(0, idx);
+      tableName = pair.right.substring(idx + 1);
+    } else {
+      tableName = pair.right;
+    }
+
     if (database == null) {
       if (pair.left.schema instanceof Database) {
         database = ((Database) pair.left.schema).databaseName();
@@ -606,49 +630,128 @@ public final class HoptimatorDdlUtils {
         database = conn.getSchema();
       }
     }
+    return new CreateTarget(pair, isNewSchema, database, tableName);
+  }
 
-    // Snapshot current state for rollback (only meaningful when the schema already exists).
+  /**
+   * Bundles the Calcite-catalog parameters used only by the SQL DDL path. Present ({@code non-null})
+   * on the SQL path ({@link #processCreateTable}) and absent ({@code null}) on the connection-free
+   * direct path ({@code TableService}).
+   *
+   * <p>Grouping these fields into one nullable holder makes the two paths structurally distinct: a
+   * caller either supplies the whole Calcite handle or none of it.
+   */
+  static final class CalciteSchemaTarget {
+    // The Calcite schema/catalog node and the (compound) table name
+    final Pair<CalciteSchema, String> pair;
+    // Whether a brand-new JDBC-backed sub-schema must be registered (3-level CATALOG.SCHEMA.TABLE)
+    final boolean isNewSchema;
+    // Default-value/generation strategy for the temporary table
+    final InitializerExpressionFactory ief;
+    // Row type to register on the temporary table (derived from the SQL column declarations)
+    final RelDataType rowType;
+
+    CalciteSchemaTarget(Pair<CalciteSchema, String> pair, boolean isNewSchema, InitializerExpressionFactory ief,
+        RelDataType rowType) {
+      this.pair = requireNonNull(pair, "pair");
+      requireNonNull(pair.left, "pair.left (Calcite schema node)");
+      this.isNewSchema = isNewSchema;
+      this.ief = ief;
+      this.rowType = requireNonNull(rowType, "rowType");
+    }
+
+    SchemaPlus schemaPlus() {
+      return pair.left.plus();
+    }
+  }
+
+  /**
+   * Shared core that deploys (or, in SPECIFY mode, dry-run specifies) a single table given an
+   * already-resolved schema target and row type. Used by both the DDL {@code CREATE TABLE} path
+   * ({@link #processCreateTable}) and the SQL-free direct path ({@code TableService}), so that
+   * existence checks, temporary-table registration, validation, deployment, and rollback behave
+   * identically whether the row type came from Calcite column declarations or an Avro schema.
+   *
+   * <p>The SQL path passes a non-null {@code calcite} holder. The direct path passes
+   * {@code null} and touches no catalog.
+   */
+  static SpecifyResult deployTableInternal(List<Consumer<String>> logHooks, DeploymentContext context,
+      @Nullable CalciteSchemaTarget calcite, List<String> tablePath, String database, String tableName,
+      Map<String, String> options, boolean ifNotExists, boolean orReplace, DdlMode mode)
+      throws SQLException {
+    DualLogger logger = new DualLogger(HoptimatorDdlUtils.class, logHooks);
+
+    // Only the SQL path mutates the Calcite catalog: it registers a temporary table (so
+    // subsequent statements and Calcite-backed deployers can resolve the row type by name) and,
+    // for a new schema, a JDBC-backed sub-schema. The direct API path carries the row type on its
+    // DirectDeploymentContext and resolves Database config registry-natively, so it neither reads
+    // nor mutates the catalog here — existence is enforced store-natively by the deployers.
+    final boolean manageCalciteSchema = calcite != null;
+    final SchemaPlus schemaPlus = manageCalciteSchema ? calcite.schemaPlus() : null;
+    final boolean isNewSchema = manageCalciteSchema && calcite.isNewSchema;
+
+    if (manageCalciteSchema && !isNewSchema && schemaPlus.tables().get(tableName) != null) {
+      // Strict CREATE without IF NOT EXISTS is the only path that errors. UPDATE
+      // (apply mode or explicit OR REPLACE) targets the existing table; SPECIFY
+      // (dry-run) preserves its syntax-driven semantics.
+      boolean wouldFail;
+      if (mode == DdlMode.UPDATE) {
+        wouldFail = false;
+      } else if (mode == DdlMode.CREATE) {
+        wouldFail = !ifNotExists;
+      } else { // SPECIFY
+        wouldFail = !ifNotExists && !orReplace;
+      }
+      if (wouldFail) {
+        throw new SQLException(
+            "Table " + tableName + " already exists. Use CREATE OR REPLACE to update.");
+      }
+    }
+
+    // Snapshot current state for rollback (only meaningful when we mutate the Calcite schema).
     Pair<SchemaPlus, Table> schemaSnapshot = null;
-    if (!isNewSchema) {
+    if (manageCalciteSchema && !isNewSchema) {
       Table currentTable = schemaPlus.tables().get(tableName);
       schemaSnapshot = Pair.of(schemaPlus, currentTable);
     }
 
-    // Table does not exist. Create it.
-    // Add a temporary table with the correct row type so deployers can resolve the schema
-    // TODO: This may cause problems if we reuse connections, only the next connection will load this as a HoptimatorJdbcTable.
-    if (isNewSchema) {
-      HoptimatorJdbcCatalogSchema catalogSchema = schemaPlus.unwrap(HoptimatorJdbcCatalogSchema.class);
-      if (catalogSchema == null) {
-        throw new SQLException("Catalog for " + schemaPlus.getName() + " not found.");
+    if (manageCalciteSchema) {
+      // For a brand-new schema, register the JDBC-backed sub-schema, then the temporary table.
+      // TODO: This may cause problems if we reuse connections, only the next connection will load this as a HoptimatorJdbcTable.
+      SchemaPlus databaseSchema = schemaPlus;
+      if (isNewSchema) {
+        HoptimatorJdbcCatalogSchema catalogSchema = schemaPlus.unwrap(HoptimatorJdbcCatalogSchema.class);
+        if (catalogSchema == null) {
+          throw new SQLException("Catalog for " + schemaPlus.getName() + " not found.");
+        }
+        databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
+        logger.info("Added schema {} to catalog {}", database, schemaPlus.getName());
       }
-      SchemaPlus databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
-      logger.info("Added schema {} to catalog {}", database, schemaPlus.getName());
-      databaseSchema.add(tableName, new TemporaryTable(rowType, database, ief));
+      databaseSchema.add(tableName, new TemporaryTable(calcite.rowType, database, calcite.ief));
       logger.info("Added table {} to schema {}", tableName, databaseSchema.getName());
-    } else {
-      schemaPlus.add(tableName, new TemporaryTable(rowType, database, ief));
-      logger.info("Added table {} to schema {}", tableName, schemaPlus.getName());
     }
 
-    final List<String> schemaPath = pair.left.path(null);
-    List<String> tablePath = new ArrayList<>(schemaPath);
-    if (isNewSchema) {
-      tablePath.add(database);
-    }
-    tablePath.add(tableName);
-
-    Map<String, String> tableOptions = options(create.options);
-    Source source = new Source(database, tablePath, tableOptions);
+    Source source = new Source(database, tablePath, options);
 
     Collection<Deployer> deployers = null;
     boolean success = false;
     try {
       logger.info("Validating new table {}", source);
-      ValidationService.validateOrThrow(source, conn);
-      deployers = DeploymentService.deployers(source, conn);
+      ValidationService.validateOrThrow(source, context);
+      deployers = DeploymentService.deployers(source, context);
+      // Enforce CREATE (not OR REPLACE) semantics on the connection-free direct path, mirroring the
+      // Calcite existence check the SQL path ran above. Gated on !manageCalciteSchema so the SQL/DDL
+      // path (which already checked existence + OR REPLACE) never double-checks or calls exists().
+      if (!manageCalciteSchema && mode == DdlMode.CREATE) {
+        for (Deployer deployer : deployers) {
+          if (deployer.exists()) {
+            throw new SQLException("Table " + tableName
+                + " already exists. Set updateIfExists=true to update it.");
+          }
+        }
+      }
       logger.info("Validating deployable resources for table {}", tableName);
-      ValidationService.validateOrThrow(deployers, conn);
+      ValidationService.validateOrThrow(deployers, context);
 
       if (mode == DdlMode.UPDATE) {
         logger.info("Deploying update table {}", source);
@@ -657,7 +760,7 @@ public final class HoptimatorDdlUtils {
       } else {
         logger.info("Specifying table {}", source);
       }
-      List<String> specs = mode.executeDeployers(deployers, conn);
+      List<String> specs = mode.executeDeployers(deployers);
       if (mode.mutable()) {
         logger.info("Deployed table {}", source);
       } else {
@@ -665,7 +768,11 @@ public final class HoptimatorDdlUtils {
         DeploymentService.restore(deployers);
       }
       success = true;
-      return new SpecifyResult(specs, rowType, tablePath);
+      // Resolve the sink row type only now, for the result: the SQL path already has it on the
+      // Calcite target; the direct path derives it from the schema carried on its context. Neither
+      // deployment nor validation above needs it (deployers resolve the row type themselves).
+      RelDataType sinkRowType = calcite == null ? HoptimatorDriver.rowType(source, context) : calcite.rowType;
+      return new SpecifyResult(specs, sinkRowType, tablePath);
     } catch (SQLException | RuntimeException e) {
       logger.info("Failed to deploy table {}", tableName);
       if (deployers != null) {
@@ -674,11 +781,17 @@ public final class HoptimatorDdlUtils {
       }
       throw e;
     } finally {
-      // For SPECIFY (dry-run): always restore schema.
-      // For CREATE/UPDATE on success: do NOT restore.
-      // For CREATE/UPDATE on failure: restore.
-      if (!success || !mode.mutable()) {
-        if (schemaSnapshot != null) {
+      // Undo any Calcite-catalog mutations we made when we are not keeping them (SQL path only;
+      // the direct path made none):
+      //   - SPECIFY (dry-run): always undo.
+      //   - CREATE/UPDATE on success: keep.
+      //   - CREATE/UPDATE on failure: undo.
+      if (manageCalciteSchema && (!success || !mode.mutable())) {
+        if (isNewSchema) {
+          calcite.pair.left.removeSubSchema(database);
+          logger.info("Removed schema {} from catalog", database);
+        } else if (schemaSnapshot != null) {
+          // Restore the temporary table's prior state.
           if (schemaSnapshot.right == null) {
             schemaSnapshot.left.removeTable(tableName);
             logger.info("Removed schema for table {}", tableName);
@@ -686,10 +799,6 @@ public final class HoptimatorDdlUtils {
             schemaPlus.add(tableName, schemaSnapshot.right);
             logger.info("Restored schema for table {}", tableName);
           }
-        } else {
-          // isNewSchema case on failure: remove the newly created sub-schema.
-          pair.left.removeSubSchema(database);
-          logger.info("Removed schema {} from catalog", database);
         }
       }
     }
@@ -707,10 +816,10 @@ public final class HoptimatorDdlUtils {
    */
   static SpecifyResult processCreateDatabase(HoptimatorConnection conn,
       SqlCreateDatabase create, DdlMode mode) throws SQLException {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
+    DualLogger logger = conn.getLogger(HoptimatorDdlUtils.class);
 
     logger.info("Validating statement: {}", create);
-    ValidationService.validateOrThrow(create, conn);
+    ValidationService.validateOrThrow(create, conn.deploymentContext());
 
     if (create.name.names.size() > 1) {
       throw new SQLException("Database names cannot be compound identifiers.");
@@ -723,11 +832,11 @@ public final class HoptimatorDdlUtils {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Validating database {}", name);
-      ValidationService.validateOrThrow(database, conn);
-      deployers = DeploymentService.deployers(database, conn);
-      ValidationService.validateOrThrow(deployers, conn);
+      ValidationService.validateOrThrow(database, conn.deploymentContext());
+      deployers = DeploymentService.deployers(database, conn.deploymentContext());
+      ValidationService.validateOrThrow(deployers, conn.deploymentContext());
 
-      List<String> specs = mode.executeDeployers(deployers, conn);
+      List<String> specs = mode.executeDeployers(deployers);
       if (mode.mutable()) {
         logger.info("Deployed database {}", name);
       } else {
@@ -824,13 +933,13 @@ public final class HoptimatorDdlUtils {
     }
 
     try {
-      Pipeline pipeline = plan.pipeline(viewName, conn);
+      Pipeline pipeline = plan.pipeline(viewName, conn.deploymentContext());
       List<String> specs = new ArrayList<>();
       for (Source source : pipeline.sources()) {
-        specs.addAll(DeploymentService.specify(source, conn));
+        specs.addAll(DeploymentService.specify(source, conn.deploymentContext()));
       }
-      specs.addAll(DeploymentService.specify(pipeline.sink(), conn));
-      specs.addAll(DeploymentService.specify(pipeline.job(), conn));
+      specs.addAll(DeploymentService.specify(pipeline.sink(), conn.deploymentContext()));
+      specs.addAll(DeploymentService.specify(pipeline.job(), conn.deploymentContext()));
       return new SpecifyResult(specs, sinkRowType, viewPath);
     } finally {
       // Restore the schema — the virtual sink must not persist after this call.

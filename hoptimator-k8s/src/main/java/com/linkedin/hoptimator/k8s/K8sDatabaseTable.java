@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
@@ -54,16 +55,17 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   }
 
   public void addDatabases(SchemaPlus parentSchema, Connection connection) {
+    DeploymentContext context = ((HoptimatorConnection) connection).deploymentContext();
     for (Row row : rows()) {
       if (row.CATALOG != null) {
         Schema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
                 ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
-            dialect(row), engines.forDatabase(row.NAME), connection);
+            dialect(row), engines.forDatabase(row.NAME), context);
         parentSchema.add(row.CATALOG.toUpperCase(Locale.ROOT), catalogSchema);
       } else {
         Schema schema = HoptimatorJdbcSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
                 ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
-            dialect(row), engines.forDatabase(row.NAME), connection);
+            dialect(row), engines.forDatabase(row.NAME), context);
         parentSchema.add(schemaName(row), schema);
       }
     }
@@ -71,6 +73,11 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
 
   @Override
   public Row toRow(V1alpha1Database obj) {
+    return rowOf(obj);
+  }
+
+  /** Builds a {@link Row} from a Database CRD, usable without a {@link K8sDatabaseTable} instance. */
+  static Row rowOf(V1alpha1Database obj) {
     return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getSpec()).getUrl(),
         obj.getSpec().getCatalog(), obj.getSpec().getSchema(),
         Optional.ofNullable(obj.getSpec().getDialect()).map(V1alpha1DatabaseSpec.DialectEnum::toString).orElse(null),
@@ -101,15 +108,27 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   static DataSource dataSource(Row row, Properties connectionProperties) {
     String user = "nouser";
     String pass = "nopass";
-    StringJoiner joiner = new StringJoiner(";");
     for (String key : connectionProperties.stringPropertyNames()) {
       if ("user".equals(key)) {
         user = connectionProperties.getProperty(key);
       } else if ("password".equals(key)) {
         pass = connectionProperties.getProperty(key);
-      } else {
-        String value = connectionProperties.getProperty(key);
-        joiner.add(key + "=" + value);
+      }
+    }
+    return JdbcSchema.dataSource(joinedUrl(row, connectionProperties), row.DRIVER, user, pass);
+  }
+
+  /**
+   * Builds the effective JDBC URL for a Database: its CRD {@code url} with the connection-level
+   * properties (except {@code user}/{@code password}) and the CRD name appended as
+   * {@code database=<name>}. This is the URL a {@code DatabaseConfigResolver} parses to recover a
+   * database's connection properties, kept here so it stays in lockstep with {@link #dataSource}.
+   */
+  static String joinedUrl(Row row, Properties connectionProperties) {
+    StringJoiner joiner = new StringJoiner(";");
+    for (String key : connectionProperties.stringPropertyNames()) {
+      if (!"user".equals(key) && !"password".equals(key)) {
+        joiner.add(key + "=" + connectionProperties.getProperty(key));
       }
     }
     // Inject the Database CRD name so drivers can identify which CRD they are backing.
@@ -117,14 +136,11 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     if (row.NAME != null && !row.NAME.isEmpty()) {
       joiner.add("database=" + row.NAME);
     }
-    String joinedUrl = row.URL;
     // Handles case where there are no properties already in the URL
     if (row.URL.endsWith("//")) {
-      joinedUrl = joinedUrl + joiner;
-    } else {
-      joinedUrl = joinedUrl + ";" + joiner;
+      return row.URL + joiner;
     }
-    return JdbcSchema.dataSource(joinedUrl, row.DRIVER, user, pass);
+    return row.URL + ";" + joiner;
   }
 
   static SqlDialect dialect(Row row) {

@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.sql.SqlDialect;
 
-import java.sql.Connection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,15 +16,15 @@ public class HoptimatorJdbcConvention extends JdbcConvention {
 
   private final String database;
   private final List<Engine> engines;
-  private final Connection connection;
+  private final DeploymentContext context;
   private final Map<String, RemoteConvention> remoteConventions = new HashMap<>();
 
   public HoptimatorJdbcConvention(SqlDialect dialect, Expression expression, String name,
-      List<Engine> engines, Connection connection) {
+      List<Engine> engines, DeploymentContext context) {
     super(dialect, expression, name);
     this.database = name;
     this.engines = engines;
-    this.connection = connection;
+    this.context = context;
   }
 
   public String database() {
@@ -46,6 +46,6 @@ public class HoptimatorJdbcConvention extends JdbcConvention {
     planner.addRule(PipelineRules.PipelineTableScanRule.create(this));
     planner.addRule(PipelineRules.PipelineTableModifyRule.create(this));
     PipelineRules.rules().forEach(planner::addRule);
-    engines().forEach(x -> new EngineRules(x).register(this, planner, connection));
+    engines().forEach(x -> new EngineRules(x).register(this, planner, context));
   }
 }

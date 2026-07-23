@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
+import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import com.linkedin.venice.controllerapi.ControllerClient;
@@ -11,6 +12,16 @@ import com.linkedin.venice.controllerapi.SchemaResponse;
 import com.linkedin.venice.controllerapi.StoreResponse;
 import com.linkedin.venice.meta.StoreInfo;
 import org.apache.avro.Schema;
+import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.AbstractTable;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
+import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,9 +33,11 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -75,7 +88,7 @@ class VeniceDeployerTest {
 
     TestableVeniceDeployer(Source source, Properties properties,
         HoptimatorConnection connection, ControllerClient mockClient) {
-      super(source, properties, connection);
+      super(source, properties, new CalciteDeploymentContext(connection));
       this.mockClient = mockClient;
     }
 
@@ -288,6 +301,67 @@ class VeniceDeployerTest {
     VeniceDeployer deployer = createDeployer(source);
 
     assertTrue(deployer.specify().isEmpty());
+  }
+
+  @Test
+  public void testExistsReturnsTrueWhenStorePresent() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(mock(StoreInfo.class));
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    assertTrue(createDeployer(source).exists());
+  }
+
+  @Test
+  public void testExistsReturnsFalseWhenStoreAbsent() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    StoreResponse storeResponse = mock(StoreResponse.class);
+    when(storeResponse.getStore()).thenReturn(null);
+    when(mockControllerClient.getStore(TEST_STORE)).thenReturn(storeResponse);
+
+    assertFalse(createDeployer(source).exists());
+  }
+
+  @Test
+  public void testGetKeyPayloadSchemaProducesPayloadFromRowType() throws Exception {
+    Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
+    // On the SQL/Calcite path no Avro is carried; the payload is synthesized from the row type
+    // resolved through the Calcite catalog. Without a resolved "keys" option (there is no connector
+    // on this unit-test classpath to supply one), avroKeyPayloadSchema treats the whole row type as
+    // the payload; the real key/payload split is covered by the Venice integration test.
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = factory.builder()
+        .add("id", factory.createSqlType(SqlTypeName.INTEGER))
+        .add("name", factory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus veniceSchema = rootSchema.add("VENICE", new AbstractSchema());
+    veniceSchema.add(TEST_STORE, new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+        return rowType;
+      }
+    });
+    CalciteConnection calciteConnection = mock(CalciteConnection.class);
+    when(mockConnection.calciteConnection()).thenReturn(calciteConnection);
+    when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
+    VeniceDeployer deployer =
+        new VeniceDeployer(source, properties, new CalciteDeploymentContext(mockConnection)) {
+          @Override
+          protected Map<String, String> resolveKeyOptions() {
+            // Unit-test seam: no connector on this classpath supplies a "keys" option, and resolving
+            // through the live ConnectionService would reach out to K8s. Return none so the whole
+            // row type is treated as the payload.
+            return Collections.emptyMap();
+          }
+        };
+
+    Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
+
+    assertNotNull(keyPayload.right, "payload schema");
+    assertNotNull(keyPayload.right.getField("id"), "payload field id");
+    assertNotNull(keyPayload.right.getField("name"), "payload field name");
   }
 
   // --- validate() tests ---

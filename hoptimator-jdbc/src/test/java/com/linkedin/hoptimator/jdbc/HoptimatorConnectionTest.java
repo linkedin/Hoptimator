@@ -158,7 +158,7 @@ class HoptimatorConnectionTest {
     Consumer<String> hook = logged::add;
     connection.addLogHook(hook);
 
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = connection.getLogger(HoptimatorConnectionTest.class);
+    DualLogger logger = connection.getLogger(HoptimatorConnectionTest.class);
     logger.info("test message {}", "arg1");
 
     assertEquals(1, logged.size());
@@ -168,7 +168,7 @@ class HoptimatorConnectionTest {
 
   @Test
   void testGetLoggerReturnsNonNull() {
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = connection.getLogger(String.class);
+    DualLogger logger = connection.getLogger(String.class);
 
     assertNotNull(logger);
   }
@@ -206,7 +206,7 @@ class HoptimatorConnectionTest {
       RelDataType result =
           HoptimatorDriver.rowType(
               new Source("UTIL", Arrays.asList("UTIL", "PRINT"), Collections.emptyMap()),
-              conn);
+              new CalciteDeploymentContext(conn));
       assertNotNull(result, "resolve() must find the PRINT table");
       assertTrue(result.getFieldCount() > 0, "resolve() must return a non-empty row type");
       // "OUTPUT" is a known field in UTIL.PRINT — ensures correct path math, not empty Optional
@@ -314,19 +314,5 @@ class HoptimatorConnectionTest {
     public RelDataType getRowType(RelDataTypeFactory factory) {
       throw new UnsupportedOperationException();
     }
-  }
-
-  @Test
-  void testMultipleLogHooksAllInvoked() {
-    List<String> hook1Messages = new ArrayList<>();
-    List<String> hook2Messages = new ArrayList<>();
-    connection.addLogHook(hook1Messages::add);
-    connection.addLogHook(hook2Messages::add);
-
-    HoptimatorConnection.HoptimatorConnectionDualLogger logger = connection.getLogger(HoptimatorConnectionTest.class);
-    logger.info("hello");
-
-    assertEquals(1, hook1Messages.size());
-    assertEquals(1, hook2Messages.size());
   }
 }

@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.MaterializedViewTable;
@@ -16,7 +17,6 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.ViewTable;
 
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -158,7 +158,7 @@ public class K8sViewTable extends K8sTable<V1alpha1View, V1alpha1ViewList, K8sVi
   }
 
   @Override
-  public void validate(Validator.Issues issues, Connection connection) {
+  public void validate(Validator.Issues issues, DeploymentContext context) {
     for (Row row : rows()) {
       Validator.Issues issues2 = issues.child(row.toString());
       Validator.validateSubdomainName(row.NAME, issues2.child("NAME"));

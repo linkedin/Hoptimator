@@ -34,6 +34,16 @@ public abstract class K8sYamlDeployer implements Deployer {
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    for (String spec : specify()) {
+      if (api.getIfExists(spec) != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
   public void delete() throws SQLException {
     for (String spec : specify()) {
       DynamicKubernetesObject obj = api.objFromYaml(spec);

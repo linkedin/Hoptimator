@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import com.linkedin.hoptimator.graph.GraphProvider;
 import com.linkedin.hoptimator.graph.GraphTarget;
 import com.linkedin.hoptimator.graph.PipelineGraph;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 
 
 /**
@@ -35,7 +36,7 @@ public class K8sGraphProvider implements GraphProvider {
       throw new SQLException("K8sGraphProvider.forTarget requires a non-null JDBC connection; "
           + "K8sContext can't be derived from null.");
     }
-    K8sContext context = K8sContext.create(connection);
+    K8sContext context = K8sContext.create(((HoptimatorConnection) connection).deploymentContext());
     PipelineGraphBuilder builder = createBuilder(context);
     if (target instanceof GraphTarget.View) {
       GraphTarget.View v = (GraphTarget.View) target;
