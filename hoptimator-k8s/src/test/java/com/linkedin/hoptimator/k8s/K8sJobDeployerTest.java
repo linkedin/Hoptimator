@@ -71,7 +71,7 @@ class K8sJobDeployerTest {
       }
     };
     when(mockContext.deploymentContext()).thenReturn(deploymentContext);
-    contextStatic.when(() -> K8sContext.create(any())).thenReturn(mockContext);
+    contextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(mockContext);
   }
 
   private Job createTestJob(Sink sink) {

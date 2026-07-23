@@ -6,6 +6,7 @@ import java.sql.SQLNonTransientException;
 import java.util.Properties;
 
 import com.linkedin.hoptimator.k8s.K8sContext;
+import com.linkedin.hoptimator.DeploymentContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -103,7 +104,7 @@ public class LogicalTableDriverTest {
   @Test
   public void connectThrowsNonTransientWhenK8sContextCreationFails() throws Exception {
     // All validation passes (2 tiers + database property set) but K8sContext.create() fails.
-    k8sContextStatic.when(() -> K8sContext.create(any()))
+    k8sContextStatic.when(() -> K8sContext.create(any(DeploymentContext.class)))
         .thenThrow(new RuntimeException("simulated K8sContext failure"));
 
     String url = "jdbc:logical://nearline=kafka-database;online=venice";
@@ -122,7 +123,7 @@ public class LogicalTableDriverTest {
     // The catch(Exception e) branch must wrap the underlying failure as the cause rather than
     // swallowing it. Stub K8sContext.create() to throw a known exception and assert it is preserved.
     RuntimeException boom = new RuntimeException("boom");
-    k8sContextStatic.when(() -> K8sContext.create(any())).thenThrow(boom);
+    k8sContextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenThrow(boom);
 
     Properties props = new Properties();
     props.setProperty("database", "logical");

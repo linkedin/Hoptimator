@@ -18,7 +18,7 @@ import java.util.Properties;
  *       Avro schema) rather than looked up from a Calcite {@code Table};
  *   <li>the caller's original Avro schema is carried alongside the row type, so deployers that
  *       speak Avro (schema registry, Venice, ...) can use it verbatim instead of re-synthesizing
- *       from the row type — the Avro&nbsp;&rarr;&nbsp;RelDataType&nbsp;&rarr;&nbsp;Avro round-trip is
+ *       from the row type — the Avro->RelDataType->Avro round-trip is
  *       lossy (namespaces, nested record names, unions, defaults);
  *   <li>connection-level {@link #properties()} are a plain bag;
  *   <li>per-{@code Database} config is resolved through an injected {@link DatabaseConfigResolver},

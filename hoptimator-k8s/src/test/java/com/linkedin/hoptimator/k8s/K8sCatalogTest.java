@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.DeploymentContext;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,7 @@ class K8sCatalogTest {
     SchemaPlus schemaPlus = CalciteSchema.createRootSchema(true).plus();
     doReturn(schemaPlus).when(wrapper).unwrap(SchemaPlus.class);
     doReturn(connection).when(wrapper).unwrap(HoptimatorConnection.class);
-    mockedK8sContext.when(() -> K8sContext.create(any())).thenReturn(mockContext);
+    mockedK8sContext.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(mockContext);
 
     // Use a subclass that returns our test metadata with mocked tables
     K8sCatalog catalog = new K8sCatalog() {
@@ -90,7 +91,7 @@ class K8sCatalogTest {
     SchemaPlus schemaPlus = CalciteSchema.createRootSchema(true).plus();
     doReturn(schemaPlus).when(wrapper).unwrap(SchemaPlus.class);
     doReturn(connection).when(wrapper).unwrap(HoptimatorConnection.class);
-    mockedK8sContext.when(() -> K8sContext.create(any())).thenReturn(mockContext);
+    mockedK8sContext.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(mockContext);
 
     K8sCatalog catalog = new K8sCatalog() {
       @Override
@@ -122,7 +123,7 @@ class K8sCatalogTest {
     SchemaPlus schemaPlus = CalciteSchema.createRootSchema(true).plus();
     doReturn(schemaPlus).when(wrapper).unwrap(SchemaPlus.class);
     doReturn(connection).when(wrapper).unwrap(HoptimatorConnection.class);
-    mockedK8sContext.when(() -> K8sContext.create(any())).thenReturn(mockContext);
+    mockedK8sContext.when(() -> K8sContext.create(any(DeploymentContext.class))).thenReturn(mockContext);
 
     K8sCatalog catalog = new K8sCatalog() {
       @Override

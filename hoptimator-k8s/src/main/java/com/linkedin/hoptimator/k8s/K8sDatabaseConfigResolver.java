@@ -29,7 +29,7 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   private List<K8sDatabaseTable.Row> cachedDatabases;
 
   public K8sDatabaseConfigResolver(Properties connectionProperties) {
-    this(connectionProperties, K8sContext.createFromProperties(connectionProperties));
+    this(connectionProperties, K8sContext.create(connectionProperties));
   }
 
   /** Test seam: inject a (mockable) {@link K8sContext} instead of building one from the properties. */

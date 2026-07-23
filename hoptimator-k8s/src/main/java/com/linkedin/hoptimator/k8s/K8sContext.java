@@ -74,7 +74,7 @@ public final class K8sContext {
    * Used by connection-free callers (e.g. a K8s-native {@code DatabaseConfigResolver}) that only
    * need K8s API access, not a Calcite catalog.
    */
-  public static K8sContext createFromProperties(Properties connectionProperties) {
+  public static K8sContext create(Properties connectionProperties) {
     return create(connectionProperties, null);
   }
 

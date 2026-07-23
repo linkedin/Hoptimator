@@ -745,7 +745,7 @@ class LogicalTableDeployerTest {
         .thenReturn(tierProps);
 
     K8sContext mockCtx = mock(K8sContext.class);
-    k8sContextMock.when(() -> K8sContext.create(any()))
+    k8sContextMock.when(() -> K8sContext.create(any(DeploymentContext.class)))
         .thenReturn(mockCtx);
 
     HoptimatorConnection mockConn = mock(HoptimatorConnection.class);

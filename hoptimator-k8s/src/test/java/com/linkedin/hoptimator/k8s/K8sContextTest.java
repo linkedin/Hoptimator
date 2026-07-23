@@ -373,13 +373,13 @@ class K8sContextTest {
   }
 
   @Test
-  void createFromPropertiesBuildsContextWithoutDeploymentContext() {
+  void createBuildsContextWithoutDeploymentContext() {
     Properties props = new Properties();
     props.setProperty(K8sContext.NAMESPACE_KEY, "direct-ns");
     props.setProperty(K8sContext.SERVER_KEY, "https://k8s.example.com");
     props.setProperty(K8sContext.TOKEN_KEY, "token");
 
-    K8sContext ctx = K8sContext.createFromProperties(props);
+    K8sContext ctx = K8sContext.create(props);
 
     assertNotNull(ctx);
     assertEquals("direct-ns", ctx.namespace());

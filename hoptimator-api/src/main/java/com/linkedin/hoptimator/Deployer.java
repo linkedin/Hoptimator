@@ -17,8 +17,7 @@ public interface Deployer {
    * Whether the backing resource this deployer manages already exists. Used by the connection-free
    * direct path to enforce {@code CREATE} (not {@code OR REPLACE}) semantics — the SQL/DDL path
    * enforces the same thing via the Calcite catalog before deployers run, so this is not consulted
-   * there. Implementations must report their backing resource's existence truthfully (rather than
-   * assume-absent), so a re-create against a different schema is rejected instead of silently masked.
+   * there.
    */
   boolean exists() throws SQLException;
 
