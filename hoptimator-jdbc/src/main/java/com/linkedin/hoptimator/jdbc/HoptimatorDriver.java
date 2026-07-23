@@ -199,8 +199,8 @@ public class HoptimatorDriver implements Driver {
    *       caller handed us the exact schema, so we preserve its namespaces, nested record identities,
    *       unions, and defaults instead of re-synthesizing from the flat row type.
    *   <li><b>SQL path</b> ({@link CalciteDeploymentContext}): the native value schema of a
-   *       pre-existing source table that implements {@link AvroSchemaSource} (e.g. a Venice store or
-   *       a schema-registry-backed topic resolved through the Calcite catalog).
+   *       pre-existing source table that implements {@link AvroSchemaSource} (e.g. a Venice store
+   *       resolved through the Calcite catalog).
    *   <li>Otherwise {@code null} — e.g. a delete (no schema carried), or a SQL source with no native
    *       Avro (a MySQL table, a computed view). Callers rendering {@code {{avroValueSchema}}} then
    *       synthesize a value schema from the row type.
@@ -232,13 +232,13 @@ public class HoptimatorDriver implements Driver {
   /**
    * Returns the caller-provided (merged key+value) Avro schema on the direct path, or {@code null}
    * otherwise. On the direct API path the caller hands us the exact Avro schema they want deployed;
-   * carrying it verbatim lets deployers that speak Avro (schema registry, Venice, ...) avoid the
-   * lossy Avro&nbsp;&rarr;&nbsp;RelDataType&nbsp;&rarr;&nbsp;Avro round-trip, preserving namespaces,
+   * carrying it verbatim lets deployers that speak Avro (e.g. Venice) avoid the
+   * lossy Avro->RelDataType->Avro round-trip, preserving namespaces,
    * nested record names, unions, and defaults. Returns {@code null} on the SQL path (where the
    * native schema, if any, comes from {@link #valueSchema}) and whenever no Avro was supplied
    * (e.g. a delete).
    */
-  public static @Nullable Schema providedAvroSchema(Source source, DeploymentContext context) {
+  public static @Nullable Schema providedAvroSchema(DeploymentContext context) {
     if (context instanceof DirectDeploymentContext) {
       return ((DirectDeploymentContext) context).avroSchema();
     }

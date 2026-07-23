@@ -205,17 +205,15 @@ class HoptimatorDriverTest {
     Schema avro = new Schema.Parser().parse("{\"type\":\"record\",\"name\":\"R\","
         + "\"namespace\":\"com.example\",\"fields\":[{\"name\":\"ID\",\"type\":\"int\"}]}");
     DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, avro);
-    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
 
-    assertSame(avro, HoptimatorDriver.providedAvroSchema(source, context));
+    assertSame(avro, HoptimatorDriver.providedAvroSchema(context));
   }
 
   @Test
   void testProvidedAvroSchemaReturnsNullWhenNoneCarried() {
     DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, null);
-    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
 
-    assertNull(HoptimatorDriver.providedAvroSchema(source, context));
+    assertNull(HoptimatorDriver.providedAvroSchema(context));
   }
 
   @Test

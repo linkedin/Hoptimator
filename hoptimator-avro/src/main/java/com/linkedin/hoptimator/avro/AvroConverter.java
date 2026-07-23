@@ -205,24 +205,25 @@ public final class AvroConverter {
 
   /**
    * Extracts the value (payload) portion of a merged key+value Avro record, treating fields whose
-   * names start with {@code keyPrefix} as keys and dropping them. The result keeps the merged
-   * record's own identity (name, namespace, doc, aliases, props) and clones nested field schemas by
-   * reference, so namespaces, nested record names, unions, enums/fixed, and defaults survive — the
-   * value-only counterpart of {@link #avroKeyPayloadSchema(String, Schema, Map)}. A non-record or a
-   * record with no key-prefixed fields is returned unchanged.
+   * names start with {@code keyPrefix} as keys and dropping them. Thin convenience wrapper over
+   * {@link #avroKeyPayloadSchema(String, Schema, Map)} that derives its {@code key.fields} from the
+   * prefix (rather than an explicit list) and keeps only the payload side, so the two share one
+   * splitting implementation. Like that method it is lossless (nested field schemas are cloned by
+   * reference, preserving namespaces, nested record names, unions, enums/fixed, defaults). A
+   * non-record, or a record with no key-prefixed fields, is returned unchanged; a record whose
+   * fields are all keys yields {@code null} (no payload).
    */
   public static Schema valueSchemaOf(Schema mergedAvro, String keyPrefix) {
     if (mergedAvro.getType() != Schema.Type.RECORD) {
       return mergedAvro;
     }
-    List<Schema.Field> payloadFields = mergedAvro.getFields().stream()
-        .filter(f -> !f.name().startsWith(keyPrefix))
-        .map(f -> AvroSchemas.cloneField(f.name(), f))
-        .collect(Collectors.toList());
-    if (payloadFields.size() == mergedAvro.getFields().size()) {
-      return mergedAvro;
-    }
-    return recordLike(mergedAvro, payloadFields);
+    String keys = mergedAvro.getFields().stream()
+        .map(Schema.Field::name)
+        .filter(n -> n.startsWith(keyPrefix))
+        .collect(Collectors.joining(";"));
+    Map<String, String> keyOptions = keys.isEmpty() ? Map.of()
+        : Map.of(KEY_OPTION, keys, KEY_PREFIX_OPTION, keyPrefix);
+    return avroKeyPayloadSchema(mergedAvro.getName() + "_Key", mergedAvro, keyOptions).getValue();
   }
 
   /** Builds a record that inherits {@code template}'s identity (name/namespace/doc/aliases/props). */

@@ -559,9 +559,9 @@ public final class HoptimatorDdlUtils {
         };
 
     Map<String, String> tableOptions = options(create.options);
-    CalciteSchemaTarget calcite = new CalciteSchemaTarget(target.pair, target.isNewSchema, ief);
+    CalciteSchemaTarget calcite = new CalciteSchemaTarget(target.pair, target.isNewSchema, ief, rowType);
     return deployTableInternal(conn.logHooks(), conn.deploymentContext(), calcite, target.tablePath(),
-        target.database, target.tableName, rowType, tableOptions,
+        target.database, target.tableName, tableOptions,
         create.ifNotExists, create.getReplace(), mode);
   }
 
@@ -649,12 +649,16 @@ public final class HoptimatorDdlUtils {
     final boolean isNewSchema;
     // Default-value/generation strategy for the temporary table
     final InitializerExpressionFactory ief;
+    // Row type to register on the temporary table (derived from the SQL column declarations)
+    final RelDataType rowType;
 
-    CalciteSchemaTarget(Pair<CalciteSchema, String> pair, boolean isNewSchema, InitializerExpressionFactory ief) {
+    CalciteSchemaTarget(Pair<CalciteSchema, String> pair, boolean isNewSchema, InitializerExpressionFactory ief,
+        RelDataType rowType) {
       this.pair = requireNonNull(pair, "pair");
       requireNonNull(pair.left, "pair.left (Calcite schema node)");
       this.isNewSchema = isNewSchema;
       this.ief = ief;
+      this.rowType = requireNonNull(rowType, "rowType");
     }
 
     SchemaPlus schemaPlus() {
@@ -674,7 +678,7 @@ public final class HoptimatorDdlUtils {
    */
   static SpecifyResult deployTableInternal(List<Consumer<String>> logHooks, DeploymentContext context,
       @Nullable CalciteSchemaTarget calcite, List<String> tablePath, String database, String tableName,
-      RelDataType rowType, Map<String, String> options, boolean ifNotExists, boolean orReplace, DdlMode mode)
+      Map<String, String> options, boolean ifNotExists, boolean orReplace, DdlMode mode)
       throws SQLException {
     DualLogger logger = new DualLogger(HoptimatorDdlUtils.class, logHooks);
 
@@ -724,7 +728,7 @@ public final class HoptimatorDdlUtils {
         databaseSchema = schemaPlus.add(database, catalogSchema.createSchema(database));
         logger.info("Added schema {} to catalog {}", database, schemaPlus.getName());
       }
-      databaseSchema.add(tableName, new TemporaryTable(rowType, database, calcite.ief));
+      databaseSchema.add(tableName, new TemporaryTable(calcite.rowType, database, calcite.ief));
       logger.info("Added table {} to schema {}", tableName, databaseSchema.getName());
     }
 
@@ -765,7 +769,11 @@ public final class HoptimatorDdlUtils {
         DeploymentService.restore(deployers);
       }
       success = true;
-      return new SpecifyResult(specs, rowType, tablePath);
+      // Resolve the sink row type only now, for the result: the SQL path already has it on the
+      // Calcite target; the direct path derives it from the schema carried on its context. Neither
+      // deployment nor validation above needs it (deployers resolve the row type themselves).
+      RelDataType sinkRowType = calcite == null ? HoptimatorDriver.rowType(source, context) : calcite.rowType;
+      return new SpecifyResult(specs, sinkRowType, tablePath);
     } catch (SQLException | RuntimeException e) {
       logger.info("Failed to deploy table {}", tableName);
       if (deployers != null) {

@@ -6,7 +6,6 @@ import com.linkedin.hoptimator.PendingDelete;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.DeploymentService;
 import org.apache.avro.Schema;
-import org.apache.calcite.rel.type.RelDataType;
 
 import java.sql.SQLException;
 import java.util.Collection;
@@ -76,14 +75,14 @@ public final class TableService {
         : (updateIfExists ? HoptimatorDdlUtils.DdlMode.UPDATE : HoptimatorDdlUtils.DdlMode.CREATE);
 
     // Resolve the target database identifier registry-natively and carry the caller's Avro schema on
-    // the context (the direct path touches no Calcite catalog); the row type is derived from it.
+    // the context (the direct path touches no Calcite catalog); deployers derive the row type from it
+    // on demand, so we don't resolve it here.
     String database = resolver.databaseName(path);
     String tableName = path.get(path.size() - 1);
     DirectDeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, avroSchema);
-    RelDataType rowType = context.rowType();
 
     return HoptimatorDdlUtils.deployTableInternal(logHooks, context, null, path,
-        database, tableName, rowType, options, false, updateIfExists, mode);
+        database, tableName, options, false, updateIfExists, mode);
   }
 
   /**

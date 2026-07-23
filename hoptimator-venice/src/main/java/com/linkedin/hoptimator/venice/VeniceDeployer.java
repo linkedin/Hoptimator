@@ -201,7 +201,7 @@ public class VeniceDeployer implements Deployer, Validated {
     Map<String, String> keyOptions = ConnectionService.configure(source, context);
     // On the direct API path the caller supplied the exact Avro schema; split it losslessly instead
     // of re-synthesizing from the row type (which would drop namespaces, nested record names, ...).
-    Schema provided = HoptimatorDriver.providedAvroSchema(source, context);
+    Schema provided = HoptimatorDriver.providedAvroSchema(context);
     if (provided != null) {
       return AvroConverter.avroKeyPayloadSchema(source.table() + "_Key", provided, keyOptions);
     }
