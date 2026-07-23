@@ -160,14 +160,15 @@ public final class AvroConverter {
    * <p>Key selection mirrors the RelDataType twin: {@code key.fields} (semicolon-separated) names
    * the key fields and {@code key.fields-prefix} is stripped from each. A single key field whose
    * stripped name is {@link AvroSchemas#PRIMITIVE_KEY_NAME} yields a primitive key (that field's own
-   * schema). The payload record keeps the merged record's identity (name, namespace, doc, aliases,
-   * props) so a value schema registered elsewhere still matches.
+   * schema). The payload record keeps the merged record's own identity (name, namespace, doc,
+   * aliases, props) so a value schema registered elsewhere still matches; the key record — whose
+   * identity the merge did not preserve — is named {@code keySchemaName} in the merged namespace.
    *
    * @return {@code Pair<key schema, payload schema>}; either side may be {@code null} (no key, or an
    *     all-key record with no payload).
    */
-  public static Pair<Schema, Schema> avroKeyPayloadSchema(String namespace, String keySchemaName,
-      String payloadSchemaName, Schema mergedAvro, Map<String, String> keyOptions) {
+  public static Pair<Schema, Schema> avroKeyPayloadSchema(String keySchemaName, Schema mergedAvro,
+      Map<String, String> keyOptions) {
     String keys = keyOptions.get(KEY_OPTION);
     String keyPrefix = keyOptions.getOrDefault(KEY_PREFIX_OPTION, "");
 
@@ -193,31 +194,28 @@ public final class AvroConverter {
       }
     }
 
-    Schema payloadSchema = payloadFields.isEmpty() ? null
-        : recordLike(mergedAvro, payloadFields);
+    Schema payloadSchema = payloadFields.isEmpty() ? null : recordLike(mergedAvro, payloadFields);
     if (primitiveKeySchema != null) {
       return new Pair<>(primitiveKeySchema, payloadSchema);
     }
     Schema keySchema = keyFields.isEmpty() ? null
-        : recordOf(sanitize(keySchemaName), mergedAvro.getNamespace(), keyFields);
+        : record(sanitize(keySchemaName), null, mergedAvro.getNamespace(), keyFields);
     return new Pair<>(keySchema, payloadSchema);
   }
 
   /** Builds a record that inherits {@code template}'s identity (name/namespace/doc/aliases/props). */
   private static Schema recordLike(Schema template, List<Schema.Field> fields) {
-    Schema record = Schema.createRecord(template.getName(), template.getDoc(),
-        template.getNamespace(), template.isError());
-    record.setFields(fields);
-    template.getAliases().forEach(record::addAlias);
-    template.getObjectProps().forEach(record::addProp);
-    return record;
+    Schema schema = record(template.getName(), template.getDoc(), template.getNamespace(), fields);
+    template.getAliases().forEach(schema::addAlias);
+    template.getObjectProps().forEach(schema::addProp);
+    return schema;
   }
 
-  /** Builds a plain record with the given name and namespace. */
-  private static Schema recordOf(String name, String namespace, List<Schema.Field> fields) {
-    Schema record = Schema.createRecord(name, null, namespace, false);
-    record.setFields(fields);
-    return record;
+  /** Builds a record with the given name, doc, and namespace holding {@code fields}. */
+  private static Schema record(String name, String doc, String namespace, List<Schema.Field> fields) {
+    Schema schema = Schema.createRecord(name, doc, namespace, false);
+    schema.setFields(fields);
+    return schema;
   }
 
   private static Schema createAvroSchemaWithNullability(Schema schema, boolean nullable) {

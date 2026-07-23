@@ -1,8 +1,11 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.DeploymentContext;
+import com.linkedin.hoptimator.avro.AvroConverter;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 
 import javax.annotation.Nullable;
 import java.sql.SQLException;
@@ -14,12 +17,10 @@ import java.util.Properties;
  * {@link CalciteDeploymentContext}, it holds no Calcite {@link HoptimatorConnection}:
  *
  * <ul>
- *   <li>the table's row type is <em>carried</em> (the caller already produced it, e.g. from an
- *       Avro schema) rather than looked up from a Calcite {@code Table};
- *   <li>the caller's original Avro schema is carried alongside the row type, so deployers that
- *       speak Avro (schema registry, Venice, ...) can use it verbatim instead of re-synthesizing
- *       from the row type — the Avro->RelDataType->Avro round-trip is
- *       lossy (namespaces, nested record names, unions, defaults);
+ *   <li>the caller's original Avro schema is <em>carried</em> (rather than a table being looked up
+ *       from a Calcite {@code Table}); deployers that speak Avro (schema registry, Venice, ...) use
+ *       it verbatim via {@link #avroSchema()}, and {@link #rowType()} is derived from it on demand —
+ *       the schema is the single source of truth, so the two can't drift;
  *   <li>connection-level {@link #properties()} are a plain bag;
  *   <li>per-{@code Database} config is resolved through an injected {@link DatabaseConfigResolver},
  *       so this context does not depend on how the {@code Database} registry is stored.
@@ -32,38 +33,41 @@ public final class DirectDeploymentContext implements DeploymentContext {
 
   private final Properties properties;
   private final DatabaseConfigResolver databaseConfigResolver;
-  private final @Nullable RelDataType rowType;
   private final @Nullable Schema avroSchema;
+  private @Nullable RelDataType rowType;  // lazily derived from avroSchema
 
-  public DirectDeploymentContext(Properties properties, DatabaseConfigResolver databaseConfigResolver,
-      @Nullable RelDataType rowType) {
-    this(properties, databaseConfigResolver, rowType, null);
+  /** For schema-free operations such as delete, where no row type or Avro schema is needed. */
+  public DirectDeploymentContext(Properties properties, DatabaseConfigResolver databaseConfigResolver) {
+    this(properties, databaseConfigResolver, null);
   }
 
   public DirectDeploymentContext(Properties properties, DatabaseConfigResolver databaseConfigResolver,
-      @Nullable RelDataType rowType, @Nullable Schema avroSchema) {
+      @Nullable Schema avroSchema) {
     this.properties = properties;
     this.databaseConfigResolver = databaseConfigResolver;
-    this.rowType = rowType;
     this.avroSchema = avroSchema;
   }
 
-  /** The carried row type for the table being deployed, or {@code null} for schema-free operations
-   * such as delete. */
+  /**
+   * The row type for the table being deployed, derived on first use from the carried
+   * {@link #avroSchema()}. Throws for schema-free operations (e.g. a delete) that carry no schema.
+   */
   public RelDataType rowType() {
-    if (rowType == null) {
-      throw new IllegalStateException("No row type is carried by this context (e.g. a delete). "
+    if (avroSchema == null) {
+      throw new IllegalStateException("No Avro schema is carried by this context (e.g. a delete). "
           + "A deployer requested a row type on a schema-free operation.");
+    }
+    if (rowType == null) {
+      rowType = AvroConverter.rel(avroSchema, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
     }
     return rowType;
   }
 
   /**
    * The caller's original (merged key+value) Avro schema for the table being deployed, or
-   * {@code null} when the caller supplied none (e.g. a delete, or a caller that only provided a
-   * row type). Deployers should prefer this over re-synthesizing Avro from {@link #rowType()},
-   * since the row type cannot represent Avro namespaces, nested record identities, unions, or
-   * defaults.
+   * {@code null} when the caller supplied none (e.g. a delete). Deployers should prefer this over
+   * re-synthesizing Avro from {@link #rowType()}, since the row type cannot represent Avro
+   * namespaces, nested record identities, unions, or defaults.
    */
   public @Nullable Schema avroSchema() {
     return avroSchema;

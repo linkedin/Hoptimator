@@ -13,11 +13,16 @@ import com.linkedin.venice.controllerapi.SchemaResponse;
 import com.linkedin.venice.controllerapi.StoreResponse;
 import com.linkedin.venice.meta.StoreInfo;
 import org.apache.avro.Schema;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeSystem;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -324,17 +329,13 @@ class VeniceDeployerTest {
     Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
     // The direct path carries the caller's Avro. getKeyPayloadSchema must use it verbatim rather
     // than re-synthesizing from the row type, so a nested value record's namespace survives.
-    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    RelDataType rowType = factory.builder()
-        .add("id", factory.createSqlType(SqlTypeName.INTEGER))
-        .build();
     Schema provided = new Schema.Parser().parse("{"
         + "\"type\":\"record\",\"name\":\"StoreValue\",\"namespace\":\"com.example.venice\",\"fields\":["
         + "{\"name\":\"widget\",\"type\":{\"type\":\"record\",\"name\":\"Widget\","
         + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
         + "]}");
     VeniceDeployer deployer = new VeniceDeployer(
-        source, properties, new DirectDeploymentContext(properties, null, rowType, provided));
+        source, properties, new DirectDeploymentContext(properties, null, provided));
 
     Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
 
@@ -349,16 +350,29 @@ class VeniceDeployerTest {
   @Test
   public void testGetKeyPayloadSchemaProducesPayloadFromRowType() throws Exception {
     Source source = new Source("venice", List.of("VENICE", TEST_STORE), Collections.emptyMap());
-    // A DirectDeploymentContext carries the row type. Without a resolved "keys" option (there is no
-    // connector on this unit-test classpath to supply one), avroKeyPayloadSchema treats the whole
-    // row type as the payload; the real key/payload split is covered by the Venice integration test.
+    // On the SQL/Calcite path no Avro is carried; the payload is synthesized from the row type
+    // resolved through the Calcite catalog. Without a resolved "keys" option (there is no connector
+    // on this unit-test classpath to supply one), avroKeyPayloadSchema treats the whole row type as
+    // the payload; the real key/payload split is covered by the Venice integration test.
     RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = factory.builder()
         .add("id", factory.createSqlType(SqlTypeName.INTEGER))
         .add("name", factory.createSqlType(SqlTypeName.VARCHAR))
         .build();
+    SchemaPlus rootSchema = Frameworks.createRootSchema(true);
+    SchemaPlus veniceSchema = rootSchema.add("VENICE", new AbstractSchema());
+    veniceSchema.add(TEST_STORE, new AbstractTable() {
+      @Override
+      public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+        return rowType;
+      }
+    });
+    CalciteConnection calciteConnection = mock(CalciteConnection.class);
+    when(mockConnection.connectionProperties()).thenReturn(properties);
+    when(mockConnection.calciteConnection()).thenReturn(calciteConnection);
+    when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
     VeniceDeployer deployer =
-        new VeniceDeployer(source, properties, new DirectDeploymentContext(properties, null, rowType));
+        new VeniceDeployer(source, properties, new CalciteDeploymentContext(mockConnection));
 
     Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
 

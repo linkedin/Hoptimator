@@ -203,11 +203,7 @@ public class VeniceDeployer implements Deployer, Validated {
     // of re-synthesizing from the row type (which would drop namespaces, nested record names, ...).
     Schema provided = HoptimatorDriver.providedAvroSchema(source, context);
     if (provided != null) {
-      return AvroConverter.avroKeyPayloadSchema("com.linkedin.hoptimator",
-          source.table() + "_Key",
-          source.table() + "_Value",
-          provided,
-          keyOptions);
+      return AvroConverter.avroKeyPayloadSchema(source.table() + "_Key", provided, keyOptions);
     }
     return AvroConverter.avroKeyPayloadSchema("com.linkedin.hoptimator",
         source.table() + "_Key",

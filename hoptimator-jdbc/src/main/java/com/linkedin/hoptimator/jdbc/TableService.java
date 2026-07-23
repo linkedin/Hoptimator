@@ -4,12 +4,9 @@ import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.PendingDelete;
 import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.util.DeploymentService;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
-import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 
 import java.sql.SQLException;
 import java.util.Collection;
@@ -66,6 +63,9 @@ public final class TableService {
     if (avroSchema == null) {
       throw new SQLException("An Avro schema is required to create a table.");
     }
+    if (avroSchema.getType() != Schema.Type.RECORD) {
+      throw new SQLException("The Avro schema must be a record; got " + avroSchema.getType() + ".");
+    }
     DatabaseConfigResolver resolver = DatabaseConfigResolvers.forProperties(connectionProperties);
 
     // updateIfExists is authoritative for the direct path: it maps straight to CREATE (fail if the
@@ -75,16 +75,12 @@ public final class TableService {
         ? HoptimatorDdlUtils.DdlMode.SPECIFY
         : (updateIfExists ? HoptimatorDdlUtils.DdlMode.UPDATE : HoptimatorDdlUtils.DdlMode.CREATE);
 
-    RelDataType rowType = AvroConverter.rel(avroSchema, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
-    if (!rowType.isStruct()) {
-      throw new SQLException("The Avro schema must be a record; got " + avroSchema.getType() + ".");
-    }
-
-    // Resolve the target database identifier registry-natively and carry the row type on the
-    // context: the direct path touches no Calcite catalog. The table path is the caller's path.
+    // Resolve the target database identifier registry-natively and carry the caller's Avro schema on
+    // the context (the direct path touches no Calcite catalog); the row type is derived from it.
     String database = resolver.databaseName(path);
     String tableName = path.get(path.size() - 1);
-    DirectDeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, rowType, avroSchema);
+    DirectDeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, avroSchema);
+    RelDataType rowType = context.rowType();
 
     return HoptimatorDdlUtils.deployTableInternal(logHooks, context, null, path,
         database, tableName, rowType, options, false, updateIfExists, mode);
@@ -107,7 +103,7 @@ public final class TableService {
     DatabaseConfigResolver resolver = DatabaseConfigResolvers.forProperties(connectionProperties);
     String database = resolver.databaseName(path);
     Source source = new Source(database, path, Map.of());
-    DeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, null);
+    DeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver);
 
     Collection<Deployer> deployers = null;
     try {

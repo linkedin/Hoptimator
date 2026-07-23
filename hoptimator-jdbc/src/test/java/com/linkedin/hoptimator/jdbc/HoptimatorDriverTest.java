@@ -5,11 +5,7 @@ import com.linkedin.hoptimator.Source;
 import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.SqlNode;
-import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -145,13 +141,15 @@ class HoptimatorDriverTest {
   }
 
   @Test
-  void testRowTypeReturnsCarriedTypeFromDirectContext() throws SQLException {
-    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    RelDataType carried = factory.builder().add("ID", factory.createSqlType(SqlTypeName.INTEGER)).build();
-    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, carried);
+  void testRowTypeDerivedFromAvroSchemaOnDirectContext() throws SQLException {
+    Schema avro = new Schema.Parser().parse("{\"type\":\"record\",\"name\":\"R\","
+        + "\"namespace\":\"com.example\",\"fields\":[{\"name\":\"ID\",\"type\":\"int\"}]}");
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, avro);
     Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
 
-    assertSame(carried, HoptimatorDriver.rowType(source, context));
+    RelDataType rowType = HoptimatorDriver.rowType(source, context);
+    assertTrue(rowType.isStruct());
+    assertTrue(rowType.getFieldNames().contains("ID"));
   }
 
   @Test
@@ -182,11 +180,9 @@ class HoptimatorDriverTest {
 
   @Test
   void testProvidedAvroSchemaReturnsCarriedSchemaFromDirectContext() {
-    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    RelDataType carried = factory.builder().add("ID", factory.createSqlType(SqlTypeName.INTEGER)).build();
     Schema avro = new Schema.Parser().parse("{\"type\":\"record\",\"name\":\"R\","
         + "\"namespace\":\"com.example\",\"fields\":[{\"name\":\"ID\",\"type\":\"int\"}]}");
-    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, carried, avro);
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, avro);
     Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
 
     assertSame(avro, HoptimatorDriver.providedAvroSchema(source, context));

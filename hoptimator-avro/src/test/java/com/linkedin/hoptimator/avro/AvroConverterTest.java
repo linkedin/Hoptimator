@@ -786,8 +786,7 @@ public class AvroConverterTest {
         + "]}");
     Map<String, String> keyOptions = Map.of("key.fields", "KEY_id", "key.fields-prefix", "KEY_");
 
-    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
-        "com.linkedin.hoptimator", "UserEvent_Key", "UserEvent_Value", merged, keyOptions);
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("UserEvent_Key", merged, keyOptions);
 
     Schema payload = result.getValue();
     assertNotNull(payload);
@@ -816,8 +815,7 @@ public class AvroConverterTest {
         + "{\"name\":\"v\",\"type\":\"string\"}]}");
     Map<String, String> keyOptions = Map.of("key.fields", "KEY");
 
-    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
-        "com.linkedin.hoptimator", "R_Key", "R_Value", merged, keyOptions);
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("R_Key", merged, keyOptions);
 
     // Primitive key: the key's own Avro type, not a wrapper record.
     assertEquals(Schema.Type.LONG, result.getKey().getType());
@@ -833,8 +831,7 @@ public class AvroConverterTest {
         + "\"type\":\"record\",\"name\":\"R\",\"namespace\":\"com.example\",\"fields\":["
         + "{\"name\":\"a\",\"type\":\"int\"}]}");
 
-    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
-        "com.linkedin.hoptimator", "R_Key", "R_Value", merged, Map.of());
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("R_Key", merged, Map.of());
 
     assertNull(result.getKey());
     assertEquals(merged, result.getValue()); // caller's schema verbatim
