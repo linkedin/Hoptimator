@@ -65,6 +65,22 @@ public class LogicalTableServiceIntegrationTest {
   }
 
   @Test
+  void dryRunPropagatesTierOptions() throws SQLException {
+    // Options provided to a logical table must reach its physical tiers: kafka.partitions=5 should
+    // render on the Kafka tier's topic, mirroring KafkaTableServiceIntegrationTest's assertion.
+    String table = "tslogicalopts";
+    HoptimatorDdlUtils.SpecifyResult result = TableService.create(connection.connectionProperties(),
+        connection.logHooks(), List.of(DB, table),
+        record(table, nullable("KEY", Schema.Type.STRING), nullable("memberId", Schema.Type.LONG),
+            nullable("pageKey", Schema.Type.STRING)),
+        Map.of("kafka.partitions", "5"), true, true);
+
+    String specs = String.join("\n", result.specs);
+    assertThat(specs).contains("kind: KafkaTopic");
+    assertThat(specs).contains("partitions: 5");
+  }
+
+  @Test
   void createAgainstNonExistentSchemaFails() {
     assertThatThrownBy(() -> TableService.create(connection.connectionProperties(), connection.logHooks(),
         List.of("LOGICAL-NONEXISTENT", "t"),
