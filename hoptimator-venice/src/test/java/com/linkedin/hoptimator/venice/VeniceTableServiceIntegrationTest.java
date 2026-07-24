@@ -1,17 +1,21 @@
 package com.linkedin.hoptimator.venice;
 
 import com.linkedin.hoptimator.Source;
-import com.linkedin.hoptimator.jdbc.CatalogResolver;
 import com.linkedin.hoptimator.jdbc.DatabaseConfigResolvers;
 import com.linkedin.hoptimator.jdbc.DirectDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorDdlUtils;
 import com.linkedin.hoptimator.jdbc.TableService;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import org.apache.avro.Schema;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Arrays;
@@ -44,7 +48,7 @@ public class VeniceTableServiceIntegrationTest {
       assertThat(created.sinkRowType.getFieldNames()).containsExactly("KEY_id", "i", "s");
 
       // Verify it registered in Venice.
-      RelDataType resolved = CatalogResolver.resolve(List.of(SCHEMA, store));
+      RelDataType resolved = resolveVenice(store);
       assertThat(resolved.getFieldNames()).contains("i", "s");
 
       // Backward-compatible evolution: add a nullable value field.
@@ -54,7 +58,7 @@ public class VeniceTableServiceIntegrationTest {
           nullable("s", Schema.Type.STRING),
           nullable("new_field", Schema.Type.DOUBLE));
       assertThat(evolved.sinkRowType.getFieldNames()).contains("new_field");
-      assertThat(CatalogResolver.resolve(List.of(SCHEMA, store)).getFieldNames()).contains("new_field");
+      assertThat(resolveVenice(store).getFieldNames()).contains("new_field");
 
       // Invalid updates on the same store must fail.
       assertThatThrownBy(() -> create(store,
@@ -96,7 +100,7 @@ public class VeniceTableServiceIntegrationTest {
           nullable("status", Schema.Type.STRING));
       assertThat(created.sinkRowType.getFieldNames())
           .containsExactly("KEY_user_id", "KEY_order_id", "total", "status");
-      assertThat(CatalogResolver.resolve(List.of(SCHEMA, store)).getFieldNames())
+      assertThat(resolveVenice(store).getFieldNames())
           .contains("total", "status");
     } finally {
       drop(store);
@@ -112,7 +116,7 @@ public class VeniceTableServiceIntegrationTest {
           nullable("i", Schema.Type.INT),
           nullable("s", Schema.Type.STRING));
       assertThat(created.sinkRowType.getFieldNames()).containsExactly("KEY", "i", "s");
-      assertThat(CatalogResolver.resolve(List.of(SCHEMA, store)).getFieldNames()).contains("i", "s");
+      assertThat(resolveVenice(store).getFieldNames()).contains("i", "s");
     } finally {
       drop(store);
     }
@@ -197,6 +201,34 @@ public class VeniceTableServiceIntegrationTest {
 
   private void drop(String store) throws SQLException {
     TableService.delete(new Properties(), List.of(SCHEMA, store));
+  }
+
+  /**
+   * Resolves a Venice store's row type (key fields, {@code KEY_}-prefixed or {@code KEY} for a
+   * primitive key, followed by the value fields), failing if the store is not present.
+   *
+   * <p>Uses a direct {@code jdbc:venice://} connection rather than the shared {@code catalogs=k8s}
+   * catalog on purpose. The catalog resolves a table by enumerating the whole schema, which for
+   * Venice means the router's bulk {@code /stores} list — a periodically-refreshed cache that lags
+   * the controller, so a just-created store can be momentarily absent from it (and, because that
+   * refresh window can outlast a whole test run, absent for every store created that run — the
+   * "all three or none" flake). A direct connection instead resolves the single store via the
+   * router's targeted {@code discover_cluster} endpoint, which reflects the create immediately, so
+   * no polling is needed. The store deployers run synchronously, so the store exists the instant
+   * {@code create} returns.
+   */
+  private RelDataType resolveVenice(String store) throws SQLException {
+    Properties veniceProps = DatabaseConfigResolvers.forProperties(new Properties())
+        .databaseProperties(null, SCHEMA, "jdbc:venice://");
+    try (Connection conn = DriverManager.getConnection("jdbc:venice://", veniceProps)) {
+      CalciteConnection calciteConnection = conn.unwrap(CalciteConnection.class);
+      SchemaPlus veniceSchema = calciteConnection.getRootSchema().subSchemas().get(SCHEMA);
+      Table table = veniceSchema == null ? null : veniceSchema.tables().get(store);
+      if (table == null) {
+        throw new SQLException("Venice store not resolvable after create: " + store);
+      }
+      return table.getRowType(calciteConnection.getTypeFactory());
+    }
   }
 
   private static Schema recordOf(String name, Schema.Field... fields) {
