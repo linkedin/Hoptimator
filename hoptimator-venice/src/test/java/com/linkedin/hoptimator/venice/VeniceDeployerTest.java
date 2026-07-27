@@ -34,6 +34,7 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -335,7 +336,14 @@ class VeniceDeployerTest {
         + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
         + "]}");
     VeniceDeployer deployer = new VeniceDeployer(
-        source, properties, new DirectDeploymentContext(properties, null, provided));
+        source, properties, new DirectDeploymentContext(properties, null, provided)) {
+          @Override
+          protected Map<String, String> resolveKeyOptions() {
+            // Unit-test seam: avoid resolving options through the live ConnectionService (which would
+            // reach out to K8s). The provided-Avro path under test does not depend on key options.
+            return Collections.emptyMap();
+          }
+        };
 
     Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
 
@@ -368,11 +376,18 @@ class VeniceDeployerTest {
       }
     });
     CalciteConnection calciteConnection = mock(CalciteConnection.class);
-    when(mockConnection.connectionProperties()).thenReturn(properties);
     when(mockConnection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
     VeniceDeployer deployer =
-        new VeniceDeployer(source, properties, new CalciteDeploymentContext(mockConnection));
+        new VeniceDeployer(source, properties, new CalciteDeploymentContext(mockConnection)) {
+          @Override
+          protected Map<String, String> resolveKeyOptions() {
+            // Unit-test seam: no connector on this classpath supplies a "keys" option, and resolving
+            // through the live ConnectionService would reach out to K8s. Return none so the whole
+            // row type is treated as the payload.
+            return Collections.emptyMap();
+          }
+        };
 
     Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
 

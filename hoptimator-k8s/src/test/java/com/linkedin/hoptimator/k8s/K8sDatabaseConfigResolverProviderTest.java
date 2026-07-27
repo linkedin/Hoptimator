@@ -14,7 +14,14 @@ class K8sDatabaseConfigResolverProviderTest {
 
   @Test
   void resolverReturnsK8sResolver() {
-    DatabaseConfigResolver resolver = provider.resolver(new Properties());
+    // Offline connection properties: server+token make K8sContext build an ApiClient via
+    // Config.fromToken (no kubeconfig read, no network), so constructing the resolver does not
+    // require an ambient cluster. The test only asserts the resolver type.
+    Properties props = new Properties();
+    props.setProperty("k8s.server", "https://localhost:1");
+    props.setProperty("k8s.token", "test-token");
+    props.setProperty("k8s.namespace", "default");
+    DatabaseConfigResolver resolver = provider.resolver(props);
 
     assertThat(resolver).isInstanceOf(K8sDatabaseConfigResolver.class);
   }
