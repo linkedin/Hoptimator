@@ -199,6 +199,12 @@ public class VeniceDeployer implements Deployer, Validated {
 
   protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
     Map<String, String> keyOptions = resolveKeyOptions();
+    // On the direct API path the caller supplied the exact Avro schema; split it losslessly instead
+    // of re-synthesizing from the row type (which would drop namespaces, nested record names, ...).
+    Schema provided = HoptimatorDriver.providedAvroSchema(context);
+    if (provided != null) {
+      return AvroConverter.avroKeyPayloadSchema(source.table() + "_Key", provided, keyOptions);
+    }
     return AvroConverter.avroKeyPayloadSchema("com.linkedin.hoptimator",
         source.table() + "_Key",
         source.table() + "_Value",

@@ -1,0 +1,50 @@
+package com.linkedin.hoptimator.jdbc;
+
+import java.sql.SQLException;
+import java.util.List;
+import java.util.Properties;
+
+import javax.annotation.Nullable;
+
+
+/**
+ * Resolves per-{@code Database} connection config, decoupled from how the {@code Database} registry
+ * is stored. This is the seam that lets a {@link com.linkedin.hoptimator.DeploymentContext} answer
+ * {@code databaseProperties(...)} — and the direct table API resolve a database identifier —
+ * without holding a Calcite {@link HoptimatorConnection}. A registry-native module (e.g.
+ * {@code hoptimator-k8s}) supplies an implementation that reads {@code Database} CRDs (or any other
+ * registry) directly; see {@link DatabaseConfigResolverProvider}.
+ *
+ * <p>{@link #databaseProperties} deliberately mirrors {@link
+ * com.linkedin.hoptimator.DeploymentContext#databaseProperties}: on the direct path {@link
+ * DirectDeploymentContext} answers that SPI method by forwarding here, while {@link
+ * CalciteDeploymentContext} answers the same method from the Calcite catalog. They are separate
+ * interfaces (rather than one) because {@code DeploymentContext} is the engine-neutral SPI in
+ * {@code hoptimator-api} and must not depend on a registry-native module, whereas this resolver is
+ * the {@code ServiceLoader} backend that supplies the direct path's answer. This interface also
+ * carries {@link #databaseName}, which {@code DeploymentContext} does not — so the two are not
+ * interchangeable.
+ */
+public interface DatabaseConfigResolver {
+
+  /**
+   * Returns the parsed connection properties for a database, or {@code null} when the database is
+   * unknown or its URL does not start with {@code connectionPrefix}. The {@code Database} is keyed
+   * by a catalog and/or a schema; both are individually optional, but at least one must be provided.
+   *
+   * @param catalog          the catalog name, or {@code null}
+   * @param schema           the schema name, or {@code null}
+   * @param connectionPrefix the expected URL scheme prefix (e.g. {@code "jdbc:kafka://"})
+   */
+  @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
+      String connectionPrefix);
+
+  /**
+   * Resolves the {@code database} identifier for a table at {@code tablePath} — the value exposed as
+   * {@link com.linkedin.hoptimator.Source#database()} and used to name/derive deployed resources and
+   * to match template {@code databases} filters. This is the registered {@code Database} name for
+   * both schema-style and catalog-style databases; the store-level schema (e.g. the target MySQL
+   * database) is carried separately by {@link com.linkedin.hoptimator.Source#schema()}.
+   */
+  String databaseName(List<String> tablePath) throws SQLException;
+}

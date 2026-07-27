@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -140,6 +141,18 @@ class HoptimatorDriverTest {
   }
 
   @Test
+  void testRowTypeDerivedFromAvroSchemaOnDirectContext() throws SQLException {
+    Schema avro = new Schema.Parser().parse("{\"type\":\"record\",\"name\":\"R\","
+        + "\"namespace\":\"com.example\",\"fields\":[{\"name\":\"ID\",\"type\":\"int\"}]}");
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, avro);
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+
+    RelDataType rowType = HoptimatorDriver.rowType(source, context);
+    assertTrue(rowType.isStruct());
+    assertTrue(rowType.getFieldNames().contains("ID"));
+  }
+
+  @Test
   void testRowTypeThrowsForUnknownContextType() {
     Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
     DeploymentContext unknown = new DeploymentContext() {
@@ -155,6 +168,52 @@ class HoptimatorDriverTest {
     };
 
     assertThrows(SQLException.class, () -> HoptimatorDriver.rowType(source, unknown));
+  }
+
+  @Test
+  void testValueSchemaReturnsNullForSchemaFreeDirectContext() {
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, null);
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+
+    assertNull(HoptimatorDriver.valueSchema(source, context));
+  }
+
+  @Test
+  void testValueSchemaSplitsValueFromCarriedMergedAvroOnDirectContext() {
+    // The caller's carried Avro is a merged key+value record (KEY_-prefixed key fields). valueSchema
+    // must return only the value portion (keys handled separately via key.fields) and preserve a
+    // nested record's namespace losslessly rather than re-synthesizing from the flat row type.
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"StoreValue\",\"namespace\":\"com.example.kafka\",\"fields\":["
+        + "{\"name\":\"KEY_id\",\"type\":\"int\"},"
+        + "{\"name\":\"widget\",\"type\":{\"type\":\"record\",\"name\":\"Widget\","
+        + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
+        + "]}");
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, merged);
+    Source source = new Source("KAFKA", Arrays.asList("KAFKA", "my_topic"), Collections.emptyMap());
+
+    Schema value = HoptimatorDriver.valueSchema(source, context);
+
+    assertNull(value.getField("KEY_id"), "key field excluded from value schema");
+    assertNotNull(value.getField("widget"), "value field retained");
+    assertEquals("com.example.custom", value.getField("widget").schema().getNamespace(),
+        "nested namespace preserved losslessly");
+  }
+
+  @Test
+  void testProvidedAvroSchemaReturnsCarriedSchemaFromDirectContext() {
+    Schema avro = new Schema.Parser().parse("{\"type\":\"record\",\"name\":\"R\","
+        + "\"namespace\":\"com.example\",\"fields\":[{\"name\":\"ID\",\"type\":\"int\"}]}");
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, avro);
+
+    assertSame(avro, HoptimatorDriver.providedAvroSchema(context));
+  }
+
+  @Test
+  void testProvidedAvroSchemaReturnsNullWhenNoneCarried() {
+    DirectDeploymentContext context = new DirectDeploymentContext(new Properties(), null, null);
+
+    assertNull(HoptimatorDriver.providedAvroSchema(context));
   }
 
   @Test
