@@ -41,7 +41,7 @@ class ConnectionServiceTest {
   }
 
   @Test
-  void testConnectorsReturnsCollectionForObject() {
+  void testConnectorsReturnsCollectionForObject() throws SQLException {
     Collection<?> connectors = ConnectionService.connectors("test", mockConnection);
 
     assertNotNull(connectors);

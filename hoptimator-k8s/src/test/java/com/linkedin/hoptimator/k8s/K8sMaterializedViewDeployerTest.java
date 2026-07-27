@@ -30,6 +30,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -196,6 +197,21 @@ class K8sMaterializedViewDeployerTest {
     // viewDeployer.delete() is mocked, so this should succeed
     deployer.delete();
     assertNotNull(deployer);
+  }
+
+  @Test
+  void existsDelegatesToViewDeployer() throws SQLException {
+    Sink sink = new Sink("sinkdb", Arrays.asList("schema", "sink_table"), Collections.emptyMap());
+    Job job = new Job("j", Collections.emptySet(), sink, Collections.emptyMap());
+    MaterializedView view = createTestMaterializedView(
+        Arrays.asList("SCHEMA", "VIEW"),
+        Collections.emptyList(), sink, job);
+
+    K8sMaterializedViewDeployer deployer = makeDeployerWithMockView(view);
+    when(viewDeployer.exists()).thenReturn(true);
+
+    assertTrue(deployer.exists());
+    verify(viewDeployer).exists();
   }
 
   @Test

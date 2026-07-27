@@ -42,7 +42,7 @@ class ValidationServiceTest {
    * record an error into issues. If the forEach call is removed, issues stays valid.
    */
   @Test
-  void testValidateObjIssuesInvokesValidators() {
+  void testValidateObjIssuesInvokesValidators() throws SQLException {
     ValidatorProviderTest.enableErrors();
     Validator.Issues issues = new Validator.Issues("test");
     ValidationService.validate("any-object", issues, null);
@@ -101,7 +101,7 @@ class ValidationServiceTest {
 
   // ValidatorProviderTest is registered and, when in error mode, returns a non-empty list.
   @Test
-  void testValidatorsReturnsValidatorsFromRegisteredProvider() {
+  void testValidatorsReturnsValidatorsFromRegisteredProvider() throws SQLException {
     ValidatorProviderTest.enableErrors();
     Collection<Validator> validators = ValidationService.validators("any-object", null);
     assertNotNull(validators);
@@ -116,13 +116,13 @@ class ValidationServiceTest {
   }
 
   @Test
-  void testValidatorsReturnsCollection() {
+  void testValidatorsReturnsCollection() throws SQLException {
     Collection<Validator> validators = ValidationService.validators("test-object", null);
     assertNotNull(validators);
   }
 
   @Test
-  void testValidatePopulatesIssues() {
+  void testValidatePopulatesIssues() throws SQLException {
     Validator.Issues issues = new Validator.Issues("test");
     ValidationService.validate("test-object", issues, null);
     assertNotNull(issues);

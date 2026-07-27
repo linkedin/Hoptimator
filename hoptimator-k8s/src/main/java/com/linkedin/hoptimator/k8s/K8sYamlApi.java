@@ -38,9 +38,10 @@ public class K8sYamlApi implements Api<String> {
   }
 
   public DynamicKubernetesObject getIfExists(DynamicKubernetesObject obj) throws SQLException {
-    KubernetesApiResponse<DynamicKubernetesObject> resp =
-        context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(obj.getMetadata().getNamespace(),
-            obj.getMetadata().getName());
+    KubernetesApiResponse<DynamicKubernetesObject> resp = K8sUtils.normalizingCall(
+        "get " + obj.getKind() + " " + obj.getMetadata().getName(),
+        () -> context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).get(obj.getMetadata().getNamespace(),
+            obj.getMetadata().getName()));
     if (resp.getHttpStatusCode() == 404) {
       return null;
     }
@@ -79,8 +80,9 @@ public class K8sYamlApi implements Api<String> {
       Map<String, String> labels, List<V1OwnerReference> ownerReferences) throws SQLException {
     obj.setMetadata(obj.getMetadata().annotations(annotations).labels(labels).ownerReferences(ownerReferences));
     context.own(obj);
-    KubernetesApiResponse<DynamicKubernetesObject> resp =
-        context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
+    KubernetesApiResponse<DynamicKubernetesObject> resp = K8sUtils.normalizingCall(
+        "create " + obj.getKind() + " " + obj.getMetadata().getName(),
+        () -> context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj));
     K8sUtils.checkResponse(String.format("Error creating K8s obj: %s:%s", obj.getKind(), obj.getMetadata().getName()), resp);
     log.info("Created K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
@@ -96,8 +98,9 @@ public class K8sYamlApi implements Api<String> {
   }
 
   public void delete(String apiVersion, String kind, String namespace, String name) throws SQLException {
-    KubernetesApiResponse<DynamicKubernetesObject> resp =
-        context.dynamic(apiVersion, K8sUtils.guessPlural(kind)).delete(namespace, name);
+    KubernetesApiResponse<DynamicKubernetesObject> resp = K8sUtils.normalizingCall(
+        "delete " + kind + " " + name,
+        () -> context.dynamic(apiVersion, K8sUtils.guessPlural(kind)).delete(namespace, name));
     K8sUtils.checkResponse(String.format("Error getting K8s obj: %s:%s", kind, name), resp);
     log.info("Deleted K8s obj: {}:{}", kind, name);
   }
@@ -109,9 +112,10 @@ public class K8sYamlApi implements Api<String> {
   }
 
   public void update(DynamicKubernetesObject obj) throws SQLException {
-    KubernetesApiResponse<DynamicKubernetesObject> existing =
-        context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
-            .get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+    KubernetesApiResponse<DynamicKubernetesObject> existing = K8sUtils.normalizingCall(
+        "get " + obj.getKind() + " " + obj.getMetadata().getName(),
+        () -> context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj))
+            .get(obj.getMetadata().getNamespace(), obj.getMetadata().getName()));
     final KubernetesApiResponse<DynamicKubernetesObject> resp;
     if (existing.isSuccess()) {
 
@@ -135,10 +139,14 @@ public class K8sYamlApi implements Api<String> {
       existing.getObject().getMetadata().setAnnotations(annotations);
 
       obj.setMetadata(existing.getObject().getMetadata());
-      resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).update(obj);
+      resp = K8sUtils.normalizingCall(
+          "update " + obj.getKind() + " " + obj.getMetadata().getName(),
+          () -> context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).update(obj));
     } else {
       context.own(obj);
-      resp = context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj);
+      resp = K8sUtils.normalizingCall(
+          "create " + obj.getKind() + " " + obj.getMetadata().getName(),
+          () -> context.dynamic(obj.getApiVersion(), K8sUtils.guessPlural(obj)).create(obj));
     }
     K8sUtils.checkResponse(String.format("Error updating K8s obj: %s:%s", obj.getKind(), obj.getMetadata().getName()), resp);
     log.info("Updated K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -143,7 +144,7 @@ public class MySqlTableServiceIntegrationTest {
           List.of(CATALOG, DB, table),
           recordOf(table, nullable("KEY_id", Schema.Type.INT), nullable("name", Schema.Type.STRING)),
           Map.of(), false, false))
-          .isInstanceOf(SQLException.class)
+          .isInstanceOf(SQLNonTransientException.class)
           .hasMessageContaining("already exists");
     } finally {
       drop(table);

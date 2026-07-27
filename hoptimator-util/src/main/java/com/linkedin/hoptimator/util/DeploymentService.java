@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 
 public final class DeploymentService {
@@ -85,12 +84,13 @@ public final class DeploymentService {
     return providers;
   }
 
-  public static <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context) {
+  public static <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context)
+      throws SQLException {
     return deployers(obj, context, providers());
   }
 
   static <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context,
-      Collection<DeployerProvider> providers) {
+      Collection<DeployerProvider> providers) throws SQLException {
     // Filter out base classes when subclasses exist
     Set<DeployerProvider> filteredProviders = new HashSet<>();
     for (DeployerProvider provider : providers) {
@@ -108,9 +108,11 @@ public final class DeploymentService {
     }
 
     // Now collect deployers from filtered providers
-    return filteredProviders.stream()
-        .flatMap(x -> x.deployers(obj, context).stream())
-        .collect(Collectors.toList());
+    List<Deployer> deployers = new ArrayList<>();
+    for (DeployerProvider provider : filteredProviders) {
+      deployers.addAll(provider.deployers(obj, context));
+    }
+    return deployers;
   }
 
   /** Plans a deployable Pipeline which implements the query. */

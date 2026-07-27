@@ -254,7 +254,7 @@ class DeploymentServiceTest {
   }
 
   @Test
-  void testDeployersReturnsEmptyWithNoProviders() {
+  void testDeployersReturnsEmptyWithNoProviders() throws SQLException {
     // A simple Deployable implementation for testing
     Deployable deployable = new Deployable() { };
 
@@ -376,7 +376,7 @@ class DeploymentServiceTest {
   }
 
   @Test
-  void testDeployersWithProvidersFiltersSubclasses() {
+  void testDeployersWithProvidersFiltersSubclasses() throws SQLException {
     // The deployers() method uses providers() which relies on ServiceLoader
     // Without registered providers, the filtering loop doesn't execute
     // This test verifies the method handles the empty providers case
@@ -386,7 +386,7 @@ class DeploymentServiceTest {
   }
 
   @Test
-  void testDeployersFilteringWithSingleProvider() {
+  void testDeployersFilteringWithSingleProvider() throws SQLException {
     Deployable deployable = new Deployable() { };
     DeployerProvider provider = new DeployerProvider() {
       @Override
@@ -406,7 +406,7 @@ class DeploymentServiceTest {
   }
 
   @Test
-  void testDeployersFilteringRemovesBaseClassProvider() {
+  void testDeployersFilteringRemovesBaseClassProvider() throws SQLException {
     Deployable deployable = new Deployable() { };
 
     DeployerProvider baseProvider = new DeployerProvider() {
@@ -441,7 +441,7 @@ class DeploymentServiceTest {
   }
 
   @Test
-  void testDeployersFilteringWithActualSubclass() {
+  void testDeployersFilteringWithActualSubclass() throws SQLException {
     Deployable deployable = new Deployable() { };
 
     // Base class provider
@@ -458,7 +458,7 @@ class DeploymentServiceTest {
   }
 
   @Test
-  void testDeployersFilteringWithEmptyProviders() {
+  void testDeployersFilteringWithEmptyProviders() throws SQLException {
     Deployable deployable = new Deployable() { };
 
     Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection,
@@ -468,7 +468,7 @@ class DeploymentServiceTest {
   }
 
   @Test
-  void testDeployersFilteringWithMultipleUnrelatedProviders() {
+  void testDeployersFilteringWithMultipleUnrelatedProviders() throws SQLException {
     Deployable deployable = new Deployable() { };
 
     BaseTestProvider provider1 = new BaseTestProvider(mockDeployer1);
@@ -609,7 +609,7 @@ class DeploymentServiceTest {
   // (i.e., the list is populated from loader). Since no SPI providers are registered in test,
   // verify the result is non-null and that a registered provider IS returned.
   @Test
-  void testProvidersWithRegisteredProviderIsNonNull() {
+  void testProvidersWithRegisteredProviderIsNonNull() throws SQLException {
     Collection<DeployerProvider> providers = DeploymentService.providers();
     assertNotNull(providers, "providers() must never return null");
     // Sort is called on the list — if VoidMethodCall removes providers::add, list is empty

@@ -185,6 +185,14 @@ public class LogicalTableDeployer implements Deployer, Validated {
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    // A logical table's identity is its LogicalTable CRD (the implicit inter-tier pipelines and
+    // triggers are owned by it and cascade). Mirror how delete() names and builds that deployer.
+    String selfName = K8sUtils.canonicalizeName(source.path());
+    return createLogicalTableDeployer(selfName, source.database(), buildTierMap()).exists();
+  }
+
+  @Override
   public void update() throws SQLException {
     deployAll(true);
   }

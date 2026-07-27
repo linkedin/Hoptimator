@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.sql.SQLException;
 import java.util.Properties;
 
 import com.linkedin.hoptimator.DeploymentContext;
@@ -37,7 +38,7 @@ public final class CalciteDeploymentContext implements DeploymentContext {
 
   @Override
   public @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
-      String connectionPrefix) {
+      String connectionPrefix) throws SQLException {
     return DeployerUtils.extractPropertiesFromJdbcSchema(catalog, schema, connection, connectionPrefix);
   }
 }

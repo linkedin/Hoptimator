@@ -14,6 +14,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -173,6 +176,54 @@ class K8sYamlApiTest {
       K8sYamlApi api = new K8sYamlApi(mockContext);
       api.delete("v1", "ConfigMap", "ns", "to-delete");
       // No exception = success
+    }
+
+    @Test
+    void createNormalizesConnectivityFailureToTransient() {
+      DynamicKubernetesApi dynApi = mock(DynamicKubernetesApi.class);
+      doReturn(dynApi).when(mockContext).dynamic(anyString(), anyString());
+      IllegalStateException connectivityFailure =
+          new IllegalStateException(new java.net.ConnectException("Connection refused"));
+      doThrow(connectivityFailure).when(dynApi).create(any(DynamicKubernetesObject.class));
+
+      K8sYamlApi api = new K8sYamlApi(mockContext);
+      DynamicKubernetesObject obj = new DynamicKubernetesObject();
+      obj.setApiVersion("v1");
+      obj.setKind("ConfigMap");
+      obj.setMetadata(new V1ObjectMeta().name("new-obj").namespace("ns"));
+
+      SQLTransientException thrown =
+          assertThrows(SQLTransientException.class, () -> api.createWithMetadata(obj, null, null, null));
+      assertSame(connectivityFailure, thrown.getCause());
+    }
+
+    @Test
+    void deleteNormalizesConnectivityFailureToTransient() {
+      DynamicKubernetesApi dynApi = mock(DynamicKubernetesApi.class);
+      doReturn(dynApi).when(mockContext).dynamic(anyString(), anyString());
+      IllegalStateException connectivityFailure =
+          new IllegalStateException(new java.net.UnknownHostException("k8s.invalid"));
+      doThrow(connectivityFailure).when(dynApi).delete(anyString(), anyString());
+
+      K8sYamlApi api = new K8sYamlApi(mockContext);
+
+      SQLTransientException thrown =
+          assertThrows(SQLTransientException.class, () -> api.delete("v1", "ConfigMap", "ns", "to-delete"));
+      assertSame(connectivityFailure, thrown.getCause());
+    }
+
+    @Test
+    void deleteNonIoIllegalStateIsClassifiedNonTransient() {
+      DynamicKubernetesApi dynApi = mock(DynamicKubernetesApi.class);
+      doReturn(dynApi).when(mockContext).dynamic(anyString(), anyString());
+      IllegalStateException notConnectivity = new IllegalStateException("unexpected client state");
+      doThrow(notConnectivity).when(dynApi).delete(anyString(), anyString());
+
+      K8sYamlApi api = new K8sYamlApi(mockContext);
+
+      SQLNonTransientException thrown =
+          assertThrows(SQLNonTransientException.class, () -> api.delete("v1", "ConfigMap", "ns", "to-delete"));
+      assertSame(notConnectivity, thrown.getCause());
     }
 
     @Test

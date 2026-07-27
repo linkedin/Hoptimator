@@ -17,12 +17,15 @@ import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -148,6 +151,23 @@ class K8sPipelineBundleTest {
     bundle.delete();
 
     verify(pipelineDeployer).delete();
+  }
+
+  @Test
+  void existsDelegatesToPipelineDeployer() throws SQLException {
+    K8sPipelineBundle bundle = makeBundleWithMocks("test-pipeline", Collections.singletonList("spec1"));
+    when(pipelineDeployer.exists()).thenReturn(true);
+
+    assertTrue(bundle.exists());
+    verify(pipelineDeployer).exists();
+  }
+
+  @Test
+  void existsReturnsFalseWhenPipelineDeployerAbsent() throws SQLException {
+    K8sPipelineBundle bundle = makeBundleWithMocks("test-pipeline", Collections.singletonList("spec1"));
+    when(pipelineDeployer.exists()).thenReturn(false);
+
+    assertFalse(bundle.exists());
   }
 
   @Test

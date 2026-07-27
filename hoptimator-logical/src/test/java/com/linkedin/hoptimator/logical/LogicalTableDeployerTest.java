@@ -270,6 +270,30 @@ class LogicalTableDeployerTest {
   }
 
   @Test
+  void existsDelegatesToCrdDeployer() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(
+        twoTierProps("kafka-db", "venice-db"),
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+
+    // The logical table's identity is its LogicalTable CRD; exists() reflects that CRD's presence.
+    when(mockCrdDeployer.exists()).thenReturn(true);
+
+    assertTrue(deployer.exists());
+    verify(mockCrdDeployer).exists();
+  }
+
+  @Test
+  void existsReturnsFalseWhenCrdAbsent() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(
+        twoTierProps("kafka-db", "venice-db"),
+        Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+
+    when(mockCrdDeployer.exists()).thenReturn(false);
+
+    assertFalse(deployer.exists());
+  }
+
+  @Test
   void deleteThrowsWhenCrdDeleteFails() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
@@ -713,7 +737,7 @@ class LogicalTableDeployerTest {
   }
 
   @Test
-  void deployerProviderReturnsDeployerWhenLogicalSchemaFound() {
+  void deployerProviderReturnsDeployerWhenLogicalSchemaFound() throws SQLException {
     Properties tierProps = new Properties();
     tierProps.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
     deployerUtilsMock.when(() -> DeployerUtils.extractPropertiesFromJdbcSchema(

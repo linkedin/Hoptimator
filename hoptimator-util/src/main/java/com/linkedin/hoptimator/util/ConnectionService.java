@@ -11,7 +11,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
-import java.util.stream.Collectors;
 
 
 public final class ConnectionService {
@@ -35,9 +34,11 @@ public final class ConnectionService {
     return providers;
   }
 
-  public static <T> Collection<Connector> connectors(T obj, DeploymentContext context) {
-    return providers().stream()
-        .flatMap(x -> x.connectors(obj, context).stream())
-        .collect(Collectors.toList());
+  public static <T> Collection<Connector> connectors(T obj, DeploymentContext context) throws SQLException {
+    List<Connector> connectors = new ArrayList<>();
+    for (ConnectorProvider provider : providers()) {
+      connectors.addAll(provider.connectors(obj, context));
+    }
+    return connectors;
   }
 }

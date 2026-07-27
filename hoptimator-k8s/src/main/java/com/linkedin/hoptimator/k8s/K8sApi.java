@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 
 public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> implements Api<T> {
@@ -36,6 +37,10 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     return endpoint;
   }
 
+  private <R> R call(String action, Supplier<R> request) throws SQLException {
+    return K8sUtils.normalizingCall(action, request);
+  }
+
   @Override
   public Collection<T> list() throws SQLException {
     return select(null);
@@ -44,22 +49,25 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
   public T get(String name) throws SQLException {
     final KubernetesApiResponse<T> resp;
     if (endpoint.clusterScoped()) {
-      resp = context.generic(endpoint).get(name);
+      resp = call("get " + endpoint().kind() + " " + name, () -> context.generic(endpoint).get(name));
     } else {
-      resp = context.generic(endpoint).get(context.namespace(), name);
+      resp = call("get " + endpoint().kind() + " " + name,
+          () -> context.generic(endpoint).get(context.namespace(), name));
     }
     K8sUtils.checkResponse("Error getting " + endpoint().kind() + " " + name, resp);
     return resp.getObject();
   }
 
   public T get(String namespace, String name) throws SQLException {
-    KubernetesApiResponse<T> resp = context.generic(endpoint).get(namespace, name);
+    KubernetesApiResponse<T> resp = call("get " + endpoint().kind() + " " + name,
+        () -> context.generic(endpoint).get(namespace, name));
     K8sUtils.checkResponse("Error getting " + endpoint().kind() + " " + name, resp);
     return resp.getObject();
   }
 
   public T getIfExists(String namespace, String name) throws SQLException {
-    KubernetesApiResponse<T> resp = context.generic(endpoint).get(namespace, name);
+    KubernetesApiResponse<T> resp = call("get " + endpoint().kind() + " " + name,
+        () -> context.generic(endpoint).get(namespace, name));
     if (resp.getHttpStatusCode() == 404) {
       return null;
     }
@@ -70,9 +78,10 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
   public T getIfExists(String name) throws SQLException {
     final KubernetesApiResponse<T> resp;
     if (endpoint.clusterScoped()) {
-      resp = context.generic(endpoint).get(name);
+      resp = call("get " + endpoint().kind() + " " + name, () -> context.generic(endpoint).get(name));
     } else {
-      resp = context.generic(endpoint).get(context.namespace(), name);
+      resp = call("get " + endpoint().kind() + " " + name,
+          () -> context.generic(endpoint).get(context.namespace(), name));
     }
     if (resp.getHttpStatusCode() == 404) {
       return null;
@@ -86,10 +95,12 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       obj.getMetadata().namespace(context.namespace());
     }
     final KubernetesApiResponse<T> resp;
+    String name = obj.getMetadata().getName();
     if (endpoint.clusterScoped()) {
-      resp = context.generic(endpoint).get(obj.getMetadata().getName());
+      resp = call("get " + name, () -> context.generic(endpoint).get(name));
     } else {
-      resp  = context.generic(endpoint).get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+      resp = call("get " + name,
+          () -> context.generic(endpoint).get(obj.getMetadata().getNamespace(), name));
     }
     K8sUtils.checkResponse("Error getting " + obj.getMetadata().getName(), resp);
     return resp.getObject();
@@ -111,9 +122,9 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     options.setLabelSelector(labelSelector);
     final KubernetesApiResponse<U> resp;
     if (endpoint.clusterScoped()) {
-      resp = generic.list(options);
+      resp = call("list " + endpoint().kind(), () -> generic.list(options));
     } else {
-      resp = generic.list(context.namespace(), options);
+      resp = call("list " + endpoint().kind(), () -> generic.list(context.namespace(), options));
     }
     if (resp.getHttpStatusCode() == 404) {
       return Collections.emptyList();
@@ -128,7 +139,8 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
       obj.getMetadata().namespace(context.namespace());
     }
     context.own(obj);
-    KubernetesApiResponse<T> resp = context.generic(endpoint).create(obj);
+    KubernetesApiResponse<T> resp =
+        call("create " + obj.getMetadata().getName(), () -> context.generic(endpoint).create(obj));
     K8sUtils.checkResponse("Error creating " + obj.getMetadata().getName(), resp);
     log.info("Created K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
@@ -145,7 +157,7 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     DeleteOptions options = new DeleteOptions();
     options.setPropagationPolicy("Background");   // ensure deletes cascade
     KubernetesApiResponse<T> resp =
-        context.generic(endpoint).delete(namespace, name, options);
+        call("delete " + name, () -> context.generic(endpoint).delete(namespace, name, options));
     K8sUtils.checkResponse("Error deleting " + name, resp);
     log.info("Deleted K8s obj: {}:{}", endpoint.kind(), name);
   }
@@ -161,9 +173,11 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     }
     final KubernetesApiResponse<T> existing;
     if (endpoint.clusterScoped()) {
-      existing = context.generic(endpoint).get(obj.getMetadata().getName());
+      existing = call("get " + obj.getMetadata().getName(),
+          () -> context.generic(endpoint).get(obj.getMetadata().getName()));
     } else {
-      existing = context.generic(endpoint).get(obj.getMetadata().getNamespace(), obj.getMetadata().getName());
+      existing = call("get " + obj.getMetadata().getName(),
+          () -> context.generic(endpoint).get(obj.getMetadata().getNamespace(), obj.getMetadata().getName()));
     }
     final KubernetesApiResponse<T> resp;
     if (existing.isSuccess()) {
@@ -198,10 +212,10 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
 
       obj.getMetadata().resourceVersion(existing.getObject().getMetadata().getResourceVersion());
       context.own(obj);
-      resp = context.generic(endpoint).update(obj);
+      resp = call("update " + obj.getMetadata().getName(), () -> context.generic(endpoint).update(obj));
     } else {
       context.own(obj);
-      resp = context.generic(endpoint).create(obj);
+      resp = call("create " + obj.getMetadata().getName(), () -> context.generic(endpoint).create(obj));
     }
     K8sUtils.checkResponse("Error updating " + obj.getMetadata().getName(), resp);
     log.info("Updated K8s obj: {}:{}", obj.getKind(), obj.getMetadata().getName());
@@ -211,7 +225,9 @@ public class K8sApi<T extends KubernetesObject, U extends KubernetesListObject> 
     if (obj.getMetadata().getNamespace() == null && !endpoint.clusterScoped()) {
       obj.getMetadata().namespace(context.namespace());
     }
-    KubernetesApiResponse<T> resp = context.generic(endpoint).updateStatus(obj, x -> status);
+    KubernetesApiResponse<T> resp =
+        call("update status of " + obj.getMetadata().getName(),
+            () -> context.generic(endpoint).updateStatus(obj, x -> status));
     K8sUtils.checkResponse(() -> "Error updating status of " + Yaml.dump(obj), resp);
     log.info("Updated K8s obj status: {}:{}", obj.getKind(), obj.getMetadata().getName());
   }
