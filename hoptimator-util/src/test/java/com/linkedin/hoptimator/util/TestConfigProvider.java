@@ -2,7 +2,7 @@ package com.linkedin.hoptimator.util;
 
 import com.linkedin.hoptimator.ConfigProvider;
 
-import java.sql.Connection;
+import com.linkedin.hoptimator.DeploymentContext;
 import java.util.Properties;
 
 
@@ -30,7 +30,7 @@ public class TestConfigProvider implements ConfigProvider {
   }
 
   @Override
-  public Properties loadConfig(Connection connection) {
+  public Properties loadConfig(DeploymentContext context) {
     Properties copy = new Properties();
     copy.putAll(PROPERTIES);
     return copy;

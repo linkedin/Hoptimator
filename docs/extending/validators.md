@@ -26,7 +26,7 @@ the operator's status field for CRD-driven changes).
 
 ```java
 public interface Validated {
-  void validate(Validator.Issues issues);
+  void validate(Validator.Issues issues, DeploymentContext context);
 }
 
 public interface Validator extends Validated {
@@ -35,9 +35,15 @@ public interface Validator extends Validated {
 }
 
 public interface ValidatorProvider {
-  <T> Collection<Validator> validators(T obj);
+  <T> Collection<Validator> validators(T obj, DeploymentContext context);
 }
 ```
+
+The `DeploymentContext` (Calcite-free) exposes connection-level
+`properties()` and per-`Database` config via `databaseProperties(...)` —
+everything a validator needs to run lookups against external systems without
+touching `java.sql.Connection`. A validator that needs the deployable's row
+type calls `HoptimatorDriver.rowType(source, context)`.
 
 Two ways to participate:
 
@@ -58,7 +64,7 @@ nested contexts let the final error message read like a structured report.
 ```java
 public class NamingPolicyValidator implements Validator {
   @Override
-  public void validate(Validator.Issues issues) {
+  public void validate(Validator.Issues issues, DeploymentContext context) {
     if (tableName.contains("_")) {
       issues.error("Table names must not contain underscores");
     }
@@ -112,7 +118,7 @@ input:
 ```java
 public class MyPolicyValidatorProvider implements ValidatorProvider {
   @Override
-  public <T> Collection<Validator> validators(T obj) {
+  public <T> Collection<Validator> validators(T obj, DeploymentContext context) {
     if (obj instanceof Source) {
       return List.of(new NamingPolicyValidator((Source) obj));
     }
@@ -182,7 +188,7 @@ recognize.
 
 ```java
 Issues issues = new Issues("test");
-new MyValidator(testSource).validate(issues);
+new MyValidator(testSource).validate(issues, context);
 issues.close();
 assertThat(issues.valid()).isTrue();   // or assertThat(issues.toString()).contains("ERROR: ...")
 ```

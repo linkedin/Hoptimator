@@ -90,7 +90,7 @@ public class LogicalTableDriver extends CalciteDriver {
       CalciteConnection calciteConnection = (CalciteConnection) connection;
       SchemaPlus rootSchema = calciteConnection.getRootSchema();
 
-      K8sContext context = K8sContext.create(new HoptimatorConnection(calciteConnection, properties));
+      K8sContext context = K8sContext.create(new HoptimatorConnection(calciteConnection, properties).deploymentContext());
       LogicalTableSchema logicalSchema = new LogicalTableSchema(properties, context, databaseName);
       rootSchema.add(databaseName.toUpperCase(), logicalSchema);
 

@@ -1,7 +1,10 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Catalog;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroSchemaSource;
+import org.apache.avro.Schema;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -29,7 +32,6 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.sql.SQLTransientException;
-import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.logging.LogManager;
@@ -162,19 +164,49 @@ public class HoptimatorDriver implements Driver {
     }
   }
 
-  public static RelDataType rowType(Source source, HoptimatorConnection connection) throws SQLException {
-    final List<String> path = Util.skipLast(source.path());
-    String name = source.table();
-    SchemaPlus schema = Objects.requireNonNull(connection.calciteConnection().getRootSchema());
-    for (String p : path) {
-      schema = Objects.requireNonNull(schema.subSchemas().get(p));
+  public static RelDataType rowType(Source source, DeploymentContext context)
+      throws SQLException {
+    if (context instanceof CalciteDeploymentContext) {
+      HoptimatorConnection connection = ((CalciteDeploymentContext) context).connection();
+      SchemaPlus schema = Objects.requireNonNull(connection.calciteConnection().getRootSchema());
+      for (String p : Util.skipLast(source.path())) {
+        schema = Objects.requireNonNull(schema.subSchemas().get(p));
+      }
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      Table table = schema.tables().get(source.table());
+      if (table == null) {
+        throw new SQLException("Table " + source.table() + " not found in schema " + schema.getName() + ".");
+      }
+      return table.getRowType(typeFactory);
     }
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
-    Table table = schema.tables().get(name);
-    if (table == null) {
-      throw new SQLException("Table " + name + " not found in schema " + schema.getName() + ".");
+    throw new SQLException("Cannot resolve row type for " + source + " from a "
+        + context.getClass().getSimpleName() + ".");
+  }
+
+  /**
+   * Returns the native value (payload) Avro schema for a table when it is backed by an
+   * {@link AvroSchemaSource} resolved through the Calcite catalog (e.g. a Venice store), or
+   * {@code null} otherwise (a SQL source with no native Avro, such as a MySQL table or a computed
+   * view). Callers rendering {@code {{avroValueSchema}}} then synthesize a value schema from the row
+   * type.
+   */
+  public static Schema valueSchema(Source source, DeploymentContext context) {
+    if (!(context instanceof CalciteDeploymentContext)) {
+      return null;
     }
-    return table.getRowType(typeFactory);
+    HoptimatorConnection connection = ((CalciteDeploymentContext) context).connection();
+    if (connection == null) {
+      return null;
+    }
+    SchemaPlus schema = connection.calciteConnection().getRootSchema();
+    for (String part : Util.skipLast(source.path())) {
+      if (schema == null) {
+        return null;
+      }
+      schema = schema.subSchemas().get(part);
+    }
+    Table table = schema == null ? null : schema.tables().get(source.table());
+    return table instanceof AvroSchemaSource ? ((AvroSchemaSource) table).valueSchema() : null;
   }
 
   private static final class ConnectionHolder {

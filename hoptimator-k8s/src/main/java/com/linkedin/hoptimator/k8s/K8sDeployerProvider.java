@@ -4,13 +4,13 @@ import com.linkedin.hoptimator.DatabaseDeployable;
 import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeployerProvider;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.MaterializedView;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Trigger;
 import com.linkedin.hoptimator.View;
 
-import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -18,9 +18,9 @@ import java.util.List;
 public class K8sDeployerProvider implements DeployerProvider {
 
   @Override
-  public <T extends Deployable> Collection<Deployer> deployers(T obj, Connection connection) {
+  public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext deploymentContext) {
     List<Deployer> list = new ArrayList<>();
-    K8sContext context = K8sContext.create(connection);
+    K8sContext context = K8sContext.create(deploymentContext);
     if (obj instanceof MaterializedView) {
       // K8sMaterializedViewDeployer also deploys a View.
       list.add(new K8sMaterializedViewDeployer((MaterializedView) obj, context));

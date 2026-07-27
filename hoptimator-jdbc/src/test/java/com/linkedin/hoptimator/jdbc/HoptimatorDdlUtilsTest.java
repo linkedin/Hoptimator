@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Sink;
@@ -859,7 +860,7 @@ class HoptimatorDdlUtilsTest {
     when(deployer2.specify()).thenReturn(List.of("spec2"));
 
     List<String> result = HoptimatorDdlUtils.DdlMode.SPECIFY.executeDeployers(
-        List.of(deployer1, deployer2), null);
+        List.of(deployer1, deployer2));
 
     assertEquals(List.of("spec1a", "spec1b", "spec2"), result);
   }
@@ -867,7 +868,7 @@ class HoptimatorDdlUtilsTest {
   @Test
   void ddlModeSpecifyExecuteDeployersWithNoDeployersReturnsEmptyList() throws SQLException {
     List<String> result = HoptimatorDdlUtils.DdlMode.SPECIFY.executeDeployers(
-        Collections.emptyList(), null);
+        Collections.emptyList());
 
     assertTrue(result.isEmpty());
   }
@@ -1699,89 +1700,88 @@ class HoptimatorDdlUtilsTest {
     }
   }
 
-  /** Helper: a HoptimatorConnection mock that returns the given Properties. */
-  private HoptimatorConnection connectionWith(Properties props) {
-    HoptimatorConnection conn = mock(HoptimatorConnection.class);
-    lenient().when(conn.connectionProperties()).thenReturn(props);
-    return conn;
+  /** Helper: a DeploymentContext that exposes the given Properties. */
+  private DeploymentContext contextWith(Properties props) {
+    DeploymentContext context = mock(DeploymentContext.class);
+    lenient().when(context.properties()).thenReturn(props);
+    return context;
   }
 
   @Test
   void testEffectiveModeDefaultsToStrictCreate() {
-    HoptimatorConnection conn = connectionWith(new Properties());
+    DeploymentContext context = contextWith(new Properties());
 
     assertEquals(HoptimatorDdlUtils.DdlMode.CREATE,
-        HoptimatorDdlUtils.effectiveMode(false, conn));
+        HoptimatorDdlUtils.effectiveMode(false, context));
     assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
-        HoptimatorDdlUtils.effectiveMode(true, conn));
+        HoptimatorDdlUtils.effectiveMode(true, context));
   }
 
   @Test
   void testEffectiveModeExplicitCreateMatchesDefault() {
     Properties props = new Properties();
     props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_CREATE);
-    HoptimatorConnection conn = connectionWith(props);
+    DeploymentContext context = contextWith(props);
 
     assertEquals(HoptimatorDdlUtils.DdlMode.CREATE,
-        HoptimatorDdlUtils.effectiveMode(false, conn));
+        HoptimatorDdlUtils.effectiveMode(false, context));
     assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
-        HoptimatorDdlUtils.effectiveMode(true, conn));
+        HoptimatorDdlUtils.effectiveMode(true, context));
   }
 
   @Test
   void testEffectiveModeApplyMapsBothCreateFormsToUpdate() {
     Properties props = new Properties();
     props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_APPLY);
-    HoptimatorConnection conn = connectionWith(props);
+    DeploymentContext context = contextWith(props);
 
     // The whole point of apply mode: plain CREATE becomes idempotent (UPDATE).
     assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
-        HoptimatorDdlUtils.effectiveMode(false, conn));
+        HoptimatorDdlUtils.effectiveMode(false, context));
     // CREATE OR REPLACE keeps converging behavior in apply mode.
     assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
-        HoptimatorDdlUtils.effectiveMode(true, conn));
+        HoptimatorDdlUtils.effectiveMode(true, context));
   }
 
   @Test
   void testEffectiveModeApplyIsCaseInsensitive() {
     Properties props = new Properties();
     props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, "APPLY");
-    HoptimatorConnection conn = connectionWith(props);
+    DeploymentContext context = contextWith(props);
 
     assertEquals(HoptimatorDdlUtils.DdlMode.UPDATE,
-        HoptimatorDdlUtils.effectiveMode(false, conn));
+        HoptimatorDdlUtils.effectiveMode(false, context));
   }
 
   @Test
   void testEffectiveModeUnknownValueFallsBackToStrictCreate() {
     Properties props = new Properties();
     props.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, "nonsense");
-    HoptimatorConnection conn = connectionWith(props);
+    DeploymentContext context = contextWith(props);
 
     // Unknown values must not silently promote to apply — typos shouldn't change behavior.
     assertEquals(HoptimatorDdlUtils.DdlMode.CREATE,
-        HoptimatorDdlUtils.effectiveMode(false, conn));
+        HoptimatorDdlUtils.effectiveMode(false, context));
   }
 
   @Test
   void testEffectiveModeTolerantOfNullProperties() {
-    HoptimatorConnection conn = mock(HoptimatorConnection.class);
-    lenient().when(conn.connectionProperties()).thenReturn(null);
+    DeploymentContext context = contextWith(null);
 
     assertEquals(HoptimatorDdlUtils.DdlMode.CREATE,
-        HoptimatorDdlUtils.effectiveMode(false, conn));
+        HoptimatorDdlUtils.effectiveMode(false, context));
   }
 
   @Test
   void testIsApplyMode() {
     Properties applyProps = new Properties();
     applyProps.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_APPLY);
-    assertTrue(HoptimatorDdlUtils.isApplyMode(connectionWith(applyProps)));
+    assertTrue(HoptimatorDdlUtils.isApplyMode(applyProps));
 
     Properties createProps = new Properties();
     createProps.setProperty(HoptimatorDdlUtils.MODE_PROPERTY, HoptimatorDdlUtils.MODE_CREATE);
-    assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(createProps)));
+    assertFalse(HoptimatorDdlUtils.isApplyMode(createProps));
 
-    assertFalse(HoptimatorDdlUtils.isApplyMode(connectionWith(new Properties())));
+    assertFalse(HoptimatorDdlUtils.isApplyMode(new Properties()));
   }
 }

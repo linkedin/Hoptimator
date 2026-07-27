@@ -74,7 +74,7 @@ import java.util.Map;
 public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   private final HoptimatorConnection connection;
-  private final HoptimatorConnection.HoptimatorConnectionDualLogger logger;
+  private final DualLogger logger;
 
   public HoptimatorDdlExecutor(HoptimatorConnection connection) {
     try {
@@ -109,7 +109,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlCreateView create, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", create);
     try {
-      ValidationService.validateOrThrow(create, connection);
+      ValidationService.validateOrThrow(create, connection.deploymentContext());
     } catch (SQLException e) {
       throw new DdlException(create, e.getMessage(), e);
     }
@@ -123,7 +123,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       throw new DdlException(create,
           "Cannot overwrite physical table " + pair.right + " with a view.");
     }
-    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
     for (Function function : schemaPlus.getFunctions(pair.right)) {
       if (function.getParameters().isEmpty()) {
         if (mode == HoptimatorDdlUtils.DdlMode.CREATE) {
@@ -148,9 +148,9 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Validating deployable resources for view {}", viewName);
-      ValidationService.validateOrThrow(viewTable, connection);
-      deployers = DeploymentService.deployers(view, connection);
-      ValidationService.validateOrThrow(deployers, connection);
+      ValidationService.validateOrThrow(viewTable, connection.deploymentContext());
+      deployers = DeploymentService.deployers(view, connection.deploymentContext());
+      ValidationService.validateOrThrow(deployers, connection.deploymentContext());
       logger.info("Validated view {}", viewName);
       if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
         logger.info("Deploying update view {}", viewName);
@@ -178,7 +178,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   /** Executes a {@code CREATE MATERIALIZED VIEW} command. */
   public void execute(SqlCreateMaterializedView create, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", create);
-    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
     try {
       HoptimatorDdlUtils.processCreateMaterializedView(
           context,
@@ -197,7 +197,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlCreateTrigger create, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", create);
     try {
-      ValidationService.validateOrThrow(create, connection);
+      ValidationService.validateOrThrow(create, connection.deploymentContext());
     } catch (SQLException e) {
       throw new DdlException(create, e.getMessage(), e);
     }
@@ -236,11 +236,11 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Validating trigger {} with deployers", name);
-      ValidationService.validateOrThrow(trigger, connection);
-      deployers = DeploymentService.deployers(trigger, connection);
-      ValidationService.validateOrThrow(deployers, connection);
+      ValidationService.validateOrThrow(trigger, connection.deploymentContext());
+      deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
+      ValidationService.validateOrThrow(deployers, connection.deploymentContext());
       logger.info("Validated trigger {}", name);
-      HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+      HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
       if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
         logger.info("Updating trigger {}", name);
         DeploymentService.update(deployers);
@@ -279,7 +279,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   /** Executes a {@code CREATE TABLE} command. */
   public void execute(SqlCreateTable create, CalcitePrepare.Context context) {
-    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
     try {
       HoptimatorDdlUtils.processCreateTable(context, connection, create, mode);
     } catch (SQLException | RuntimeException e) {
@@ -291,7 +291,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
   /** Executes a {@code CREATE DATABASE} command. */
   public void execute(SqlCreateDatabase create, CalcitePrepare.Context context) {
-    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection);
+    HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
     try {
       HoptimatorDdlUtils.processCreateDatabase(connection, create, mode);
     } catch (SQLException | RuntimeException e) {
@@ -318,7 +318,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlFireTrigger fire, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", fire);
     try {
-      ValidationService.validateOrThrow(fire, connection);
+      ValidationService.validateOrThrow(fire, connection.deploymentContext());
     } catch (SQLException e) {
       throw new DdlException(fire, e.getMessage(), e);
     }
@@ -335,7 +335,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Firing trigger {} with {} option(s)", name, options.size() - 1);
-      deployers = DeploymentService.deployers(trigger, connection);
+      deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
       DeploymentService.update(deployers);
       logger.info("FIRE TRIGGER {} completed", name);
     } catch (Exception e) {
@@ -350,7 +350,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlDropTrigger drop, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", drop);
     try {
-      ValidationService.validateOrThrow(drop, connection);
+      ValidationService.validateOrThrow(drop, connection.deploymentContext());
     } catch (SQLException e) {
       throw new DdlException(drop, e.getMessage(), e);
     }
@@ -365,7 +365,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Deleting trigger {}", name);
-      deployers = DeploymentService.deployers(trigger, connection);
+      deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
       DeploymentService.delete(deployers);
       logger.info("Deleted trigger {}", name);
       logger.info("DROP TRIGGER {} completed", name);
@@ -385,7 +385,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   private void updateTriggerPausedState(SqlNode sqlNode, SqlIdentifier triggerName, boolean paused) {
     logger.info("Validating statement: {}", sqlNode);
     try {
-      ValidationService.validateOrThrow(sqlNode, connection);
+      ValidationService.validateOrThrow(sqlNode, connection.deploymentContext());
     } catch (SQLException e) {
       throw new DdlException(sqlNode, e.getMessage(), e);
     }
@@ -402,7 +402,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Collection<Deployer> deployers = null;
     try {
       logger.info("Updating trigger {} with paused state: {}", name, paused);
-      deployers = DeploymentService.deployers(trigger, connection);
+      deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
       DeploymentService.update(deployers);
       logger.info("Successfully updated trigger {} with paused state: {}", name, paused);
     } catch (Exception e) {
@@ -420,7 +420,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
   public void execute(SqlDropObject drop, CalcitePrepare.Context context) {
     logger.info("Validating statement: {}", drop);
     try {
-      ValidationService.validateOrThrow(drop, connection);
+      ValidationService.validateOrThrow(drop, connection.deploymentContext());
     } catch (SQLException e) {
       throw new DdlException(drop, e.getMessage(), e);
     }
@@ -458,7 +458,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         }
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
         View view = new View(tablePath, materializedViewTable.viewSql());
-        deployers = DeploymentService.deployers(view, connection);
+        deployers = DeploymentService.deployers(view, connection.deploymentContext());
         logger.info("Deleting materialized view {}", tableName);
         DeploymentService.delete(deployers);
         schemaPlus.removeTable(tableName);
@@ -470,7 +470,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         }
         ViewTable viewTable = (ViewTable) table;
         View view = new View(tablePath, viewTable.getViewSql());
-        deployers = DeploymentService.deployers(view, connection);
+        deployers = DeploymentService.deployers(view, connection.deploymentContext());
         logger.info("Deleting view {}", tableName);
         DeploymentService.delete(deployers);
         schemaPlus.removeTable(tableName);
@@ -492,8 +492,8 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         // Pre-delete dependency guard. PendingDelete is the explicit "delete intent" signal
         // — only validators that key off it (the K8s dep checker) fire here. The check throws
         // before any deployer-level state change.
-        ValidationService.validateOrThrow(new PendingDelete<>(source), connection);
-        deployers = DeploymentService.deployers(source, connection);
+        ValidationService.validateOrThrow(new PendingDelete<>(source), connection.deploymentContext());
+        deployers = DeploymentService.deployers(source, connection.deploymentContext());
         logger.info("Deleting table {}", tableName);
         DeploymentService.delete(deployers);
         schemaPlus.removeTable(tableName);

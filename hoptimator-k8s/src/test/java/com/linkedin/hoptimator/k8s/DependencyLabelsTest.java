@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -67,7 +68,7 @@ class DependencyLabelsTest {
         "name portion must match K8s label-name regex, got: " + namePortion);
   }
 
-  private static V1ObjectMeta stamp(java.util.List<Source> sources, Sink sink) {
+  private static V1ObjectMeta stamp(List<Source> sources, Sink sink) {
     V1ObjectMeta meta = new V1ObjectMeta();
     DependencyLabels.stamp(meta, sources,
         sink == null ? Collections.emptyList() : Collections.singletonList(sink));

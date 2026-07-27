@@ -5,7 +5,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validated;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.avro.AvroConverter;
-import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
@@ -25,12 +25,12 @@ import org.apache.calcite.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
 import java.util.Properties;
 
 
@@ -47,16 +47,16 @@ public class VeniceDeployer implements Deployer, Validated {
 
   protected final Source source;
   protected final Properties properties;
-  protected final HoptimatorConnection connection;
+  protected final DeploymentContext context;
 
-  public VeniceDeployer(Source source, Properties properties, HoptimatorConnection connection) {
+  public VeniceDeployer(Source source, Properties properties, DeploymentContext context) {
     this.source = source;
     this.properties = properties;
-    this.connection = connection;
+    this.context = context;
   }
 
   @Override
-  public void validate(Validator.Issues issues, Connection connection) {
+  public void validate(Validator.Issues issues, DeploymentContext context) {
     String storeName = source.table();
 
     // Validate Venice configuration
@@ -138,6 +138,15 @@ public class VeniceDeployer implements Deployer, Validated {
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    try (ControllerClient controllerClient = createControllerClient()) {
+      return checkStoreExists(controllerClient);
+    } catch (RuntimeException e) {
+      throw new SQLException("Failed to check whether Venice store exists: " + source.table(), e);
+    }
+  }
+
+  @Override
   public void delete() throws SQLException {
     try (ControllerClient controllerClient = createControllerClient()) {
       if (!checkStoreExists(controllerClient)) {
@@ -189,11 +198,21 @@ public class VeniceDeployer implements Deployer, Validated {
   }
 
   protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
+    Map<String, String> keyOptions = resolveKeyOptions();
     return AvroConverter.avroKeyPayloadSchema("com.linkedin.hoptimator",
         source.table() + "_Key",
         source.table() + "_Value",
-        HoptimatorDriver.rowType(source, connection),
-        ConnectionService.configure(source, connection));
+        HoptimatorDriver.rowType(source, context),
+        keyOptions);
+  }
+
+  /**
+   * Resolves connector-supplied options (e.g. the {@code keys} option that drives the key/payload
+   * split) for this store. Extracted so unit tests can supply options directly instead of resolving
+   * them through the live {@link ConnectionService} connector chain, which would reach out to K8s.
+   */
+  protected Map<String, String> resolveKeyOptions() throws SQLException {
+    return ConnectionService.configure(source, context);
   }
 
   private boolean checkStoreExists(ControllerClient controllerClient) {

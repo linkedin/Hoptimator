@@ -772,4 +772,102 @@ public class AvroConverterTest {
     assertEquals(SqlTypeName.TIMESTAMP,
         Objects.requireNonNull(relDataTypeAgain.getField("timestampField", false, false)).getType().getSqlTypeName());
   }
+
+  @Test
+  public void avroKeyPayloadSchemaFromAvroPreservesValueNamespacesLosslessly() {
+    // A merged record whose payload field is a nested record in its OWN namespace, plus a struct
+    // key field. The RelDataType round-trip would flatten these namespaces away; the Avro overload
+    // must preserve them.
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"UserEvent\",\"namespace\":\"com.example.events\",\"fields\":["
+        + "{\"name\":\"KEY_id\",\"type\":\"long\"},"
+        + "{\"name\":\"widget\",\"type\":{\"type\":\"record\",\"name\":\"Widget\","
+        + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
+        + "]}");
+    Map<String, String> keyOptions = Map.of("key.fields", "KEY_id", "key.fields-prefix", "KEY_");
+
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("UserEvent_Key", merged, keyOptions);
+
+    Schema payload = result.getValue();
+    assertNotNull(payload);
+    // The payload keeps the merged record's own identity, not a synthesized name/namespace.
+    assertEquals("UserEvent", payload.getName());
+    assertEquals("com.example.events", payload.getNamespace());
+    assertNull(payload.getField("KEY_id"));
+    Schema nested = payload.getField("widget").schema();
+    assertEquals(Schema.Type.RECORD, nested.getType());
+    // The nested record's distinct namespace + name survive — the whole point of losslessness.
+    assertEquals("com.example.custom", nested.getNamespace());
+    assertEquals("Widget", nested.getName());
+
+    Schema key = result.getKey();
+    assertNotNull(key);
+    assertEquals(1, key.getFields().size());
+    assertEquals("id", key.getFields().get(0).name()); // KEY_ prefix stripped
+    assertEquals(Schema.Type.LONG, key.getFields().get(0).schema().getType());
+  }
+
+  @Test
+  public void avroKeyPayloadSchemaFromAvroExtractsPrimitiveKey() {
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"R\",\"namespace\":\"com.example\",\"fields\":["
+        + "{\"name\":\"KEY\",\"type\":\"long\"},"
+        + "{\"name\":\"v\",\"type\":\"string\"}]}");
+    Map<String, String> keyOptions = Map.of("key.fields", "KEY");
+
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("R_Key", merged, keyOptions);
+
+    // Primitive key: the key's own Avro type, not a wrapper record.
+    assertEquals(Schema.Type.LONG, result.getKey().getType());
+    Schema payload = result.getValue();
+    assertEquals("com.example", payload.getNamespace());
+    assertNull(payload.getField("KEY"));
+    assertNotNull(payload.getField("v"));
+  }
+
+  @Test
+  public void avroKeyPayloadSchemaFromAvroWithNoKeyReturnsWholeRecordAsPayload() {
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"R\",\"namespace\":\"com.example\",\"fields\":["
+        + "{\"name\":\"a\",\"type\":\"int\"}]}");
+
+    Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema("R_Key", merged, Map.of());
+
+    assertNull(result.getKey());
+    assertEquals(merged, result.getValue()); // caller's schema verbatim
+  }
+
+  @Test
+  public void valueSchemaOfDropsKeyPrefixedFieldsLosslessly() {
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"StoreValue\",\"namespace\":\"com.example\",\"fields\":["
+        + "{\"name\":\"KEY_id\",\"type\":\"int\"},"
+        + "{\"name\":\"widget\",\"type\":{\"type\":\"record\",\"name\":\"Widget\","
+        + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
+        + "]}");
+
+    Schema value = AvroConverter.valueSchemaOf(merged, "KEY_");
+
+    assertNull(value.getField("KEY_id"), "key field dropped");
+    assertNotNull(value.getField("widget"), "value field kept");
+    assertEquals("com.example", value.getNamespace(), "merged record identity preserved");
+    assertEquals("com.example.custom", value.getField("widget").schema().getNamespace(),
+        "nested namespace preserved");
+  }
+
+  @Test
+  public void valueSchemaOfReturnsRecordUnchangedWhenNoKeyFields() {
+    Schema merged = new Schema.Parser().parse("{"
+        + "\"type\":\"record\",\"name\":\"R\",\"namespace\":\"com.example\",\"fields\":["
+        + "{\"name\":\"a\",\"type\":\"int\"}]}");
+
+    assertEquals(merged, AvroConverter.valueSchemaOf(merged, "KEY_"));
+  }
+
+  @Test
+  public void valueSchemaOfReturnsNonRecordUnchanged() {
+    Schema primitive = Schema.create(Schema.Type.STRING);
+
+    assertEquals(primitive, AvroConverter.valueSchemaOf(primitive, "KEY_"));
+  }
 }

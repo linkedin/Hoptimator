@@ -32,6 +32,14 @@ services:
     image: venicedb/venice-controller:0.4.858
     container_name: venice-controller
     hostname: venice-controller
+    # Local-only override: disable Venice's default 6h store-recreation cooldown
+    # (controller.store.recreation.after.deletion.time.window.seconds, default 21600) so
+    # integration tests that create and delete Venice stores are re-runnable without waiting.
+    # Appends the override to the image's baked-in controller.properties, then launches normally.
+    command:
+      - sh
+      - -c
+      - echo "controller.store.recreation.after.deletion.time.window.seconds=0" >> configs/single-dc/controller.properties && java -jar bin/venice-controller-all.jar configs/single-dc/cluster.properties configs/single-dc/controller.properties
     depends_on:
       kafka:
         condition: service_healthy

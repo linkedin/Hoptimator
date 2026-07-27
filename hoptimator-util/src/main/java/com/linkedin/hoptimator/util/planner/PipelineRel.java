@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Sink;
@@ -23,7 +24,6 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.fun.SqlItemOperator;
 
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.HashMap;
@@ -107,17 +107,17 @@ public interface PipelineRel extends RelNode {
     }
 
     /** Combine deployables into a Pipeline */
-    public Pipeline pipeline(String name, Connection connection) throws SQLException {
+    public Pipeline pipeline(String name, DeploymentContext context) throws SQLException {
       Map<String, ThrowingFunction<SqlDialect, String>> templateEvals = new HashMap<>();
-      templateEvals.put("sql", sql(connection));
-      templateEvals.put("query", query(connection));
+      templateEvals.put("sql", sql(context));
+      templateEvals.put("query", query(context));
       templateEvals.put("fieldMap", fieldMap());
 
       Job job = new Job(name, sources.keySet(), sink, templateEvals);
       return new Pipeline(sources.keySet(), sink, job);
     }
 
-    private ScriptImplementor script(Connection connection) throws SQLException {
+    private ScriptImplementor script(DeploymentContext context) throws SQLException {
       ScriptImplementor script = ScriptImplementor.empty();
       // Check if we need to add suffixes to avoid table name collisions
       boolean needsSuffixes = hasTableNameCollision();
@@ -125,7 +125,7 @@ public interface PipelineRel extends RelNode {
       for (Map.Entry<Source, RelDataType> source : sources.entrySet()) {
         script = script.catalog(source.getKey().catalog());
         script = script.database(source.getKey().catalog(), source.getKey().schema());
-        Map<String, String> configs = ConnectionService.configure(source.getKey(), connection);
+        Map<String, String> configs = ConnectionService.configure(source.getKey(), context);
         String suffix = needsSuffixes ? "_source" : null;
         script = script.connector(source.getKey().catalog(), source.getKey().schema(), source.getKey().table(), suffix, source.getValue(), configs);
       }
@@ -151,16 +151,16 @@ public interface PipelineRel extends RelNode {
     }
 
     /** SQL script ending in an INSERT INTO */
-    public ThrowingFunction<SqlDialect, String> sql(Connection connection) throws SQLException {
+    public ThrowingFunction<SqlDialect, String> sql(DeploymentContext context) throws SQLException {
       return wrap(x -> {
-        ScriptImplementor script = script(connection);
+        ScriptImplementor script = script(context);
         RelDataType targetRowType = sinkRowType;
         if (targetRowType == null) {
           targetRowType = query.getRowType();
         } else {
           validateFieldMapping(targetRowType);
         }
-        Map<String, String> sinkConfigs = ConnectionService.configure(sink, connection);
+        Map<String, String> sinkConfigs = ConnectionService.configure(sink, context);
         script = script.catalog(sink.catalog());
         script = script.database(sink.catalog(), sink.schema());
         // Check if we need to add suffixes to avoid table name collisions
@@ -184,8 +184,8 @@ public interface PipelineRel extends RelNode {
     }
 
     /** SQL script ending in a SELECT */
-    public ThrowingFunction<SqlDialect, String> query(Connection connection) throws SQLException {
-      return wrap(x -> script(connection).query(query).sql(x));
+    public ThrowingFunction<SqlDialect, String> query(DeploymentContext context) throws SQLException {
+      return wrap(x -> script(context).query(query).sql(x));
     }
 
     public ThrowingFunction<SqlDialect, String> fieldMap() {

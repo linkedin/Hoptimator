@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import org.apache.calcite.adapter.jdbc.JdbcTable;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.linq4j.tree.Expressions;
@@ -17,7 +19,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.sql.Connection;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -31,7 +32,7 @@ class HoptimatorJdbcTableScanTest {
   private JdbcTable mockJdbcTable;
 
   @Mock
-  private Connection mockConnection;
+  private DeploymentContext mockConnection;
 
   @Mock
   private RelOptTable mockRelOptTable;

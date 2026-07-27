@@ -1,5 +1,7 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.DeploymentContext;
+
 import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.schema.Schema;
@@ -41,7 +43,7 @@ class HoptimatorJdbcCatalogSchemaTest {
   private DataSource mockDataSource;
 
   @Mock
-  private Connection mockConnection;
+  private DeploymentContext mockConnection;
 
   @Mock
   private Expression mockExpression;

@@ -18,6 +18,7 @@
  */
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.DeploymentContext;
 import org.apache.calcite.adapter.enumerable.EnumerableConvention;
 import org.apache.calcite.adapter.jdbc.JdbcConvention;
 import org.apache.calcite.plan.RelTraitSet;
@@ -25,7 +26,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.convert.ConverterRule;
 
 import javax.annotation.Nullable;
-import java.sql.Connection;
 
 /**
  * Rule to convert a relational expression from
@@ -34,25 +34,25 @@ import java.sql.Connection;
  */
 public class RemoteToEnumerableConverterRule extends ConverterRule {
 
-  private final Connection connection;
+  private final DeploymentContext context;
 
   /** Creates a RemoteToEnumerableConverterRule. */
-  public static RemoteToEnumerableConverterRule create(RemoteConvention inTrait, Connection connection) {
+  public static RemoteToEnumerableConverterRule create(RemoteConvention inTrait, DeploymentContext context) {
     return Config.INSTANCE
         .withConversion(RelNode.class, inTrait, EnumerableConvention.INSTANCE,
             "RemoteToEnumerableConverterRule")
-        .withRuleFactory(x -> new RemoteToEnumerableConverterRule(x, connection))
+        .withRuleFactory(x -> new RemoteToEnumerableConverterRule(x, context))
         .toRule(RemoteToEnumerableConverterRule.class);
   }
 
   /** Called from the Config. */
-  protected RemoteToEnumerableConverterRule(Config config, Connection connection) {
+  protected RemoteToEnumerableConverterRule(Config config, DeploymentContext context) {
     super(config);
-    this.connection = connection;
+    this.context = context;
   }
 
   @Override public @Nullable RelNode convert(RelNode rel) {
     RelTraitSet newTraitSet = rel.getTraitSet().replace(getOutTrait());
-    return new RemoteToEnumerableConverter(rel.getCluster(), newTraitSet, rel, connection);
+    return new RemoteToEnumerableConverter(rel.getCluster(), newTraitSet, rel, context);
   }
 }

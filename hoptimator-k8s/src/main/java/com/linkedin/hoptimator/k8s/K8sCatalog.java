@@ -29,7 +29,7 @@ class K8sCatalog implements Catalog {
   public void register(Wrapper wrapper) throws SQLException {
     SchemaPlus schemaPlus = wrapper.unwrap(SchemaPlus.class);
     HoptimatorConnection conn = wrapper.unwrap(HoptimatorConnection.class);
-    K8sContext context = K8sContext.create(conn);
+    K8sContext context = K8sContext.create(conn.deploymentContext());
     log.info("Using K8s context {}", context);
     K8sMetadata metadata = createMetadata(conn, context);
     schemaPlus.add("k8s", metadata);

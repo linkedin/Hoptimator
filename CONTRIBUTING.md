@@ -39,6 +39,11 @@ For bugs, please include:
    or any user-facing SQL behavior; running `make test` regenerates the
    diff. The `QuidemTestBase` class in `hoptimator-jdbc` is the shared
    harness.
+
+   Behavior that isn't SQL — e.g. the direct `TableService.create(...)`
+   API — is covered by plain JUnit integration tests tagged
+   `@Tag("integration")` (see the `*TableServiceIntegrationTest` classes),
+   which drive the new APIs directly instead of routing through Quidem.
 3. **Cover your changes.** New code needs tests; don't ship behavior that
    isn't exercised by either a unit or an integration test. Generate a
    coverage report with:

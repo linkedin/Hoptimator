@@ -15,6 +15,7 @@ dependencies {
   // They are discovered at runtime via the DeployerProvider SPI (ServiceLoader).
   // Add them as testRuntimeOnly in your application build if needed for integration tests.
 
+  testImplementation libs.avro
   testImplementation libs.commons.dbcp2
   testImplementation(testFixtures(project(':hoptimator-k8s')))
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
