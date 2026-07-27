@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -55,12 +56,12 @@ class KafkaDeployerProviderTest {
   }
 
   @Test
-  void testPriority() {
+  void testPriority() throws SQLException {
     assertEquals(2, provider.priority());
   }
 
   @Test
-  void testReturnsDeployerForKafkaSchema() {
+  void testReturnsDeployerForKafkaSchema() throws SQLException {
     Source source = new Source("kafka-database", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
 
     // Mock the chain: connection -> calciteConnection -> rootSchema -> subSchema -> HoptimatorJdbcSchema -> BasicDataSource
@@ -81,7 +82,7 @@ class KafkaDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyForNonKafkaDatabase() {
+  void testReturnsEmptyForNonKafkaDatabase() throws SQLException {
     // Database name "test" doesn't start with "kafka" — short-circuits before schema lookup
     Source source = new Source("test", List.of("TEST", "MyStore"), Collections.emptyMap());
 
@@ -90,7 +91,7 @@ class KafkaDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyForNonKafkaDatabaseEvenWhenSchemaWouldMatch() {
+  void testReturnsEmptyForNonKafkaDatabaseEvenWhenSchemaWouldMatch() throws SQLException {
     // Use schema name "KAFKA" but database "not-kafka" to verify the database prefix guard
     // is what causes the empty result (not downstream schema lookup).
     // If the database guard is removed the lookup would proceed, but
@@ -105,7 +106,7 @@ class KafkaDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyWhenSchemaNotFound() {
+  void testReturnsEmptyWhenSchemaNotFound() throws SQLException {
     Source source = new Source("kafka-unknown", List.of("UNKNOWN", "MyTable"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
@@ -118,14 +119,14 @@ class KafkaDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyForNonSourceDeployable() {
+  void testReturnsEmptyForNonSourceDeployable() throws SQLException {
     MaterializedView view = mock(MaterializedView.class);
     Collection<Deployer> deployers = provider.deployers(view, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   @Test
-  void testReturnsEmptyWhenSchemaNameIsNull() {
+  void testReturnsEmptyWhenSchemaNameIsNull() throws SQLException {
     // Source with only a table name (single-element path) — schema() returns null
     Source source = new Source("kafka-database", List.of("MyTopic"), Collections.emptyMap());
     Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
@@ -133,14 +134,14 @@ class KafkaDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyWhenDatabaseIsNull() {
+  void testReturnsEmptyWhenDatabaseIsNull() throws SQLException {
     Source source = new Source(null, List.of("KAFKA", "MyTopic"), Collections.emptyMap());
     Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   @Test
-  void testReturnsEmptyWhenUnwrapThrowsException() {
+  void testReturnsEmptyWhenUnwrapThrowsException() throws SQLException {
     Source source = new Source("kafka-database", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);

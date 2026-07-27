@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.logical;
 
 import com.linkedin.hoptimator.DeploymentContext;
 
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -26,14 +27,14 @@ public class LogicalTableDeployerProviderTest {
   }
 
   @Test
-  public void deployersReturnsEmptyWhenInputIsNotSource() {
+  public void deployersReturnsEmptyWhenInputIsNotSource() throws SQLException {
     Deployable notASource = new Deployable() { };
     Collection<Deployer> deployers = provider.deployers(notASource, null);
     assertTrue(deployers.isEmpty());
   }
 
   @Test
-  public void deployersReturnsEmptyWhenDatabaseUnresolvable() {
+  public void deployersReturnsEmptyWhenDatabaseUnresolvable() throws SQLException {
     // A context that can't resolve the database (databaseProperties returns null) yields no deployers.
     Source source = new Source("mydb", List.of("mydb", "myschema", "mytable"), Map.of());
     DeploymentContext context = org.mockito.Mockito.mock(DeploymentContext.class);

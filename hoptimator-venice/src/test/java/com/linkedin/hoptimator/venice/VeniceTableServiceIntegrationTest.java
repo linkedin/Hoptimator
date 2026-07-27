@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -186,7 +187,7 @@ public class VeniceTableServiceIntegrationTest {
           List.of(SCHEMA, store),
           recordOf(sanitize(store), nullable("KEY", Schema.Type.INT), nullable("i", Schema.Type.INT)),
           Map.of(), false, false))
-          .isInstanceOf(SQLException.class)
+          .isInstanceOf(SQLNonTransientException.class)
           .hasMessageContaining("already exists");
     } finally {
       drop(store);

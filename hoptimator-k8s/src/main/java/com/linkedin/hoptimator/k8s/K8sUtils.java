@@ -8,6 +8,7 @@ import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientException;
@@ -92,18 +93,53 @@ public final class K8sUtils {
     checkResponse(() -> msg, resp);
   }
 
+  /**
+   * Executes a Kubernetes client call, normalizing an unchecked connectivity failure into a typed
+   * {@link SQLException}.
+   *
+   * <p>The Kubernetes client reports a genuine connectivity failure (connection refused, unknown
+   * host, socket timeout) as an unchecked {@link IllegalStateException} wrapping an
+   * {@link IOException}, thrown from the terminal {@code generic()/dynamic().get/list/create/delete/
+   * update} call — HTTP-status errors (404, 409, ...) instead come back in the response and are
+   * classified by {@link #checkResponse}. Left unchecked, the connectivity failure would escape the
+   * {@link SQLException} contract as an unclassified error, and — worse — a swallowed read could
+   * report success while nothing was actually resolved or deployed. Every backend call (in
+   * {@link K8sApi} and {@link K8sYamlApi} alike) routes through here so all SPIs get a uniform
+   * classification: an IOException-caused failure is a {@link SQLTransientException} (a retryable
+   * connectivity blip); any other {@link IllegalStateException} is surfaced as a
+   * {@link SQLNonTransientException} rather than being masked as retryable.
+   */
+  static <R> R normalizingCall(String action, Supplier<R> request) throws SQLException {
+    try {
+      return request.get();
+    } catch (IllegalStateException e) {
+      if (e.getCause() instanceof IOException) {
+        throw new SQLTransientException("Could not reach Kubernetes to " + action + ": " + e.getMessage(), e);
+      }
+      throw new SQLNonTransientException("Kubernetes call failed to " + action + ": " + e.getMessage(), e);
+    }
+  }
+
   static void checkResponse(Supplier<String> msgSupplier, KubernetesApiResponse<?> resp) throws SQLException {
     try {
       resp.throwsApiException();
     } catch (ApiException e) {
       switch (resp.getHttpStatusCode()) {
-      case 404: // not found
-      case 408: // timeout
-      case 409: // conflict
-      case 410: // gone
+      case 408: // request timeout
+      case 409: // conflict (e.g. optimistic-concurrency resourceVersion clash)
+      case 410: // gone (stale resourceVersion)
       case 412: // precondition failed
+      case 429: // too many requests (rate limited)
+      case 500: // internal server error
+      case 502: // bad gateway
+      case 503: // service unavailable
+      case 504: // gateway timeout
+        // Retryable: server-side or optimistic-concurrency failures that may succeed on retry.
         throw new SQLTransientException(msgSupplier.get(), null, resp.getHttpStatusCode(), e);
       default:
+        // Definitive client errors (e.g. 404 not found, 400 bad request, 403 forbidden): the
+        // request won't succeed on retry, so surface a non-transient error rather than masking it
+        // as retryable.
         throw new SQLNonTransientException(msgSupplier.get(), null, resp.getHttpStatusCode(), e);
       }
     }

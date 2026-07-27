@@ -8,6 +8,7 @@ import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 
 import javax.annotation.Nullable;
+import java.sql.SQLException;
 import java.util.Properties;
 
 
@@ -79,7 +80,7 @@ public final class DirectDeploymentContext implements DeploymentContext {
 
   @Override
   public @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
-      String connectionPrefix) {
+      String connectionPrefix) throws SQLException {
     return databaseConfigResolver.databaseProperties(catalog, schema, connectionPrefix);
   }
 }

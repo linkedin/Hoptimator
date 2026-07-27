@@ -4,6 +4,7 @@ import org.apache.avro.Schema;
 import org.junit.jupiter.api.Test;
 
 import javax.annotation.Nullable;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
 
@@ -64,7 +65,7 @@ class DirectDeploymentContextTest {
   }
 
   @Test
-  void databasePropertiesDelegatesToResolver() {
+  void databasePropertiesDelegatesToResolver() throws SQLException {
     Properties dbProps = new Properties();
     dbProps.setProperty("bootstrap.servers", "localhost:9092");
     DirectDeploymentContext context =

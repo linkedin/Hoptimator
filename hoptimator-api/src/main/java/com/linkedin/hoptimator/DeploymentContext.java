@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator;
 
+import java.sql.SQLException;
 import java.util.Properties;
 
 import javax.annotation.Nullable;
@@ -44,5 +45,5 @@ public interface DeploymentContext {
    * @param connectionPrefix the expected URL scheme prefix (e.g. {@code "jdbc:kafka://"})
    */
   @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
-      String connectionPrefix);
+      String connectionPrefix) throws SQLException;
 }

@@ -77,6 +77,14 @@ class K8sMaterializedViewDeployer implements Deployer {
   }
 
   @Override
+  public boolean exists() throws SQLException {
+    // The materialized view's identity is its View CRD; the Pipeline and its elements cascade from it.
+    synchronized (crudLock) {
+      return viewDeployer.exists();
+    }
+  }
+
+  @Override
   public void restore() {
     synchronized (crudLock) {
       // There may be a scenario where a view creates multiple pipelines.

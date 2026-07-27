@@ -18,6 +18,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -62,12 +63,12 @@ class MySqlDeployerProviderTest {
   }
 
   @Test
-  void testPriority() {
+  void testPriority() throws SQLException {
     assertEquals(2, provider.priority());
   }
 
   @Test
-  void testReturnsDeployerForMySqlSchema() {
+  void testReturnsDeployerForMySqlSchema() throws SQLException {
     Source source = new Source("mysql", List.of("MYSQL", "testdb", "users"), Collections.emptyMap());
 
     // Mock the chain: connection -> calciteConnection -> rootSchema -> MYSQL catalog -> testdb schema -> HoptimatorJdbcSchema -> BasicDataSource
@@ -90,7 +91,7 @@ class MySqlDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyForNonMySqlCatalog() {
+  void testReturnsEmptyForNonMySqlCatalog() throws SQLException {
     // Catalog name "KAFKA" doesn't match "MYSQL" — short-circuits before schema lookup
     Source source = new Source("kafka", List.of("KAFKA", "MyTopic"), Collections.emptyMap());
 
@@ -99,7 +100,7 @@ class MySqlDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyWhenCatalogNotFound() {
+  void testReturnsEmptyWhenCatalogNotFound() throws SQLException {
     Source source = new Source("mysql", List.of("UNKNOWN", "testdb", "users"), Collections.emptyMap());
 
     // No mocking needed - catalog name doesn't match, short-circuits early
@@ -108,14 +109,14 @@ class MySqlDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyForNonSourceDeployable() {
+  void testReturnsEmptyForNonSourceDeployable() throws SQLException {
     MaterializedView view = mock(MaterializedView.class);
     Collection<Deployer> deployers = provider.deployers(view, new CalciteDeploymentContext(connection));
     assertTrue(deployers.isEmpty());
   }
 
   @Test
-  void testReturnsEmptyWhenCatalogIsNull() {
+  void testReturnsEmptyWhenCatalogIsNull() throws SQLException {
     // Source with only schema and table (2-level path) — catalog() returns null
     Source source = new Source("mysql", List.of("testdb", "users"), Collections.emptyMap());
     Collection<Deployer> deployers = provider.deployers(source, new CalciteDeploymentContext(connection));
@@ -123,7 +124,7 @@ class MySqlDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyWhenSchemaNotFoundInCatalog() {
+  void testReturnsEmptyWhenSchemaNotFoundInCatalog() throws SQLException {
     Source source = new Source("mysql", List.of("MYSQL", "nonexistent", "users"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
@@ -138,7 +139,7 @@ class MySqlDeployerProviderTest {
   }
 
   @Test
-  void testReturnsEmptyWhenUnwrapThrowsException() {
+  void testReturnsEmptyWhenUnwrapThrowsException() throws SQLException {
     Source source = new Source("mysql", List.of("MYSQL", "testdb", "users"), Collections.emptyMap());
 
     when(connection.calciteConnection()).thenReturn(calciteConnection);
@@ -156,7 +157,7 @@ class MySqlDeployerProviderTest {
   // --- deployers() with non-HoptimatorConnection returns empty ---
 
   @Test
-  void testReturnsEmptyWhenDatabaseUnresolvable() {
+  void testReturnsEmptyWhenDatabaseUnresolvable() throws SQLException {
     Source source = new Source("mysql", List.of("MYSQL", "testdb", "users"), Collections.emptyMap());
 
     // A context that can't resolve the database (databaseProperties returns null) yields no deployers.
@@ -169,7 +170,7 @@ class MySqlDeployerProviderTest {
   // --- catalog check: catalog name comparison is case-insensitive ---
 
   @Test
-  void testDeployersCatalogMatchIsCaseInsensitive() {
+  void testDeployersCatalogMatchIsCaseInsensitive() throws SQLException {
     // "mysql" lower-case catalog should NOT match "MYSQL" since equalsIgnoreCase is used
     // but non-matching catalog returns empty
     Source source = new Source("mysql", List.of("OTHER", "testdb", "users"), Collections.emptyMap());

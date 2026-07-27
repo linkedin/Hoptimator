@@ -140,11 +140,15 @@ class K8sUtilsTest {
 
   static Stream<Arguments> transientStatusCodes() {
     return Stream.of(
-        Arguments.of(404),
         Arguments.of(408),
         Arguments.of(409),
         Arguments.of(410),
-        Arguments.of(412)
+        Arguments.of(412),
+        Arguments.of(429),
+        Arguments.of(500),
+        Arguments.of(502),
+        Arguments.of(503),
+        Arguments.of(504)
     );
   }
 
@@ -157,11 +161,22 @@ class K8sUtilsTest {
     assertThrows(SQLTransientException.class, () -> K8sUtils.checkResponse("test", resp));
   }
 
-  @Test
-  void checkResponseNonTransientCodeThrowsSQLNonTransientException() throws Exception {
+  static Stream<Arguments> nonTransientStatusCodes() {
+    return Stream.of(
+        Arguments.of(400),
+        Arguments.of(401),
+        Arguments.of(403),
+        Arguments.of(404), // not found is definitive: won't succeed on retry
+        Arguments.of(422)
+    );
+  }
+
+  @ParameterizedTest
+  @MethodSource("nonTransientStatusCodes")
+  void checkResponseNonTransientCodeThrowsSQLNonTransientException(int statusCode) throws Exception {
     KubernetesApiResponse<?> resp = mock(KubernetesApiResponse.class);
     doThrow(new ApiException("error")).when(resp).throwsApiException();
-    when(resp.getHttpStatusCode()).thenReturn(500);
+    when(resp.getHttpStatusCode()).thenReturn(statusCode);
     assertThrows(SQLNonTransientException.class, () -> K8sUtils.checkResponse("test", resp));
   }
 

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.logical;
 
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -29,7 +30,7 @@ public class LogicalTableDeployerProvider implements DeployerProvider {
   private static final Logger log = LoggerFactory.getLogger(LogicalTableDeployerProvider.class);
 
   @Override
-  public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context) {
+  public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context) throws SQLException {
     if (!(obj instanceof Source)) {
       return Collections.emptyList();
     }

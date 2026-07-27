@@ -40,20 +40,14 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
 
   @Override
   public @Nullable Properties databaseProperties(@Nullable String catalog, @Nullable String schema,
-      String connectionPrefix) {
+      String connectionPrefix) throws SQLException {
     if (catalog == null && schema == null) {
       return null;
     }
-    K8sDatabaseTable.Row row;
-    try {
-      row = findDatabase(catalog, schema);
-    } catch (SQLException e) {
-      // Fail loudly rather than returning null: the deployer providers treat a null here as "no
-      // config for this store" and deploy nothing, which would report success while a K8s error
-      // meant we never figured out what to deploy. The SPI signature can't throw, so wrap it.
-      throw new IllegalStateException("Failed to resolve Database config for "
-          + (catalog != null ? catalog : schema) + ": " + e.getMessage(), e);
-    }
+    // findDatabase may throw a typed SQLException (transient/non-transient) on a K8s failure; let it
+    // propagate. Returning null here means "no Database matched", which the deployer providers treat
+    // as "no config for this store" — so a swallowed error would deploy nothing and report success.
+    K8sDatabaseTable.Row row = findDatabase(catalog, schema);
     if (row == null || row.URL == null || !row.URL.startsWith(connectionPrefix)) {
       return null;
     }
@@ -111,9 +105,10 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   private List<K8sDatabaseTable.Row> listDatabases() throws SQLException {
     if (cachedDatabases == null) {
       List<K8sDatabaseTable.Row> rows = new ArrayList<>();
-      // No catch: a failed list must surface (see databaseName/databaseProperties) rather than be
-      // swallowed into an empty list that reads as "no Databases". cachedDatabases stays null on
-      // failure, so it is not cached and a transient error can recover on the next call.
+      // A failed list must surface (see databaseName/databaseProperties) rather than be swallowed
+      // into an empty list that reads as "no Databases". K8sApi normalizes connectivity failures to
+      // a typed SQLTransientException, so a transient error propagates (and, because cachedDatabases
+      // stays null on failure, is not cached) and can recover on the next call.
       for (V1alpha1Database db : new K8sApi<>(context, K8sApiEndpoints.DATABASES).list()) {
         rows.add(K8sDatabaseTable.rowOf(db));
       }
