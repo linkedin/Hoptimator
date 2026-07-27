@@ -3,7 +3,9 @@ package com.linkedin.hoptimator.jdbc;
 import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
+import com.linkedin.hoptimator.avro.AvroSchemas;
 import org.apache.avro.Schema;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.jdbc.CalciteConnection;
@@ -23,6 +25,7 @@ import org.apache.calcite.util.Util;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
@@ -166,6 +169,9 @@ public class HoptimatorDriver implements Driver {
 
   public static RelDataType rowType(Source source, DeploymentContext context)
       throws SQLException {
+    if (context instanceof DirectDeploymentContext) {
+      return ((DirectDeploymentContext) context).rowType();
+    }
     if (context instanceof CalciteDeploymentContext) {
       HoptimatorConnection connection = ((CalciteDeploymentContext) context).connection();
       SchemaPlus schema = Objects.requireNonNull(connection.calciteConnection().getRootSchema());
@@ -184,13 +190,27 @@ public class HoptimatorDriver implements Driver {
   }
 
   /**
-   * Returns the native value (payload) Avro schema for a table when it is backed by an
-   * {@link AvroSchemaSource} resolved through the Calcite catalog (e.g. a Venice store), or
-   * {@code null} otherwise (a SQL source with no native Avro, such as a MySQL table or a computed
-   * view). Callers rendering {@code {{avroValueSchema}}} then synthesize a value schema from the row
-   * type.
+   * Returns the value (payload) Avro schema for a table — the data record without any
+   * {@code KEY_}-prefixed key scaffolding — on either path, or {@code null} when none is available:
+   *
+   * <ul>
+   *   <li><b>Direct path</b> ({@link DirectDeploymentContext}): the value portion of the caller's
+   *       carried Avro schema, split off losslessly via {@link AvroConverter#valueSchemaOf}. The
+   *       caller handed us the exact schema, so we preserve its namespaces, nested record identities,
+   *       unions, and defaults instead of re-synthesizing from the flat row type.
+   *   <li><b>SQL path</b> ({@link CalciteDeploymentContext}): the native value schema of a
+   *       pre-existing source table that implements {@link AvroSchemaSource} (e.g. a Venice store
+   *       resolved through the Calcite catalog).
+   *   <li>Otherwise {@code null} — e.g. a delete (no schema carried), or a SQL source with no native
+   *       Avro (a MySQL table, a computed view). Callers rendering {@code {{avroValueSchema}}} then
+   *       synthesize a value schema from the row type.
+   * </ul>
    */
   public static Schema valueSchema(Source source, DeploymentContext context) {
+    if (context instanceof DirectDeploymentContext) {
+      Schema avroSchema = ((DirectDeploymentContext) context).avroSchema();
+      return avroSchema == null ? null : AvroConverter.valueSchemaOf(avroSchema, AvroSchemas.KEY_PREFIX);
+    }
     if (!(context instanceof CalciteDeploymentContext)) {
       return null;
     }
@@ -207,6 +227,22 @@ public class HoptimatorDriver implements Driver {
     }
     Table table = schema == null ? null : schema.tables().get(source.table());
     return table instanceof AvroSchemaSource ? ((AvroSchemaSource) table).valueSchema() : null;
+  }
+
+  /**
+   * Returns the caller-provided (merged key+value) Avro schema on the direct path, or {@code null}
+   * otherwise. On the direct API path the caller hands us the exact Avro schema they want deployed;
+   * carrying it verbatim lets deployers that speak Avro (e.g. Venice) avoid the
+   * lossy Avro->RelDataType->Avro round-trip, preserving namespaces,
+   * nested record names, unions, and defaults. Returns {@code null} on the SQL path (where the
+   * native schema, if any, comes from {@link #valueSchema}) and whenever no Avro was supplied
+   * (e.g. a delete).
+   */
+  public static @Nullable Schema providedAvroSchema(DeploymentContext context) {
+    if (context instanceof DirectDeploymentContext) {
+      return ((DirectDeploymentContext) context).avroSchema();
+    }
+    return null;
   }
 
   private static final class ConnectionHolder {

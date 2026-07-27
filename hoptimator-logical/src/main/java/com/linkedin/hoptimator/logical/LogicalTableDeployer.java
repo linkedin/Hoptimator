@@ -17,6 +17,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplateList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
+import com.linkedin.hoptimator.util.planner.IdentityQuery;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
@@ -354,15 +355,32 @@ public class LogicalTableDeployer implements Deployer, Validated {
    */
   private Pipeline planPipeline(Source fromSource, Source toSource, String pipelineName) throws Exception {
     DeploymentContext deploymentContext = context.deploymentContext();
-    // Plan SELECT * FROM <source tier> against the Calcite catalog.
-    HoptimatorConnection conn = ((CalciteDeploymentContext) deploymentContext).connection();
-    Properties props = deploymentContext.properties();
-    props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
-    RelRoot root = HoptimatorDriver.convert(conn, buildSelectSql(fromSource)).root;
-    final RelNode query = root.rel;
-    final RelDataType rowType = root.rel.getRowType();
-    final ImmutablePairList<Integer, String> targetFields = root.fields;
-    final Map<String, String> hints = DeploymentService.parseHints(props);
+    final RelNode query;
+    final RelDataType rowType;
+    final ImmutablePairList<Integer, String> targetFields;
+    final Map<String, String> hints;
+    if (deploymentContext instanceof CalciteDeploymentContext) {
+      // SQL path: plan SELECT * FROM <source tier> against the Calcite catalog.
+      HoptimatorConnection conn = ((CalciteDeploymentContext) deploymentContext).connection();
+      Properties props = deploymentContext.properties();
+      props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
+      RelRoot root = HoptimatorDriver.convert(conn, buildSelectSql(fromSource)).root;
+      query = root.rel;
+      rowType = root.rel.getRowType();
+      targetFields = root.fields;
+      hints = DeploymentService.parseHints(props);
+    } else {
+      // Connection-free (direct API) path: a logical table's tiers share the row type we created
+      // both tables from, so the inter-tier pipeline is a pure identity copy — build the scan
+      // RelNode without a Calcite connection or catalog.
+      rowType = HoptimatorDriver.rowType(fromSource, deploymentContext);
+      query = IdentityQuery.scan(fromSource.path(), rowType);
+      targetFields = IdentityQuery.fields(rowType);
+      Properties props = new Properties();
+      props.putAll(deploymentContext.properties());
+      props.setProperty(DeploymentService.PIPELINE_OPTION, pipelineName);
+      hints = DeploymentService.parseHints(props);
+    }
     PipelineRel.Implementor plan = new PipelineRel.Implementor(targetFields, hints);
     plan.addSource(fromSource.database(), fromSource.path(), rowType, Collections.emptyMap());
     plan.setSink(toSource.database(), toSource.path(), rowType, Collections.emptyMap());
