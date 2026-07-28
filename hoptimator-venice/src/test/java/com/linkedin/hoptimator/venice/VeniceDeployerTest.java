@@ -5,6 +5,7 @@ import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.DirectDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.util.ConnectionService;
 import com.linkedin.venice.client.schema.StoreSchemaFetcher;
 import com.linkedin.venice.controllerapi.ControllerClient;
 import com.linkedin.venice.controllerapi.ControllerResponse;
@@ -28,13 +29,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -68,6 +70,9 @@ class VeniceDeployerTest {
 
   @Mock
   private StoreSchemaFetcher mockStoreSchemaFetcher;
+
+  @Mock
+  private MockedStatic<ConnectionService> connectionService;
 
   private Properties properties;
 
@@ -335,15 +340,12 @@ class VeniceDeployerTest {
         + "{\"name\":\"widget\",\"type\":{\"type\":\"record\",\"name\":\"Widget\","
         + "\"namespace\":\"com.example.custom\",\"fields\":[{\"name\":\"w\",\"type\":\"string\"}]}}"
         + "]}");
-    VeniceDeployer deployer = new VeniceDeployer(
-        source, properties, new DirectDeploymentContext(properties, null, provided)) {
-          @Override
-          protected Map<String, String> resolveKeyOptions() {
-            // Unit-test seam: avoid resolving options through the live ConnectionService (which would
-            // reach out to K8s). The provided-Avro path under test does not depend on key options.
-            return Collections.emptyMap();
-          }
-        };
+
+    // Stub the K8s-reaching option resolution instead of overriding a
+    // deployer method; the provided-Avro path under test does not depend on key options.
+    connectionService.when(() -> ConnectionService.configure(any(), any())).thenReturn(Collections.emptyMap());
+    VeniceDeployer deployer =
+        new VeniceDeployer(source, properties, new DirectDeploymentContext(properties, null, provided));
 
     Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
 
@@ -378,16 +380,12 @@ class VeniceDeployerTest {
     CalciteConnection calciteConnection = mock(CalciteConnection.class);
     when(mockConnection.calciteConnection()).thenReturn(calciteConnection);
     when(calciteConnection.getRootSchema()).thenReturn(rootSchema);
+
+    // Stub the K8s-reaching option resolution instead of overriding a
+    // deployer method; with no keys, the whole row type is treated as the payload.
+    connectionService.when(() -> ConnectionService.configure(any(), any())).thenReturn(Collections.emptyMap());
     VeniceDeployer deployer =
-        new VeniceDeployer(source, properties, new CalciteDeploymentContext(mockConnection)) {
-          @Override
-          protected Map<String, String> resolveKeyOptions() {
-            // Unit-test seam: no connector on this classpath supplies a "keys" option, and resolving
-            // through the live ConnectionService would reach out to K8s. Return none so the whole
-            // row type is treated as the payload.
-            return Collections.emptyMap();
-          }
-        };
+        new VeniceDeployer(source, properties, new CalciteDeploymentContext(mockConnection));
 
     Pair<Schema, Schema> keyPayload = deployer.getKeyPayloadSchema();
 
