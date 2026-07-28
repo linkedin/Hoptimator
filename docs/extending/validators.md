@@ -1,6 +1,6 @@
 # Validators
 
-A `Validator` inspects a SQL statement, a CRD, or a planned pipeline element
+A `Validator` inspects a SQL statement, a custom resource, or a planned pipeline element
 *before* anything is deployed and rejects it if it doesn't meet your
 constraints. Validators are the right place for environment-specific policy:
 naming conventions, schema compatibility checks, ACL enforcement, anything
@@ -20,7 +20,7 @@ DDL path:
 
 If any validator emits an `Issues.error(...)` at any of those points, the
 whole operation aborts and the error message surfaces to the user (or to
-the operator's status field for CRD-driven changes).
+the operator's status field for custom-resource-driven changes).
 
 ## The interfaces
 

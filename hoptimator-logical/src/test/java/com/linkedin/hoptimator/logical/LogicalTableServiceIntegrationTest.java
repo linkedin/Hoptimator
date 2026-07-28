@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Integration tests using the SQL-free {@link TableService} direct API.
  * Asserts the rendered inter-tier pipeline specs; the real-create lifecycle deploys and verifies the
- * pipeline CRD/elements (querying the {@code k8s.pipelines} / {@code k8s.pipeline_element_map}
+ * pipeline custom resource/elements (querying the {@code k8s.pipelines} / {@code k8s.pipeline_element_map}
  * metadata tables) and the online (Venice) tier's resolved row type.
  */
 @Tag("integration")
@@ -103,7 +103,7 @@ public class LogicalTableServiceIntegrationTest {
       RelDataType onlineRowType = CatalogResolver.resolve(List.of("VENICE", table));
       assertThat(onlineRowType.getFieldNames()).contains("memberId", "pageKey");
 
-      // The deployment is also verified structurally via the pipeline CRD and its elements: the
+      // The deployment is also verified structurally via the pipeline custom resource and its elements: the
       // nearline KafkaTopic physical table plus the identity FlinkSessionJob.
       assertThat(pipelineNames()).contains(pipeline);
       List<String> elements = pipelineElements(pipeline);

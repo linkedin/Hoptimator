@@ -40,7 +40,7 @@ but `hoptimator-api` is the actual extension point.
 - **Multi-hop, declarative.** You don't write Flink jobs and you don't request
   topics. The planner figures out the topology from a query.
 - **Kubernetes out of the box, not as a hard requirement.** The bundled
-  deployers target Kubernetes, so pipelines show up as first-class CRDs and
+  deployers target Kubernetes, so pipelines show up as first-class custom resources and
   `kubectl get pipelines` Just Works. The `Deployer` interface is the actual
   extension point — anything that knows how to materialize a spec can take
   the place of the defaults.

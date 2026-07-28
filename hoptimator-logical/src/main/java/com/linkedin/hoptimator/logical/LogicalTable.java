@@ -26,7 +26,7 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 
 
 /**
- * A Calcite table backed by a {@code LogicalTable} CRD.
+ * A Calcite table backed by a {@code LogicalTable} custom resource.
  *
  * <p>The row type is resolved lazily on first access by opening a JDBC connection to
  * the preferred physical tier (nearline first) and reading the schema from there.
@@ -105,12 +105,12 @@ public final class LogicalTable extends AbstractTable {
 
     String databaseName = tierBinding.getDatabase();
     try {
-      V1alpha1Database dbCrd = databaseApi.get(databaseName);
-      if (dbCrd.getSpec() == null) {
+      V1alpha1Database dbCr = databaseApi.get(databaseName);
+      if (dbCr.getSpec() == null) {
         return null;
       }
-      String tierUrl = dbCrd.getSpec().getUrl();
-      String tierSchema = dbCrd.getSpec().getSchema();
+      String tierUrl = dbCr.getSpec().getUrl();
+      String tierSchema = dbCr.getSpec().getSchema();
 
       try (Connection tierConn = DriverManager.getConnection(tierUrl)) {
         CalciteConnection calciteConn = tierConn.unwrap(CalciteConnection.class);

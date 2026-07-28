@@ -42,7 +42,7 @@ spec:
                     type: object
                     properties:
                       database:
-                        description: Name of the Database CRD backing this tier.
+                        description: Name of the Database custom resource backing this tier.
                         type: string
                     required:
                     - database

@@ -74,7 +74,7 @@ deploy the operator standalone and feed it Subscriptions from CI.
 ```
 
 The same flow applies whether you start from SQL (CLI, JDBC, MCP) or from a
-`Subscription` CRD applied with `kubectl apply -f`.
+`Subscription` custom resource applied with `kubectl apply -f`.
 
 ## Step 1 — Parse and resolve
 
@@ -164,7 +164,7 @@ supplies a Calcite-backed `DeploymentContext` (row type read from the catalog);
 the direct path supplies a `DirectDeploymentContext` that carries the caller's
 Avro schema (deriving the row type on demand) and resolves `Database` config
 registry-natively via a `DatabaseConfigResolver`
-(the K8s implementation reads `Database` CRDs directly — see
+(the K8s implementation reads `Database` custom resources directly — see
 `DatabaseConfigResolvers`). The direct path opens no connection and touches no
 Calcite catalog; only the SQL engine's read/plan path still uses the JDBC
 driver layer.
@@ -205,7 +205,7 @@ contributions should not target them.
   the runtime's operator already understands (e.g. a Beam `FlinkSessionJob`,
   a Spark Operator `SparkApplication`). Hoptimator generates the spec; the
   target operator runs the job. No `Engine` registration is required for
-  this path — the `Engine` CRD is only needed if Hoptimator should submit
+  this path — the `Engine` custom resource is only needed if Hoptimator should submit
   *queries* (not pipelines) directly to the runtime.
 - **A new deployment target**: implement `Deployer` and register it via
   `DeployerProvider`. Kubernetes is the default but not a hard requirement;

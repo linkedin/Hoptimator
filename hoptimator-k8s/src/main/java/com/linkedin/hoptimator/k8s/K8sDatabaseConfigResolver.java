@@ -15,7 +15,7 @@ import java.util.Properties;
 
 /**
  * A {@link DatabaseConfigResolver} that reads {@code Database} config directly from K8s
- * {@code Database} CRDs — no Calcite catalog, no {@code java.sql.Connection}. It reconstructs the
+ * {@code Database} custom resources — no Calcite catalog, no {@code java.sql.Connection}. It reconstructs the
  * same effective JDBC URL that {@link K8sDatabaseTable} would build for the catalog, then parses it
  * into connection properties, so the connection-free direct path resolves config identically to the
  * SQL path.
@@ -71,7 +71,7 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
       throw new SQLException("No Database is registered for "
           + (catalog != null ? catalog + "." + schema : schema) + ".");
     }
-    // The database identifier is always the Database CRD name, for both schema- and catalog-style
+    // The database identifier is always the Database custom resource name, for both schema- and catalog-style
     // Databases — matching the SQL path, which injects it into the JDBC URL as database=<name> (see
     // K8sDatabaseTable#joinedUrl). It names deployed resources and matches Table/Job template
     // `databases` filters; the store-level schema is carried separately by Source#schema().
@@ -89,17 +89,17 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
   }
 
   /**
-   * The Database CRDs, listed once and cached for this resolver's lifetime. A resolver is built once
+   * The Database custom resources, listed once and cached for this resolver's lifetime. A resolver is built once
    * per direct-path operation ({@code TableService.create}/{@code delete}), which may resolve
    * several databases (e.g. a logical table's tiers each hit this), so listing once per operation
    * avoids repeated K8s round-trips. Deliberately instance-scoped rather than static/global: a fresh
    * resolver per operation still observes newly created/deleted Databases.
    *
-   * <p>TODO: This lists all Database CRDs and filters client-side ({@link #matches}) because the K8s
+   * <p>TODO: This lists all Database custom resources and filters client-side ({@link #matches}) because the K8s
    * API cannot field-select on {@code spec.catalog}/{@code spec.schema} — only {@code metadata.name}
    * (via {@code K8sApi#get}) or labels (via {@code K8sApi#select(labelSelector)}). If Databases were
    * labelled with their catalog/schema at creation, the filter could be pushed server-side. Left as
-   * list-and-filter for now: cardinality is low (one CRD per database) and it mirrors how
+   * list-and-filter for now: cardinality is low (one custom resource per database) and it mirrors how
    * {@link K8sDatabaseTable} (the SQL/catalog path) enumerates Databases.
    */
   private List<K8sDatabaseTable.Row> listDatabases() throws SQLException {
@@ -119,7 +119,7 @@ public final class K8sDatabaseConfigResolver implements DatabaseConfigResolver {
 
   private static boolean matches(K8sDatabaseTable.Row row, @Nullable String catalog, @Nullable String schema) {
     if (catalog != null) {
-      // Catalog-style Database (e.g. MYSQL): config lives on the catalog CRD; the requested
+      // Catalog-style Database (e.g. MYSQL): config lives on the catalog custom resource; the requested
       // `schema` is a sub-schema that shares this connection.
       return catalog.equalsIgnoreCase(row.CATALOG);
     }

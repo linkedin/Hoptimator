@@ -91,7 +91,7 @@ class K8sDatabaseConfigResolverTest {
 
     assertThat(props).isNotNull();
     assertThat(props.getProperty("bootstrap.servers")).isEqualTo("localhost:9092");
-    // joinedUrl injects the CRD name as database=<name>.
+    // joinedUrl injects the custom resource name as database=<name>.
     assertThat(props.getProperty("database")).isEqualTo("kafka-database");
   }
 
@@ -109,7 +109,7 @@ class K8sDatabaseConfigResolverTest {
   }
 
   @Test
-  void databaseNameReturnsCrdNameForSchemaStyle() throws Exception {
+  void databaseNameReturnsCrNameForSchemaStyle() throws Exception {
     V1alpha1Database kafka = db("kafka-database",
         "jdbc:kafka://bootstrap.servers=localhost:9092", null, "KAFKA");
 
@@ -121,7 +121,7 @@ class K8sDatabaseConfigResolverTest {
     V1alpha1Database mysql = db("mysql", "jdbc:mysql-hoptimator://url=jdbc:mysql://localhost:3306",
         "MYSQL", null);
 
-    // Catalog-style: three-segment path [CATALOG, SCHEMA, TABLE] matches on the catalog CRD.
+    // Catalog-style: three-segment path [CATALOG, SCHEMA, TABLE] matches on the catalog custom resource.
     assertThat(resolver(mysql).databaseName(Arrays.asList("MYSQL", "test_database", "orders")))
         .isEqualTo("mysql");
   }
@@ -191,7 +191,7 @@ class K8sDatabaseConfigResolverTest {
     resolver.databaseProperties(null, "KAFKA", "jdbc:kafka://");
     resolver.databaseName(Arrays.asList("KAFKA", "t2"));
 
-    // The per-resolver cache means the Database CRDs are listed only once.
+    // The per-resolver cache means the Database custom resources are listed only once.
     verify(generic, times(1)).list(eq(NAMESPACE), any(ListOptions.class));
   }
 }

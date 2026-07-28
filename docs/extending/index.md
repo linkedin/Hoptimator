@@ -1,7 +1,7 @@
 # Extending Hoptimator
 
 Hoptimator's behavior is driven by Java SPI plug-ins (`ServiceLoader`-based)
-and by the `TableTemplate` / `JobTemplate` CRDs. Most extensions don't need
+and by the `TableTemplate` / `JobTemplate` custom resources. Most extensions don't need
 both — pick the layer that matches what you're doing.
 
 ## Pick the right surface
@@ -47,7 +47,7 @@ For surfaces that produce multiple values for the same input — `Validator`,
 
 ### "I just want to add my system to the catalog"
 
-The lowest-friction path is **a JDBC driver + a `Database` CRD**. Hoptimator
+The lowest-friction path is **a JDBC driver + a `Database` custom resource**. Hoptimator
 treats anything that responds to a JDBC URL as a potential catalog source.
 You point a `Database` at it, and Hoptimator pulls schemas and tables from
 that connection. See [Data sources → Adapter](data-sources.md#the-jdbc-adapter).
@@ -55,7 +55,7 @@ that connection. See [Data sources → Adapter](data-sources.md#the-jdbc-adapter
 ### "I need Hoptimator to actually deploy my system's resources"
 
 After the adapter, ship a `TableTemplate` (or `JobTemplate`) that emits the
-YAML for your storage system's CRD or operator. Templates are a CRD, so
+YAML for your storage system's custom resource or operator. Templates are a custom resource, so
 this is YAML-only — no Java needed. See
 [Templates and configuration](../kubernetes/templates.md).
 

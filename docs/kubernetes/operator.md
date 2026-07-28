@@ -1,7 +1,7 @@
 # The operator
 
 `hoptimator-operator` is the long-running Kubernetes controller that
-reconciles Hoptimator's CRDs. It uses the same Deployer machinery as the
+reconciles Hoptimator's custom resources. It uses the same Deployer machinery as the
 SQL path — when a `Subscription`, `Pipeline`, `View`, or `TableTrigger`
 changes, it asks the deployers to bring the cluster state in line with the
 spec.
@@ -47,7 +47,7 @@ command:
 
 ## Namespace scoping
 
-By default, the operator watches **all namespaces** for the CRDs it owns.
+By default, the operator watches **all namespaces** for the custom resources it owns.
 To restrict it to one namespace, pass `--watch <namespace>`:
 
 ```yaml
@@ -143,8 +143,8 @@ Logs are the primary debugging surface today.
 ## When *not* to run the operator
 
 The operator is only required when you want continuous reconciliation —
-typically when applying CRDs via `kubectl` rather than driving everything
+typically when applying custom resources via `kubectl` rather than driving everything
 through the JDBC path. If your workflow is "developer runs `./hoptimator`
-to create materialized views" and nothing else applies CRDs, you don't
+to create materialized views" and nothing else applies custom resources, you don't
 strictly need the operator running. The CLI deploys synchronously and waits
 for success.

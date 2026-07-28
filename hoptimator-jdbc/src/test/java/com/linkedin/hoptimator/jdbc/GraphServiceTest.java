@@ -69,8 +69,8 @@ class GraphServiceTest {
   // ─── Identifier resolution via Calcite ────────────────────────────────────
 
   @Test
-  void resolveTwoLevelResourceFindsDatabaseCrdName() throws SQLException {
-    // User typed ADS.AD_CLICKS. Schema ADS is a Database in the connection with CRD name ads-database,
+  void resolveTwoLevelResourceFindsDatabaseCrName() throws SQLException {
+    // User typed ADS.AD_CLICKS. Schema ADS is a Database in the connection with custom resource name ads-database,
     // and AD_CLICKS is a real table in its catalog (a plain physical table, not a view / LogicalTable).
     SchemaPlus ads = schemaWithDatabaseAndTable("ads-database", "AD_CLICKS", plainTable());
     stubRootSchema(schemaWithSubs("ADS", ads));
@@ -238,20 +238,20 @@ class GraphServiceTest {
   }
 
   /** Convenience overload: physical (non-logical) database. */
-  private static SchemaPlus schemaWithDatabaseAndTable(String crdName, String tableName, Table table) {
-    return schemaWithDatabaseAndTable(crdName, tableName, table, /*isLogical=*/false);
+  private static SchemaPlus schemaWithDatabaseAndTable(String crName, String tableName, Table table) {
+    return schemaWithDatabaseAndTable(crName, tableName, table, /*isLogical=*/false);
   }
 
   /**
    * Mock a SchemaPlus that's (a) unwrappable as a {@link HoptimatorJdbcSchema} with the given
-   * CRD name and {@code isLogical()} flag, and (b) when {@code tableName != null}, exposes
+   * custom resource name and {@code isLogical()} flag, and (b) when {@code tableName != null}, exposes
    * {@code table} via {@code tables().get(tableName)}.
    */
-  private static SchemaPlus schemaWithDatabaseAndTable(String crdName, String tableName, Table table,
+  private static SchemaPlus schemaWithDatabaseAndTable(String crName, String tableName, Table table,
       boolean isLogical) {
     SchemaPlus schema = schemaWithSubs(null, null);
     HoptimatorJdbcSchema hjs = mock(HoptimatorJdbcSchema.class);
-    lenient().when(hjs.databaseName()).thenReturn(crdName);
+    lenient().when(hjs.databaseName()).thenReturn(crName);
     lenient().when(hjs.isLogical()).thenReturn(isLogical);
     lenient().when(schema.unwrap(HoptimatorJdbcSchema.class)).thenReturn(hjs);
     if (tableName != null) {

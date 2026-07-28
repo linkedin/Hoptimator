@@ -41,10 +41,10 @@ public class V1alpha1LogicalTableSpecTiers {
   }
 
    /**
-   * Name of the Database CRD backing this tier.
+   * Name of the Database custom resource backing this tier.
    * @return database
   **/
-  @ApiModelProperty(required = true, value = "Name of the Database CRD backing this tier.")
+  @ApiModelProperty(required = true, value = "Name of the Database custom resource backing this tier.")
 
   public String getDatabase() {
     return database;

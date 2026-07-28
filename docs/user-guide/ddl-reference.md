@@ -6,7 +6,7 @@ ANSI SQL — see the
 This page documents the DDL Hoptimator adds on top.
 
 > All DDL listed here also has a YAML equivalent: a `View`, `Pipeline`,
-> `TableTrigger`, etc. CRD. Use whichever is more ergonomic for your workflow.
+> `TableTrigger`, etc. custom resource. Use whichever is more ergonomic for your workflow.
 
 > Test cases for the DDL parser and executor live as
 > [Quidem](https://github.com/julianhyde/quidem) `.id` scripts under each
@@ -157,7 +157,7 @@ CREATE [OR REPLACE] TRIGGER [IF NOT EXISTS] <name>
   [WITH ('<key>' '<value>', ...)]
 ```
 
-Equivalent to a `TableTrigger` CRD: runs the embedded YAML (typically a Job
+Equivalent to a `TableTrigger` custom resource: runs the embedded YAML (typically a Job
 or CronJob) when the named table changes or on a cron schedule. The job spec
 is arbitrary, so triggers are how you wire up backfills, rETL refreshes,
 downstream notifications, and operational hooks without embedding that

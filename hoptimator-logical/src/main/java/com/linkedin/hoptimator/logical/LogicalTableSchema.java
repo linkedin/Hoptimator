@@ -26,9 +26,9 @@ import com.linkedin.hoptimator.util.planner.LogicalSchemaMarker;
 
 
 /**
- * A Calcite schema that lists {@link LogicalTable} instances from K8s CRDs.
+ * A Calcite schema that lists {@link LogicalTable} instances from K8s custom resources.
  *
- * <p>CRDs are filtered by the {@link LogicalTableDriver#DATABASE_LABEL} label, which the deployer
+ * <p>Custom resources are filtered by the {@link LogicalTableDriver#DATABASE_LABEL} label, which the deployer
  * sets to the database/schema name at creation time. Row type resolution is performed
  * lazily inside each {@link LogicalTable} on first access — not eagerly here.
  */
@@ -67,12 +67,12 @@ public class LogicalTableSchema extends AbstractSchema implements LogicalSchemaM
       @Override
       @Nullable
       protected Table load(String name) throws Exception {
-        // Direct CRD lookup by name avoids a full list scan for single-table access.
+        // Direct custom resource lookup by name avoids a full list scan for single-table access.
         // getIfExists() returns null on 404 (table not found) and throws SQLException
         // for any other K8s error (auth, network, server error), which propagates here.
-        String expectedCrdName = K8sUtils.canonicalizeName(databaseName, name);
-        V1alpha1LogicalTable crd = logicalTableApi.getIfExists(context.namespace(), expectedCrdName);
-        return crd != null ? tableFromCrd(crd) : null;
+        String expectedCrName = K8sUtils.canonicalizeName(databaseName, name);
+        V1alpha1LogicalTable cr = logicalTableApi.getIfExists(context.namespace(), expectedCrName);
+        return cr != null ? tableFromCr(cr) : null;
       }
 
       @Override
@@ -93,15 +93,15 @@ public class LogicalTableSchema extends AbstractSchema implements LogicalSchemaM
   }
 
   private Map<String, Table> loadTableMap() throws SQLException {
-    Collection<V1alpha1LogicalTable> crds = logicalTableApi.list();
+    Collection<V1alpha1LogicalTable> crs = logicalTableApi.list();
 
     Map<String, Table> result = new HashMap<>();
-    for (V1alpha1LogicalTable crd : crds) {
-      Table table = tableFromCrd(crd);
+    for (V1alpha1LogicalTable cr : crs) {
+      Table table = tableFromCr(cr);
       if (table == null) {
         continue;
       }
-      // Use spec.tableName (the original declared name) not the K8s CRD metadata.name
+      // Use spec.tableName (the original declared name) not the K8s custom resource metadata.name
       // (which is a compound "database-table" key for K8s uniqueness).
       result.put(((LogicalTable) table).name(), table);
     }
@@ -110,22 +110,22 @@ public class LogicalTableSchema extends AbstractSchema implements LogicalSchemaM
   }
 
   @Nullable
-  Table tableFromCrd(V1alpha1LogicalTable crd) {
-    if (crd.getMetadata() == null || crd.getSpec() == null) {
+  Table tableFromCr(V1alpha1LogicalTable cr) {
+    if (cr.getMetadata() == null || cr.getSpec() == null) {
       return null;
     }
-    Map<String, String> labels = crd.getMetadata().getLabels();
+    Map<String, String> labels = cr.getMetadata().getLabels();
     String label = labels != null ? labels.get(LogicalTableDriver.DATABASE_LABEL) : null;
     if (!databaseName.equalsIgnoreCase(label)) {
       return null;
     }
-    if (crd.getSpec().getTiers() == null || crd.getSpec().getTiers().isEmpty()) {
-      log.warn("LogicalTable CRD {} has no tier bindings; skipping", crd.getMetadata().getName());
+    if (cr.getSpec().getTiers() == null || cr.getSpec().getTiers().isEmpty()) {
+      log.warn("LogicalTable custom resource {} has no tier bindings; skipping", cr.getMetadata().getName());
       return null;
     }
     // spec.tableName is the original declared name; metadata.name is the compound K8s resource name.
-    String tableName = crd.getSpec().getTableName() != null
-        ? crd.getSpec().getTableName() : crd.getMetadata().getName();
-    return new LogicalTable(tableName, crd.getSpec().getTiers(), resolvedTier, context);
+    String tableName = cr.getSpec().getTableName() != null
+        ? cr.getSpec().getTableName() : cr.getMetadata().getName();
+    return new LogicalTable(tableName, cr.getSpec().getTiers(), resolvedTier, context);
   }
 }

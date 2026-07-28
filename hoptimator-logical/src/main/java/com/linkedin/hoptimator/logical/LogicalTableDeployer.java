@@ -62,8 +62,8 @@ import com.linkedin.hoptimator.jdbc.ValidationService;
  * <ol>
  *   <li>Validating that at least two tiers are defined.</li>
  *   <li>Creating physical resources for each tier via the tier-specific deployer SPI.</li>
- *   <li>Creating a {@code LogicalTable} CRD via {@link K8sLogicalTableDeployer}.</li>
- *   <li>Creating implicit inter-tier Pipeline CRDs owned by the LogicalTable CRD.</li>
+ *   <li>Creating a {@code LogicalTable} custom resource via {@link K8sLogicalTableDeployer}.</li>
+ *   <li>Creating implicit inter-tier Pipeline custom resources owned by the LogicalTable custom resource.</li>
  * </ol>
  *
  * TODO: this deployer is specific to k8s at this point in time, this should be refactored to be
@@ -83,7 +83,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
   private final List<Deployer> triggerDeployers = new ArrayList<>();
   private final List<Runnable> schemaRollbacks = new ArrayList<>();
 
-  // Created lazily in deployAll(). Null until then, so restore() is a no-op for the CRD if
+  // Created lazily in deployAll(). Null until then, so restore() is a no-op for the custom resource if
   // deployAll() never ran (e.g. validation failed before deployment started).
   private K8sLogicalTableDeployer logicalTableDeployer;
 
@@ -106,14 +106,14 @@ public class LogicalTableDeployer implements Deployer, Validated {
   }
 
   /**
-   * Factory method for the LogicalTable CRD deployer — overridable in tests.
+   * Factory method for the LogicalTable custom resource deployer — overridable in tests.
    * The deployer inherits snapshot-based restore from {@link com.linkedin.hoptimator.k8s.K8sDeployer}:
-   * if the CRD didn't exist before this deployment it is deleted on restore(); if it existed it
+   * if the custom resource didn't exist before this deployment it is deleted on restore(); if it existed it
    * is reverted to its prior state.
    */
   K8sLogicalTableDeployer createLogicalTableDeployer(
-      String crdName, String databaseLabel, Map<String, String> tierMap) {
-    return new K8sLogicalTableDeployer(crdName, databaseLabel, source.table(), tierMap, context);
+      String crName, String databaseLabel, Map<String, String> tierMap) {
+    return new K8sLogicalTableDeployer(crName, databaseLabel, source.table(), tierMap, context);
   }
 
   /**
@@ -186,7 +186,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   @Override
   public boolean exists() throws SQLException {
-    // A logical table's identity is its LogicalTable CRD (the implicit inter-tier pipelines and
+    // A logical table's identity is its LogicalTable custom resource (the implicit inter-tier pipelines and
     // triggers are owned by it and cascade). Mirror how delete() names and builds that deployer.
     String selfName = K8sUtils.canonicalizeName(source.path());
     return createLogicalTableDeployer(selfName, source.database(), buildTierMap()).exists();
@@ -199,7 +199,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   /**
    * Core create/update logic. Tier resources are always deployed with update() semantics
-   * (create-or-update). The LogicalTable CRD is managed by {@link K8sLogicalTableDeployer}
+   * (create-or-update). The LogicalTable custom resource is managed by {@link K8sLogicalTableDeployer}
    * which snapshots the prior state before acting, enabling correct restore() behavior.
    */
   private void deployAll(boolean update) throws SQLException {
@@ -208,8 +208,8 @@ public class LogicalTableDeployer implements Deployer, Validated {
     try {
       deployTierResources(tierSources);
 
-      String crdName = K8sUtils.canonicalizeName(source.path());
-      logicalTableDeployer = createLogicalTableDeployer(crdName, source.database(), tierMap);
+      String crName = K8sUtils.canonicalizeName(source.path());
+      logicalTableDeployer = createLogicalTableDeployer(crName, source.database(), tierMap);
       V1OwnerReference ownerRef = update
           ? logicalTableDeployer.updateAndReference()
           : logicalTableDeployer.createAndReference();
@@ -229,15 +229,15 @@ public class LogicalTableDeployer implements Deployer, Validated {
    * Deletes a logical table.
    *
    * <p>A logical DROP is structurally equivalent to running DROP TABLE on each tier plus
-   * deleting the LogicalTable CRD. We mirror that shape exactly: each tier goes through the
+   * deleting the LogicalTable custom resource. We mirror that shape exactly: each tier goes through the
    * same {@code validateOrThrow → DeploymentService.delete} pipeline a standalone DROP would.
    * The {@link PendingDelete}'s {@code (selfOwnerKind, selfOwnerName)} pair identifies the
-   * LogicalTable CRD so the implicit inter-tier pipelines (owned by the CRD, cascade-deleted
+   * LogicalTable custom resource so the implicit inter-tier pipelines (owned by the custom resource, cascade-deleted
    * with it) are excluded from the dependent set — only <em>external</em> pipelines block.
    *
    * <ol>
    *   <li>Per-tier dep check via the validator framework. Any active external pipeline blocks.
-   *   <li>Delete the {@code LogicalTable} CRD. K8s owner-ref cascade removes its implicit
+   *   <li>Delete the {@code LogicalTable} custom resource. K8s owner-ref cascade removes its implicit
    *       inter-tier Pipelines and their Flink/YAML children. <b>Must succeed</b>.
    *   <li>Per-tier physical cleanup (Kafka topic, Venice store, ...). <b>Best effort</b> — a
    *       stranded tier resource is recoverable; aborting mid-DROP isn't.
@@ -255,7 +255,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
           new PendingDelete<>(tierSource, "LogicalTable", selfName), context.deploymentContext());
     }
 
-    // 2. Delete the LogicalTable CRD (cascades owned pipelines/triggers).
+    // 2. Delete the LogicalTable custom resource (cascades owned pipelines/triggers).
     createLogicalTableDeployer(selfName, source.database(), buildTierMap()).delete();
 
     // 3. Per-tier physical cleanup. Best-effort: only deregister a tier's schema entry when its
@@ -282,15 +282,15 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   @Override
   public void restore() {
-    // Restore trigger deployers first (they reference the LogicalTable CRD via ownerRef)
+    // Restore trigger deployers first (they reference the LogicalTable custom resource via ownerRef)
     for (int i = triggerDeployers.size() - 1; i >= 0; i--) {
       triggerDeployers.get(i).restore();
     }
-    // Restore pipeline deployers next (they also reference the LogicalTable CRD via ownerRef)
+    // Restore pipeline deployers next (they also reference the LogicalTable custom resource via ownerRef)
     for (int i = pipelineDeployers.size() - 1; i >= 0; i--) {
       pipelineDeployers.get(i).restore();
     }
-    // Delegate CRD rollback to the deployer: if it didn't exist before, it's deleted;
+    // Delegate custom resource rollback to the deployer: if it didn't exist before, it's deleted;
     // if it existed, it's reverted to its prior state; if deployAll() never ran it's null.
     if (logicalTableDeployer != null) {
       logicalTableDeployer.restore();
@@ -442,7 +442,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
   }
 
   /**
-   * Resolves each tier's Database CRD in a single pass.
+   * Resolves each tier's Database custom resource in a single pass.
    */
   private Map<String, V1alpha1Database> resolveTiers() throws SQLException {
     if (cachedTierDatabases == null) {
@@ -469,7 +469,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
     for (Map.Entry<String, Source> entry : tierSources.entrySet()) {
       String tierName = entry.getKey();
       Source tierSource = entry.getValue();
-      log.info("Deploying tier {} (database CRD: {}) for table {}",
+      log.info("Deploying tier {} (database custom resource: {}) for table {}",
           tierName, tierSource.database(), source.table());
       Collection<Deployer> deployers = DeploymentService.deployers(tierSource, context.deploymentContext());
       for (Deployer deployer : deployers) {
@@ -482,7 +482,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
   }
 
   /**
-   * Creates or updates implicit inter-tier pipeline CRDs.
+   * Creates or updates implicit inter-tier pipeline custom resources.
    * Each created bundle is tracked in {@link #pipelineDeployers}.
    */
   private void deployImplicitPipelines(Map<String, String> tierMap, Map<String, Source> tierSources,
@@ -545,7 +545,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
 
   /**
    * Creates or updates a {@link V1alpha1TableTrigger} for the offline tier, owned by the
-   * LogicalTable CRD.
+   * LogicalTable custom resource.
    */
   private void deployImplicitTrigger(Map<String, String> tierMap, Map<String, Source> tierSources, K8sContext ownerContext)
       throws SQLException {

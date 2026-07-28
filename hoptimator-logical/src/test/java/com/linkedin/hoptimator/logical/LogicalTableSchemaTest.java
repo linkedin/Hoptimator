@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 /**
  * Unit tests for {@link LogicalTableSchema} label-based filtering.
  *
- * <p>Tests call {@link LogicalTableSchema#tableFromCrd} directly on a real schema
+ * <p>Tests call {@link LogicalTableSchema#tableFromCr} directly on a real schema
  * instance (constructed with null K8s context) so that the production filtering
  * logic is tested without a live cluster.
  */
@@ -44,133 +44,133 @@ public class LogicalTableSchemaTest {
     schema = new LogicalTableSchema(new Properties(), null, DATABASE_NAME);
   }
 
-  // ── tableFromCrd() ───────────────────────────────────────────────────────
+  // ── tableFromCr() ───────────────────────────────────────────────────────
 
   @Test
-  public void tableFromCrdReturnsNullWhenMetadataIsNull() {
-    V1alpha1LogicalTable crd = new V1alpha1LogicalTable();
-    assertNull(schema.tableFromCrd(crd));
+  public void tableFromCrReturnsNullWhenMetadataIsNull() {
+    V1alpha1LogicalTable cr = new V1alpha1LogicalTable();
+    assertNull(schema.tableFromCr(cr));
   }
 
   @Test
-  public void tableFromCrdReturnsNullWhenSpecIsNull() {
-    V1alpha1LogicalTable crd = new V1alpha1LogicalTable()
+  public void tableFromCrReturnsNullWhenSpecIsNull() {
+    V1alpha1LogicalTable cr = new V1alpha1LogicalTable()
         .metadata(new V1ObjectMeta().name("some-table"));
-    assertNull(schema.tableFromCrd(crd));
+    assertNull(schema.tableFromCr(cr));
   }
 
   @Test
-  public void tableFromCrdReturnsNullWhenDatabaseLabelDoesNotMatch() {
-    V1alpha1LogicalTable crd = buildValidCrd("some-table", "other-database");
-    assertNull(schema.tableFromCrd(crd));
+  public void tableFromCrReturnsNullWhenDatabaseLabelDoesNotMatch() {
+    V1alpha1LogicalTable cr = buildValidCr("some-table", "other-database");
+    assertNull(schema.tableFromCr(cr));
   }
 
   @Test
-  public void tableFromCrdReturnsNullWhenDatabaseLabelIsMissing() {
-    V1alpha1LogicalTable crd = new V1alpha1LogicalTable()
+  public void tableFromCrReturnsNullWhenDatabaseLabelIsMissing() {
+    V1alpha1LogicalTable cr = new V1alpha1LogicalTable()
         .metadata(new V1ObjectMeta().name("some-table"))
         .spec(buildSpecWithOneTier());
-    assertNull(schema.tableFromCrd(crd));
+    assertNull(schema.tableFromCr(cr));
   }
 
   @Test
-  public void tableFromCrdIsCaseInsensitiveOnLabelMatching() {
-    V1alpha1LogicalTable crd = buildValidCrd("some-table", "LOGICAL");
-    assertNotNull(schema.tableFromCrd(crd));
+  public void tableFromCrIsCaseInsensitiveOnLabelMatching() {
+    V1alpha1LogicalTable cr = buildValidCr("some-table", "LOGICAL");
+    assertNotNull(schema.tableFromCr(cr));
   }
 
   @Test
-  public void tableFromCrdReturnsNullWhenTiersAreNull() {
-    V1alpha1LogicalTable crd = new V1alpha1LogicalTable()
+  public void tableFromCrReturnsNullWhenTiersAreNull() {
+    V1alpha1LogicalTable cr = new V1alpha1LogicalTable()
         .metadata(new V1ObjectMeta().name("some-table")
             .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, DATABASE_NAME))
         .spec(new V1alpha1LogicalTableSpec());
-    assertNull(schema.tableFromCrd(crd));
+    assertNull(schema.tableFromCr(cr));
   }
 
   @Test
-  public void tableFromCrdReturnsNullWhenTiersAreEmpty() {
+  public void tableFromCrReturnsNullWhenTiersAreEmpty() {
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec()
         .tiers(new HashMap<>());
-    V1alpha1LogicalTable crd = new V1alpha1LogicalTable()
+    V1alpha1LogicalTable cr = new V1alpha1LogicalTable()
         .metadata(new V1ObjectMeta().name("some-table")
             .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, DATABASE_NAME))
         .spec(spec);
-    assertNull(schema.tableFromCrd(crd));
+    assertNull(schema.tableFromCr(cr));
   }
 
   @Test
-  public void tableFromCrdReturnsLogicalTableWhenAllChecksPass() {
-    V1alpha1LogicalTable crd = buildValidCrd("some-table", DATABASE_NAME);
-    Table table = schema.tableFromCrd(crd);
+  public void tableFromCrReturnsLogicalTableWhenAllChecksPass() {
+    V1alpha1LogicalTable cr = buildValidCr("some-table", DATABASE_NAME);
+    Table table = schema.tableFromCr(cr);
     assertNotNull(table);
     assertTrue(table instanceof LogicalTable);
   }
 
   @Test
-  public void tableFromCrdUsesCorrectTableName() {
-    V1alpha1LogicalTable crd = buildValidCrd("my-table-name", DATABASE_NAME);
-    Table table = schema.tableFromCrd(crd);
+  public void tableFromCrUsesCorrectTableName() {
+    V1alpha1LogicalTable cr = buildValidCr("my-table-name", DATABASE_NAME);
+    Table table = schema.tableFromCr(cr);
     assertEquals("my-table-name", ((LogicalTable) table).name());
   }
 
-  // ── Legacy filterCrds-style tests (now exercised via tableFromCrd) ────────
+  // ── Legacy filterCrs-style tests (now exercised via tableFromCr) ────────
 
   @Test
   public void tableWithMatchingLabelIsIncluded() {
-    V1alpha1LogicalTable crd = makeCrd("myTable", "LOGICAL");
+    V1alpha1LogicalTable cr = makeCr("myTable", "LOGICAL");
     LogicalTableSchema s = new LogicalTableSchema(new Properties(), null, "LOGICAL");
-    Table table = s.tableFromCrd(crd);
+    Table table = s.tableFromCr(cr);
     assertNotNull(table);
     assertTrue(table instanceof LogicalTable);
   }
 
   @Test
   public void tableWithDifferentLabelIsExcluded() {
-    V1alpha1LogicalTable crd = makeCrd("otherTable", "LOGICAL-NEARLINE-OFFLINE");
+    V1alpha1LogicalTable cr = makeCr("otherTable", "LOGICAL-NEARLINE-OFFLINE");
     LogicalTableSchema s = new LogicalTableSchema(new Properties(), null, "LOGICAL");
-    assertNull(s.tableFromCrd(crd));
+    assertNull(s.tableFromCr(cr));
   }
 
   @Test
   public void tableWithNoLabelIsExcluded() {
-    V1alpha1LogicalTable crd = makeCrd("unlabeled", null);
+    V1alpha1LogicalTable cr = makeCr("unlabeled", null);
     LogicalTableSchema s = new LogicalTableSchema(new Properties(), null, "LOGICAL");
-    assertNull(s.tableFromCrd(crd));
+    assertNull(s.tableFromCr(cr));
   }
 
   @Test
   public void labelMatchingIsCaseInsensitive() {
-    V1alpha1LogicalTable crd = makeCrd("myTable", "LOGICAL");
+    V1alpha1LogicalTable cr = makeCr("myTable", "LOGICAL");
     LogicalTableSchema s = new LogicalTableSchema(new Properties(), null, "logical");
-    assertNotNull(s.tableFromCrd(crd));
+    assertNotNull(s.tableFromCr(cr));
   }
 
   @Test
-  public void crdWithNullSpecIsSkipped() {
+  public void crWithNullSpecIsSkipped() {
     V1alpha1LogicalTable noSpec = new V1alpha1LogicalTable();
     noSpec.setMetadata(new V1ObjectMeta().name("broken")
         .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, "LOGICAL"));
     LogicalTableSchema s = new LogicalTableSchema(new Properties(), null, "LOGICAL");
-    assertNull(s.tableFromCrd(noSpec));
+    assertNull(s.tableFromCr(noSpec));
   }
 
   // ── K8s-backed tests (FakeK8sApi) ────────────────────────────────────────
 
   @Test
   public void loadAllTablesViaGetTableMap() {
-    // Arrange: FakeK8sApi backed by a single CRD with matching label
-    List<V1alpha1LogicalTable> crds = new ArrayList<>();
-    crds.add(buildValidCrdWithTableName("logical-testevent", "testevent", DATABASE_NAME));
+    // Arrange: FakeK8sApi backed by a single custom resource with matching label
+    List<V1alpha1LogicalTable> crs = new ArrayList<>();
+    crs.add(buildValidCrWithTableName("logical-testevent", "testevent", DATABASE_NAME));
     FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> fakeApi =
-        new FakeK8sApi<>(crds);
+        new FakeK8sApi<>(crs);
     LogicalTableSchema s =
         new LogicalTableSchema(new Properties(), null, DATABASE_NAME, fakeApi);
 
     // Act
     Map<String, Table> tableMap = s.getTableMap();
 
-    // Assert: the CRD spec.tableName "testevent" appears as the key, not the metadata.name
+    // Assert: the custom resource spec.tableName "testevent" appears as the key, not the metadata.name
     assertEquals(1, tableMap.size());
     assertTrue(tableMap.containsKey("testevent"));
   }
@@ -179,10 +179,10 @@ public class LogicalTableSchemaTest {
   public void tableNameFromSpecNotMetadataName() {
     // spec.tableName = "testevent", metadata.name = "logical-testevent"
     // The map key must be "testevent" (spec.tableName), not "logical-testevent"
-    List<V1alpha1LogicalTable> crds = new ArrayList<>();
-    crds.add(buildValidCrdWithTableName("logical-testevent", "testevent", DATABASE_NAME));
+    List<V1alpha1LogicalTable> crs = new ArrayList<>();
+    crs.add(buildValidCrWithTableName("logical-testevent", "testevent", DATABASE_NAME));
     FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> fakeApi =
-        new FakeK8sApi<>(crds);
+        new FakeK8sApi<>(crs);
     LogicalTableSchema s =
         new LogicalTableSchema(new Properties(), null, DATABASE_NAME, fakeApi);
 
@@ -193,13 +193,13 @@ public class LogicalTableSchemaTest {
   }
 
   @Test
-  public void loadTableMapFiltersOutCrdsWithMismatchedLabel() {
-    // Two CRDs: one matching, one with a different database label
-    List<V1alpha1LogicalTable> crds = new ArrayList<>();
-    crds.add(buildValidCrdWithTableName("logical-testevent", "testevent", DATABASE_NAME));
-    crds.add(buildValidCrdWithTableName("other-event", "otherevent", "different-database"));
+  public void loadTableMapFiltersOutCrsWithMismatchedLabel() {
+    // Two custom resources: one matching, one with a different database label
+    List<V1alpha1LogicalTable> crs = new ArrayList<>();
+    crs.add(buildValidCrWithTableName("logical-testevent", "testevent", DATABASE_NAME));
+    crs.add(buildValidCrWithTableName("other-event", "otherevent", "different-database"));
     FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> fakeApi =
-        new FakeK8sApi<>(crds);
+        new FakeK8sApi<>(crs);
     LogicalTableSchema s =
         new LogicalTableSchema(new Properties(), null, DATABASE_NAME, fakeApi);
 
@@ -210,12 +210,12 @@ public class LogicalTableSchemaTest {
   }
 
   @Test
-  public void loadTableMapReturnsEmptyWhenNoMatchingCrds() {
-    // CRD exists but belongs to a different database
-    List<V1alpha1LogicalTable> crds = new ArrayList<>();
-    crds.add(buildValidCrdWithTableName("other-event", "otherevent", "other-db"));
+  public void loadTableMapReturnsEmptyWhenNoMatchingCrs() {
+    // custom resource exists but belongs to a different database
+    List<V1alpha1LogicalTable> crs = new ArrayList<>();
+    crs.add(buildValidCrWithTableName("other-event", "otherevent", "other-db"));
     FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> fakeApi =
-        new FakeK8sApi<>(crds);
+        new FakeK8sApi<>(crs);
     LogicalTableSchema s =
         new LogicalTableSchema(new Properties(), null, DATABASE_NAME, fakeApi);
 
@@ -226,11 +226,11 @@ public class LogicalTableSchemaTest {
 
   @Test
   public void loadTableByNameDirectLookupViaTablesGet() {
-    // Arrange: FakeK8sApi with a CRD that maps "logical-testevent" → testevent
-    List<V1alpha1LogicalTable> crds = new ArrayList<>();
-    crds.add(buildValidCrdWithTableName("logical-testevent", "testevent", DATABASE_NAME));
+    // Arrange: FakeK8sApi with a custom resource that maps "logical-testevent" → testevent
+    List<V1alpha1LogicalTable> crs = new ArrayList<>();
+    crs.add(buildValidCrWithTableName("logical-testevent", "testevent", DATABASE_NAME));
     FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> fakeApi =
-        new FakeK8sApi<>(crds);
+        new FakeK8sApi<>(crs);
     K8sContext ctx = mock(K8sContext.class);
     when(ctx.namespace()).thenReturn("default");
     LogicalTableSchema s =
@@ -246,11 +246,11 @@ public class LogicalTableSchemaTest {
   }
 
   @Test
-  public void loadTableByNameReturnsNullWhenCrdNotFound() {
-    // FakeK8sApi has no CRD named "logical-unknown"
-    List<V1alpha1LogicalTable> crds = new ArrayList<>();
+  public void loadTableByNameReturnsNullWhenCrNotFound() {
+    // FakeK8sApi has no custom resource named "logical-unknown"
+    List<V1alpha1LogicalTable> crs = new ArrayList<>();
     FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> fakeApi =
-        new FakeK8sApi<>(crds);
+        new FakeK8sApi<>(crs);
     K8sContext ctx = mock(K8sContext.class);
     when(ctx.namespace()).thenReturn("default");
     LogicalTableSchema s =
@@ -273,28 +273,28 @@ public class LogicalTableSchemaTest {
   }
 
   @Test
-  public void tableFromCrdUsesSpecTableNameWhenPresent() {
+  public void tableFromCrUsesSpecTableNameWhenPresent() {
     // spec.tableName overrides metadata.name
-    V1alpha1LogicalTable crd = buildValidCrdWithTableName("compound-metadata-name", "simple", DATABASE_NAME);
-    Table table = schema.tableFromCrd(crd);
+    V1alpha1LogicalTable cr = buildValidCrWithTableName("compound-metadata-name", "simple", DATABASE_NAME);
+    Table table = schema.tableFromCr(cr);
 
     assertNotNull(table);
     assertEquals("simple", ((LogicalTable) table).name());
   }
 
   @Test
-  public void tableFromCrdFallsBackToMetadataNameWhenTableNameNull() {
+  public void tableFromCrFallsBackToMetadataNameWhenTableNameNull() {
     // spec.tableName is null → use metadata.name
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec()
         .putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().database("kafka-db"))
         .putTiersItem("online", new V1alpha1LogicalTableSpecTiers().database("venice-db"));
     // tableName is not set, so spec.getTableName() returns null
-    V1alpha1LogicalTable crd = new V1alpha1LogicalTable()
+    V1alpha1LogicalTable cr = new V1alpha1LogicalTable()
         .metadata(new V1ObjectMeta().name("logical-testevent")
             .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, DATABASE_NAME))
         .spec(spec);
 
-    Table table = schema.tableFromCrd(crd);
+    Table table = schema.tableFromCr(cr);
 
     assertNotNull(table);
     assertEquals("logical-testevent", ((LogicalTable) table).name());
@@ -305,10 +305,10 @@ public class LogicalTableSchemaTest {
     // When TIER_PROPERTY is set, the LogicalTable should be created with that resolvedTier
     Properties props = new Properties();
     props.setProperty(LogicalTableDriver.TIER_PROPERTY, "nearline");
-    List<V1alpha1LogicalTable> crds = new ArrayList<>();
-    crds.add(buildValidCrdWithTableName("logical-testevent", "testevent", DATABASE_NAME));
+    List<V1alpha1LogicalTable> crs = new ArrayList<>();
+    crs.add(buildValidCrWithTableName("logical-testevent", "testevent", DATABASE_NAME));
     FakeK8sApi<V1alpha1LogicalTable, V1alpha1LogicalTableList> fakeApi =
-        new FakeK8sApi<>(crds);
+        new FakeK8sApi<>(crs);
     LogicalTableSchema s =
         new LogicalTableSchema(props, null, DATABASE_NAME, fakeApi);
 
@@ -320,7 +320,7 @@ public class LogicalTableSchemaTest {
 
   // ── helpers ──────────────────────────────────────────────────────────────
 
-  private V1alpha1LogicalTable buildValidCrdWithTableName(
+  private V1alpha1LogicalTable buildValidCrWithTableName(
       String metadataName, String tableName, String databaseLabel) {
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec()
         .tableName(tableName)
@@ -332,7 +332,7 @@ public class LogicalTableSchemaTest {
         .spec(spec);
   }
 
-  private V1alpha1LogicalTable buildValidCrd(String name, String databaseLabel) {
+  private V1alpha1LogicalTable buildValidCr(String name, String databaseLabel) {
     return new V1alpha1LogicalTable()
         .metadata(new V1ObjectMeta().name(name)
             .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, databaseLabel))
@@ -344,17 +344,17 @@ public class LogicalTableSchemaTest {
         .putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().database("kafka-db"));
   }
 
-  private V1alpha1LogicalTable makeCrd(String name, String schemaLabel) {
-    V1alpha1LogicalTable crd = new V1alpha1LogicalTable();
+  private V1alpha1LogicalTable makeCr(String name, String schemaLabel) {
+    V1alpha1LogicalTable cr = new V1alpha1LogicalTable();
     V1ObjectMeta meta = new V1ObjectMeta().name(name);
     if (schemaLabel != null) {
       meta.putLabelsItem(LogicalTableDriver.DATABASE_LABEL, schemaLabel);
     }
-    crd.setMetadata(meta);
+    cr.setMetadata(meta);
     V1alpha1LogicalTableSpec spec = new V1alpha1LogicalTableSpec();
     spec.putTiersItem("nearline", new V1alpha1LogicalTableSpecTiers().database("kafka-database"));
     spec.putTiersItem("online", new V1alpha1LogicalTableSpecTiers().database("venice"));
-    crd.setSpec(spec);
-    return crd;
+    cr.setSpec(spec);
+    return cr;
   }
 }

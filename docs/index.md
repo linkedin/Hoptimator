@@ -58,7 +58,7 @@ See the **[Kubernetes guide](kubernetes/index.md)**:
 See **[Extending Hoptimator](extending/index.md)**:
 
 - [Adding a new data source](extending/data-sources.md) — JDBC adapter,
-  `Database` CRD, `TableTemplate` authoring.
+  `Database` custom resource, `TableTemplate` authoring.
 - [Deployers](extending/deployers.md) — implementing `Deployer` for a new
   deployment target, `DeployerProvider` registration, lifecycle.
 - [Validators](extending/validators.md) — pre-deploy policy enforcement

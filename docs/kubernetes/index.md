@@ -29,4 +29,4 @@ operator reconciles them.
 - [Architecture](../getting-started/architecture.md) — what the operator
   is doing in the bigger picture.
 - [DDL reference](../user-guide/ddl-reference.md) — SQL DDL that has YAML
-  CRD equivalents.
+  custom resource equivalents.

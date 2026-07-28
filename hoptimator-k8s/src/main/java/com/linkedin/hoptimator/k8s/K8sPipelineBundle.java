@@ -13,8 +13,8 @@ import com.linkedin.hoptimator.Source;
 
 
 /**
- * Deploys a Pipeline CRD together with its YAML elements (e.g. SqlJob), owned by an
- * externally provided owner (such as a LogicalTable CRD rather than a View CRD).
+ * Deploys a Pipeline custom resource together with its YAML elements (e.g. SqlJob), owned by an
+ * externally provided owner (such as a LogicalTable custom resource rather than a View custom resource).
  *
  * <p>Analogous to the relationship between {@link K8sMaterializedViewDeployer} and
  * {@link K8sViewDeployer}: just as the materialized view deployer owns a view deployer
@@ -30,7 +30,7 @@ public class K8sPipelineBundle implements Deployer {
 
   /**
    * {@code sources} and {@code sink} are stamped as {@code depends-on-*}
-   * labels on the Pipeline CRD so the delete-time guard in {@link DependencyChecker}
+   * labels on the Pipeline custom resource so the delete-time guard in {@link DependencyChecker}
    * can find this pipeline by label selector.
    */
   public K8sPipelineBundle(String name, List<String> pipelineSpecs, String sql,
@@ -63,7 +63,7 @@ public class K8sPipelineBundle implements Deployer {
 
   @Override
   public boolean exists() throws SQLException {
-    // The bundle's identity is its Pipeline CRD; the owned YAML elements cascade from it.
+    // The bundle's identity is its Pipeline custom resource; the owned YAML elements cascade from it.
     return pipelineDeployer.exists();
   }
 
@@ -79,7 +79,7 @@ public class K8sPipelineBundle implements Deployer {
 
   @Override
   public void delete() throws SQLException {
-    // Deleting the Pipeline CRD causes K8s to cascade-delete its owned YAML elements.
+    // Deleting the Pipeline custom resource causes K8s to cascade-delete its owned YAML elements.
     pipelineDeployer.delete();
   }
 

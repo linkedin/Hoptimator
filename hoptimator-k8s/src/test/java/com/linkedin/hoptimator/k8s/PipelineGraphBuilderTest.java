@@ -35,7 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 /**
- * End-to-end tests for {@link PipelineGraphBuilder}. Each test seeds a small fixture of CRDs
+ * End-to-end tests for {@link PipelineGraphBuilder}. Each test seeds a small fixture of custom resources
  * via {@link FakeK8sApi} and exercises one of the three entry points. Assertions probe graph
  * structure (node kinds, edge types, ownership wiring) rather than rendered output, which is
  * tested separately in {@code MermaidRendererTest}.
@@ -47,7 +47,7 @@ class PipelineGraphBuilderTest {
   @Test
   void forViewMaterializedRendersSourcesAndSink() throws SQLException {
     V1alpha1View view = view("ads", "audience", true, "view-uid-1");
-    // Pipeline name == view CRD name (see K8sMaterializedViewDeployer); the visualizer derives
+    // Pipeline name == view custom resource name (see K8sMaterializedViewDeployer); the visualizer derives
     // the name from the view, so the fixture must mirror that contract.
     V1alpha1Pipeline pipeline = pipelineWithSourcesAndSink(
         "audience", "view-uid-1", "View",
@@ -299,7 +299,7 @@ class PipelineGraphBuilderTest {
   @Test
   void forLogicalTableSkipsPipelineWithWrongOwnerKind() throws SQLException {
     // A pipeline coincidentally named like a LogicalTable's inter-tier pipeline but actually
-    // owned by a different kind (e.g. a Job CRD) must NOT be claimed as the LogicalTable's child.
+    // owned by a different kind (e.g. a Job custom resource) must NOT be claimed as the LogicalTable's child.
     // ownedBy()'s kind check is the guard.
     V1alpha1LogicalTable lt = logicalTable("ns", "events", "lt-uid", linked(
         "nearline", "kafka-db",
@@ -325,7 +325,7 @@ class PipelineGraphBuilderTest {
 
   @Test
   void forLogicalTableHandlesMissingUidAndSpec() throws SQLException {
-    // CRD shapes pulled from K8s can have a partially-populated metadata block (e.g. missing
+    // Custom resource shapes pulled from K8s can have a partially-populated metadata block (e.g. missing
     // UID before the apiserver assigns one) or a null spec mid-reconciliation. The visualizer
     // must surface the LogicalTable root rather than NPE'ing on the missing fields. Owned
     // children won't be discoverable (no UID for owner-ref check, no tableName for name
@@ -483,7 +483,7 @@ class PipelineGraphBuilderTest {
 
   @Test
   void forViewCanonicalizesSqlStyleIdentifier() throws SQLException {
-    // CRD is stored as `venice-test-store-insert-partial`. The user passes the SQL-side identifier
+    // Custom resource is stored as `venice-test-store-insert-partial`. The user passes the SQL-side identifier
     // they typed in their CREATE statement, which has uppercase, dots, and a `$`.
     V1alpha1View view = view("ns", "venice-test-store-insert-partial", true, "uid-v");
 

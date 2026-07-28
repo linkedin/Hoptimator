@@ -36,8 +36,8 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1ViewList;
 
 
 /**
- * Builds a {@link PipelineGraph} for visualization by walking K8s CRDs and the
- * {@code depends-on-*} dependency index stamped on Pipeline CRDs.
+ * Builds a {@link PipelineGraph} for visualization by walking K8s custom resources and the
+ * {@code depends-on-*} dependency index stamped on Pipeline custom resources.
  *
  * <p>Three entry points:
  * <ul>
@@ -80,31 +80,31 @@ public final class PipelineGraphBuilder {
   // ─── Public entry points ─────────────────────────────────────────────────
 
   public PipelineGraph forView(String name) throws SQLException {
-    // Accept SQL-side identifiers (e.g. {@code VENICE.test-store$insert-partial}) — the CRD is
+    // Accept SQL-side identifiers (e.g. {@code VENICE.test-store$insert-partial}) — the custom resource is
     // stored under a canonicalized name (lowercase, {@code _} stripped, {@code $} → {@code -},
     // dot-separated parts joined with {@code -}). Canonicalization is idempotent, so passing the
-    // already-canonical CRD name still works.
-    String crdName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
-    V1alpha1View view = viewApi.get(crdName);
+    // already-canonical custom resource name still works.
+    String crName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
+    V1alpha1View view = viewApi.get(crName);
     if (view.getSpec() == null) {
-      throw new SQLException("view " + crdName + " not found");
+      throw new SQLException("view " + crName + " not found");
     }
     boolean materialized = Boolean.TRUE.equals(view.getSpec().getMaterialized());
-    GraphNode.View root = new GraphNode.View(crdName, materialized);
+    GraphNode.View root = new GraphNode.View(crName, materialized);
 
     Traversal t = new Traversal();
     t.addNode(root);
 
-    // Materialized views own a Pipeline with the same CRD name (see K8sMaterializedViewDeployer).
+    // Materialized views own a Pipeline with the same custom resource name (see K8sMaterializedViewDeployer).
     // Look it up directly — avoids a namespace-wide LIST. The owner-ref check still runs to defend
     // against a coincidentally-named pipeline that isn't actually owned by this view (e.g. stale
-    // pipeline from a recreated view CRD with a fresh UID). Expansion is single-hop: "what this
+    // pipeline from a recreated view custom resource with a fresh UID). Expansion is single-hop: "what this
     // view does," not the full upstream chain — for that, run !graph on a source identifier
     // (Resource targets honor depth).
     if (materialized) {
       String viewUid = view.getMetadata() == null ? null : view.getMetadata().getUid();
-      V1alpha1Pipeline pipeline = pipelineApi.getIfExists(crdName);
-      if (pipeline != null && ownedBy(pipeline.getMetadata(), "View", crdName, viewUid)) {
+      V1alpha1Pipeline pipeline = pipelineApi.getIfExists(crName);
+      if (pipeline != null && ownedBy(pipeline.getMetadata(), "View", crName, viewUid)) {
         GraphNode.Pipeline pipeNode = t.expandPipelineDirected(pipeline, Direction.UPSTREAM, 0);
         if (pipeNode != null) {
           t.addEdge(new GraphEdge(root, pipeNode, GraphEdge.Type.OWNER_OF));
@@ -117,11 +117,11 @@ public final class PipelineGraphBuilder {
 
   public PipelineGraph forLogicalTable(String name) throws SQLException {
     // Same canonicalization as forView — accept SQL-side identifiers and resolve to the
-    // canonicalized CRD name.
-    String crdName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
-    V1alpha1LogicalTable lt = logicalTableApi.get(crdName);
+    // canonicalized custom resource name.
+    String crName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
+    V1alpha1LogicalTable lt = logicalTableApi.get(crName);
     Map<String, String> tierMap = tierMap(lt.getSpec());
-    GraphNode.LogicalTable root = new GraphNode.LogicalTable(crdName, tierMap);
+    GraphNode.LogicalTable root = new GraphNode.LogicalTable(crName, tierMap);
 
     Traversal t = new Traversal();
     t.addNode(root);
@@ -135,7 +135,7 @@ public final class PipelineGraphBuilder {
     // nearline→online, nearline→offline), so most candidate GETs miss with 404 — that's fine, and
     // it keeps the visualizer decoupled from the deployer's pair-selection rules: whatever the
     // deployer actually creates is what we render. Owner-ref check defends against a coincidentally
-    // -named pipeline owned by something else (or a stale CRD with a different UID). Expansion is
+    // -named pipeline owned by something else (or a stale custom resource with a different UID). Expansion is
     // single-hop — for the chain view, run !graph on a source identifier (Resource targets honor
     // depth).
     if (tableName != null) {
@@ -147,7 +147,7 @@ public final class PipelineGraphBuilder {
           }
           String candidate = LogicalTableNames.pipelineName(tableName, fromTier, toTier);
           V1alpha1Pipeline pipeline = pipelineApi.getIfExists(candidate);
-          if (pipeline != null && ownedBy(pipeline.getMetadata(), "LogicalTable", crdName, ltUid)) {
+          if (pipeline != null && ownedBy(pipeline.getMetadata(), "LogicalTable", crName, ltUid)) {
             GraphNode.Pipeline pipeNode = t.expandPipelineDirected(pipeline, Direction.UPSTREAM, 0);
             if (pipeNode != null) {
               t.addEdge(new GraphEdge(root, pipeNode, GraphEdge.Type.OWNER_OF));
@@ -175,7 +175,7 @@ public final class PipelineGraphBuilder {
     if (tableName != null) {
       String triggerCandidate = LogicalTableNames.triggerName(tableName);
       V1alpha1TableTrigger trigger = triggerApi.getIfExists(triggerCandidate);
-      if (trigger != null && ownedBy(trigger.getMetadata(), "LogicalTable", crdName, ltUid)) {
+      if (trigger != null && ownedBy(trigger.getMetadata(), "LogicalTable", crName, ltUid)) {
         GraphNode.Trigger tNode = triggerNode(trigger);
         t.addNode(tNode);
         t.addEdge(new GraphEdge(root, tNode, GraphEdge.Type.OWNER_OF));
@@ -566,7 +566,7 @@ public final class PipelineGraphBuilder {
     }
 
     /**
-     * Ingest a Pipeline CRD into the graph. Reads source/sink annotations, creates edges,
+     * Ingest a Pipeline custom resource into the graph. Reads source/sink annotations, creates edges,
      * and schedules transitive expansion from the other endpoints. Returns the Pipeline node
      * so the caller can attach owner-of edges.
      */
