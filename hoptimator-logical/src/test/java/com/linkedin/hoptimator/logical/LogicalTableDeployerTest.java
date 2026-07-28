@@ -96,7 +96,7 @@ class LogicalTableDeployerTest {
   MockedStatic<ValidationService> validationServiceMock;
 
   @Mock
-  K8sLogicalTableDeployer mockCrdDeployer;
+  K8sLogicalTableDeployer mockCrDeployer;
 
   // Helper methods shared by outer class tests
 
@@ -144,24 +144,24 @@ class LogicalTableDeployerTest {
   }
 
   /**
-   * Creates a {@link LogicalTableDeployer} that returns {@link #mockCrdDeployer} from its
-   * {@code createLogicalTableDeployer} factory method, so K8s CRD interactions can be
+   * Creates a {@link LogicalTableDeployer} that returns {@link #mockCrDeployer} from its
+   * {@code createLogicalTableDeployer} factory method, so K8s custom resource interactions can be
    * verified with Mockito without a live cluster.
    */
-  private LogicalTableDeployer deployerWithMockCrd(
+  private LogicalTableDeployer deployerWithMockCr(
       Source src, Properties props, K8sContext ctx,
       FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi) {
     return new LogicalTableDeployer(src, props, ctx, dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
-          String crdName, String databaseLabel, Map<String, String> tierMap) {
-        return mockCrdDeployer;
+          String crName, String databaseLabel, Map<String, String> tierMap) {
+        return mockCrDeployer;
       }
 
       @Override
       void deployPipelineBundle(String fromTier, String toTier,
           Map<String, Source> tierSources, K8sContext ownerContext, boolean update) {
-        // No-op in CRD-focused tests — pipeline deployment is tested separately.
+        // No-op in custom-resource-focused tests — pipeline deployment is tested separately.
       }
     };
   }
@@ -253,7 +253,7 @@ class LogicalTableDeployerTest {
 
   // delete() / DependencyGuarded / specify() tests
 
-  /** Builds a 2-tier deployer with mocked CRD deployer and a pre-populated fake Database API. */
+  /** Builds a 2-tier deployer with mocked custom resource deployer and a pre-populated fake Database API. */
   private LogicalTableDeployer deployerWithApis(Properties props, List<V1alpha1Database> dbs) {
     return deployerWithApis(props, dbs, mockContext());
   }
@@ -263,48 +263,48 @@ class LogicalTableDeployerTest {
     return new LogicalTableDeployer(testSource(), props, ctx, dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
-          String crdName, String databaseLabel, Map<String, String> tierMap) {
-        return mockCrdDeployer;
+          String crName, String databaseLabel, Map<String, String> tierMap) {
+        return mockCrDeployer;
       }
     };
   }
 
   @Test
-  void existsDelegatesToCrdDeployer() throws SQLException {
+  void existsDelegatesToCrDeployer() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
         Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
-    // The logical table's identity is its LogicalTable CRD; exists() reflects that CRD's presence.
-    when(mockCrdDeployer.exists()).thenReturn(true);
+    // The logical table's identity is its LogicalTable custom resource; exists() reflects that custom resource's presence.
+    when(mockCrDeployer.exists()).thenReturn(true);
 
     assertTrue(deployer.exists());
-    verify(mockCrdDeployer).exists();
+    verify(mockCrDeployer).exists();
   }
 
   @Test
-  void existsReturnsFalseWhenCrdAbsent() throws SQLException {
+  void existsReturnsFalseWhenCrAbsent() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
         Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
-    when(mockCrdDeployer.exists()).thenReturn(false);
+    when(mockCrDeployer.exists()).thenReturn(false);
 
     assertFalse(deployer.exists());
   }
 
   @Test
-  void deleteThrowsWhenCrdDeleteFails() throws SQLException {
+  void deleteThrowsWhenCrDeleteFails() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
         Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
 
-    doThrow(new SQLException("crd gone")).when(mockCrdDeployer).delete();
+    doThrow(new SQLException("cr gone")).when(mockCrDeployer).delete();
 
     SQLException ex = assertThrows(SQLException.class, deployer::delete);
-    assertTrue(ex.getMessage().contains("crd gone"));
-    verify(mockCrdDeployer).delete();
-    // Tier deployers must not run when the CRD delete itself fails.
+    assertTrue(ex.getMessage().contains("cr gone"));
+    verify(mockCrDeployer).delete();
+    // Tier deployers must not run when the custom resource delete itself fails.
     deploymentServiceMock.verify(
         () -> DeploymentService.deployers(any(), any()), never());
   }
@@ -326,7 +326,7 @@ class LogicalTableDeployerTest {
     // Must NOT throw despite the failing tier.
     deployer.delete();
 
-    verify(mockCrdDeployer).delete();
+    verify(mockCrDeployer).delete();
     verify(failing).delete();
     verify(succeeding).delete();
   }
@@ -407,7 +407,7 @@ class LogicalTableDeployerTest {
   }
 
   @Test
-  void deleteRunsCrdDeleteBeforeTierDeletes() throws SQLException {
+  void deleteRunsCrDeleteBeforeTierDeletes() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
         Arrays.asList(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
@@ -418,12 +418,12 @@ class LogicalTableDeployerTest {
 
     deployer.delete();
 
-    InOrder inOrder = inOrder(mockCrdDeployer, tierDeployer);
-    inOrder.verify(mockCrdDeployer).delete();
+    InOrder inOrder = inOrder(mockCrDeployer, tierDeployer);
+    inOrder.verify(mockCrDeployer).delete();
     inOrder.verify(tierDeployer, atLeastOnce()).delete();
   }
 
-  // CRD model construction tests
+  // custom resource model construction tests
 
   @Test
   void logicalTableSpecTierBindings() {
@@ -437,7 +437,7 @@ class LogicalTableDeployerTest {
   }
 
   @Test
-  void crdNameIsCanonicalizedFromPath() {
+  void crNameIsCanonicalizedFromPath() {
     assertEquals("logical-mytable", K8sUtils.canonicalizeName(Arrays.asList("LOGICAL", "MyTable")));
   }
 
@@ -525,21 +525,21 @@ class LogicalTableDeployerTest {
     assertFalse(tierMap.containsKey("database"));
   }
 
-  // K8s-backed tests (FakeK8sApi + mock K8sContext + mock CRD deployer)
+  // K8s-backed tests (FakeK8sApi + mock K8sContext + mock custom resource deployer)
 
   @Test
-  void createDeploysLogicalTableCrd() throws Exception {
+  void createDeploysLogicalTableCr() throws Exception {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
     V1OwnerReference ownerRef = new V1OwnerReference();
-    doReturn(ownerRef).when(mockCrdDeployer).createAndReference();
+    doReturn(ownerRef).when(mockCrDeployer).createAndReference();
 
-    LogicalTableDeployer deployer = deployerWithMockCrd(
+    LogicalTableDeployer deployer = deployerWithMockCr(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi);
     deployer.create();
 
-    verify(mockCrdDeployer).createAndReference();
+    verify(mockCrDeployer).createAndReference();
   }
 
   @Test
@@ -548,113 +548,113 @@ class LogicalTableDeployerTest {
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
     V1OwnerReference ownerRef = new V1OwnerReference();
-    doReturn(ownerRef).when(mockCrdDeployer).createAndReference();
+    doReturn(ownerRef).when(mockCrDeployer).createAndReference();
 
-    LogicalTableDeployer deployer = deployerWithMockCrd(
+    LogicalTableDeployer deployer = deployerWithMockCr(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi);
     deployer.create();
 
-    // CRD content (including DATABASE_LABEL) is verified in K8sLogicalTableDeployerTest;
+    // custom resource content (including DATABASE_LABEL) is verified in K8sLogicalTableDeployerTest;
     // here we just confirm createAndReference() was called (the factory was invoked).
-    verify(mockCrdDeployer).createAndReference();
+    verify(mockCrDeployer).createAndReference();
   }
 
   @Test
-  void restoreDeletesCreatedCrd() throws Exception {
+  void restoreDeletesCreatedCr() throws Exception {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
     V1OwnerReference ownerRef = new V1OwnerReference();
-    doReturn(ownerRef).when(mockCrdDeployer).createAndReference();
+    doReturn(ownerRef).when(mockCrDeployer).createAndReference();
 
-    LogicalTableDeployer deployer = deployerWithMockCrd(
+    LogicalTableDeployer deployer = deployerWithMockCr(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi);
     deployer.create();
     deployer.restore();
 
-    verify(mockCrdDeployer).restore();
+    verify(mockCrDeployer).restore();
   }
 
   @Test
-  void restoreAfterFailedUpdateDoesNotDeletePreExistingCrd() throws Exception {
+  void restoreAfterFailedUpdateDoesNotDeletePreExistingCr() throws Exception {
     // Regression test: restore() WITHOUT create()/update() ever running must not touch
-    // the CRD deployer (logicalTableDeployer is null until deployAll() runs).
+    // the custom resource deployer (logicalTableDeployer is null until deployAll() runs).
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
-    LogicalTableDeployer deployer = deployerWithMockCrd(
+    LogicalTableDeployer deployer = deployerWithMockCr(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi);
 
     // restore() called WITHOUT create()/update() ever running
     deployer.restore();
 
-    verify(mockCrdDeployer, never()).restore();
+    verify(mockCrDeployer, never()).restore();
   }
 
   @Test
-  void restoreAfterFailedCreateDeletesCrd() throws Exception {
+  void restoreAfterFailedCreateDeletesCr() throws Exception {
     // create() runs, then something downstream fails and restore() is called.
-    // The CRD deployer was set, so restore() must be called on it.
+    // The custom resource deployer was set, so restore() must be called on it.
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
     V1OwnerReference ownerRef = new V1OwnerReference();
-    doReturn(ownerRef).when(mockCrdDeployer).createAndReference();
+    doReturn(ownerRef).when(mockCrDeployer).createAndReference();
 
-    LogicalTableDeployer deployer = deployerWithMockCrd(
+    LogicalTableDeployer deployer = deployerWithMockCr(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi);
     deployer.create();
     deployer.restore();
 
-    verify(mockCrdDeployer).restore();
+    verify(mockCrDeployer).restore();
   }
 
   @Test
-  void restoreAfterUpdateThatCreatedMissingCrdDeletesIt() throws Exception {
-    // update() called, then restore() — the CRD deployer should have restore() called on it.
+  void restoreAfterUpdateThatCreatedMissingCrDeletesIt() throws Exception {
+    // update() called, then restore() — the custom resource deployer should have restore() called on it.
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
     V1OwnerReference ownerRef = new V1OwnerReference();
-    doReturn(ownerRef).when(mockCrdDeployer).updateAndReference();
+    doReturn(ownerRef).when(mockCrDeployer).updateAndReference();
 
-    LogicalTableDeployer deployer = deployerWithMockCrd(
+    LogicalTableDeployer deployer = deployerWithMockCr(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi);
     deployer.update();
     deployer.restore();
 
-    verify(mockCrdDeployer).restore();
+    verify(mockCrDeployer).restore();
   }
 
   @Test
-  void updateWithExistingCrdSucceeds() throws Exception {
+  void updateWithExistingCrSucceeds() throws Exception {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
     V1OwnerReference ownerRef = new V1OwnerReference();
-    doReturn(ownerRef).when(mockCrdDeployer).updateAndReference();
+    doReturn(ownerRef).when(mockCrDeployer).updateAndReference();
 
-    LogicalTableDeployer deployer = deployerWithMockCrd(
+    LogicalTableDeployer deployer = deployerWithMockCr(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi);
     deployer.update();
 
-    verify(mockCrdDeployer).updateAndReference();
+    verify(mockCrDeployer).updateAndReference();
   }
 
   @Test
-  void updateWithNoCrdCreatesNew() throws Exception {
+  void updateWithNoCrCreatesNew() throws Exception {
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi =
         new FakeK8sApi<>(Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
 
     V1OwnerReference ownerRef = new V1OwnerReference();
-    doReturn(ownerRef).when(mockCrdDeployer).updateAndReference();
+    doReturn(ownerRef).when(mockCrDeployer).updateAndReference();
 
-    LogicalTableDeployer deployer = deployerWithMockCrd(
+    LogicalTableDeployer deployer = deployerWithMockCr(
         testSource(), twoTierProps("nearline-db", "offline-db"), mockContext(), dbApi);
     deployer.update();
 
-    // CRD content checks (name, spec) move to K8sLogicalTableDeployerTest
-    verify(mockCrdDeployer).updateAndReference();
+    // custom resource content checks (name, spec) move to K8sLogicalTableDeployerTest
+    verify(mockCrDeployer).updateAndReference();
   }
 
   @Test
@@ -668,15 +668,15 @@ class LogicalTableDeployerTest {
             makeDb("nearline-db", "NEARLINE"), makeDb("online-db", "ONLINE")));
 
     V1OwnerReference ownerRef = new V1OwnerReference();
-    doReturn(ownerRef).when(mockCrdDeployer).createAndReference();
+    doReturn(ownerRef).when(mockCrDeployer).createAndReference();
 
-    // Use a subclass that mocks the CRD deployer but does NOT suppress deployPipelineBundle,
+    // Use a subclass that mocks the custom resource deployer but does NOT suppress deployPipelineBundle,
     // so the pipeline path is exercised and fails due to the null connection in mockContext().
     LogicalTableDeployer deployer = new LogicalTableDeployer(testSource(), props, mockContext(), dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
-          String crdName, String databaseLabel, Map<String, String> tierMap) {
-        return mockCrdDeployer;
+          String crName, String databaseLabel, Map<String, String> tierMap) {
+        return mockCrDeployer;
       }
     };
 
@@ -871,10 +871,10 @@ class LogicalTableDeployerTest {
   }
 
   /**
-   * Builds a LogicalTableDeployer that mocks the CRD deployer, suppresses pipeline deployment,
+   * Builds a LogicalTableDeployer that mocks the custom resource deployer, suppresses pipeline deployment,
    * and captures the implicit trigger via overrides on the package-private factory methods.
    *
-   * <p>Pass {@code preExistingTriggers} to seed the trigger API with CRDs that already exist —
+   * <p>Pass {@code preExistingTriggers} to seed the trigger API with custom resources that already exist —
    * controls whether {@code deployImplicitTrigger} takes the first-deploy (create) or the
    * re-deploy (update) path.
    */
@@ -891,8 +891,8 @@ class LogicalTableDeployerTest {
     return new LogicalTableDeployer(src, props, ctx, dbApi) {
       @Override
       K8sLogicalTableDeployer createLogicalTableDeployer(
-          String crdName, String databaseLabel, Map<String, String> tierMap) {
-        return mockCrdDeployer;
+          String crName, String databaseLabel, Map<String, String> tierMap) {
+        return mockCrDeployer;
       }
 
       @Override
@@ -953,7 +953,7 @@ class LogicalTableDeployerTest {
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
         Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
     deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
@@ -973,7 +973,7 @@ class LogicalTableDeployerTest {
     Properties props = new Properties();
     props.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
     props.setProperty(LogicalTier.ONLINE.tierName(), "online-db");
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
     deployerWithJobTemplates(testSource(), props, mockContext(), dbApi, jobTemplates, capture)
@@ -990,7 +990,7 @@ class LogicalTableDeployerTest {
     // JobTemplate exists but declares a different database.
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
         Collections.singletonList(makeJobTemplate("other-template", "some-other-db")));
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
     deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
@@ -1006,7 +1006,7 @@ class LogicalTableDeployerTest {
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
         Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
     deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
@@ -1026,31 +1026,31 @@ class LogicalTableDeployerTest {
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
         Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
     deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
         mockContext(), dbApi, jobTemplates, capture).create();
 
     assertEquals("true", capture.trigger.options().get(Trigger.PAUSED_OPTION),
-        "create path must set PAUSED_OPTION=true so the CRD is created paused");
+        "create path must set PAUSED_OPTION=true so the custom resource is created paused");
   }
 
   @Test
-  void implicitTriggerUpdateOnExistingCrdOmitsPausedOptionAndCallsUpdate() throws Exception {
-    // Scenario: existing trigger CRD present — re-deploy must NOT set PAUSED_OPTION (paused
+  void implicitTriggerUpdateOnExistingCrOmitsPausedOptionAndCallsUpdate() throws Exception {
+    // Scenario: existing trigger custom resource present — re-deploy must NOT set PAUSED_OPTION (paused
     // state is preserved inside K8sTriggerDeployer.update()) and must call update(), not create().
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
         Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
 
-    // Seed a pre-existing trigger CRD matching the canonical implicit trigger name.
+    // Seed a pre-existing trigger custom resource matching the canonical implicit trigger name.
     List<V1alpha1TableTrigger> existing = new ArrayList<>(Collections.singletonList(
         new V1alpha1TableTrigger()
             .metadata(new V1ObjectMeta().name("logical-testevent-offline-trigger"))));
 
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).updateAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).updateAndReference();
 
     TriggerCapture capture = new TriggerCapture();
     deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
@@ -1059,31 +1059,31 @@ class LogicalTableDeployerTest {
     assertFalse(capture.trigger.options().containsKey(Trigger.PAUSED_OPTION),
         "re-deploy of existing trigger must not set PAUSED_OPTION — paused state is preserved "
         + "inside K8sTriggerDeployer.update()");
-    assertTrue(capture.updateCalled, "update() must be invoked when the CRD already exists");
-    assertFalse(capture.createCalled, "create() must not be invoked when the CRD already exists");
+    assertTrue(capture.updateCalled, "update() must be invoked when the custom resource already exists");
+    assertFalse(capture.createCalled, "create() must not be invoked when the custom resource already exists");
   }
 
   @Test
   void implicitTriggerFirstCreateOrReplaceStartsPausedAndCallsCreate() throws Exception {
     // Scenario: CREATE OR REPLACE TABLE on a not-yet-deployed logical table (no existing trigger
-    // CRD). The implicit trigger must still be created PAUSED even though the DDL routes via
+    // custom resource). The implicit trigger must still be created PAUSED even though the DDL routes via
     // LogicalTableDeployer.update(). Existence check gates the decision, not the DDL verb.
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> dbApi = new FakeK8sApi<>(
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
         Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
 
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).updateAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).updateAndReference();
 
     TriggerCapture capture = new TriggerCapture();
     deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),
         mockContext(), dbApi, jobTemplates, capture).update();  // CREATE OR REPLACE → update()
 
     assertEquals("true", capture.trigger.options().get(Trigger.PAUSED_OPTION),
-        "first CREATE OR REPLACE with no existing CRD must still set PAUSED_OPTION=true");
+        "first CREATE OR REPLACE with no existing custom resource must still set PAUSED_OPTION=true");
     assertTrue(capture.createCalled,
         "first-time deploy must call create() regardless of the DDL's update flag");
-    assertFalse(capture.updateCalled, "update() must not be invoked when no CRD exists yet");
+    assertFalse(capture.updateCalled, "update() must not be invoked when no custom resource exists yet");
   }
 
   @Test
@@ -1092,7 +1092,7 @@ class LogicalTableDeployerTest {
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
         Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).createAndReference();
 
     // CREATE TABLE WITH ("ab.cd" "customValue", "job.properties.online.name" "testevent-online")
     Map<String, String> sourceOptions = new HashMap<>();
@@ -1116,7 +1116,7 @@ class LogicalTableDeployerTest {
         Arrays.asList(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
     List<V1alpha1JobTemplate> jobTemplates = new ArrayList<>(
         Collections.singletonList(makeJobTemplate("retl-offline", "offline-db")));
-    doReturn(new V1OwnerReference()).when(mockCrdDeployer).createAndReference();
+    doReturn(new V1OwnerReference()).when(mockCrDeployer).createAndReference();
 
     TriggerCapture capture = new TriggerCapture();
     deployerWithJobTemplates(testSource(), twoTierProps("nearline-db", "offline-db"),

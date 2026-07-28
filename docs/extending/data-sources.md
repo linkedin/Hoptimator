@@ -4,7 +4,7 @@ Adding a new external system to Hoptimator usually means three things:
 
 1. A **JDBC adapter** that exposes the system's tables and schemas through a
    JDBC connection — Hoptimator reads metadata through this.
-2. A **`Database` CRD** that registers the adapter (a JDBC URL plus a
+2. A **`Database` custom resource** that registers the adapter (a JDBC URL plus a
    schema name) so the catalog includes it.
 3. A **`TableTemplate`** (and possibly a **`JobTemplate`**) that tells
    Hoptimator how to deploy resources for the system — Kafka topics, Venice
@@ -53,7 +53,7 @@ com.example.hoptimator.mysystem.MySystemDriver
 
 ## Registering with the catalog
 
-Once your driver is on the classpath, a `Database` CRD makes it visible to
+Once your driver is on the classpath, a `Database` custom resource makes it visible to
 Hoptimator:
 
 ```yaml
@@ -72,7 +72,7 @@ your driver expects. See the
 [Database CRD reference](../kubernetes/crd-reference.md#database) for all
 fields.
 
-After applying the CRD, Hoptimator's catalog picks it up on the next
+After applying the custom resource, Hoptimator's catalog picks it up on the next
 connection — `!tables` in the SQL CLI should show your system's tables.
 
 ## Telling Hoptimator how to deploy resources
@@ -107,13 +107,13 @@ spec:
 ```
 
 No Java. The bundled Kafka deployment uses this pattern — Hoptimator emits
-a `KafkaTopic` CRD; Strimzi creates the topic. See
+a `KafkaTopic` custom resource; Strimzi creates the topic. See
 [Templates and configuration](../kubernetes/templates.md) for the placeholder syntax and
 matching rules.
 
 ### Path B: imperative, via a custom Deployer
 
-If your system needs an admin API call rather than a YAML CRD apply (e.g.
+If your system needs an admin API call rather than a YAML custom resource apply (e.g.
 calling a Venice controller's REST endpoint), you'll need a custom
 `Deployer`. This is the path the bundled `hoptimator-venice` and
 `hoptimator-kafka` modules take in addition to (or instead of) templates.

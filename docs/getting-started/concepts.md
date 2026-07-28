@@ -12,23 +12,23 @@ the documentation will read more naturally.
 
 ## At a glance
 
-| Concept             | What it is                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------ |
-| **Database**        | A connection to an external system that exposes tables (Kafka, Venice, MySQL, etc.).             |
-| **Catalog**         | The unified namespace that lets a single SQL statement reference tables across many databases.   |
-| **View**            | A named SQL query, evaluated lazily.                                                             |
-| **Materialized view** | A view backed by a running data pipeline that continuously writes results to a sink.           |
-| **Pipeline**        | The set of sources, sink, and job that together implement a materialized view.                   |
-| **Engine**          | A runtime Hoptimator can submit *queries* to (e.g. a Flink SQL gateway). Optional. Pipeline materialization does *not* require one. |
-| **Connector**       | Configuration that tells a runtime how to read from or write to a database. Used by the planner and embedded in template output. |
-| **Deployer**        | The component that turns a planned pipeline element into real infrastructure.                    |
-| **Validator**       | Pre-deploy check that rejects SQL, CRDs, or planned pipelines that violate environment policy.    |
-| **TableTemplate**   | Declarative recipe for materializing a source/sink in a particular database.                     |
-| **JobTemplate**     | Declarative recipe for materializing a job on a particular engine.                               |
-| **TableTrigger**    | Fires a Kubernetes job when an upstream table changes (or on a schedule).                        |
-| **LogicalTable**    | An abstraction model: one named entity that physically lives in many backends (nearline / online / offline). Auto-syncs and auto-backfills its tiers. |
-| **Subscription**    | YAML-native way to declare a materialized view; equivalent to `CREATE MATERIALIZED VIEW ... AS`. |
-| **Hint**            | Key/value passed at runtime that templates and connectors can pick up.                           |
+| Concept               | What it is                                                                                                                                            |
+|-----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Database**          | A connection to an external system that exposes tables (Kafka, Venice, MySQL, etc.).                                                                  |
+| **Catalog**           | The unified namespace that lets a single SQL statement reference tables across many databases.                                                        |
+| **View**              | A named SQL query, evaluated lazily.                                                                                                                  |
+| **Materialized view** | A view backed by a running data pipeline that continuously writes results to a sink.                                                                  |
+| **Pipeline**          | The set of sources, sink, and job that together implement a materialized view.                                                                        |
+| **Engine**            | A runtime Hoptimator can submit *queries* to (e.g. a Flink SQL gateway). Optional. Pipeline materialization does *not* require one.                   |
+| **Connector**         | Configuration that tells a runtime how to read from or write to a database. Used by the planner and embedded in template output.                      |
+| **Deployer**          | The component that turns a planned pipeline element into real infrastructure.                                                                         |
+| **Validator**         | Pre-deploy check that rejects SQL, custom resources, or planned pipelines that violate environment policy.                                            |
+| **TableTemplate**     | Declarative recipe for materializing a source/sink in a particular database.                                                                          |
+| **JobTemplate**       | Declarative recipe for materializing a job on a particular engine.                                                                                    |
+| **TableTrigger**      | Fires a Kubernetes job when an upstream table changes (or on a schedule).                                                                             |
+| **LogicalTable**      | An abstraction model: one named entity that physically lives in many backends (nearline / online / offline). Auto-syncs and auto-backfills its tiers. |
+| **Subscription**      | YAML-native way to declare a materialized view; equivalent to `CREATE MATERIALIZED VIEW ... AS`.                                                      |
+| **Hint**              | Key/value passed at runtime that templates and connectors can pick up.                                                                                |
 
 ## Databases, schemas, and tables
 
@@ -108,7 +108,7 @@ Operator — picks it up and runs the job. Hoptimator is not in the data path.
 
 ## Engines (optional)
 
-An **Engine** CRD registers a runtime Hoptimator can submit **queries** to —
+An **Engine** custom resource registers a runtime Hoptimator can submit **queries** to —
 typically a Flink SQL gateway behind a JDBC URL. This is the path used when
 Hoptimator needs to *execute* SQL itself, e.g. for interactive `SELECT`
 against tables that aren't in-process.
@@ -136,7 +136,7 @@ See [Extending Hoptimator](../extending/index.md) when those docs land.
 
 ## Validators
 
-A **Validator** inspects a SQL statement, a CRD, or a planned pipeline
+A **Validator** inspects a SQL statement, a custom resource, or a planned pipeline
 element *before* it deploys and rejects it if it doesn't meet your
 constraints. Where `Deployer` is "make this real," `Validator` is "check
 this is allowed."
@@ -256,7 +256,7 @@ infrastructure for each binding:
   the normal Deployer SPI to create whatever the storage system needs (a
   Kafka topic, a Venice store, an HDFS dataset).
 - **Implicit inter-tier pipelines.** Hoptimator auto-deploys
-  `nearline → online` and `nearline → offline` Pipeline CRDs to keep the
+  `nearline → online` and `nearline → offline` Pipeline custom resources to keep the
   tiers consistent. You don't write the Kafka-to-Venice job; it appears
   because the LogicalTable says it should.
 - **Auto-backfill triggers.** When an offline tier is present, a

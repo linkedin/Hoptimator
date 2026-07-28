@@ -15,7 +15,7 @@ than you expected, hints that no longer apply are silently dropped.
 | ------------- | ----------------------------------------------------------------------------------------- |
 | SQL CLI       | `./hoptimator -u "jdbc:hoptimator://hints=key1=value1,key2=value2"`                       |
 | JDBC          | `props.setProperty("hints", "key1=value1,key2=value2")`                                   |
-| Subscription  | `spec.hints` map on a [`Subscription`](../getting-started/concepts.md#subscriptions) CRD. |
+| Subscription  | `spec.hints` map on a [`Subscription`](../getting-started/concepts.md#subscriptions) custom resource. |
 | MCP           | Set via the JDBC URL the server is launched with. (No per-call override today.)           |
 
 Format: comma-separated `KEY=VALUE` pairs. URL-encode values that contain

@@ -12,7 +12,7 @@ import javax.annotation.Nullable;
  * is stored. This is the seam that lets a {@link com.linkedin.hoptimator.DeploymentContext} answer
  * {@code databaseProperties(...)} — and the direct table API resolve a database identifier —
  * without holding a Calcite {@link HoptimatorConnection}. A registry-native module (e.g.
- * {@code hoptimator-k8s}) supplies an implementation that reads {@code Database} CRDs (or any other
+ * {@code hoptimator-k8s}) supplies an implementation that reads {@code Database} custom resources (or any other
  * registry) directly; see {@link DatabaseConfigResolverProvider}.
  *
  * <p>{@link #databaseProperties} deliberately mirrors {@link

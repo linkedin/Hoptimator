@@ -76,7 +76,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     return rowOf(obj);
   }
 
-  /** Builds a {@link Row} from a Database CRD, usable without a {@link K8sDatabaseTable} instance. */
+  /** Builds a {@link Row} from a Database custom resource, usable without a {@link K8sDatabaseTable} instance. */
   static Row rowOf(V1alpha1Database obj) {
     return new Row(Objects.requireNonNull(obj.getMetadata()).getName(), Objects.requireNonNull(obj.getSpec()).getUrl(),
         obj.getSpec().getCatalog(), obj.getSpec().getSchema(),
@@ -119,8 +119,8 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
   }
 
   /**
-   * Builds the effective JDBC URL for a Database: its CRD {@code url} with the connection-level
-   * properties (except {@code user}/{@code password}) and the CRD name appended as
+   * Builds the effective JDBC URL for a Database: its custom resource {@code url} with the connection-level
+   * properties (except {@code user}/{@code password}) and the custom resource name appended as
    * {@code database=<name>}. This is the URL a {@code DatabaseConfigResolver} parses to recover a
    * database's connection properties, kept here so it stays in lockstep with {@link #dataSource}.
    */
@@ -131,7 +131,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
         joiner.add(key + "=" + connectionProperties.getProperty(key));
       }
     }
-    // Inject the Database CRD name so drivers can identify which CRD they are backing.
+    // Inject the Database custom resource name so drivers can identify which custom resource they are backing.
     // This is the value returned by source.database() in deployer/provider contexts.
     if (row.NAME != null && !row.NAME.isEmpty()) {
       joiner.add("database=" + row.NAME);

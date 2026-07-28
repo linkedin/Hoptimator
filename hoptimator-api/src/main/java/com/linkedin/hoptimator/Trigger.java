@@ -51,7 +51,7 @@ public class Trigger implements Deployable {
   }
 
   /** Upstream source the trigger fires on, or {@code null} when only the name is known
-   *  (e.g. during DROP TRIGGER / PAUSE / RESUME, which only need to look up the existing CRD). */
+   *  (e.g. during DROP TRIGGER / PAUSE / RESUME, which only need to look up the existing custom resource). */
   public Source source() {
     return source;
   }

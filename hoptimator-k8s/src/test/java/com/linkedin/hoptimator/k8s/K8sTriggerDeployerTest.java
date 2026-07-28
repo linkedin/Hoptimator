@@ -426,7 +426,7 @@ class K8sTriggerDeployerTest {
   @Test
   void updatePreservesPausedWhenOptionsHaveNoPausedOption() throws SQLException {
     // Scenario: CREATE OR REPLACE TABLE with no explicit pause/resume — an existing paused
-    // CRD must remain paused even though the caller passes no PAUSED_OPTION.
+    // custom resource must remain paused even though the caller passes no PAUSED_OPTION.
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("mytrigger"))
         .spec(new V1alpha1TableTriggerSpec().paused(true));
@@ -444,7 +444,7 @@ class K8sTriggerDeployerTest {
 
   @Test
   void updatePreservesUnpausedWhenOptionsHaveNoPausedOption() throws SQLException {
-    // Scenario: existing CRD is unpaused and the caller passes no PAUSED_OPTION — stays unpaused.
+    // Scenario: existing custom resource is unpaused and the caller passes no PAUSED_OPTION — stays unpaused.
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
         .metadata(new V1ObjectMeta().name("mytrigger"))
         .spec(new V1alpha1TableTriggerSpec().paused(false));
@@ -477,7 +477,7 @@ class K8sTriggerDeployerTest {
     deployer.update();
 
     assertFalse(triggers.get(0).getSpec().getPaused(),
-        "Explicit PAUSED_OPTION=false must override a currently-paused CRD");
+        "Explicit PAUSED_OPTION=false must override a currently-paused custom resource");
   }
 
   @Test
@@ -502,7 +502,7 @@ class K8sTriggerDeployerTest {
 
   @Test
   void updateFallsThroughToSuperUpdateWhenExistingHasNullPaused() throws SQLException {
-    // Scenario: existing CRD has spec.paused=null — neither the explicit-option nor the
+    // Scenario: existing custom resource has spec.paused=null — neither the explicit-option nor the
     // preserve-existing path fires, so super.update() re-renders (which calls toK8sObject,
     // which needs a JobTemplate).
     V1alpha1TableTrigger existing = new V1alpha1TableTrigger()
@@ -521,10 +521,10 @@ class K8sTriggerDeployerTest {
     K8sTriggerDeployer deployer = makeDeployer(trigger, mockContext);
     deployer.update();
 
-    // If super.update() ran, toK8sObject() populated spec.table on the re-rendered CRD.
+    // If super.update() ran, toK8sObject() populated spec.table on the re-rendered custom resource.
     // The short-circuit would instead leave spec.table untouched (null on the existing).
     assertTrue(triggers.stream().anyMatch(t -> "TABLE".equals(t.getSpec().getTable())),
-        "super.update() must have run toK8sObject() — expected a CRD with spec.table='TABLE'");
+        "super.update() must have run toK8sObject() — expected a custom resource with spec.table='TABLE'");
   }
 
   // ───────── toK8sObject() catalog rendering tests ─────────

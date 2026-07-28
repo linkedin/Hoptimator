@@ -13,7 +13,7 @@ import javax.annotation.Nullable;
  *
  * <p>An optional {@code (selfOwnerKind, selfOwnerName)} lets the caller declare an "umbrella"
  * K8s resource whose owned objects should be excluded from the dependent set — e.g. a
- * LogicalTable CRD, so its child Pipeline CRDs (which reference tier sources by SQL) don't
+ * LogicalTable custom resource, so its child Pipeline custom resources (which reference tier sources by SQL) don't
  * self-block the drop.
  */
 public final class PendingDelete<T> {

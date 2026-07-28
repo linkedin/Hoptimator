@@ -25,14 +25,14 @@ import com.linkedin.hoptimator.k8s.K8sContext;
  *
  * <p>The schema name under which the {@link LogicalTableSchema} is registered must be
  * provided via the {@code schema} connection property (set by the operator when it
- * reads the Database CRD). If not provided, it defaults to {@code "LOGICAL"}.
+ * reads the Database custom resource). If not provided, it defaults to {@code "LOGICAL"}.
  */
 public class LogicalTableDriver extends CalciteDriver {
 
   public static final String CONNECT_STRING_PREFIX = "jdbc:logical://";
   /** Connection property that hints which tier to resolve for pipeline planning (e.g. "nearline", "online"). */
   public static final String TIER_PROPERTY = "tier";
-  /** K8s label key identifying which logical database a LogicalTable CRD belongs to. */
+  /** K8s label key identifying which logical database a LogicalTable custom resource belongs to. */
   public static final String DATABASE_LABEL = "logical-database";
 
   static {
@@ -69,7 +69,7 @@ public class LogicalTableDriver extends CalciteDriver {
           + tierCount + " tier(s) found in: " + url);
     }
 
-    // The database name (Database CRD metadata.name) is injected by K8sDatabaseTable.
+    // The database name (Database custom resource metadata.name) is injected by K8sDatabaseTable.
     // It is used as the label filter in LogicalTableSchema and matches source.database()
     // in deployer/provider contexts. The Calcite schema registration name is handled by
     // the outer catalog (K8sDatabaseTable.addDatabases) — not by this driver.
@@ -77,7 +77,7 @@ public class LogicalTableDriver extends CalciteDriver {
     if (databaseName == null || databaseName.isEmpty()) {
       throw new SQLNonTransientException(
           "Missing 'database' property in logical database URL. "
-          + "Ensure the Database CRD has metadata.name set (injected by K8sDatabaseTable).");
+          + "Ensure the Database custom resource has metadata.name set (injected by K8sDatabaseTable).");
     }
 
     try {

@@ -14,22 +14,22 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 
 
 /**
- * Deploys a {@code LogicalTable} CRD, analogous to {@link com.linkedin.hoptimator.k8s.K8sPipelineDeployer}
- * for Pipeline CRDs. Inherits snapshot-based restore from {@link K8sDeployer}: if the CRD did not
+ * Deploys a {@code LogicalTable} custom resource, analogous to {@link com.linkedin.hoptimator.k8s.K8sPipelineDeployer}
+ * for Pipeline custom resources. Inherits snapshot-based restore from {@link K8sDeployer}: if the custom resource did not
  * exist before this deployer ran, restore() deletes it; if it existed, restore() reverts it to its
  * prior state.
  */
 class K8sLogicalTableDeployer extends K8sDeployer<V1alpha1LogicalTable, V1alpha1LogicalTableList> {
 
-  private final String crdName;
+  private final String crName;
   private final String databaseLabel;
   private final String tableName;
   private final Map<String, String> tierMap;
 
-  K8sLogicalTableDeployer(String crdName, String databaseLabel, String tableName,
+  K8sLogicalTableDeployer(String crName, String databaseLabel, String tableName,
       Map<String, String> tierMap, K8sContext context) {
     super(context, K8sApiEndpoints.LOGICAL_TABLES);
-    this.crdName = crdName;
+    this.crName = crName;
     this.databaseLabel = databaseLabel;
     this.tableName = tableName;
     this.tierMap = tierMap;
@@ -46,7 +46,7 @@ class K8sLogicalTableDeployer extends K8sDeployer<V1alpha1LogicalTable, V1alpha1
     return new V1alpha1LogicalTable()
         .kind(K8sApiEndpoints.LOGICAL_TABLES.kind())
         .apiVersion(K8sApiEndpoints.LOGICAL_TABLES.apiVersion())
-        .metadata(new V1ObjectMeta().name(crdName)
+        .metadata(new V1ObjectMeta().name(crName)
             .putLabelsItem(LogicalTableDriver.DATABASE_LABEL, databaseLabel))
         .spec(spec);
   }

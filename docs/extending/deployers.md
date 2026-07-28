@@ -9,7 +9,7 @@ with a spec" can plug in.
 You'll need a deployer when:
 
 - You're integrating a system whose resources are created via an admin API
-  (REST, gRPC, command-line) rather than a CRD apply. Templates aren't
+  (REST, gRPC, command-line) rather than a custom resource apply. Templates aren't
   enough — you need imperative code.
 - You want pipelines to deploy to something other than Kubernetes — a
   Nomad cluster, an external service registry, your own internal control
@@ -116,7 +116,7 @@ The bundled Kafka path is a good shape to copy:
 - [`KafkaDeployerProvider`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-kafka/src/main/java/com/linkedin/hoptimator/kafka/KafkaDeployerProvider.java)
   — type-checks the `Deployable`, resolves the `Database`'s connection
   config via `context.databaseProperties(catalog, schema, "jdbc:kafka://")`
-  (the JDBC URL the `Database` CRD points at), and constructs the deployer.
+  (the JDBC URL the `Database` custom resource points at), and constructs the deployer.
 - [`KafkaDeployer`](https://github.com/linkedin/Hoptimator/blob/main/hoptimator-kafka/src/main/java/com/linkedin/hoptimator/kafka/KafkaDeployer.java)
   — `create()` calls Kafka's AdminClient API to create the topic;
   `restore()` walks back and deletes any topic the current operation

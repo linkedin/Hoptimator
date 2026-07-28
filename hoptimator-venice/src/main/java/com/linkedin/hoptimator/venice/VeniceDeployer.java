@@ -198,7 +198,7 @@ public class VeniceDeployer implements Deployer, Validated {
   }
 
   protected Pair<Schema, Schema> getKeyPayloadSchema() throws SQLException {
-    Map<String, String> keyOptions = resolveKeyOptions();
+    Map<String, String> keyOptions =  ConnectionService.configure(source, context);
     // On the direct API path the caller supplied the exact Avro schema; split it losslessly instead
     // of re-synthesizing from the row type (which would drop namespaces, nested record names, ...).
     Schema provided = HoptimatorDriver.providedAvroSchema(context);
@@ -210,15 +210,6 @@ public class VeniceDeployer implements Deployer, Validated {
         source.table() + "_Value",
         HoptimatorDriver.rowType(source, context),
         keyOptions);
-  }
-
-  /**
-   * Resolves connector-supplied options (e.g. the {@code keys} option that drives the key/payload
-   * split) for this store. Extracted so unit tests can supply options directly instead of resolving
-   * them through the live {@link ConnectionService} connector chain, which would reach out to K8s.
-   */
-  protected Map<String, String> resolveKeyOptions() throws SQLException {
-    return ConnectionService.configure(source, context);
   }
 
   private boolean checkStoreExists(ControllerClient controllerClient) {

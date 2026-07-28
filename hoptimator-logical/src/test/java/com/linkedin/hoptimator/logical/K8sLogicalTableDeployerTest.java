@@ -13,9 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 /**
  * Unit tests for {@link K8sLogicalTableDeployer#toK8sObject()}.
  *
- * <p>These tests verify the structure of the {@code LogicalTable} CRD object built by the
+ * <p>These tests verify the structure of the {@code LogicalTable} custom resource object built by the
  * deployer — metadata (name, DATABASE_LABEL), spec (tableName, tiers map). They complement
- * {@link LogicalTableDeployerTest} which now mocks the CRD deployer and delegates content
+ * {@link LogicalTableDeployerTest} which now mocks the custom resource deployer and delegates content
  * checks here.
  */
 class K8sLogicalTableDeployerTest {
@@ -26,9 +26,9 @@ class K8sLogicalTableDeployerTest {
     K8sLogicalTableDeployer deployer = new K8sLogicalTableDeployer(
         "logical-testevent", "logical", "testevent", tierMap, null);
 
-    V1alpha1LogicalTable crd = deployer.toK8sObject();
+    V1alpha1LogicalTable cr = deployer.toK8sObject();
 
-    assertEquals("logical-testevent", crd.getMetadata().getName());
+    assertEquals("logical-testevent", cr.getMetadata().getName());
   }
 
   @Test
@@ -37,11 +37,11 @@ class K8sLogicalTableDeployerTest {
     K8sLogicalTableDeployer deployer = new K8sLogicalTableDeployer(
         "logical-myevent", "logical", "myevent", tierMap, null);
 
-    V1alpha1LogicalTable crd = deployer.toK8sObject();
+    V1alpha1LogicalTable cr = deployer.toK8sObject();
 
-    assertNotNull(crd.getMetadata().getLabels());
+    assertNotNull(cr.getMetadata().getLabels());
     assertEquals("logical",
-        crd.getMetadata().getLabels().get(LogicalTableDriver.DATABASE_LABEL));
+        cr.getMetadata().getLabels().get(LogicalTableDriver.DATABASE_LABEL));
   }
 
   @Test
@@ -50,9 +50,9 @@ class K8sLogicalTableDeployerTest {
     K8sLogicalTableDeployer deployer = new K8sLogicalTableDeployer(
         "logical-testevent", "logical", "testevent", tierMap, null);
 
-    V1alpha1LogicalTable crd = deployer.toK8sObject();
+    V1alpha1LogicalTable cr = deployer.toK8sObject();
 
-    assertEquals("testevent", crd.getSpec().getTableName());
+    assertEquals("testevent", cr.getSpec().getTableName());
   }
 
   @Test
@@ -61,11 +61,11 @@ class K8sLogicalTableDeployerTest {
     K8sLogicalTableDeployer deployer = new K8sLogicalTableDeployer(
         "logical-testevent", "logical", "testevent", tierMap, null);
 
-    V1alpha1LogicalTable crd = deployer.toK8sObject();
+    V1alpha1LogicalTable cr = deployer.toK8sObject();
 
-    assertEquals(2, crd.getSpec().getTiers().size());
-    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabase());
-    assertEquals("openhouse-db", crd.getSpec().getTiers().get("offline").getDatabase());
+    assertEquals(2, cr.getSpec().getTiers().size());
+    assertEquals("kafka-db", cr.getSpec().getTiers().get("nearline").getDatabase());
+    assertEquals("openhouse-db", cr.getSpec().getTiers().get("offline").getDatabase());
   }
 
   @Test
@@ -74,14 +74,14 @@ class K8sLogicalTableDeployerTest {
     K8sLogicalTableDeployer deployer = new K8sLogicalTableDeployer(
         "logical-testevent", "logical", "testevent", tierMap, null);
 
-    V1alpha1LogicalTable crd = deployer.toK8sObject();
+    V1alpha1LogicalTable cr = deployer.toK8sObject();
 
-    assertEquals("logical-testevent", crd.getMetadata().getName());
+    assertEquals("logical-testevent", cr.getMetadata().getName());
     assertEquals("logical",
-        crd.getMetadata().getLabels().get(LogicalTableDriver.DATABASE_LABEL));
-    assertEquals("testevent", crd.getSpec().getTableName());
-    assertEquals(2, crd.getSpec().getTiers().size());
-    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabase());
+        cr.getMetadata().getLabels().get(LogicalTableDriver.DATABASE_LABEL));
+    assertEquals("testevent", cr.getSpec().getTableName());
+    assertEquals(2, cr.getSpec().getTiers().size());
+    assertEquals("kafka-db", cr.getSpec().getTiers().get("nearline").getDatabase());
   }
 
   @Test
@@ -90,13 +90,13 @@ class K8sLogicalTableDeployerTest {
     K8sLogicalTableDeployer deployer = new K8sLogicalTableDeployer(
         "logical-orders", "mydb", "orders", tierMap, null);
 
-    V1alpha1LogicalTable crd = deployer.toK8sObject();
+    V1alpha1LogicalTable cr = deployer.toK8sObject();
 
-    assertEquals("logical-orders", crd.getMetadata().getName());
-    assertEquals("mydb", crd.getMetadata().getLabels().get(LogicalTableDriver.DATABASE_LABEL));
-    assertEquals("orders", crd.getSpec().getTableName());
-    assertEquals(1, crd.getSpec().getTiers().size());
-    assertEquals("venice-db", crd.getSpec().getTiers().get("online").getDatabase());
+    assertEquals("logical-orders", cr.getMetadata().getName());
+    assertEquals("mydb", cr.getMetadata().getLabels().get(LogicalTableDriver.DATABASE_LABEL));
+    assertEquals("orders", cr.getSpec().getTableName());
+    assertEquals(1, cr.getSpec().getTiers().size());
+    assertEquals("venice-db", cr.getSpec().getTiers().get("online").getDatabase());
   }
 
   @Test
@@ -108,11 +108,11 @@ class K8sLogicalTableDeployerTest {
     K8sLogicalTableDeployer deployer = new K8sLogicalTableDeployer(
         "logical-events", "mydb", "events", tierMap, null);
 
-    V1alpha1LogicalTable crd = deployer.toK8sObject();
+    V1alpha1LogicalTable cr = deployer.toK8sObject();
 
-    assertEquals(3, crd.getSpec().getTiers().size());
-    assertEquals("kafka-db", crd.getSpec().getTiers().get("nearline").getDatabase());
-    assertEquals("openhouse-db", crd.getSpec().getTiers().get("offline").getDatabase());
-    assertEquals("venice-db", crd.getSpec().getTiers().get("online").getDatabase());
+    assertEquals(3, cr.getSpec().getTiers().size());
+    assertEquals("kafka-db", cr.getSpec().getTiers().get("nearline").getDatabase());
+    assertEquals("openhouse-db", cr.getSpec().getTiers().get("offline").getDatabase());
+    assertEquals("venice-db", cr.getSpec().getTiers().get("online").getDatabase());
   }
 }

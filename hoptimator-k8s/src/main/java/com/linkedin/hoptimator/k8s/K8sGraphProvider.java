@@ -19,9 +19,9 @@ import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
  *   <li>{@link GraphTarget.LogicalTable} → {@link PipelineGraphBuilder#forLogicalTable(String)}
  *       (single-hop; depth is ignored — see method Javadoc)
  *   <li>{@link GraphTarget.Resource} → {@link PipelineGraphBuilder#forResource(String, java.util.List, int)}.
- *       SQL-identifier-to-CRD-name resolution happens in {@link com.linkedin.hoptimator.jdbc.GraphService}
+ *       SQL-identifier-to-custom-resource-name resolution happens in {@link com.linkedin.hoptimator.jdbc.GraphService}
  *       before dispatch — by the time the target reaches us, {@code Resource.database()} is the
- *       K8s Database CRD's {@code metadata.name}.
+ *       K8s Database custom resource's {@code metadata.name}.
  * </ul>
  *
  * <p>Registered via {@code META-INF/services/com.linkedin.hoptimator.graph.GraphProvider} so callers

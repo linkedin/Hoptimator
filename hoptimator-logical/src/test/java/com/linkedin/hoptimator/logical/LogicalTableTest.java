@@ -128,13 +128,13 @@ public class LogicalTableTest {
   }
 
   @Test
-  public void unknownTypeReturnedWhenDbCrdHasNullSpec() {
-    // FakeK8sApi returns a Database CRD with null spec → resolveRowType returns null → unknown type
-    V1alpha1Database dbCrd = new V1alpha1Database()
+  public void unknownTypeReturnedWhenDbCrHasNullSpec() {
+    // FakeK8sApi returns a Database custom resource with null spec → resolveRowType returns null → unknown type
+    V1alpha1Database dbCr = new V1alpha1Database()
         .metadata(new V1ObjectMeta().name("nearline-db"));
     // spec is null
     List<V1alpha1Database> databases = new ArrayList<>();
-    databases.add(dbCrd);
+    databases.add(dbCr);
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> fakeDbApi = new FakeK8sApi<>(databases);
 
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();
@@ -147,15 +147,15 @@ public class LogicalTableTest {
 
   @Test
   public void unknownTypeReturnedWhenJdbcUrlNotFound() {
-    // FakeK8sApi returns a Database CRD with a bad URL → DriverManager.getConnection fails
+    // FakeK8sApi returns a Database custom resource with a bad URL → DriverManager.getConnection fails
     // → catch block → returns null → unknown type
-    V1alpha1Database dbCrd = new V1alpha1Database()
+    V1alpha1Database dbCr = new V1alpha1Database()
         .metadata(new V1ObjectMeta().name("nearline-db"))
         .spec(new V1alpha1DatabaseSpec()
             .url("jdbc:nonexistent://host")
             .schema("PROFILE"));
     List<V1alpha1Database> databases = new ArrayList<>();
-    databases.add(dbCrd);
+    databases.add(dbCr);
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> fakeDbApi =
         new FakeK8sApi<>(databases);
 
@@ -169,14 +169,14 @@ public class LogicalTableTest {
 
   @Test
   public void unknownTypeReturnedWhenSchemaNotFoundInTier() {
-    // Database CRD with valid URL (demodb) but schema name that doesn't exist
-    V1alpha1Database dbCrd = new V1alpha1Database()
+    // Database custom resource with valid URL (demodb) but schema name that doesn't exist
+    V1alpha1Database dbCr = new V1alpha1Database()
         .metadata(new V1ObjectMeta().name("nearline-db"))
         .spec(new V1alpha1DatabaseSpec()
             .url("jdbc:demodb://names=PROFILE")
             .schema("NONEXISTENT_SCHEMA"));
     List<V1alpha1Database> databases = new ArrayList<>();
-    databases.add(dbCrd);
+    databases.add(dbCr);
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> fakeDbApi =
         new FakeK8sApi<>(databases);
 
@@ -191,14 +191,14 @@ public class LogicalTableTest {
 
   @Test
   public void unknownTypeReturnedWhenTableNotFoundInTierSchema() {
-    // Database CRD with valid URL (demodb) and valid schema but table name doesn't exist
-    V1alpha1Database dbCrd = new V1alpha1Database()
+    // Database custom resource with valid URL (demodb) and valid schema but table name doesn't exist
+    V1alpha1Database dbCr = new V1alpha1Database()
         .metadata(new V1ObjectMeta().name("nearline-db"))
         .spec(new V1alpha1DatabaseSpec()
             .url("jdbc:demodb://names=PROFILE")
             .schema("PROFILE"));
     List<V1alpha1Database> databases = new ArrayList<>();
-    databases.add(dbCrd);
+    databases.add(dbCr);
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> fakeDbApi =
         new FakeK8sApi<>(databases);
 
@@ -213,14 +213,14 @@ public class LogicalTableTest {
 
   @Test
   public void rowTypeResolvedFromTierWhenTableExistsInDemodb() {
-    // Full happy path: Database CRD → demodb PROFILE schema → MEMBERS table → row type resolved
-    V1alpha1Database dbCrd = new V1alpha1Database()
+    // Full happy path: Database custom resource → demodb PROFILE schema → MEMBERS table → row type resolved
+    V1alpha1Database dbCr = new V1alpha1Database()
         .metadata(new V1ObjectMeta().name("nearline-db"))
         .spec(new V1alpha1DatabaseSpec()
             .url("jdbc:demodb://names=PROFILE")
             .schema("PROFILE"));
     List<V1alpha1Database> databases = new ArrayList<>();
-    databases.add(dbCrd);
+    databases.add(dbCr);
     FakeK8sApi<V1alpha1Database, V1alpha1DatabaseList> fakeDbApi =
         new FakeK8sApi<>(databases);
 

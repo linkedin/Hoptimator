@@ -19,7 +19,7 @@ import java.util.Properties;
  * <p>Detection uses {@link DeploymentContext#databaseProperties} to resolve the source's
  * {@code Database} config and checks whether its connection URL starts with {@code jdbc:kafka://}.
  * This is Calcite-free: it works identically whether the config comes from the Calcite catalog
- * (SQL path) or from a {@code Database} CRD (direct path). The Kafka config (bootstrap.servers) is
+ * (SQL path) or from a {@code Database} custom resource (direct path). The Kafka config (bootstrap.servers) is
  * parsed from that URL.
  */
 public class KafkaDeployerProvider implements DeployerProvider {

@@ -360,16 +360,16 @@ spec:
 
 ### Spec fields
 
-| Field       | Type   | Description                                                                            |
-| ----------- | ------ | -------------------------------------------------------------------------------------- |
-| `tableName` | string | Original table name as declared in `CREATE TABLE` (e.g. `audience`).                   |
-| `tiers`     | object | Map of tier name (`nearline`, `online`, `offline`) to a tier binding.                  |
+| Field       | Type   | Description                                                           |
+|-------------|--------|-----------------------------------------------------------------------|
+| `tableName` | string | Original table name as declared in `CREATE TABLE` (e.g. `audience`).  |
+| `tiers`     | object | Map of tier name (`nearline`, `online`, `offline`) to a tier binding. |
 
 Each tier binding has one field:
 
-| Field      | Type   | Required | Description                                       |
-| ---------- | ------ | :------: | ------------------------------------------------- |
-| `database` | string | yes      | Name of the `Database` CRD backing this tier.     |
+| Field      | Type   | Required | Description                                               |
+|------------|--------|:--------:|-----------------------------------------------------------|
+| `database` | string |   yes    | Name of the `Database` custom resource backing this tier. |
 
 The `LogicalTableDeployer` runs at create time to deploy physical tier
 resources, the implicit inter-tier sync pipelines, and the offline-tier

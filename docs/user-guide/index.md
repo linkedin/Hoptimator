@@ -20,7 +20,7 @@ How to drive Hoptimator from a shell, an application, or an AI agent.
 
 ## Looking for something else
 
-- Operating Hoptimator on Kubernetes (CRDs, configuration, the operator):
+- Operating Hoptimator on Kubernetes (custom resources, configuration, the operator):
   [Kubernetes guide](../kubernetes/index.md) *(coming soon)*.
 - Adding a new database, connector, deployer, or validator:
   [Extending Hoptimator](../extending/index.md) *(coming soon)*.

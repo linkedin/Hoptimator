@@ -2,11 +2,11 @@ package com.linkedin.hoptimator.util.planner;
 
 /**
  * Marker interface implemented by Calcite {@code Schema} instances that surface Hoptimator
- * LogicalTable-style CRDs — i.e. schemas whose tables aren't physical resources but logical
+ * LogicalTable-style custom resources — i.e. schemas whose tables aren't physical resources but logical
  * declarations bound to one or more tiers.
  *
  * <p><b>Why this exists.</b> {@link HoptimatorJdbcSchema} is the outer JDBC adapter that
- * fronts every {@code Database} CRD in the user's connection. When the underlying driver
+ * fronts every {@code Database} custom resource in the user's connection. When the underlying driver
  * surfaces logical tables (e.g. {@code jdbc:logical://...}), the outer adapter needs a way
  * to tell — without baking driver-specific URL prefixes or class names into its own logic.
  *

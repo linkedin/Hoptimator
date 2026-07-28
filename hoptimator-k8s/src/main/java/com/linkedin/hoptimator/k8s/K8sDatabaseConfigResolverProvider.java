@@ -6,7 +6,7 @@ import com.linkedin.hoptimator.jdbc.DatabaseConfigResolverProvider;
 import java.util.Properties;
 
 
-/** Supplies a {@link K8sDatabaseConfigResolver} so the direct path resolves config from CRDs. */
+/** Supplies a {@link K8sDatabaseConfigResolver} so the direct path resolves config from custom resources. */
 public class K8sDatabaseConfigResolverProvider implements DatabaseConfigResolverProvider {
 
   @Override

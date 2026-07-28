@@ -18,10 +18,10 @@ import javax.annotation.Nullable;
 
 
 /**
- * Checks whether any Pipeline or TableTrigger CRDs still depend on a resource a
+ * Checks whether any Pipeline or TableTrigger custom resources still depend on a resource a
  * {@link com.linkedin.hoptimator.Deployer} is about to delete.
  *
- * <p>Both CRDs carry the same {@code depends-on-<slug>} label and {@code depends-on-sources}/
+ * <p>Both custom resources carry the same {@code depends-on-<slug>} label and {@code depends-on-sources}/
  * {@code depends-on-sinks} annotations (stamped by {@link K8sPipelineDeployer} and
  * {@link K8sTriggerDeployer}), so the same lookup works for either: a label-selector list against
  * the CRD group is O(matches) on the wire, then each candidate is cross-checked against the union

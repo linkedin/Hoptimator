@@ -18,7 +18,7 @@ import com.linkedin.hoptimator.k8s.K8sContext;
 
 
 /**
- * Activates {@link LogicalTableDeployer} for sources backed by a logical Database CRD.
+ * Activates {@link LogicalTableDeployer} for sources backed by a logical Database custom resource.
  *
  * <p>Detection uses {@link DeploymentContext#databaseProperties} to look up the
  * schema by name and check if its underlying JDBC URL starts with
