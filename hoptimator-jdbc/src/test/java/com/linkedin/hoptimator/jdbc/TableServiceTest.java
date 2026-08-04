@@ -9,6 +9,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,6 +18,7 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -185,6 +187,34 @@ class TableServiceTest {
 
     deployment.verify(() -> DeploymentService.update(deployers), times(1));
     verify(deployer, never()).exists();
+  }
+
+  @Test
+  void createMergesConnectionHintsIntoTableOptionsWithHintsWinning() throws SQLException {
+    // Connection hints must be merged into the table options handed to the deployers, and a hint
+    // must override a caller-supplied option of the same key so callers can't override
+    // connection-level properties (impersonation guard).
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    deployment.when(() -> DeploymentService.parseHints(any()))
+        .thenReturn(Map.of("owner", "connection-user", "hintOnly", "hintValue"));
+    Deployer deployer = mock(Deployer.class);
+    when(deployer.exists()).thenReturn(false);
+    List<Deployer> deployers = Collections.singletonList(deployer);
+    deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
+        .thenReturn(deployers);
+
+    Map<String, String> callerOptions = Map.of("owner", "caller-attempt", "callerOnly", "callerValue");
+    TableService.create(new Properties(), Collections.emptyList(), path, recordSchema(),
+        callerOptions, false, false);
+
+    ArgumentCaptor<Source> sourceCaptor = ArgumentCaptor.forClass(Source.class);
+    deployment.verify(() ->
+        DeploymentService.deployers(sourceCaptor.capture(), any(DeploymentContext.class)));
+    Map<String, String> mergedOptions = sourceCaptor.getValue().options();
+    assertThat(mergedOptions).containsEntry("callerOnly", "callerValue");
+    assertThat(mergedOptions).containsEntry("hintOnly", "hintValue");
+    assertThat(mergedOptions).containsEntry("owner", "connection-user");
   }
 
   private static Schema recordSchema() {
