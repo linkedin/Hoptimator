@@ -9,6 +9,7 @@ import org.apache.avro.Schema;
 
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -81,8 +82,12 @@ public final class TableService {
     String tableName = path.get(path.size() - 1);
     DirectDeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver, avroSchema);
 
+    // Order is intentional to prevent callers from overriding connection properties leading to impersonation
+    Map<String, String> tableOptions = new HashMap<>(options);
+    tableOptions.putAll(DeploymentService.parseHints(connectionProperties));
+
     return HoptimatorDdlUtils.deployTableInternal(logHooks, context, null, path,
-        database, tableName, options, false, updateIfExists, mode);
+        database, tableName, tableOptions, false, updateIfExists, mode);
   }
 
   /**
