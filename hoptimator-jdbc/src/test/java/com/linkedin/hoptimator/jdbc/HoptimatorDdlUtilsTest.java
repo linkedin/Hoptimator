@@ -719,9 +719,9 @@ class HoptimatorDdlUtilsTest {
 
   @Test
   void specifyFromSqlWithCreateMaterializedViewDryRunDoesNotThrowOnSchemaFailure() throws Exception {
-    // DdlMode.SPECIFY skips the conflict check (mutable=false) so specifying over
+    // DdlMode.SPECIFY skips the strict-CREATE conflict check (dry-run) so specifying over
     // an existing view does not throw — it just proceeds to plan generation.
-    // This exercises the mutable() == false branch of processCreateMaterializedView.
+    // This exercises the dry-run branch of processCreateMaterializedView.
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
@@ -874,18 +874,18 @@ class HoptimatorDdlUtilsTest {
   }
 
   @Test
-  void ddlModeSpecifyMutableReturnsFalse() {
-    assertFalse(HoptimatorDdlUtils.DdlMode.SPECIFY.mutable());
+  void ddlModeSpecifyDryRunReturnsTrue() {
+    assertTrue(HoptimatorDdlUtils.DdlMode.SPECIFY.dryRun());
   }
 
   @Test
-  void ddlModeCreateMutableReturnsTrue() {
-    assertTrue(HoptimatorDdlUtils.DdlMode.CREATE.mutable());
+  void ddlModeCreateDryRunReturnsFalse() {
+    assertFalse(HoptimatorDdlUtils.DdlMode.CREATE.dryRun());
   }
 
   @Test
-  void ddlModeUpdateMutableReturnsTrue() {
-    assertTrue(HoptimatorDdlUtils.DdlMode.UPDATE.mutable());
+  void ddlModeUpdateDryRunReturnsFalse() {
+    assertFalse(HoptimatorDdlUtils.DdlMode.UPDATE.dryRun());
   }
 
   // ── ColumnDef tests ──────────────────────────────────────────────────────────

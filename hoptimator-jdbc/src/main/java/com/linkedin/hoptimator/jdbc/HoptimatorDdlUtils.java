@@ -173,8 +173,8 @@ public final class HoptimatorDdlUtils {
       }
 
       @Override
-      boolean mutable() {
-        return true;
+      boolean dryRun() {
+        return false;
       }
     },
     UPDATE {
@@ -185,8 +185,8 @@ public final class HoptimatorDdlUtils {
       }
 
       @Override
-      boolean mutable() {
-        return true;
+      boolean dryRun() {
+        return false;
       }
     },
     SPECIFY {
@@ -200,14 +200,18 @@ public final class HoptimatorDdlUtils {
       }
 
       @Override
-      boolean mutable() {
-        return false;
+      boolean dryRun() {
+        return true;
       }
     };
 
     abstract List<String> executeDeployers(Collection<Deployer> deployers) throws SQLException;
 
-    abstract boolean mutable();
+    // Whether the operation is a dry-run whose in-memory schema mutations and deployer side effects
+    // must be rolled back afterward. All modes register against the live (mutable) root schema so the
+    // temporary sink view is visible to sink resolution (which reads the live connection root);
+    // SPECIFY additionally rolls everything back, while CREATE/UPDATE keep their mutations on success.
+    abstract boolean dryRun();
   }
 
   // N.B. copy-pasted from Apache Calcite
@@ -355,8 +359,10 @@ public final class HoptimatorDdlUtils {
     RelRoot root = prepare.convert(ctx, sql).root;
     RelDataType sinkRowType = root.rel.getRowType();
 
-    // Navigate to the schema (mutable only when actually deploying).
-    final Pair<CalciteSchema, String> pair = schema(ctx, mode.mutable(), create.name);
+    // Navigate to the live (mutable) root schema. The temporary sink view registered below must live
+    // on the live root so it is resolvable by sink resolution, which reads the live connection root
+    // (see HoptimatorDriver.rowType). SPECIFY rolls it back afterward (mode.dryRun()).
+    final Pair<CalciteSchema, String> pair = schema(ctx, true, create.name);
     if (pair.left == null) {
       throw new SQLException("Schema for " + create.name + " not found.");
     }
@@ -452,7 +458,7 @@ public final class HoptimatorDdlUtils {
         logger.info("Specifying materialized view {}", viewName);
       }
       List<String> specs = mode.executeDeployers(deployers);
-      if (mode.mutable()) {
+      if (!mode.dryRun()) {
         logger.info("Deployed materialized view {}", viewName);
       } else {
         // SPECIFY (dry-run): roll back any side effects made by deployers during specify().
@@ -473,7 +479,7 @@ public final class HoptimatorDdlUtils {
       // for planning purposes and must be removed afterward.
       // For CREATE/UPDATE on failure: restore to undo the partial schema mutation.
       // For CREATE/UPDATE on success: do NOT restore — the view should remain in the schema.
-      if (!success || !mode.mutable()) {
+      if (!success || mode.dryRun()) {
         if (schemaSnapshot != null) {
           if (schemaSnapshot.right != null) {
             schemaSnapshot.left.add(viewName, schemaSnapshot.right);
@@ -515,7 +521,10 @@ public final class HoptimatorDdlUtils {
       throw new SQLException("No columns provided.");
     }
 
-    CreateTarget target = resolveCreateTarget(ctx, conn, mode.mutable(), create.name);
+    // Resolve the target on the live (mutable) root schema; the temporary table registered for
+    // planning must be visible to sink resolution, which reads the live connection root. SPECIFY
+    // rolls it back afterward (mode.dryRun()).
+    CreateTarget target = resolveCreateTarget(ctx, conn, true, create.name);
 
     // Build row type and column definitions.
     final JavaTypeFactory typeFactory = ctx.getTypeFactory();
@@ -762,7 +771,7 @@ public final class HoptimatorDdlUtils {
         logger.info("Specifying table {}", source);
       }
       List<String> specs = mode.executeDeployers(deployers);
-      if (mode.mutable()) {
+      if (!mode.dryRun()) {
         logger.info("Deployed table {}", source);
       } else {
         // SPECIFY (dry-run): roll back any side effects made by deployers during specify()
@@ -787,7 +796,7 @@ public final class HoptimatorDdlUtils {
       //   - SPECIFY (dry-run): always undo.
       //   - CREATE/UPDATE on success: keep.
       //   - CREATE/UPDATE on failure: undo.
-      if (manageCalciteSchema && (!success || !mode.mutable())) {
+      if (manageCalciteSchema && (!success || mode.dryRun())) {
         if (isNewSchema) {
           calcite.pair.left.removeSubSchema(database);
           logger.info("Removed schema {} from catalog", database);
@@ -838,7 +847,7 @@ public final class HoptimatorDdlUtils {
       ValidationService.validateOrThrow(deployers, conn.deploymentContext());
 
       List<String> specs = mode.executeDeployers(deployers);
-      if (mode.mutable()) {
+      if (!mode.dryRun()) {
         logger.info("Deployed database {}", name);
       } else {
         DeploymentService.restore(deployers);
