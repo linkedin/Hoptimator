@@ -2,9 +2,12 @@ package com.linkedin.hoptimator.util.planner;
 
 import com.linkedin.hoptimator.DeploymentContext;
 
+import com.linkedin.hoptimator.MissingConnectorException;
 import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.ThrowingFunction;
+import com.linkedin.hoptimator.util.ConnectionService;
 import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
@@ -30,6 +33,7 @@ import org.apache.calcite.tools.RelBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.SQLException;
@@ -46,6 +50,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +59,18 @@ class PipelineRelImplementorTest {
 
   @Mock
   private DeploymentContext mockConnection;
+
+  // PipelineRel.sql() resolves connector configs via ConnectionService.configure(...). Tests that
+  // PipelineRel.sql()/query() resolve connector configs via ConnectionService.configure(...). Tests
+  // that assert on generated SQL stub this to return a non-empty connector for every source and the
+  // sink so the pipeline is materializable by a SQL job.
+  @Mock
+  private MockedStatic<ConnectionService> connectionServiceStatic;
+
+  private void stubHasConnector() {
+    connectionServiceStatic.when(() -> ConnectionService.configure(any(), any()))
+        .thenReturn(Collections.singletonMap("connector", "test-connector"));
+  }
 
   @Test
   void testWrapAnsiDialect() throws SQLException {
@@ -167,6 +185,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testSqlFunctionWithCollision() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -192,6 +211,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testSqlFunctionWithoutCollision() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -211,7 +231,56 @@ class PipelineRelImplementorTest {
   }
 
   @Test
+  void testSqlFunctionThrowsWhenSinkHasNoConnector() throws SQLException {
+    // Arrange: no sources; the sink's connector configs are empty (configure returns empty by default).
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.setSink("db", Arrays.asList("schema", "sinkTable"), rowType, Collections.emptyMap());
+
+    ThrowingFunction<SqlDialect, String> sqlFunc = impl.sql(mockConnection);
+
+    // Act + Assert: a sink with no connector cannot be materialized by a SQL job.
+    assertThrows(MissingConnectorException.class, () -> sqlFunc.apply(SqlDialect.ANSI));
+  }
+
+  @Test
+  void testSqlFunctionThrowsWhenSourceHasNoConnector() throws SQLException {
+    // Arrange: the sink has a connector, but the source's connector configs are empty.
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataType rowType = typeFactory.builder()
+        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
+        .build();
+
+    // Only the sink table has a connector; the source resolves to an empty map (default).
+    connectionServiceStatic.when(() -> ConnectionService.configure(
+            argThat(o -> o instanceof Source && "sinkTable".equals(((Source) o).table())), any()))
+        .thenReturn(Collections.singletonMap("connector", "test-connector"));
+
+    PipelineRel.Implementor impl = new PipelineRel.Implementor(
+        ImmutablePairList.of(), Collections.emptyMap());
+
+    RelNode query = createScanRelNode();
+    impl.setQuery(query);
+    impl.addSource("db", Arrays.asList("schema", "sourceTable"), rowType, Collections.emptyMap());
+    impl.setSink("db", Arrays.asList("schema", "sinkTable"), rowType, Collections.emptyMap());
+
+    ThrowingFunction<SqlDialect, String> sqlFunc = impl.sql(mockConnection);
+
+    // Act + Assert: a source with no connector cannot be read by a SQL job.
+    assertThrows(MissingConnectorException.class, () -> sqlFunc.apply(SqlDialect.ANSI));
+  }
+
+  @Test
   void testQueryFunctionReturnsSelectSql() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -632,6 +701,7 @@ class PipelineRelImplementorTest {
    */
   @Test
   void testAddSourceAppearsInPipelineSql() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -659,6 +729,7 @@ class PipelineRelImplementorTest {
    */
   @Test
   void testSetSinkAppearsInPipelineSql() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -687,6 +758,7 @@ class PipelineRelImplementorTest {
    */
   @Test
   void testNoCollisionWithNoSink() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -715,6 +787,7 @@ class PipelineRelImplementorTest {
    */
   @Test
   void testNoCollisionWithDistinctSourceAndSink() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -743,6 +816,7 @@ class PipelineRelImplementorTest {
    */
   @Test
   void testCollisionWithSameSourceAndSink() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -770,6 +844,7 @@ class PipelineRelImplementorTest {
    */
   @Test
   void testCollisionAndNoCollisionProduceDifferentSql() throws SQLException {
+    stubHasConnector();
     RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))

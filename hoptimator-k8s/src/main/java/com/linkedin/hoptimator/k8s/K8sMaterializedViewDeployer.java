@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.MaterializedView;
+import com.linkedin.hoptimator.MissingConnectorException;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
@@ -111,7 +112,13 @@ class K8sMaterializedViewDeployer implements Deployer {
   }
 
   String sql() throws SQLException {
-    return view.pipelineSql().apply(SqlDialect.ANSI);
+    try {
+      return view.pipelineSql().apply(SqlDialect.ANSI);
+    } catch (MissingConnectorException e) {
+      // A source or sink has no connector (the pipeline is moved by a non-SQL job rather than
+      // Flink SQL), so there is no pipeline SQL to stamp on the Pipeline resource.
+      return null;
+    }
   }
 
   @Override

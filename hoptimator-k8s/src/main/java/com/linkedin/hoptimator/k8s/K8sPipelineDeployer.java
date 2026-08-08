@@ -38,7 +38,7 @@ class K8sPipelineDeployer extends K8sDeployer<V1alpha1Pipeline, V1alpha1Pipeline
     super(context, K8sApiEndpoints.PIPELINES);
     this.name = name;
     this.yaml = String.join("\n---\n", specs);
-    this.sql = sql;
+    this.sql = sql == null ? "" : sql;
     this.sources = sources == null ? Collections.emptyList() : sources;
     this.sink = sink;
   }

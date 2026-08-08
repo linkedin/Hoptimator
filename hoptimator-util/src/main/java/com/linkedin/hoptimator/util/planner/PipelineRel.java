@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.util.planner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.MissingConnectorException;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
@@ -126,6 +127,12 @@ public interface PipelineRel extends RelNode {
         script = script.catalog(source.getKey().catalog());
         script = script.database(source.getKey().catalog(), source.getKey().schema());
         Map<String, String> configs = ConnectionService.configure(source.getKey(), context);
+        // A source with no connector configuration cannot be read by a SQL job. As with a
+        // connector-less sink, such a table is moved by a non-SQL job (with source and sink
+        // reversed). Signal this to callers so they can skip SQL generation.
+        if (configs.isEmpty()) {
+          throw new MissingConnectorException(source.getKey().pathString());
+        }
         String suffix = needsSuffixes ? "_source" : null;
         script = script.connector(source.getKey().catalog(), source.getKey().schema(), source.getKey().table(), suffix, source.getValue(), configs);
       }
@@ -161,6 +168,11 @@ public interface PipelineRel extends RelNode {
           validateFieldMapping(targetRowType);
         }
         Map<String, String> sinkConfigs = ConnectionService.configure(sink, context);
+        // A sink with no connector configuration cannot be materialized by a SQL job. Signal
+        // this to callers so they can skip SQL generation while still emitting non-SQL jobs.
+        if (sinkConfigs.isEmpty()) {
+          throw new MissingConnectorException(sink.pathString());
+        }
         script = script.catalog(sink.catalog());
         script = script.database(sink.catalog(), sink.schema());
         // Check if we need to add suffixes to avoid table name collisions

@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.MissingConnectorException;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.ThrowingFunction;
@@ -45,6 +46,7 @@ class K8sJobDeployer extends K8sYamlDeployer {
     ThrowingFunction<SqlDialect, String> sql = job.sql();
     ThrowingFunction<SqlDialect, String> fieldMap = job.fieldMap();
     String name = K8sUtils.canonicalizeName(job.sink().database(), job.name());
+
     Template.Environment env = new Template.SimpleEnvironment()
         .with("name", name)
         .with("database", job.sink().database())
@@ -55,8 +57,8 @@ class K8sJobDeployer extends K8sYamlDeployer {
         .with("sourceCatalogs", () -> job.sources().stream().map(Source::catalog).filter(Objects::nonNull).collect(Collectors.joining(",")))
         .with("sourceSchemas", () -> job.sources().stream().map(Source::schema).collect(Collectors.joining(",")))
         .with("sourceTables", () -> job.sources().stream().map(Source::table).collect(Collectors.joining(",")))
-        .with("sql", () -> sql.apply(SqlDialect.ANSI))
-        .with("flinksql", () -> sql.apply(SqlDialect.FLINK))
+        .with("sql", () -> sqlOrNull(sql, SqlDialect.ANSI))
+        .with("flinksql", () -> sqlOrNull(sql, SqlDialect.FLINK))
         .with("flinkconfigs", properties)
         .with("fieldMap", () -> "'" + fieldMap.apply(SqlDialect.ANSI) + "'")
         .with(properties);
@@ -76,5 +78,19 @@ class K8sJobDeployer extends K8sYamlDeployer {
       }
     }
     return renderedTemplates;
+  }
+
+  /**
+   * Renders the pipeline SQL for the given dialect, returning {@code null} if a source or the
+   * sink has no connector. Such a pipeline cannot be materialized by a SQL job; returning
+   * {@code null} causes SQL-based JobTemplates to be skipped, while non-SQL JobTemplates still
+   * render.
+   */
+  private static String sqlOrNull(ThrowingFunction<SqlDialect, String> sql, SqlDialect dialect) throws SQLException {
+    try {
+      return sql.apply(dialect);
+    } catch (MissingConnectorException e) {
+      return null;
+    }
   }
 }
