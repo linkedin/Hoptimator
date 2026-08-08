@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.k8s;
 import com.linkedin.hoptimator.DeploymentContext;
 
 import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.MissingConnectorException;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.SqlDialect;
@@ -75,8 +76,12 @@ class K8sJobDeployerTest {
   }
 
   private Job createTestJob(Sink sink) {
+    return createTestJob(sink, dialect -> "INSERT INTO sink SELECT * FROM source");
+  }
+
+  private Job createTestJob(Sink sink, ThrowingFunction<SqlDialect, String> sql) {
     Map<String, ThrowingFunction<SqlDialect, String>> lazyEvals = new HashMap<>();
-    lazyEvals.put("sql", dialect -> "INSERT INTO sink SELECT * FROM source");
+    lazyEvals.put("sql", sql);
     lazyEvals.put("fieldMap", dialect -> "{\"a\":\"b\"}");
     Source source = new Source("srcdb", Arrays.asList("schema", "src_table"), Collections.emptyMap());
     return new Job("test-job", new HashSet<>(Collections.singleton(source)), sink, lazyEvals);
@@ -272,5 +277,58 @@ class K8sJobDeployerTest {
     assertFalse(specs.get(0).isEmpty(), "rendered template must be non-empty");
     // The name should be canonicalized from "sinkdb" + "test-job"
     assertTrue(specs.get(0).contains("sinkdb"), "rendered template must contain database name");
+  }
+
+  @Test
+  void specifyWithoutSinkConnectorSkipsSqlTemplate() throws SQLException {
+    // Arrange: the sink has no connector, so the pipeline SQL function throws.
+    ThrowingFunction<SqlDialect, String> throwingSql = dialect -> {
+      throw new MissingConnectorException("sinkdb.schema.sink_table");
+    };
+    // A SQL-based JobTemplate (references {{flinksql}})...
+    templates.add(new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("flink-template"))
+        .spec(new V1alpha1JobTemplateSpec()
+            .yaml("kind: SqlJob\nname: {{name}}\nsql:\n  - {{flinksql}}")));
+    // ...and a non-SQL JobTemplate (references no SQL).
+    templates.add(new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("nonsql-template"))
+        .spec(new V1alpha1JobTemplateSpec()
+            .yaml("kind: BatchJob\nname: {{name}}-job\nsinkTable: {{table}}")));
+
+    Sink sink = new Sink("sinkdb", Arrays.asList("schema", "sink_table"),
+        Collections.emptyMap());
+    Job job = createTestJob(sink, throwingSql);
+    K8sJobDeployer deployer = makeDeployer(job);
+
+    // Act
+    List<String> specs = deployer.specify();
+
+    // Assert: the SQL template is skipped; only the non-SQL template renders.
+    assertEquals(1, specs.size());
+    assertTrue(specs.get(0).contains("BatchJob"), "only the non-SQL template should render");
+    assertFalse(specs.get(0).contains("SqlJob"), "SQL-based template must be skipped when sink has no connector");
+  }
+
+  @Test
+  void specifyWithSinkConnectorRendersSqlTemplate() throws SQLException {
+    // Arrange: the sink has a connector, so the pipeline SQL function returns SQL.
+    templates.add(new V1alpha1JobTemplate()
+        .metadata(new V1ObjectMeta().name("flink-template"))
+        .spec(new V1alpha1JobTemplateSpec()
+            .yaml("kind: SqlJob\nname: {{name}}\nsql:\n  - {{flinksql}}")));
+
+    Sink sink = new Sink("sinkdb", Arrays.asList("schema", "sink_table"),
+        Collections.emptyMap());
+    Job job = createTestJob(sink);
+    K8sJobDeployer deployer = makeDeployer(job);
+
+    // Act
+    List<String> specs = deployer.specify();
+
+    // Assert
+    assertEquals(1, specs.size());
+    assertTrue(specs.get(0).contains("SqlJob"), "SQL-based template must render when sink has a connector");
+    assertTrue(specs.get(0).contains("INSERT INTO sink SELECT * FROM source"));
   }
 }

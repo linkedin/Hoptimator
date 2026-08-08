@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
+import com.linkedin.hoptimator.MissingConnectorException;
 import com.linkedin.hoptimator.SqlDialect;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1JobTemplate;
@@ -520,7 +521,15 @@ public class LogicalTableDeployer implements Deployer, Validated {
       throw new SQLNonTransientException(message, e);
     }
 
-    String pipelineSql = pipeline.job().sql().apply(SqlDialect.ANSI);
+    String pipelineSql;
+    try {
+      pipelineSql = pipeline.job().sql().apply(SqlDialect.ANSI);
+    } catch (MissingConnectorException e) {
+      // A tier has no connector so there is no pipeline SQL. The non-SQL job specs are
+      // still emitted below via DeploymentService.specify(pipeline.job(), ...).
+      log.info("No connector for pipeline {}; skipping pipeline SQL.", pipelineName);
+      pipelineSql = null;
+    }
     List<String> pipelineSpecs = new ArrayList<>();
     for (Source src : pipeline.sources()) {
       pipelineSpecs.addAll(DeploymentService.specify(src, context.deploymentContext()));
