@@ -11,6 +11,7 @@ import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import com.linkedin.hoptimator.jdbc.ResolvedTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.IdentifierUtils;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelRoot;
@@ -24,7 +25,6 @@ import org.jline.reader.Completer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -205,7 +205,7 @@ public class HoptimatorAppConfig extends Application {
         dispatchCallback.setToFailure();
         return;
       }
-      List<String> tablePath = Arrays.asList(split[1].split("\\."));
+      List<String> tablePath = IdentifierUtils.parseIdentifier(split[1]);
       HoptimatorConnection conn = (HoptimatorConnection) sqlline.getConnection();
       try {
         ResolvedTable resolved = conn.resolve(tablePath, Collections.emptyMap());

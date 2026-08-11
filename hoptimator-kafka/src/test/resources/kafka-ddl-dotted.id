@@ -1,0 +1,30 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A Kafka topic whose *name* contains a dot. Quoted as "KAFKA"."my.event", the
+# dot is part of the topic identity, NOT a catalog/schema separator. Creating,
+# describing, and dropping it must all treat "my.event" as a single identifier.
+# Before the quote-aware identifier fix, !describe split this into a bogus
+# KAFKA.my.event three-level path and failed with "Schema not found: my".
+# ─────────────────────────────────────────────────────────────────────────────
+
+create or replace table "KAFKA"."my.event" ("KEY" VARCHAR, "VALUE" BINARY) WITH ("kafka.partitions" '1');
+(0 rows modified)
+
+!update
+
++------------+-----------+------------+------------+
+| columnName | typeName  | columnSize | isNullable |
++------------+-----------+------------+------------+
+| KEY        | VARCHAR   | null       | YES        |
+| VALUE      | BINARY(1) | 1          | YES        |
++------------+-----------+------------+------------+
+(2 rows)
+
+!describe "KAFKA"."my.event"
+
+drop table "KAFKA"."my.event";
+(0 rows modified)
+
+!update

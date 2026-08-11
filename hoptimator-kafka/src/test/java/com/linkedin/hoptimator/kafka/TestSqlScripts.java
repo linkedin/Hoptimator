@@ -22,4 +22,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void kafkaDdlCreateTableScript() throws Exception {
     run("kafka-ddl-create-table.id");
   }
+
+  @Test
+  public void kafkaDdlDottedTableScript() throws Exception {
+    run("kafka-ddl-dotted.id");
+  }
 }

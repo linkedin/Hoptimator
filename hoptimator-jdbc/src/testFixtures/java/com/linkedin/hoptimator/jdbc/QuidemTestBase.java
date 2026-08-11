@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Assertions;
 
 import com.linkedin.hoptimator.graph.PipelineGraph;
 import com.linkedin.hoptimator.graph.mermaid.MermaidRenderer;
+import com.linkedin.hoptimator.util.IdentifierUtils;
 
 import java.io.File;
 import java.io.FileReader;
@@ -98,9 +99,10 @@ public abstract class QuidemTestBase {
                 throw new IllegalArgumentException("Usage: !describe \"SCHEMA\".\"TABLE\" or \"CATALOG\".\"SCHEMA\".\"TABLE\"");
               }
 
-              String tablePath = parts[1].trim().replaceAll("\"", "");
-              String[] pathParts = tablePath.split("\\.");
-              if (pathParts.length < 2) {
+              // Parse quote-aware so a dot inside a quoted segment (e.g. "KAFKA"."my.event") stays
+              // part of the name rather than being treated as a path separator.
+              List<String> pathParts = IdentifierUtils.parseIdentifier(parts[1].trim());
+              if (pathParts.size() < 2) {
                 throw new IllegalArgumentException("Table path must be at least SCHEMA.TABLE");
               }
 
@@ -109,24 +111,24 @@ public abstract class QuidemTestBase {
               SchemaPlus schema;
               String tableName;
 
-              if (pathParts.length == 3) {
+              if (pathParts.size() == 3) {
                 // 3-level path: CATALOG.SCHEMA.TABLE (e.g., MySQL)
-                SchemaPlus catalog = rootSchema.subSchemas().get(pathParts[0]);
+                SchemaPlus catalog = rootSchema.subSchemas().get(pathParts.get(0));
                 if (catalog == null) {
-                  throw new IllegalArgumentException("Catalog not found: " + pathParts[0]);
+                  throw new IllegalArgumentException("Catalog not found: " + pathParts.get(0));
                 }
-                schema = catalog.subSchemas().get(pathParts[1]);
+                schema = catalog.subSchemas().get(pathParts.get(1));
                 if (schema == null) {
-                  throw new IllegalArgumentException("Schema not found: " + pathParts[1] + " in catalog " + pathParts[0]);
+                  throw new IllegalArgumentException("Schema not found: " + pathParts.get(1) + " in catalog " + pathParts.get(0));
                 }
-                tableName = pathParts[2];
+                tableName = pathParts.get(2);
               } else {
                 // 2-level path: SCHEMA.TABLE (e.g., Kafka, Venice)
-                schema = rootSchema.subSchemas().get(pathParts[0]);
+                schema = rootSchema.subSchemas().get(pathParts.get(0));
                 if (schema == null) {
-                  throw new IllegalArgumentException("Schema not found: " + pathParts[0]);
+                  throw new IllegalArgumentException("Schema not found: " + pathParts.get(0));
                 }
-                tableName = pathParts[pathParts.length - 1];
+                tableName = pathParts.get(pathParts.size() - 1);
               }
 
               Table table = schema.tables().get(tableName);

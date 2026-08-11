@@ -82,6 +82,21 @@ class GraphServiceTest {
   }
 
   @Test
+  void resolveQuotedDottedTableNameTreatsQuotedSegmentAsOneIdentity() throws SQLException {
+    // User typed "VENICE"."my.table". The dot inside the quoted segment is part of the table
+    // name, NOT a path separator — so this must resolve to schema VENICE, table "my.table".
+    // A naive identifier.split("\\.") shreds this into [VENICE, my, table] and fails.
+    SchemaPlus venice = schemaWithDatabaseAndTable("venice-database", "my.table", plainTable());
+    stubRootSchema(schemaWithSubs("VENICE", venice));
+
+    GraphTarget.Resource out = (GraphTarget.Resource) GraphService.resolve(
+        "\"VENICE\".\"my.table\"", connection);
+
+    assertEquals("venice-database", out.database());
+    assertEquals(Arrays.asList("VENICE", "my.table"), out.path());
+  }
+
+  @Test
   void resolveThreeLevelResourceWalksCatalogAndSchema() throws SQLException {
     // User typed MYSQL.testdb.orders. MYSQL is the catalog sub-schema; testdb is the Database;
     // orders is a real physical table in the catalog.

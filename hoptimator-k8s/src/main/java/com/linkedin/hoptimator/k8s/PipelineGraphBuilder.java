@@ -23,6 +23,7 @@ import org.slf4j.LoggerFactory;
 import com.linkedin.hoptimator.graph.GraphEdge;
 import com.linkedin.hoptimator.graph.GraphNode;
 import com.linkedin.hoptimator.graph.PipelineGraph;
+import com.linkedin.hoptimator.util.IdentifierUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTable;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
@@ -84,7 +85,7 @@ public final class PipelineGraphBuilder {
     // stored under a canonicalized name (lowercase, {@code _} stripped, {@code $} → {@code -},
     // dot-separated parts joined with {@code -}). Canonicalization is idempotent, so passing the
     // already-canonical custom resource name still works.
-    String crName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
+    String crName = K8sUtils.canonicalizeName(IdentifierUtils.parseIdentifier(name));
     V1alpha1View view = viewApi.get(crName);
     if (view.getSpec() == null) {
       throw new SQLException("view " + crName + " not found");
@@ -118,7 +119,7 @@ public final class PipelineGraphBuilder {
   public PipelineGraph forLogicalTable(String name) throws SQLException {
     // Same canonicalization as forView — accept SQL-side identifiers and resolve to the
     // canonicalized custom resource name.
-    String crName = K8sUtils.canonicalizeName(Arrays.asList(name.split("\\.")));
+    String crName = K8sUtils.canonicalizeName(IdentifierUtils.parseIdentifier(name));
     V1alpha1LogicalTable lt = logicalTableApi.get(crName);
     Map<String, String> tierMap = tierMap(lt.getSpec());
     GraphNode.LogicalTable root = new GraphNode.LogicalTable(crName, tierMap);
