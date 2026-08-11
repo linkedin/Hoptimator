@@ -42,6 +42,20 @@ class K8sUtilsTest {
   }
 
   @Test
+  void canonicalizeNamePreservesDots() {
+    // Dots are intentionally NOT rewritten: K8s object names here are DNS-1123 subdomains, which
+    // permit dots, and existing deployed resources already carry dotted names. Rewriting dots
+    // would change the derived name and make the operator create duplicates instead of updating
+    // the pre-existing resource. Keeping dots keeps create-time and lookup-time names in agreement.
+    assertEquals("my.event", K8sUtils.canonicalizeName("my.event"));
+  }
+
+  @Test
+  void canonicalizeNameWithDottedTableAndDatabasePreservesDot() {
+    assertEquals("kafka-database-my.event", K8sUtils.canonicalizeName("kafka-database", "my.event"));
+  }
+
+  @Test
   void canonicalizeNameWithDatabaseAndTable() {
     assertEquals("mydb-mytable", K8sUtils.canonicalizeName("myDB", "myTable"));
   }

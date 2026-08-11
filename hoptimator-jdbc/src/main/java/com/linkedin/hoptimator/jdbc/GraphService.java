@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
@@ -15,6 +14,7 @@ import com.linkedin.hoptimator.graph.GraphProvider;
 import com.linkedin.hoptimator.graph.GraphRenderer;
 import com.linkedin.hoptimator.graph.GraphTarget;
 import com.linkedin.hoptimator.graph.PipelineGraph;
+import com.linkedin.hoptimator.util.IdentifierUtils;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import org.apache.calcite.util.Util;
 
@@ -76,7 +76,7 @@ public final class GraphService {
    * {@code HoptimatorJdbcSchema} lazily walks its downstream connection to find the marker.
    */
   static GraphTarget resolve(String identifier, HoptimatorConnection connection) throws SQLException {
-    List<String> fullPath = Arrays.asList(identifier.split("\\."));
+    List<String> fullPath = IdentifierUtils.parseIdentifier(identifier);
     SchemaPlus schema = connection.calciteConnection().getRootSchema();
     List<String> schemaPath = Util.skipLast(fullPath);
     for (String segment : schemaPath) {
