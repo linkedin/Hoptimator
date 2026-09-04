@@ -163,7 +163,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
       schemaPlus.add(viewName, viewTable);
       logger.info("Added view {} to schema {}", viewName, schemaPlus.getName());
     } catch (SQLException | RuntimeException e) {
-      logger.info("Failed to deploy view {}", viewName);
+      logger.warn("Failed to deploy view {}", viewName, e);
       if (deployers != null) {
         DeploymentService.restore(deployers);
         logger.info("Restored deployable resources for view {}", viewName);
@@ -187,7 +187,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
           create,
           mode);
     } catch (SQLException | RuntimeException e) {
-      logger.info("Failed to deploy materialized view {}", create.name);
+      logger.warn("Failed to deploy materialized view {}", create.name, e);
       throw new DdlException(create, e.getMessage(), e);
     }
     logger.info("CREATE MATERIALIZED VIEW {} completed", create.name);
@@ -283,7 +283,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       HoptimatorDdlUtils.processCreateTable(context, connection, create, mode);
     } catch (SQLException | RuntimeException e) {
-      logger.info("Failed to deploy table {}", create.name);
+      logger.warn("Failed to deploy table {}", create.name, e);
       throw new DdlException(create, e.getMessage(), e);
     }
     logger.info("CREATE TABLE {} completed", create.name);
@@ -295,7 +295,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     try {
       HoptimatorDdlUtils.processCreateDatabase(connection, create, mode);
     } catch (SQLException | RuntimeException e) {
-      logger.info("Failed to deploy database {}", create.name);
+      logger.warn("Failed to deploy database {}", create.name, e);
       throw new DdlException(create, e.getMessage(), e);
     }
     logger.info("CREATE DATABASE {} completed", create.name);
@@ -502,7 +502,7 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
         throw new SQLException(String.format("Unsupported drop type %s.", table.getClass().getSimpleName()));
       }
     } catch (SQLException | RuntimeException e) {
-      logger.info("Failed to delete element {}", tableName);
+      logger.warn("Failed to delete element {}", tableName, e);
       if (deployers != null) {
         DeploymentService.restore(deployers);
         logger.info("Restored deployable resources for element {}", tableName);

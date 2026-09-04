@@ -467,7 +467,7 @@ public final class HoptimatorDdlUtils {
       success = true;
       return new SpecifyResult(specs, sinkRowType, viewPath);
     } catch (SQLException | RuntimeException e) {
-      logger.info("Failed to deploy materialized view {}", viewName);
+      logger.warn("Failed to deploy materialized view {}", viewName, e);
       if (deployers != null) {
         DeploymentService.restore(deployers);
         logger.info("Restored deployable resources for materialized view {}", viewName);
@@ -784,7 +784,7 @@ public final class HoptimatorDdlUtils {
       RelDataType sinkRowType = calcite == null ? HoptimatorDriver.rowType(source, context) : calcite.rowType;
       return new SpecifyResult(specs, sinkRowType, tablePath);
     } catch (SQLException | RuntimeException e) {
-      logger.info("Failed to deploy table {}", tableName);
+      logger.warn("Failed to deploy table {}", tableName, e);
       if (deployers != null) {
         DeploymentService.restore(deployers);
         logger.info("Restored deployable resources for table {}", tableName);
@@ -854,7 +854,7 @@ public final class HoptimatorDdlUtils {
       }
       return new SpecifyResult(specs, null, Collections.singletonList(name));
     } catch (SQLException | RuntimeException e) {
-      logger.info("Failed to deploy database {}", name);
+      logger.warn("Failed to deploy database {}", name, e);
       if (deployers != null) {
         DeploymentService.restore(deployers);
         logger.info("Restored deployable resources for database {}", name);
