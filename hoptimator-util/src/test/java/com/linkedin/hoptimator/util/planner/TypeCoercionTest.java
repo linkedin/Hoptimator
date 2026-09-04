@@ -356,26 +356,16 @@ class TypeCoercionTest {
 
   @ParameterizedTest(name = "{0} -> {1}")
   @MethodSource("allPairs")
-  void nullableSourceIntoNotNullSinkNeverWidensAcceptance(RelDataType source, RelDataType target) {
+  void nullabilityDoesNotAffectScalarDecision(RelDataType source, RelDataType target) {
     // Scoped to scalars: making a struct nullable also flips its inner field nullability, which is a
-    // structural change governed by the complex-type rule rather than this scalar nullability rule.
+    // structural change governed by the complex-type rule rather than this scalar rule.
     if (isComplex(source) || isComplex(target)) {
       return;
     }
-    // Making the source nullable and the sink NOT NULL can only remove acceptance, never add it,
-    // and when the types differ it must turn any cast into an error.
-    RelDataType nullableSource = nullable(source);
-    RelDataType notNullTarget = notNull(target);
     for (CastMode mode : CastMode.values()) {
       Decision base = TypeCoercion.decide(notNull(source), notNull(target), mode);
-      Decision withNulls = TypeCoercion.decide(nullableSource, notNullTarget, mode);
-      if (base == Decision.CAST) {
-        // A cast can't add a null guard, so a nullable source into a NOT NULL sink is rejected.
-        assertThat(withNulls).as(mode.name()).isEqualTo(Decision.INCOMPATIBLE);
-      } else if (base == Decision.NONE) {
-        // Same type: still a plain assignment regardless of nullability.
-        assertThat(withNulls).as(mode.name()).isEqualTo(Decision.NONE);
-      }
+      Decision withNulls = TypeCoercion.decide(nullable(source), notNull(target), mode);
+      assertThat(withNulls).as(mode.name()).isEqualTo(base);
     }
   }
 }

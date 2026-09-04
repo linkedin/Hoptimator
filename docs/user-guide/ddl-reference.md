@@ -157,11 +157,8 @@ How each column is reconciled depends on the `castMode`
   including lossy numeric narrowing (e.g. `BIGINT → INTEGER`); the deliberate
   opt-in for passthroughs that intentionally coerce across families or narrow.
 
-Regardless of mode, two mismatches are always errors: a nullable source into a
-`NOT NULL` sink column **when that column also needs a cast** — a cast cannot add
-a null guard (matching types are assigned as-is and the engine enforces
-`NOT NULL` at runtime, as with a native `INSERT`) — and any structural difference
-between complex `ROW`/`ARRAY`/`MAP`/`MULTISET` types.
+Any structural difference between complex `ROW`/`ARRAY`/`MAP`/`MULTISET` types
+is always an error.
 
 Complex types are compared structurally and Hoptimator does not cast individual
 nested fields.
