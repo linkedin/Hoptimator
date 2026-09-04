@@ -133,6 +133,38 @@ This pattern is the **recommended default** for most production cases:
 Use a non-partial name (`VENICE.AUDIENCE`) only when you genuinely have one
 pipeline owning one sink end-to-end.
 
+## Type checking and casts on write
+
+When a `CREATE MATERIALIZED VIEW` (or `INSERT INTO`) writes into a sink with a
+declared schema, the planner compares the query's output type against the sink
+column type **before** submitting the job, instead of letting the engine reject
+a mismatch later. A common trigger is a raw Kafka key: Hoptimator exposes it as
+a single `STRING` column named `KEY`, so projecting it onto a typed key column
+(e.g. `KEY_member_id BIGINT`) is a type mismatch.
+
+How each column is reconciled depends on the `castMode`
+[hint](hints.md#planner-hints):
+
+- **`strict`** (default) — inject an assignment cast only for same-family
+  conversions (e.g. `INTEGER → BIGINT`). A cross-family mismatch such as
+  `STRING → BIGINT` is rejected with an error naming the column and both types.
+- **`assign`** — additionally cast a character column onto a scalar sink column,
+  so `SELECT KEY AS "KEY_member_id"` into a `BIGINT` key "just works" without a
+  hand-written cast.
+- **`explicit`** — additionally allow any explicitly-castable scalar pair; the
+  deliberate opt-in for passthroughs that intentionally coerce across families.
+
+Regardless of mode, two mismatches are always errors: a nullable source into a
+`NOT NULL` sink column **when that column also needs a cast** — a cast cannot add
+a null guard (matching types are assigned as-is and the engine enforces
+`NOT NULL` at runtime, as with a native `INSERT`) — and any structural difference
+between complex `ROW`/`ARRAY`/`MAP`/`MULTISET` types.
+
+You can always coerce a single column yourself with an explicit `CAST` in the
+query — `SELECT CAST(KEY AS BIGINT) AS "KEY_member_id"`. An explicit cast is
+respected and never double-wrapped, and it lets an otherwise-rejected column
+pass under `strict` without relaxing the whole pipeline.
+
 ## DROP
 
 ```

@@ -39,6 +39,28 @@ matching rules, and the precedence between hints, configmap, and system
 properties — see
 [Templates and configuration](../kubernetes/templates.md).
 
+## Planner hints
+
+A few hint keys are interpreted by the planner itself rather than passed to a
+template or connector:
+
+- **`castMode`** controls how aggressively the planner reconciles a query
+  column whose type differs from its sink column (for example a raw Kafka key
+  exposed as `STRING` projected onto a typed `BIGINT` key column). See
+  [Type checking and casts on write](ddl-reference.md#type-checking-and-casts-on-write)
+  for the full behavior. Values:
+
+  | Value              | Behavior                                                                       |
+  | ------------------ | ------------------------------------------------------------------------------ |
+  | `strict` (default) | Cast only assignment-compatible (same-family) types; otherwise fail early.     |
+  | `assign`           | Also cast a character column onto a scalar sink column (e.g. `STRING → BIGINT`).|
+  | `explicit`         | Also cast any explicitly-castable scalar pair — the deliberate "risky" opt-in. |
+
+  A missing or unrecognized value falls back to `strict`, so a dropped hint can
+  never silently widen the policy. A type mismatch that also crosses from a
+  nullable source into a `NOT NULL` sink, and structural complex-type
+  mismatches, remain errors at every level.
+
 ## Reading what was applied
 
 After deployment, the `Pipeline` (and `Subscription`) `status` records the
