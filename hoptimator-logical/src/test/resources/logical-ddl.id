@@ -223,7 +223,7 @@ drop table "KAFKA"."testevent";
 active dependent
 !error
 
-create or replace materialized view VENICE."testevent$guard" as select "KEY" as "KEY", "VALUE" as "memberId" from KAFKA."existing-topic-1";
+create or replace materialized view VENICE."testevent$guard" as select "KEY" as "KEY", "KEY" as "pageKey" from KAFKA."existing-topic-1";
 (0 rows modified)
 
 !update
