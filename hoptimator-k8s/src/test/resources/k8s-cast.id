@@ -1,10 +1,16 @@
 !set outputformat mysql
 !use k8s
 
-# Default castMode is strict: a VARCHAR value column cannot be assigned to a typed sink column, so
-# the mismatch is rejected up front (at plan time) instead of failing later inside the Flink job.
-# Here VENICE.test-store-primitive.stringField (VARCHAR) is projected onto VENICE.test-store.intField
-# (INTEGER), which strict mode refuses to coerce.
-create or replace materialized view "VENICE"."test-store$cast-strict" ("intField") as select "stringField" AS "intField" from "VENICE"."test-store-primitive";
-Incompatible types for sink column 'intField': query produces VARCHAR but sink expects INTEGER (no safe conversion is available under castMode=strict).
+create or replace table ads."cast_target" ("member_id" bigint, "name" varchar);
+(0 rows modified)
+
+!update
+
+create or replace materialized view ads."cast_target$bad" ("member_id") as select member_urn AS "member_id" from profile.members;
+Incompatible types for sink column 'member_id': query produces VARCHAR but sink expects BIGINT (no safe conversion is available under castMode=strict).
 !error
+
+drop table ads."cast_target";
+(0 rows modified)
+
+!update
