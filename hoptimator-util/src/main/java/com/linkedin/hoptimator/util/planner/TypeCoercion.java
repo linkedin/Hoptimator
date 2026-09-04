@@ -23,12 +23,12 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
  * the sink, or fail early with a clear error naming the column and both types.
  *
  * <p>The permissiveness is controlled by a {@link CastMode} sourced from the {@code castMode} hint.
- * Two rules hold at <em>every</em> mode and cannot be relaxed:
+ * Nullability is never a plan-time concern: a nullable source may be assigned to a {@code NOT NULL}
+ * sink column (with or without a cast), and the engine enforces the {@code NOT NULL} constraint at
+ * runtime, exactly as for a native {@code INSERT} — this is what lets a nullable Kafka {@code KEY}
+ * project onto a {@code NOT NULL} key column. One rule holds at <em>every</em> mode and cannot be
+ * relaxed:
  * <ul>
- *   <li>When a cast is needed (the source and sink types differ), a nullable source into a
- *       {@code NOT NULL} sink column is incompatible — a cast cannot add a null guard. When the
- *       types already match, assignment is allowed regardless of nullability and the engine enforces
- *       any {@code NOT NULL} constraint at runtime, exactly as for a native {@code INSERT}.</li>
  *   <li>Complex types ({@code ROW}/{@code ARRAY}/{@code MAP}/{@code MULTISET}) must match
  *       structurally — same shape and same base scalar types at every level — because a cast cannot
  *       reshape a record or cast an individual nested field. Nullability is ignored recursively
@@ -127,12 +127,6 @@ public final class TypeCoercion {
     // exactly as for a native INSERT, so we only intervene for genuine cross-family mismatches.
     if (source.getSqlTypeName() == target.getSqlTypeName()) {
       return Decision.NONE;
-    }
-
-    // Types differ, so a cast is required. A cast cannot turn a possibly-null value into a
-    // guaranteed non-null one, so a nullable source feeding a NOT NULL sink column is rejected.
-    if (source.isNullable() && !target.isNullable()) {
-      return Decision.INCOMPATIBLE;
     }
 
     boolean allowed;

@@ -57,9 +57,8 @@ template or connector:
   | `explicit`         | Also cast any explicitly-castable scalar pair — the deliberate "risky" opt-in. |
 
   A missing or unrecognized value falls back to `strict`, so a dropped hint can
-  never silently widen the policy. A type mismatch that also crosses from a
-  nullable source into a `NOT NULL` sink, and structural complex-type
-  mismatches, remain errors at every level.
+  never silently widen the policy. Structural complex-type mismatches remain
+  errors at every level.
 
 ## Reading what was applied
 

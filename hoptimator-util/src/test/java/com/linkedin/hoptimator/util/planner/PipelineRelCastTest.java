@@ -245,12 +245,17 @@ class PipelineRelCastTest {
         sink(type(SqlTypeName.BIGINT)), EXPLICIT);
   }
 
-  // --- nullability is never fixable by a cast ---
+  // --- nullability is never a plan-time rejection ---
 
   @Test
-  void nullableSourceIntoNotNullSinkRejectedEvenWhenCastable() {
+  void nullableSourceIntoNotNullSinkCastsAndDefersNotNullToEngine() throws Exception {
+    // The canonical Kafka-key case: a nullable STRING key projected onto a NOT NULL BIGINT sink key.
+    // We inject the assignment cast and let the engine enforce NOT NULL at runtime (Flink accepts
+    // CAST(nullable AS BIGINT) into a NOT NULL column), rather than rejecting at plan time.
     stubHasConnector();
-    assertRejects(selectAs(nullable(type(SqlTypeName.VARCHAR))), sink(notNull(type(SqlTypeName.BIGINT))), ASSIGN);
+    String sql = generate(selectAs(nullable(type(SqlTypeName.VARCHAR))), sink(notNull(type(SqlTypeName.BIGINT))),
+        ASSIGN);
+    assertThat(sql).contains("CAST").contains("BIGINT");
   }
 
   @Test
