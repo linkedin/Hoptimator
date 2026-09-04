@@ -135,7 +135,13 @@ public interface ScriptImplementor {
   /** Append an insert statement with an optional suffix and table name replacements for the query, e.g. `INSERT INTO ... SELECT ...` */
   default ScriptImplementor insert(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
       ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements) {
-    return with(new InsertImplementor(catalog, schema, table, suffix, relNode, targetFields, tableNameReplacements));
+    return insert(catalog, schema, table, suffix, relNode, targetFields, tableNameReplacements, Collections.emptyMap());
+  }
+
+  /** Append an insert statement, injecting assignment casts for the given sink columns (name to target type). */
+  default ScriptImplementor insert(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
+      ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements, Map<String, RelDataType> castTargets) {
+    return with(new InsertImplementor(catalog, schema, table, suffix, relNode, targetFields, tableNameReplacements, castTargets));
   }
 
   /** Render the script as DDL/SQL in the default dialect */
@@ -353,9 +359,16 @@ public interface ScriptImplementor {
     private final RelNode relNode;
     private final ImmutablePairList<Integer, String> targetFields;
     private final Map<String, String> tableNameReplacements;
+    private final Map<String, RelDataType> castTargets;
 
     public InsertImplementor(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
         @Nullable ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements) {
+      this(catalog, schema, table, suffix, relNode, targetFields, tableNameReplacements, Collections.emptyMap());
+    }
+
+    public InsertImplementor(@Nullable String catalog, String schema, String table, @Nullable String suffix, RelNode relNode,
+        @Nullable ImmutablePairList<Integer, String> targetFields, Map<String, String> tableNameReplacements,
+        Map<String, RelDataType> castTargets) {
       this.catalog = catalog;
       this.schema = schema;
       this.table = table;
@@ -363,6 +376,7 @@ public interface ScriptImplementor {
       this.relNode = relNode;
       this.targetFields = targetFields;
       this.tableNameReplacements = tableNameReplacements;
+      this.castTargets = castTargets;
     }
 
     @Override
@@ -370,7 +384,7 @@ public interface ScriptImplementor {
       w.keyword("INSERT INTO");
       String effectiveTable = suffix != null ? table + suffix : table;
       (new CompoundIdentifierImplementor(catalog, schema, effectiveTable)).implement(w);
-      RelNode project = targetFields == null ? dropNullFields(relNode) : dropFields(relNode, targetFields);
+      RelNode project = targetFields == null ? dropNullFields(relNode) : dropFields(relNode, targetFields, castTargets);
 
       // If the relNode is a Project (or subclass), the field names should already match the sink.
       // Otherwise, like in SELECT * situations, the relNode fields will match the source field names, so
@@ -400,7 +414,9 @@ public interface ScriptImplementor {
 
     // Drops NULL fields
     // Drops non-target columns, for use case: INSERT INTO (col1, col2) SELECT * FROM ...
-    private static RelNode dropFields(RelNode relNode, ImmutablePairList<Integer, String> targetFields) {
+    // Injects assignment casts for any sink column present in castTargets (keyed by sink field name).
+    private static RelNode dropFields(RelNode relNode, ImmutablePairList<Integer, String> targetFields,
+        Map<String, RelDataType> castTargets) {
       List<Integer> cols = new ArrayList<>();
       List<String> aliases = new ArrayList<>();
       List<String> targetFieldNames = targetFields.rightList();
@@ -418,7 +434,7 @@ public interface ScriptImplementor {
           }
         }
 
-        return createForceProject(relNode, cols, aliases);
+        return createForceProject(relNode, cols, aliases, castTargets);
       }
 
       // Otherwise (e.g., TableScan), the projection was optimized away.
@@ -434,12 +450,22 @@ public interface ScriptImplementor {
         }
       }
 
-      return createForceProject(relNode, cols, aliases);
+      return createForceProject(relNode, cols, aliases, castTargets);
     }
   }
 
   static RelNode createForceProject(final RelNode child, final List<Integer> posList, final List<String> aliases) {
-    return createForceProject(RelFactories.DEFAULT_PROJECT_FACTORY, child, posList, aliases);
+    return createForceProject(RelFactories.DEFAULT_PROJECT_FACTORY, child, posList, aliases, Collections.emptyMap());
+  }
+
+  static RelNode createForceProject(final RelNode child, final List<Integer> posList, final List<String> aliases,
+      final Map<String, RelDataType> castTargets) {
+    return createForceProject(RelFactories.DEFAULT_PROJECT_FACTORY, child, posList, aliases, castTargets);
+  }
+
+  static RelNode createForceProject(final RelFactories.ProjectFactory factory,
+      final RelNode child, final List<Integer> posList, final List<String> aliases) {
+    return createForceProject(factory, child, posList, aliases, Collections.emptyMap());
   }
 
   // By default, "projectNamed" will try to provide an optimization by not creating a new project if the
@@ -456,7 +482,8 @@ public interface ScriptImplementor {
   // This implementation is largely a duplicate of RelOptUtil.createProject(relNode, cols); which does not allow
   // overriding the "force" argument of "projectNamed".
   static RelNode createForceProject(final RelFactories.ProjectFactory factory,
-      final RelNode child, final List<Integer> posList, final List<String> aliases) {
+      final RelNode child, final List<Integer> posList, final List<String> aliases,
+      final Map<String, RelDataType> castTargets) {
     final RelBuilder relBuilder =
         RelBuilder.proto(factory).create(child.getCluster(), null);
     final List<RexNode> exprs = new AbstractList<>() {
@@ -468,7 +495,12 @@ public interface ScriptImplementor {
       @Override
       public RexNode get(int index) {
         final int pos = posList.get(index);
-        return relBuilder.getRexBuilder().makeInputRef(child, pos);
+        RexNode ref = relBuilder.getRexBuilder().makeInputRef(child, pos);
+        RelDataType castTo = castTargets.get(aliases.get(index));
+        if (castTo != null) {
+          return relBuilder.getRexBuilder().makeCast(castTo, ref);
+        }
+        return ref;
       }
     };
     return relBuilder

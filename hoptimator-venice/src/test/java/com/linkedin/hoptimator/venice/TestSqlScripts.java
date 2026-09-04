@@ -17,4 +17,9 @@ public class TestSqlScripts extends QuidemTestBase {
   public void veniceDdlCreateTableScript() throws Exception {
     run("venice-ddl-create-table.id");
   }
+
+  @Test
+  public void veniceDdlCastAssignScript() throws Exception {
+    run("venice-ddl-cast.id", "hints=castMode=assign");
+  }
 }

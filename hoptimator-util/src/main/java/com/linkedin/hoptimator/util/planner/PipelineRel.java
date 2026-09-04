@@ -12,24 +12,31 @@ import com.linkedin.hoptimator.ThrowingFunction;
 import com.linkedin.hoptimator.util.ConnectionService;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.rel2sql.RelToSqlConverter;
 import org.apache.calcite.rel.rel2sql.SqlImplementor;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.sql.SqlAsOperator;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.fun.SqlItemOperator;
+import org.apache.calcite.sql.type.SqlTypeName;
 
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
@@ -54,6 +61,7 @@ public interface PipelineRel extends RelNode {
     private final Map<Source, RelDataType> sources = new LinkedHashMap<>();
     private final ImmutablePairList<Integer, String> targetFields;
     private final Map<String, String> hints;
+    private final TypeCoercion.CastMode castMode;
     private RelNode query;
     private Sink sink = null;
     private RelDataType sinkRowType = null;
@@ -61,6 +69,7 @@ public interface PipelineRel extends RelNode {
     public Implementor(ImmutablePairList<Integer, String> targetFields, Map<String, String> hints) {
       this.targetFields = targetFields;
       this.hints = hints;
+      this.castMode = TypeCoercion.CastMode.fromHints(hints);
     }
 
     public void visit(RelNode node) throws SQLException {
@@ -162,10 +171,12 @@ public interface PipelineRel extends RelNode {
       return wrap(x -> {
         ScriptImplementor script = script(context);
         RelDataType targetRowType = sinkRowType;
+        Map<String, RelDataType> castTargets = Collections.emptyMap();
         if (targetRowType == null) {
           targetRowType = query.getRowType();
         } else {
           validateFieldMapping(targetRowType);
+          castTargets = resolveCasts(targetRowType);
         }
         Map<String, String> sinkConfigs = ConnectionService.configure(sink, context);
         // A sink with no connector configuration cannot be materialized by a SQL job. Signal
@@ -190,7 +201,7 @@ public interface PipelineRel extends RelNode {
           }
         }
 
-        script = script.insert(sink.catalog(), sink.schema(), sink.table(), sinkSuffix, query, targetFields, tableNameReplacements);
+        script = script.insert(sink.catalog(), sink.schema(), sink.table(), sinkSuffix, query, targetFields, tableNameReplacements, castTargets);
         return script.sql(x);
       });
     }
@@ -230,6 +241,73 @@ public interface PipelineRel extends RelNode {
           throw new SQLNonTransientException("Field " + fieldName + " not found in sink schema");
         }
       }
+    }
+
+    /**
+     * Compares the query output type against the sink schema column-by-column and decides, per the
+     * active {@link TypeCoercion.CastMode}, whether each projected column needs an assignment cast.
+     * Returns a map from sink column name to the type Hoptimator should {@code CAST} that column to
+     * (only for columns that require injection). Raises a {@link SQLNonTransientException} for any
+     * column whose types are incompatible, so the failure surfaces here rather than late at job
+     * submission. An explicit user {@code CAST} is respected and never double-wrapped.
+     */
+    Map<String, RelDataType> resolveCasts(RelDataType targetRowType) throws SQLException {
+      Map<String, RelDataType> castTargets = new LinkedHashMap<>();
+      List<RelDataTypeField> queryFields = query.getRowType().getFieldList();
+      for (int i = 0; i < targetFields.size(); i++) {
+        int queryIndex = targetFields.leftList().get(i);
+        String sinkName = targetFields.rightList().get(i);
+        RelDataTypeField sinkField = targetRowType.getField(sinkName, true, false);
+        if (sinkField == null || queryIndex >= queryFields.size()) {
+          continue;
+        }
+        RelDataType sourceType = queryFields.get(queryIndex).getType();
+        RelDataType targetType = sinkField.getType();
+        // NULL-typed columns (e.g. `NULL AS KEY`) are elided from the pipeline downstream; skip them.
+        if (sourceType.getSqlTypeName() == SqlTypeName.NULL) {
+          continue;
+        }
+        TypeCoercion.Decision decision = TypeCoercion.decide(sourceType, targetType, castMode);
+        switch (decision) {
+          case NONE:
+            break;
+          case CAST:
+            // Respect an explicit user CAST: never stack another level on top of it. If its result
+            // is not already assignable to the sink column, fail early rather than defer to the engine.
+            if (isUserProvidedCast(queryIndex)) {
+              if (!TypeCoercion.isImplicitlyAssignable(sourceType, targetType)) {
+                throw incompatibleColumn(sinkName, sourceType, targetType,
+                    "an explicit CAST is present but its result type is not assignable to the sink column");
+              }
+            } else {
+              castTargets.put(sinkName, targetType);
+            }
+            break;
+          case INCOMPATIBLE:
+          default:
+            throw incompatibleColumn(sinkName, sourceType, targetType,
+                "no safe conversion is available under castMode=" + castMode.name().toLowerCase(Locale.ROOT));
+        }
+      }
+      return castTargets;
+    }
+
+    private boolean isUserProvidedCast(int queryIndex) {
+      if (query instanceof Project) {
+        List<RexNode> projects = ((Project) query).getProjects();
+        if (queryIndex < projects.size()) {
+          SqlKind kind = projects.get(queryIndex).getKind();
+          return kind == SqlKind.CAST || kind == SqlKind.SAFE_CAST;
+        }
+      }
+      return false;
+    }
+
+    private SQLNonTransientException incompatibleColumn(String column, RelDataType source, RelDataType target,
+        String reason) {
+      return new SQLNonTransientException(String.format(
+          "Incompatible types for sink column '%s': query produces %s but sink expects %s (%s).",
+          column, source.getFullTypeString(), target.getFullTypeString(), reason));
     }
 
     /**

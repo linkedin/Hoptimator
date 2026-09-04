@@ -1,0 +1,72 @@
+!set outputformat mysql
+!use k8s
+
+create or replace table ads."cast_sink" ("member_id" bigint, "name" varchar);
+(0 rows modified)
+
+!update
+
+create or replace table ads."cast_sink_nn" ("name" varchar not null);
+(0 rows modified)
+
+!update
+
+create or replace materialized view ads."cast_sink$strict-reject" ("member_id") as select member_urn AS "member_id" from profile.members;
+Incompatible types for sink column 'member_id': query produces VARCHAR but sink expects BIGINT (no safe conversion is available under castMode=strict).
+!error
+
+insert into ads."cast_sink" ("member_id") select CAST(member_urn AS BIGINT) AS "member_id" from profile.members;
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: profile-database-castsink
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`cast_sink` (`member_id` BIGINT, `name` VARCHAR) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`cast_sink` (`member_id`) SELECT CAST(`MEMBER_URN` AS BIGINT) AS `member_id` FROM `PROFILE`.`MEMBERS`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify cast_sink
+
+create or replace materialized view ads."cast_sink$bad-cast" ("member_id") as select CAST(member_urn AS BOOLEAN) AS "member_id" from profile.members;
+Incompatible types for sink column 'member_id': query produces BOOLEAN but sink expects BIGINT (no safe conversion is available under castMode=strict).
+!error
+
+insert into ads."cast_sink_nn" ("name") select member_urn AS "name" from profile.members;
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: profile-database-castsinknn
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`cast_sink_nn` (`name` VARCHAR) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`cast_sink_nn` (`name`) SELECT `MEMBER_URN` AS `name` FROM `PROFILE`.`MEMBERS`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify cast_sink_nn
+
+drop table ads."cast_sink";
+(0 rows modified)
+
+!update
+
+drop table ads."cast_sink_nn";
+(0 rows modified)
+
+!update

@@ -1,0 +1,51 @@
+!set outputformat mysql
+!use k8s
+
+create or replace table ads."cast_asgn" ("member_id" bigint, "name" varchar, "vb" varbinary);
+(0 rows modified)
+
+!update
+
+create or replace table ads."cast_asgn_nn" ("member_id" bigint not null);
+(0 rows modified)
+
+!update
+
+insert into ads."cast_asgn" ("member_id", "name") select member_urn AS "member_id", first_name AS "name" from profile.members;
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: profile-database-castasgn
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`cast_asgn` (`member_id` BIGINT, `name` VARCHAR, `vb` VARBINARY) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`cast_asgn` (`member_id`, `name`) SELECT CAST(`MEMBER_URN` AS BIGINT) AS `member_id`, `FIRST_NAME` AS `name` FROM `PROFILE`.`MEMBERS`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify cast_asgn
+
+create or replace materialized view ads."cast_asgn$to-binary" ("vb") as select member_urn AS "vb" from profile.members;
+Incompatible types for sink column 'vb': query produces VARCHAR but sink expects VARBINARY (no safe conversion is available under castMode=assign).
+!error
+
+create or replace materialized view ads."cast_asgn_nn$null-into-nn" ("member_id") as select member_urn AS "member_id" from profile.members;
+Incompatible types for sink column 'member_id': query produces VARCHAR but sink expects BIGINT NOT NULL (no safe conversion is available under castMode=assign).
+!error
+
+drop table ads."cast_asgn";
+(0 rows modified)
+
+!update
+
+drop table ads."cast_asgn_nn";
+(0 rows modified)
+
+!update

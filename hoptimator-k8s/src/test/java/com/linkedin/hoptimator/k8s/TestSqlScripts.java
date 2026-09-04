@@ -15,6 +15,21 @@ public class TestSqlScripts extends QuidemTestBase {
   }
 
   @Test
+  public void k8sCastExplicitScript() throws Exception {
+    run("k8s-cast-explicit.id", "hints=castMode=explicit");
+  }
+
+  @Test
+  public void k8sCastStrictScript() throws Exception {
+    run("k8s-cast.id");
+  }
+
+  @Test
+  public void k8sCastAssignScript() throws Exception {
+    run("k8s-cast-assign.id", "hints=castMode=assign");
+  }
+
+  @Test
   public void k8sDdlScriptFunction() throws Exception {
     run("k8s-ddl-function.id", "fun=mysql");
   }

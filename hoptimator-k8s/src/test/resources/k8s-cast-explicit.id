@@ -1,0 +1,37 @@
+!set outputformat mysql
+!use k8s
+
+create or replace table ads."cast_expl" ("vb" varbinary, "ts" timestamp);
+(0 rows modified)
+
+!update
+
+insert into ads."cast_expl" ("vb") select member_urn AS "vb" from profile.members;
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+metadata:
+  name: profile-database-castexpl
+spec:
+  deploymentName: basic-session-deployment
+  job:
+    entryClass: com.linkedin.hoptimator.flink.runner.FlinkRunner
+    args:
+    - CREATE DATABASE IF NOT EXISTS `PROFILE` WITH ()
+    - CREATE TABLE IF NOT EXISTS `PROFILE`.`MEMBERS` (`FIRST_NAME` VARCHAR, `LAST_NAME` VARCHAR, `MEMBER_URN` VARCHAR, `COMPANY_URN` VARCHAR) WITH ('connector'='datagen', 'number-of-rows'='10')
+    - CREATE DATABASE IF NOT EXISTS `ADS` WITH ()
+    - CREATE TABLE IF NOT EXISTS `ADS`.`cast_expl` (`vb` VARBINARY, `ts` TIMESTAMP) WITH ('connector'='blackhole')
+    - INSERT INTO `ADS`.`cast_expl` (`vb`) SELECT CAST(`MEMBER_URN` AS VARBINARY) AS `vb` FROM `PROFILE`.`MEMBERS`
+    jarURI: file:///opt/hoptimator-flink-runner.jar
+    parallelism: 1
+    upgradeMode: stateless
+    state: running
+!specify cast_expl
+
+create or replace materialized view ads."cast_expl$bad-cast" ("ts") as select CAST(member_urn AS DATE) AS "ts" from profile.members;
+Incompatible types for sink column 'ts': query produces DATE but sink expects TIMESTAMP(0) (an explicit CAST is present but its result type is not assignable to the sink column).
+!error
+
+drop table ads."cast_expl";
+(0 rows modified)
+
+!update
