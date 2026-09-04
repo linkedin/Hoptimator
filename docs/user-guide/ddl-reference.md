@@ -163,6 +163,9 @@ a null guard (matching types are assigned as-is and the engine enforces
 `NOT NULL` at runtime, as with a native `INSERT`) — and any structural difference
 between complex `ROW`/`ARRAY`/`MAP`/`MULTISET` types.
 
+Complex types are compared structurally and Hoptimator does not cast individual
+nested fields.
+
 You can always coerce a single column yourself with an explicit `CAST` in the
 query — `SELECT CAST(KEY AS BIGINT) AS "KEY_member_id"`. An explicit cast is
 respected and never double-wrapped, and it lets an otherwise-rejected column

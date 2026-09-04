@@ -248,8 +248,8 @@ public interface PipelineRel extends RelNode {
      * active {@link TypeCoercion.CastMode}, whether each projected column needs an assignment cast.
      * Returns a map from sink column name to the type Hoptimator should {@code CAST} that column to
      * (only for columns that require injection). Raises a {@link SQLNonTransientException} for any
-     * column whose types are incompatible, so the failure surfaces here rather than deep inside the
-     * Flink job. An explicit user {@code CAST} is respected and never double-wrapped.
+     * column whose types are incompatible, so the failure surfaces here rather than late at job
+     * submission. An explicit user {@code CAST} is respected and never double-wrapped.
      */
     Map<String, RelDataType> resolveCasts(RelDataType targetRowType) throws SQLException {
       Map<String, RelDataType> castTargets = new LinkedHashMap<>();
@@ -273,7 +273,7 @@ public interface PipelineRel extends RelNode {
             break;
           case CAST:
             // Respect an explicit user CAST: never stack another level on top of it. If its result
-            // is not already assignable to the sink column, fail early rather than defer to Flink.
+            // is not already assignable to the sink column, fail early rather than defer to the engine.
             if (isUserProvidedCast(queryIndex)) {
               if (!TypeCoercion.isImplicitlyAssignable(sourceType, targetType)) {
                 throw incompatibleColumn(sinkName, sourceType, targetType,

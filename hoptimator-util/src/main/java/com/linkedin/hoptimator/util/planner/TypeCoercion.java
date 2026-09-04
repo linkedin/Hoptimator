@@ -14,13 +14,13 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
  * Decides whether a query output column can be assigned to a sink column, and whether Hoptimator
  * should inject an assignment {@code CAST} to make the two schemas line up.
  *
- * <p>Hoptimator emits a Flink {@code INSERT INTO sink SELECT ...} script. Flink validates the
- * query row type against the sink row type column-by-column and rejects mismatches. Because
- * Hoptimator's generated {@code SELECT} loses the implicit assignment-cast context a native
- * {@code INSERT} would carry, a source column whose type differs from the sink column (e.g. a raw
- * primitive Kafka key exposed as {@code STRING} projected onto a typed {@code BIGINT} key column)
- * fails only once the job reaches Flink. This class lets Hoptimator either insert the cast up front
- * or fail early with a clear error, instead of deferring to Flink.
+ * <p>Hoptimator emits an {@code INSERT INTO sink SELECT ...} script to the execution engine, which
+ * validates the query row type against the sink row type column-by-column and rejects incompatible
+ * assignments. Left to the engine a mismatch typically fails late — at job submission — with an
+ * opaque error, and some conversions the engine will not perform implicitly at all (e.g. a raw
+ * primitive key exposed as {@code STRING} projected onto a typed {@code BIGINT} key column). This
+ * class lets Hoptimator either inject an assignment cast up front so the projection lines up with
+ * the sink, or fail early with a clear error naming the column and both types.
  *
  * <p>The permissiveness is controlled by a {@link CastMode} sourced from the {@code castMode} hint.
  * Two rules hold at <em>every</em> mode and cannot be relaxed:
@@ -170,12 +170,18 @@ public final class TypeCoercion {
    * top-level scalar.
    *
    * <p>Nested scalars must match exactly by {@link SqlTypeName} (a nested {@code INTEGER -> BIGINT}
-   * is a mismatch, not a cast) because an individual field inside a struct/collection projection
-   * cannot be cast on its own.
+   * is a mismatch, not a cast) because Hoptimator does not synthesize casts for individual fields
+   * inside a struct/collection projection.
    *
-   * <p>TODO: Consider upleveling a version of this into Calcite to replace {@link SqlTypeUtil#equalSansNullability}
-   * family (which only strips the outermost nullability and does not recurse into nested structs), this walks the whole
-   * type tree.
+   * <p>TODO: Nested casting is not supported. This is deliberately conservative — an execution
+   * engine may accept a nested widening (e.g. {@code ROW<x INTEGER>} into {@code ROW<x BIGINT>}) on
+   * its own, but because we cannot rewrite an individual nested field we reject the whole column
+   * rather than emit a row/collection cast. If nested coercion is ever needed, rebuild the
+   * row/collection in the projection with the per-field casts applied.
+   *
+   * <p>TODO: Consider upleveling a version of this to replace the {@link SqlTypeUtil#equalSansNullability}
+   * family (which only strips the outermost nullability and does not recurse into nested structs); this walks
+   * the whole type tree.
    */
   static boolean structurallyEqualSansNullability(RelDataType a, RelDataType b) {
     if (a == b) {
