@@ -1,9 +1,11 @@
 package com.linkedin.hoptimator.util.planner;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 
@@ -27,8 +29,10 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
  *       {@code NOT NULL} sink column is incompatible — a cast cannot add a null guard. When the
  *       types already match, assignment is allowed regardless of nullability and the engine enforces
  *       any {@code NOT NULL} constraint at runtime, exactly as for a native {@code INSERT}.</li>
- *   <li>Structural mismatches between complex types ({@code ROW}/{@code ARRAY}/{@code MAP}/
- *       {@code MULTISET}) are incompatible — a cast cannot reshape a record.</li>
+ *   <li>Complex types ({@code ROW}/{@code ARRAY}/{@code MAP}/{@code MULTISET}) must match
+ *       structurally — same shape and same base scalar types at every level — because a cast cannot
+ *       reshape a record or cast an individual nested field. Nullability is ignored recursively
+ *       (the engine enforces any nested {@code NOT NULL} at runtime)</li>
  * </ul>
  */
 public final class TypeCoercion {
@@ -112,9 +116,10 @@ public final class TypeCoercion {
    * @return whether the columns match, need a cast, or are incompatible
    */
   public static Decision decide(RelDataType source, RelDataType target, CastMode mode) {
-    // Complex types must match structurally; never synthesize a row/collection cast.
+    // Complex types must match structurally (same shape + base types, nullability ignored
+    // recursively); never synthesize a row/collection cast.
     if (source.isStruct() || target.isStruct() || isCollection(source) || isCollection(target)) {
-      return SqlTypeUtil.equalSansNullability(target, source) ? Decision.NONE : Decision.INCOMPATIBLE;
+      return structurallyEqualSansNullability(source, target) ? Decision.NONE : Decision.INCOMPATIBLE;
     }
 
     // Types already line up (same family, ignoring precision/scale/charset/nullability): a plain
@@ -149,10 +154,68 @@ public final class TypeCoercion {
 
   /** Whether {@code source} is implicitly assignable to {@code target} (the {@link CastMode#STRICT} set). */
   public static boolean isImplicitlyAssignable(RelDataType source, RelDataType target) {
-    return SqlTypeUtil.equalSansNullability(target, source)
-        || (!source.isStruct() && !target.isStruct()
-            && !isCollection(source) && !isCollection(target)
-            && SqlTypeUtil.canCastFrom(target, source, false));
+    if (source.isStruct() || target.isStruct() || isCollection(source) || isCollection(target)) {
+      return structurallyEqualSansNullability(source, target);
+    }
+    return source.getSqlTypeName() == target.getSqlTypeName()
+        || SqlTypeUtil.canCastFrom(target, source, false);
+  }
+
+  /**
+   * Recursively compares two types for structural equality, ignoring nullability at every level.
+   *
+   * <p>Two types match when they have the same shape and the same base scalar {@link SqlTypeName}
+   * throughout. Nested field nullability (and precision/scale/charset) is ignored — the engine
+   * enforces any nested {@code NOT NULL} at runtime for a plain assignment, exactly as for a
+   * top-level scalar.
+   *
+   * <p>Nested scalars must match exactly by {@link SqlTypeName} (a nested {@code INTEGER -> BIGINT}
+   * is a mismatch, not a cast) because an individual field inside a struct/collection projection
+   * cannot be cast on its own.
+   *
+   * <p>TODO: Consider upleveling a version of this into Calcite to replace {@link SqlTypeUtil#equalSansNullability}
+   * family (which only strips the outermost nullability and does not recurse into nested structs), this walks the whole
+   * type tree.
+   */
+  static boolean structurallyEqualSansNullability(RelDataType a, RelDataType b) {
+    if (a == b) {
+      return true;
+    }
+
+    if (a.isStruct() || b.isStruct()) {
+      if (!a.isStruct() || !b.isStruct()) {
+        return false;
+      }
+      List<RelDataTypeField> fieldsA = a.getFieldList();
+      List<RelDataTypeField> fieldsB = b.getFieldList();
+      if (fieldsA.size() != fieldsB.size()) {
+        return false;
+      }
+      for (int i = 0; i < fieldsA.size(); i++) {
+        if (!fieldsA.get(i).getName().equals(fieldsB.get(i).getName())) {
+          return false;
+        }
+        if (!structurallyEqualSansNullability(fieldsA.get(i).getType(), fieldsB.get(i).getType())) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    if (isCollection(a) || isCollection(b)) {
+      // ARRAY vs MULTISET vs MAP (or collection vs scalar) never match.
+      if (a.getSqlTypeName() != b.getSqlTypeName()) {
+        return false;
+      }
+      if (a.getSqlTypeName() == SqlTypeName.MAP) {
+        return structurallyEqualSansNullability(a.getKeyType(), b.getKeyType())
+            && structurallyEqualSansNullability(a.getValueType(), b.getValueType());
+      }
+      return structurallyEqualSansNullability(a.getComponentType(), b.getComponentType());
+    }
+
+    // Scalars: same family; precision/scale/charset/nullability are ignored.
+    return a.getSqlTypeName() == b.getSqlTypeName();
   }
 
   private static boolean isCollection(RelDataType type) {

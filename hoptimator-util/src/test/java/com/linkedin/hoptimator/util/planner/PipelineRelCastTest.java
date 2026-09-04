@@ -79,6 +79,22 @@ class PipelineRelCastTest {
     return TYPE_FACTORY.createTypeWithNullability(base, false);
   }
 
+  private RelDataType array(RelDataType element) {
+    return TYPE_FACTORY.createArrayType(element, -1);
+  }
+
+  private RelDataType map(RelDataType key, RelDataType value) {
+    return TYPE_FACTORY.createMapType(key, value);
+  }
+
+  private RelDataType rowOf(String n1, RelDataType t1) {
+    return TYPE_FACTORY.builder().add(n1, t1).build();
+  }
+
+  private RelDataType rowOf(String n1, RelDataType t1, String n2, RelDataType t2) {
+    return TYPE_FACTORY.builder().add(n1, t1).add(n2, t2).build();
+  }
+
   private RelDataType sink(RelDataType column) {
     return TYPE_FACTORY.builder().add(SINK_COLUMN, column).build();
   }
@@ -280,5 +296,124 @@ class PipelineRelCastTest {
     RelDataType struct = TYPE_FACTORY.builder().add("a", type(SqlTypeName.INTEGER)).build();
     String sql = generate(selectAs(struct), sink(struct), STRICT);
     assertThat(sql).doesNotContain("CAST");
+  }
+
+  // --- deeply nested complex types: structural match is a pass-through, any shape/type/name
+  // mismatch is rejected even under EXPLICIT (a nested field cannot be cast on its own). Nested
+  // nullability is ignored recursively. Exercises the same paths as the manual struct cases and the
+  // TypeCoercion unit tests, but end-to-end through resolveCasts/SQL generation. ---
+
+  @Test
+  void arrayOfStructMatchNeedsNoCast() throws Exception {
+    stubHasConnector();
+    RelDataType t = array(rowOf("a", type(SqlTypeName.INTEGER)));
+    String sql = generate(selectAs(t), sink(t), STRICT);
+    assertThat(sql).doesNotContain("CAST");
+  }
+
+  @Test
+  void arrayOfStructElementTypeMismatchRejected() {
+    stubHasConnector();
+    RelDataType source = array(rowOf("a", type(SqlTypeName.INTEGER)));
+    RelDataType target = array(rowOf("a", type(SqlTypeName.VARCHAR)));
+    assertRejects(selectAs(source), sink(target), EXPLICIT);
+  }
+
+  @Test
+  void mapWithStructValueMatchNeedsNoCast() throws Exception {
+    stubHasConnector();
+    RelDataType t = map(type(SqlTypeName.VARCHAR), rowOf("a", type(SqlTypeName.INTEGER)));
+    String sql = generate(selectAs(t), sink(t), STRICT);
+    assertThat(sql).doesNotContain("CAST");
+  }
+
+  @Test
+  void mapValueStructTypeMismatchRejected() {
+    stubHasConnector();
+    RelDataType source = map(type(SqlTypeName.VARCHAR), rowOf("a", type(SqlTypeName.INTEGER)));
+    RelDataType target = map(type(SqlTypeName.VARCHAR), rowOf("a", type(SqlTypeName.BIGINT)));
+    assertRejects(selectAs(source), sink(target), EXPLICIT);
+  }
+
+  @Test
+  void mapKeyTypeMismatchRejected() {
+    stubHasConnector();
+    RelDataType source = map(type(SqlTypeName.VARCHAR), type(SqlTypeName.INTEGER));
+    RelDataType target = map(type(SqlTypeName.INTEGER), type(SqlTypeName.INTEGER));
+    assertRejects(selectAs(source), sink(target), EXPLICIT);
+  }
+
+  @Test
+  void deeplyNestedStructMatchNeedsNoCast() throws Exception {
+    stubHasConnector();
+    RelDataType t = rowOf("memberId", type(SqlTypeName.BIGINT),
+        "meta", rowOf("ts", type(SqlTypeName.BIGINT), "tag", type(SqlTypeName.VARCHAR)));
+    String sql = generate(selectAs(t), sink(t), STRICT);
+    assertThat(sql).doesNotContain("CAST");
+  }
+
+  @Test
+  void deeplyNestedStructInnerTypeMismatchRejected() {
+    stubHasConnector();
+    RelDataType source = rowOf("memberId", type(SqlTypeName.BIGINT),
+        "meta", rowOf("ts", type(SqlTypeName.BIGINT)));
+    RelDataType target = rowOf("memberId", type(SqlTypeName.BIGINT),
+        "meta", rowOf("ts", type(SqlTypeName.VARCHAR)));
+    assertRejects(selectAs(source), sink(target), EXPLICIT);
+  }
+
+  @Test
+  void deeplyNestedStructFieldNameMismatchRejected() {
+    stubHasConnector();
+    RelDataType source = rowOf("memberId", type(SqlTypeName.BIGINT),
+        "meta", rowOf("ts", type(SqlTypeName.BIGINT)));
+    RelDataType target = rowOf("memberId", type(SqlTypeName.BIGINT),
+        "meta", rowOf("timestamp", type(SqlTypeName.BIGINT)));
+    assertRejects(selectAs(source), sink(target), EXPLICIT);
+  }
+
+  @Test
+  void nestedNullabilityInsideArrayOfStructIsIgnored() throws Exception {
+    stubHasConnector();
+    RelDataType source = array(rowOf("a", nullable(type(SqlTypeName.INTEGER))));
+    RelDataType target = array(rowOf("a", notNull(type(SqlTypeName.INTEGER))));
+    String sql = generate(selectAs(source), sink(target), STRICT);
+    assertThat(sql).doesNotContain("CAST");
+  }
+
+  @Test
+  void nestedNullabilityInsideMapStructValueIsIgnored() throws Exception {
+    stubHasConnector();
+    RelDataType source = map(type(SqlTypeName.VARCHAR), rowOf("a", nullable(type(SqlTypeName.INTEGER))));
+    RelDataType target = map(type(SqlTypeName.VARCHAR), rowOf("a", notNull(type(SqlTypeName.INTEGER))));
+    String sql = generate(selectAs(source), sink(target), STRICT);
+    assertThat(sql).doesNotContain("CAST");
+  }
+
+  // A complex Avro union is collapsed by AvroConverter into a nullable ROW with one nullable field
+  // per branch, so it reaches this validation as an ordinary struct. These two cases document that
+  // union support is really struct support: matching collapsed shapes pass, a branch-type mismatch
+  // is rejected.
+
+  @Test
+  void collapsedUnionShapeMatchNeedsNoCast() throws Exception {
+    stubHasConnector();
+    RelDataType union = nullable(rowOf(
+        "int", nullable(type(SqlTypeName.INTEGER)),
+        "string", nullable(type(SqlTypeName.VARCHAR))));
+    String sql = generate(selectAs(union), sink(union), STRICT);
+    assertThat(sql).doesNotContain("CAST");
+  }
+
+  @Test
+  void collapsedUnionBranchTypeMismatchRejected() {
+    stubHasConnector();
+    RelDataType source = nullable(rowOf(
+        "int", nullable(type(SqlTypeName.INTEGER)),
+        "string", nullable(type(SqlTypeName.VARCHAR))));
+    RelDataType target = nullable(rowOf(
+        "int", nullable(type(SqlTypeName.BIGINT)),
+        "string", nullable(type(SqlTypeName.VARCHAR))));
+    assertRejects(selectAs(source), sink(target), EXPLICIT);
   }
 }

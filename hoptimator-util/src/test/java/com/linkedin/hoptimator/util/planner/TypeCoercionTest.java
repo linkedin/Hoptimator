@@ -60,6 +60,22 @@ class TypeCoercionTest {
     return TF.builder().add(field, type(type)).build();
   }
 
+  private static RelDataType array(RelDataType element) {
+    return TF.createArrayType(element, -1);
+  }
+
+  private static RelDataType map(RelDataType key, RelDataType value) {
+    return TF.createMapType(key, value);
+  }
+
+  private static RelDataType rowOf(String n1, RelDataType t1) {
+    return TF.builder().add(n1, t1).build();
+  }
+
+  private static RelDataType rowOf(String n1, RelDataType t1, String n2, RelDataType t2) {
+    return TF.builder().add(n1, t1).add(n2, t2).build();
+  }
+
   // --- CastMode.fromHints ---
 
   @Test
@@ -202,6 +218,66 @@ class TypeCoercionTest {
   void complexMatrix(RelDataType source, RelDataType target, Decision expected) {
     for (CastMode mode : CastMode.values()) {
       assertThat(TypeCoercion.decide(source, target, mode)).as(mode.name()).isEqualTo(expected);
+    }
+  }
+
+  // --- Recursive, nullability-insensitive structural equality (nested structs/arrays/maps) ---
+
+  static List<Arguments> structuralCases() {
+    RelDataType intT = type(SqlTypeName.INTEGER);
+    RelDataType bigintT = type(SqlTypeName.BIGINT);
+    RelDataType varcharT = type(SqlTypeName.VARCHAR);
+    // meta ROW(ts BIGINT, tag VARCHAR), with a nullable/not-null "ts" variant
+    RelDataType metaNull = rowOf("ts", nullable(bigintT), "tag", varcharT);
+    RelDataType metaNotNull = rowOf("ts", notNull(bigintT), "tag", varcharT);
+    RelDataType metaTypeDiff = rowOf("ts", varcharT, "tag", varcharT);
+    RelDataType metaShapeDiff = rowOf("ts", bigintT);
+    return List.of(
+        named("ROW(a INT)", rowOf("a", intT), "ROW(a INT)", rowOf("a", intT), true),
+        // nested field nullability is ignored (both single and deep) -- the key new behavior
+        named("ROW(a INT?)", rowOf("a", nullable(intT)), "ROW(a INT!)", rowOf("a", notNull(intT)), true),
+        named("ROW(meta ts?)", rowOf("meta", metaNull), "ROW(meta ts!)", rowOf("meta", metaNotNull), true),
+        // top-level struct nullability is ignored
+        named("ROW(a INT) NULL", nullable(rowOf("a", intT)), "ROW(a INT) NOT NULL",
+            notNull(rowOf("a", intT)), true),
+        // nested scalar TYPE mismatch -> not equal (a nested field cannot be individually cast)
+        named("ROW(a INT)", rowOf("a", intT), "ROW(a BIGINT)", rowOf("a", bigintT), false),
+        named("ROW(meta ts BIGINT)", rowOf("meta", metaNull), "ROW(meta ts VARCHAR)",
+            rowOf("meta", metaTypeDiff), false),
+        // nested SHAPE mismatch (field count / names)
+        named("ROW(meta 2 fields)", rowOf("meta", metaNull), "ROW(meta 1 field)",
+            rowOf("meta", metaShapeDiff), false),
+        named("ROW(a INT)", rowOf("a", intT), "ROW(b INT)", rowOf("b", intT), false),
+        named("ROW(a INT)", rowOf("a", intT), "ROW(a INT,b INT)", rowOf("a", intT, "b", intT), false),
+        // struct vs scalar
+        named("ROW(a INT)", rowOf("a", intT), "INTEGER", intT, false),
+        // arrays of structs: element recursion, nullability ignored
+        named("ARRAY<ROW(a INT?)>", array(rowOf("a", nullable(intT))), "ARRAY<ROW(a INT!)>",
+            array(rowOf("a", notNull(intT))), true),
+        named("ARRAY<ROW(a INT)>", array(rowOf("a", intT)), "ARRAY<ROW(a VARCHAR)>",
+            array(rowOf("a", varcharT)), false),
+        named("ARRAY<INT>", array(intT), "MULTISET<INT>", multiset(SqlTypeName.INTEGER), false),
+        named("ARRAY<INT>", array(intT), "INTEGER", intT, false),
+        // maps: key/value recursion, nested nullability ignored
+        named("MAP<VC,ROW(a INT?)>", map(varcharT, rowOf("a", nullable(intT))), "MAP<VC,ROW(a INT!)>",
+            map(varcharT, rowOf("a", notNull(intT))), true),
+        named("MAP<VC,INT>", map(varcharT, intT), "MAP<VC,BIGINT>", map(varcharT, bigintT), false),
+        named("MAP<VC,INT>", map(varcharT, intT), "MAP<INT,INT>", map(intT, intT), false));
+  }
+
+  private static Arguments named(String nameA, RelDataType a, String nameB, RelDataType b, boolean equal) {
+    return arguments(Named.of(nameA, a), Named.of(nameB, b), equal);
+  }
+
+  @ParameterizedTest(name = "{0} <=> {1} : {2}")
+  @MethodSource("structuralCases")
+  void structurallyEqualSansNullabilityIsRecursive(RelDataType a, RelDataType b, boolean equal) {
+    // Symmetric, and consistent with decide() (which is mode-independent for complex types).
+    assertThat(TypeCoercion.structurallyEqualSansNullability(a, b)).as("a<=>b").isEqualTo(equal);
+    assertThat(TypeCoercion.structurallyEqualSansNullability(b, a)).as("b<=>a").isEqualTo(equal);
+    Decision expected = equal ? Decision.NONE : Decision.INCOMPATIBLE;
+    for (CastMode mode : CastMode.values()) {
+      assertThat(TypeCoercion.decide(a, b, mode)).as("decide " + mode).isEqualTo(expected);
     }
   }
 
