@@ -52,7 +52,7 @@ template or connector:
 
   | Value              | Behavior                                                                       |
   | ------------------ | ------------------------------------------------------------------------------ |
-  | `strict` (default) | Cast only assignment-compatible (same-family) types; otherwise fail early.     |
+  | `strict` (default) | Cast only lossless, implicitly-assignable conversions (e.g. widening `INTEGER`→`BIGINT`); otherwise fail early. |
   | `assign`           | Also cast a character column onto a scalar sink column (e.g. `STRING → BIGINT`).|
   | `explicit`         | Also cast any explicitly-castable scalar pair — the deliberate "risky" opt-in. |
 

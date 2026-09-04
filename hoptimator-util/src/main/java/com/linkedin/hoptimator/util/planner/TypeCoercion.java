@@ -64,7 +64,9 @@ public final class TypeCoercion {
 
     /**
      * Allow any explicitly-castable scalar pair — the deliberate "risky" opt-in for passthroughs
-     * that intentionally coerce across type families. Structural and nullability rules still hold.
+     * that intentionally coerce across type families or perform a lossy numeric narrowing (e.g.
+     * {@code BIGINT -> INTEGER}), which strict/assign reject. Structural and nullability rules still
+     * hold.
      */
     EXPLICIT;
 

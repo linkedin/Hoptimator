@@ -105,6 +105,23 @@ class TypeCoercionTest {
         .isEqualTo(Decision.CAST);
   }
 
+  @Test
+  void decideRejectsLossyNumericNarrowingUnderStrictAndAssign() {
+    // Narrowing numeric conversions are lossy, so implicit-assignment (strict/assign) rejects them.
+    assertThat(TypeCoercion.decide(type(SqlTypeName.BIGINT), type(SqlTypeName.INTEGER), CastMode.STRICT))
+        .isEqualTo(Decision.INCOMPATIBLE);
+    assertThat(TypeCoercion.decide(type(SqlTypeName.BIGINT), type(SqlTypeName.INTEGER), CastMode.ASSIGN))
+        .isEqualTo(Decision.INCOMPATIBLE);
+    assertThat(TypeCoercion.decide(type(SqlTypeName.DOUBLE), type(SqlTypeName.INTEGER), CastMode.STRICT))
+        .isEqualTo(Decision.INCOMPATIBLE);
+  }
+
+  @Test
+  void decideAllowsLossyNumericNarrowingOnlyUnderExplicit() {
+    assertThat(TypeCoercion.decide(type(SqlTypeName.BIGINT), type(SqlTypeName.INTEGER), CastMode.EXPLICIT))
+        .isEqualTo(Decision.CAST);
+  }
+
   // --- decide: nullability is never fixable by a cast, at any mode ---
 
   @Test

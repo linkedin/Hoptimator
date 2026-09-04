@@ -145,14 +145,17 @@ a single `STRING` column named `KEY`, so projecting it onto a typed key column
 How each column is reconciled depends on the `castMode`
 [hint](hints.md#planner-hints):
 
-- **`strict`** (default) — inject an assignment cast only for same-family
-  conversions (e.g. `INTEGER → BIGINT`). A cross-family mismatch such as
-  `STRING → BIGINT` is rejected with an error naming the column and both types.
+- **`strict`** (default) — inject an assignment cast only for lossless,
+  implicitly-assignable conversions (e.g. the widening `INTEGER → BIGINT`).
+  A cross-family mismatch such as `STRING → BIGINT`, or a lossy numeric
+  narrowing such as `BIGINT → INTEGER`, is rejected with an error naming the
+  column and both types.
 - **`assign`** — additionally cast a character column onto a scalar sink column,
   so `SELECT KEY AS "KEY_member_id"` into a `BIGINT` key "just works" without a
   hand-written cast.
-- **`explicit`** — additionally allow any explicitly-castable scalar pair; the
-  deliberate opt-in for passthroughs that intentionally coerce across families.
+- **`explicit`** — additionally allow any explicitly-castable scalar pair,
+  including lossy numeric narrowing (e.g. `BIGINT → INTEGER`); the deliberate
+  opt-in for passthroughs that intentionally coerce across families or narrow.
 
 Regardless of mode, two mismatches are always errors: a nullable source into a
 `NOT NULL` sink column **when that column also needs a cast** — a cast cannot add
