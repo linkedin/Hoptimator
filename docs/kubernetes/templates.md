@@ -190,8 +190,13 @@ spec:
 Whichever template's guard matches the current value of `flink.app.type`
 is the one that produces YAML; the other returns nothing.
 
-The guard can sit anywhere in the template — the renderer just needs to
-encounter it once. By convention, putting it on the first line makes
+Guards are evaluated **before any other variable in the template**,
+independent of where they appear in the text. A template whose guard fails
+is skipped without expanding its other variables at all — so a guard
+reliably protects an expensive or fail-prone variable (for example a
+`{{flinksql}}` body that only makes sense for the SQL job) even when that
+variable appears earlier in the template than the guard. The guard can
+therefore sit anywhere; by convention, putting it on the first line makes
 intent obvious.
 
 ### Authoring patterns

@@ -6,7 +6,9 @@ import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -202,74 +204,91 @@ public interface Template {
    * In either case, the multiline string will be properly indented.
    */
   class SimpleTemplate implements Template {
-    private final String template;
+    private static final Pattern PATTERN =
+        Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*((:|==|!=)([\\w_\\-\\.]*))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
+
+    private final List<Token> tokens;
 
     public SimpleTemplate(String template) {
-      this.template = template;
+      this.tokens = parse(template);
     }
 
     @Override
     public String render(Environment env) throws SQLException {
-      StringBuilder sb = new StringBuilder();
-      Pattern p =
-          Pattern.compile("([\\s\\-\\#]*)\\{\\{\\s*([\\w_\\-\\.]+)\\s*((:|==|!=)([\\w_\\-\\.]*))?\\s*((\\w+\\s*)*)\\s*\\}\\}");
-      Matcher m = p.matcher(template);
-      while (m.find()) {
-        String prefix = m.group(1);
-        if (prefix == null) {
-          prefix = "";
-        }
-        String key = m.group(2);
-        String condition = m.group(4);
-        String conditionValue = m.group(5);
-        String transform = m.group(6);
-        String value;
-        try {
-          if (condition == null) {
-            value = env.getOrDefault(key, () -> null);
-          } else {
-            switch (condition) {
-              case ":":
-                value = env.getOrDefault(key, () -> conditionValue);
-                break;
-              case "==":
-                value = env.getOrDefault(key, () -> null);
-                if (value.equals(conditionValue)) {
-                  m.appendReplacement(sb, "");
-                  continue;
-                } else {
-                  value = null;
-                }
-                break;
-              case "!=":
-                value = env.getOrDefault(key, () -> null);
-                if (!value.equals(conditionValue)) {
-                  m.appendReplacement(sb, "");
-                  continue;
-                } else {
-                  value = null;
-                }
-                break;
-              default:
-                throw new IllegalArgumentException("Invalid template condition: " + condition);
-            }
-          }
-          if (value == null) {
-            log.warn("Template variable '{}' resolved to null. Skipping template.", key);
-            return null;
-          }
-        } catch (IllegalArgumentException e) {
-          log.warn("Missing template variable '{}' in environment: {}. Skipping template.", key, e.getMessage());
+      // Conditional guards ({{var==value}} / {{var!=value}}) decide whether the template is used at
+      // all, so they must be settled before any other variable is expanded — expanding a variable
+      // can be expensive or can throw for reasons irrelevant to a skipped template (e.g. a Flink SQL
+      // body that fails type validation must not break a sibling Beam template guarded off anyway).
+      // Guards can appear anywhere in the text, so evaluate every guard before rendering anything.
+      for (Token token : tokens) {
+        if (token.isGuard() && !guardHolds(token, env)) {
           return null;
         }
-        String transformedValue = applyTransform(value, transform);
-        String quotedPrefix = Matcher.quoteReplacement(prefix);
-        String quotedValue = Matcher.quoteReplacement(transformedValue);
-        String replacement = quotedPrefix + quotedValue.replaceAll("\\n", quotedPrefix);
-        m.appendReplacement(sb, replacement);
       }
-      m.appendTail(sb);
+      StringBuilder sb = new StringBuilder();
+      for (Token token : tokens) {
+        if (token.literal != null) {
+          sb.append(token.literal);
+        } else if (token.isGuard()) {
+          // Guard already validated above; the marker itself renders as nothing.
+          continue;
+        } else {
+          String value = resolve(token, env);
+          if (value == null) {
+            return null;
+          }
+          String transformed = applyTransform(value, token.transform);
+          sb.append(token.prefix).append(transformed.replace("\n", token.prefix));
+        }
+      }
       return sb.toString();
+    }
+
+    /** Splits the template once into an ordered list of literal spans and {@code {{...}}} tokens. */
+    private static List<Token> parse(String template) {
+      List<Token> tokens = new ArrayList<>();
+      Matcher m = PATTERN.matcher(template);
+      int last = 0;
+      while (m.find()) {
+        if (m.start() > last) {
+          tokens.add(Token.literal(template.substring(last, m.start())));
+        }
+        String prefix = m.group(1) == null ? "" : m.group(1);
+        tokens.add(Token.placeholder(prefix, m.group(2), m.group(4), m.group(5), m.group(6)));
+        last = m.end();
+      }
+      if (last < template.length()) {
+        tokens.add(Token.literal(template.substring(last)));
+      }
+      return tokens;
+    }
+
+    /** Whether a guard token's condition holds; false (skip the template) if unmet or var missing. */
+    private static boolean guardHolds(Token token, Environment env) throws SQLException {
+      String value;
+      try {
+        value = env.getOrDefault(token.key, () -> null);
+      } catch (IllegalArgumentException e) {
+        log.warn("Missing template variable '{}' in environment: {}. Skipping template.", token.key, e.getMessage());
+        return false;
+      }
+      return "==".equals(token.condition) == value.equals(token.conditionValue);
+    }
+
+    /** Resolves a value token ({@code {{var}}} or {@code {{var:default}}}); null means skip. */
+    private static String resolve(Token token, Environment env) throws SQLException {
+      try {
+        if (token.condition == null) {
+          return env.getOrDefault(token.key, () -> null);
+        }
+        if (":".equals(token.condition)) {
+          return env.getOrDefault(token.key, () -> token.conditionValue);
+        }
+        throw new IllegalArgumentException("Invalid template condition: " + token.condition);
+      } catch (IllegalArgumentException e) {
+        log.warn("Missing template variable '{}' in environment: {}. Skipping template.", token.key, e.getMessage());
+        return null;
+      }
     }
 
     private static String applyTransform(String value, String transform) {
@@ -290,6 +309,43 @@ public interface Template {
         }
       }
       return res;
+    }
+
+    /**
+     * One parsed piece of a template: either a literal span ({@code literal != null}) or a
+     * {@code {{...}}} placeholder. A placeholder is a guard when its condition is {@code ==}/{@code !=};
+     * otherwise it is a plain value ({@code condition == null}) or a defaulted value ({@code :}).
+     */
+    private static final class Token {
+      private final String literal;
+      private final String prefix;
+      private final String key;
+      private final String condition;
+      private final String conditionValue;
+      private final String transform;
+
+      private Token(String literal, String prefix, String key, String condition,
+          String conditionValue, String transform) {
+        this.literal = literal;
+        this.prefix = prefix;
+        this.key = key;
+        this.condition = condition;
+        this.conditionValue = conditionValue;
+        this.transform = transform;
+      }
+
+      static Token literal(String text) {
+        return new Token(text, null, null, null, null, null);
+      }
+
+      static Token placeholder(String prefix, String key, String condition, String conditionValue,
+          String transform) {
+        return new Token(null, prefix, key, condition, conditionValue, transform);
+      }
+
+      boolean isGuard() {
+        return "==".equals(condition) || "!=".equals(condition);
+      }
     }
   }
 }
