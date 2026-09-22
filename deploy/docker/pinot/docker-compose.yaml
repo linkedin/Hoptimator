@@ -2,9 +2,13 @@ services:
   pinot:
     image: apachepinot/pinot:1.4.0
     container_name: pinot
-    # Starts an all-in-one Pinot cluster (zookeeper + controller + broker + server) with no
-    # preloaded tables, so integration tests provision their own.
+    # Starts an all-in-one Pinot cluster (zookeeper + controller + broker + server). The cluster
+    # itself comes up empty; the pinot-init service below registers native_types_table once the
+    # controller is healthy, so the native table is present at container-creation time.
     command: "QuickStart -type EMPTY"
+    depends_on:
+      kafka:
+        condition: service_healthy
     ports:
       - "9000:9000"   # controller
       - "8000:8000"   # broker
@@ -13,6 +17,57 @@ services:
       # assuming curl is present.
       test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/9000' && exit 0 || exit 1"]
       start_period: 60s
+      interval: 5s
+      timeout: 10s
+      retries: 30
+
+  # One-shot init: registers a native Pinot table (schema + offline table config) directly via the
+  # controller REST API, so it is authored natively in Pinot.
+  pinot-init:
+    image: curlimages/curl:8.11.1
+    container_name: pinot-init
+    depends_on:
+      pinot:
+        condition: service_healthy
+    volumes:
+      - ./schemas:/schemas:ro
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        curl -sS -f --retry 12 --retry-delay 5 --retry-all-errors -X POST \
+          -H "Content-Type: application/json" \
+          -d @/schemas/native_types_table.json "http://pinot:9000/schemas?override=true"
+        curl -sS -f --retry 12 --retry-delay 5 --retry-all-errors -X POST \
+          -H "Content-Type: application/json" \
+          -d @/schemas/native_types_table.tableconfig.json "http://pinot:9000/tables"
+
+  # Single-node Kafka (KRaft, no ZooKeeper) for the realtime-ingestion integration test. Two
+  # listeners: PLAINTEXT (kafka:9092) is what the Pinot server uses to consume from inside the
+  # compose network; PLAINTEXT_HOST (localhost:9093) is what the host-side test producer/admin uses.
+  # No fixed container_name: the service is reached by its compose network alias (kafka), so Compose
+  # can project-scope the container (pinot-kafka-1) and it won't collide with another stack's "kafka"
+  # container (e.g. the Venice compose) under `make deploy-dev-environment`.
+  kafka:
+    image: apache/kafka:3.7.1
+    ports:
+      - "9093:9093"   # host listener for the test producer
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9091,PLAINTEXT_HOST://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9091
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      start_period: 20s
       interval: 5s
       timeout: 10s
       retries: 30
