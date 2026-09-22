@@ -1,0 +1,18 @@
+services:
+  pinot:
+    image: apachepinot/pinot:1.4.0
+    container_name: pinot
+    # Starts an all-in-one Pinot cluster (zookeeper + controller + broker + server) with no
+    # preloaded tables, so integration tests provision their own.
+    command: "QuickStart -type EMPTY"
+    ports:
+      - "9000:9000"   # controller
+      - "8000:8000"   # broker
+    healthcheck:
+      # The Pinot image ships bash; use a /dev/tcp probe against the controller port rather than
+      # assuming curl is present.
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/9000' && exit 0 || exit 1"]
+      start_period: 60s
+      interval: 5s
+      timeout: 10s
+      retries: 30

@@ -1,0 +1,24 @@
+!set outputformat mysql
+!use k8s
+
+# Validates the Pinot -> Calcite read mapping against a table authored natively in Pinot (registered
+# directly via the controller REST API in `make deploy-pinot`, NOT through Hoptimator DDL). This
+# ensures our schema conversion isn't lossy independent of our own writer.
++------------+-----------+------------+------------+
+| columnName | typeName  | columnSize | isNullable |
++------------+-----------+------------+------------+
+| id         | VARCHAR   | null       | YES        |
+| views      | INTEGER   | 10         | YES        |
+| count      | BIGINT    | 19         | YES        |
+| ratio      | DOUBLE    | 15         | YES        |
+| rate       | REAL      | 7          | YES        |
+| amount     | DECIMAL   | 19         | YES        |
+| active     | BOOLEAN   | 1          | YES        |
+| payload    | VARBINARY | null       | YES        |
+| tags       | ARRAY     | null       | NO         |
+| revenue    | DOUBLE    | 15         | YES        |
+| ts         | BIGINT    | 19         | YES        |
++------------+-----------+------------+------------+
+(11 rows)
+
+!describe "PINOT"."native_types_table"

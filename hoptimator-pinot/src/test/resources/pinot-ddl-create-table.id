@@ -1,0 +1,43 @@
+!set outputformat mysql
+!use k8s
+
+# Create a Pinot table. With no connector hints every column becomes a Pinot dimension.
+create or replace table "PINOT"."integration_test_table" ("id" VARCHAR, "views" INTEGER, "score" DOUBLE);
+(0 rows modified)
+
+!update
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| id         | VARCHAR  | null       | YES        |
+| views      | INTEGER  | 10         | YES        |
+| score      | DOUBLE   | 15         | YES        |
++------------+----------+------------+------------+
+(3 rows)
+
+!describe "PINOT"."integration_test_table"
+
+# Re-creating with an added column evolves the Pinot schema in place (backward compatible).
+create or replace table "PINOT"."integration_test_table" ("id" VARCHAR, "views" INTEGER, "score" DOUBLE, "rank" INTEGER);
+(0 rows modified)
+
+!update
+
++------------+----------+------------+------------+
+| columnName | typeName | columnSize | isNullable |
++------------+----------+------------+------------+
+| id         | VARCHAR  | null       | YES        |
+| views      | INTEGER  | 10         | YES        |
+| score      | DOUBLE   | 15         | YES        |
+| rank       | INTEGER  | 10         | YES        |
++------------+----------+------------+------------+
+(4 rows)
+
+!describe "PINOT"."integration_test_table"
+
+# Clean up.
+drop table "PINOT"."integration_test_table";
+(0 rows modified)
+
+!update
