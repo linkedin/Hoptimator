@@ -118,16 +118,10 @@ undeploy-venice:
 	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml down
 
-# Deploys a single-node Pinot cluster in docker and registers a native Pinot table directly (via the
-# controller REST API, NOT through Hoptimator DDL). Integration tests then validate the Pinot->Calcite
-# read mapping against this natively-authored schema, so lossiness isn't masked by round-tripping
-# through our own writer. Mirrors how deploy-venice pre-creates stores with explicit Venice schemas.
+# Deploys a single-node Pinot cluster in docker. The compose stack's pinot-init service registers a
+# native Pinot table (via the controller REST API) at startup.
 deploy-pinot: deploy
 	docker compose -f ./deploy/docker/pinot/docker-compose.yaml up -d --wait
-	curl -sS -f --retry 12 --retry-delay 5 --retry-all-errors -X POST -H "Content-Type: application/json" \
-	  -d @./deploy/docker/pinot/schemas/native_types_table.json http://localhost:9000/schemas?override=true
-	curl -sS -f --retry 12 --retry-delay 5 --retry-all-errors -X POST -H "Content-Type: application/json" \
-	  -d @./deploy/docker/pinot/schemas/native_types_table.tableconfig.json http://localhost:9000/tables
 	kubectl apply -f ./deploy/samples/pinotdb.yaml || echo "skipping (no k8s)"
 
 undeploy-pinot:

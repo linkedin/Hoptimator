@@ -16,6 +16,7 @@ dependencies {
   testCompileOnly libs.findbugs.annotations
 
   testImplementation libs.assertj
+  testImplementation libs.kafka.clients
 
   testRuntimeOnly project(':hoptimator-k8s')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
