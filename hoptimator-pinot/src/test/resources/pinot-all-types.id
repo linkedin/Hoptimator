@@ -1,0 +1,33 @@
+!set outputformat mysql
+!use k8s
+
+# Create a Pinot table referencing a column of each provisionable type. Provisioning supports
+# scalars and multi-valued (primitive array) columns; complex struct/map columns are rejected,
+# matching Pinot's flat-schema / JSON-column model.
+create or replace table "PINOT"."all_types_table" ("id" VARCHAR, "views" INTEGER, "count" BIGINT, "ratio" DOUBLE, "rate" REAL, "amount" DECIMAL, "active" BOOLEAN, "created" TIMESTAMP, "payload" VARBINARY, "tags" INTEGER ARRAY);
+(0 rows modified)
+
+!update
+
++------------+-----------+------------+------------+
+| columnName | typeName  | columnSize | isNullable |
++------------+-----------+------------+------------+
+| id         | VARCHAR   | null       | YES        |
+| views      | INTEGER   | 10         | YES        |
+| count      | BIGINT    | 19         | YES        |
+| ratio      | DOUBLE    | 15         | YES        |
+| rate       | REAL      | 7          | YES        |
+| amount     | DECIMAL   | 19         | YES        |
+| active     | BOOLEAN   | 1          | YES        |
+| created    | TIMESTAMP | 0          | YES        |
+| payload    | VARBINARY | null       | YES        |
+| tags       | ARRAY     | null       | YES        |
++------------+-----------+------------+------------+
+(10 rows)
+
+!describe "PINOT"."all_types_table"
+
+drop table "PINOT"."all_types_table";
+(0 rows modified)
+
+!update

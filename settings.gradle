@@ -20,6 +20,7 @@ include 'hoptimator-mysql'
 include 'hoptimator-models'           // <-- marked for deletion
 include 'hoptimator-operator'
 include 'hoptimator-operator-integration'
+include 'hoptimator-pinot'
 include 'hoptimator-planner'          // <-- marked for deletion
 include 'hoptimator-util'
 include 'hoptimator-venice'
