@@ -255,7 +255,7 @@ class PinotDeployerTest {
 
   @Test
   void buildSchemaClassifiesDimensionMetricTimeAndMultiValue() {
-    Map<String, String> options = Map.of("metrics", "count", "timeColumn", "ts");
+    Map<String, String> options = Map.of("metrics", "count", "timeColumns", "ts");
     PinotDeployer deployer = new PinotDeployer(source(options), properties(), mock(DeploymentContext.class));
 
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
@@ -276,7 +276,7 @@ class PinotDeployerTest {
 
   @Test
   void buildTableConfigDefaultsToOfflineWithTimeColumn() {
-    Map<String, String> options = Map.of("timeColumn", "ts", "numReplicas", "2");
+    Map<String, String> options = Map.of("timeColumns", "ts", "numReplicas", "2");
     PinotDeployer deployer = new PinotDeployer(source(options), properties(), mock(DeploymentContext.class));
 
     TableConfig tableConfig = deployer.buildTableConfig();
@@ -330,7 +330,7 @@ class PinotDeployerTest {
         .add("revenue", typeFactory.createSqlType(SqlTypeName.DOUBLE))
         .add("ts", typeFactory.createSqlType(SqlTypeName.BIGINT))
         .build();
-    assertThat(validateRowType(Map.of("metrics", "revenue", "timeColumn", "ts"), rowType).valid()).isTrue();
+    assertThat(validateRowType(Map.of("metrics", "revenue", "timeColumns", "ts"), rowType).valid()).isTrue();
   }
 
   @Test
@@ -347,7 +347,7 @@ class PinotDeployerTest {
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("ts", typeFactory.createSqlType(SqlTypeName.BIGINT))
         .build();
-    assertThat(validateRowType(Map.of("timeColumn", "ts", "format.ts", "not-a-format"), rowType).valid()).isFalse();
+    assertThat(validateRowType(Map.of("timeColumns", "ts", "format.ts", "not-a-format"), rowType).valid()).isFalse();
   }
 
   @Test
@@ -355,7 +355,7 @@ class PinotDeployerTest {
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("ts", typeFactory.createSqlType(SqlTypeName.BIGINT))
         .build();
-    assertThat(validateRowType(Map.of("timeColumn", "ts", "granularity.ts", "5:BANANAS"), rowType).valid()).isFalse();
+    assertThat(validateRowType(Map.of("timeColumns", "ts", "granularity.ts", "5:BANANAS"), rowType).valid()).isFalse();
   }
 
   @Test
@@ -371,7 +371,7 @@ class PinotDeployerTest {
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("ts", typeFactory.createArrayType(typeFactory.createSqlType(SqlTypeName.BIGINT), -1))
         .build();
-    assertThat(validateRowType(Map.of("timeColumn", "ts"), rowType).valid()).isFalse();
+    assertThat(validateRowType(Map.of("timeColumns", "ts"), rowType).valid()).isFalse();
   }
 
   @Test
@@ -388,7 +388,7 @@ class PinotDeployerTest {
     RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
         .add("ts", typeFactory.createSqlType(SqlTypeName.BIGINT))
         .build();
-    assertThat(validateRowType(Map.of("timeColumn", "ts", "primaryTimeColumn", "nope"), rowType).valid()).isFalse();
+    assertThat(validateRowType(Map.of("timeColumns", "ts", "primaryTimeColumn", "nope"), rowType).valid()).isFalse();
   }
 
   // -- REALTIME stream ingestion -----------------------------------------------------------------
@@ -403,7 +403,7 @@ class PinotDeployerTest {
   private static Map<String, String> realtimeHints() {
     Map<String, String> hints = new java.util.HashMap<>();
     hints.put("tableType", "REALTIME");
-    hints.put("timeColumn", "ts");
+    hints.put("timeColumns", "ts");
     hints.put("kafkaTopic", "events");
     hints.put("kafkaBrokerList", "broker1:9092,broker2:9092");
     return hints;
@@ -435,7 +435,7 @@ class PinotDeployerTest {
   @Test
   void validateRejectsRealtimeWithoutTimeColumn() {
     Map<String, String> hints = realtimeHints();
-    hints.remove("timeColumn");
+    hints.remove("timeColumns");
     assertThat(validateRowType(hints, realtimeRowType()).valid()).isFalse();
   }
 

@@ -38,15 +38,9 @@ import org.slf4j.LoggerFactory;
  * (see {@link PinotStreamConfigs}) and requires a primary time column (Pinot needs a time column to
  * name/flush consuming segments).
  *
- * <p>TODO(known gaps): the following are intentionally not modeled yet on this generic controller
- * path (tracked as follow-ups):
- * <ul>
- *   <li>OFFLINE {@code segmentPushType} (APPEND/REFRESH) and retention ({@code segmentsConfig}) are
- *       not set — only {@code tableType}, {@code numReplicas} and the time column are.</li>
- *   <li>No realtime integration coverage: {@code deploy/docker/pinot} has no Kafka broker, so the
- *       docker/{@code .id} tests exercise OFFLINE only. Add a Kafka broker + a REALTIME case to
- *       validate stream consumption end-to-end.</li>
- * </ul>
+ * <p>TODO(known gap): OFFLINE {@code segmentPushType} (APPEND/REFRESH) and retention
+ * ({@code segmentsConfig}) are not modeled yet on this generic controller path — only
+ * {@code tableType}, {@code numReplicas} and the time column are set.
  */
 public class PinotDeployer implements Deployer, Validated {
 

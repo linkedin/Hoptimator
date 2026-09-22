@@ -20,8 +20,8 @@ import org.apache.pinot.spi.data.Schema;
  * <p>Column roles are driven by hints:
  * <ul>
  *   <li>{@code metrics} — comma-separated metric column names (Pinot requires numeric/BYTES types)</li>
- *   <li>{@code timeColumns} — comma-separated date-time column names (or the legacy singular
- *       {@code timeColumn}); each needs a {@code format} and {@code granularity}</li>
+ *   <li>{@code timeColumns} — comma-separated date-time column names; each needs a {@code format}
+ *       and {@code granularity}</li>
  *   <li>{@code primaryTimeColumn} — the primary time column for the table's {@code timeColumnName}
  *       (defaults to the sole time column)</li>
  *   <li>{@code format.<col>} / {@code granularity.<col>} — per-column date-time format and
@@ -39,7 +39,6 @@ public final class PinotSchemas {
 
   public static final String METRICS = "metrics";
   public static final String TIME_COLUMNS = "timeColumns";
-  public static final String TIME_COLUMN = "timeColumn";
   public static final String PRIMARY_TIME_COLUMN = "primaryTimeColumn";
   public static final String TIME_FORMAT = "timeFormat";
   public static final String TIME_GRANULARITY = "timeGranularity";
@@ -119,22 +118,14 @@ public final class PinotSchemas {
     return errors;
   }
 
-  /** The set of date-time column names, from {@code timeColumns} (CSV) or the legacy {@code timeColumn}. */
+  /** The set of date-time column names, from {@code timeColumns} (CSV). */
   public static Set<String> timeColumns(Map<String, String> hints) {
-    Set<String> columns = commaSeparated(hints.get(TIME_COLUMNS));
-    String legacy = hints.get(TIME_COLUMN);
-    if (legacy != null && !legacy.isEmpty()) {
-      columns.add(legacy);
-    }
-    return columns;
+    return commaSeparated(hints.get(TIME_COLUMNS));
   }
 
   /** The primary time column (for {@code segmentsConfig.timeColumnName}), defaulting to the sole one. */
   public static String primaryTimeColumn(Map<String, String> hints, Set<String> timeColumns) {
     String explicit = hints.get(PRIMARY_TIME_COLUMN);
-    if (explicit == null) {
-      explicit = hints.get(TIME_COLUMN);
-    }
     if (explicit != null && !explicit.isEmpty()) {
       return explicit;
     }
