@@ -7,23 +7,18 @@ dependencies {
   implementation project(':hoptimator-api')
   implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
-  implementation project(':hoptimator-k8s')
   implementation libs.calcite.core
-  implementation libs.kubernetes.client  // Direct K8s API types used in deployer (V1ObjectMeta, V1OwnerReference)
+  implementation(libs.pinot.spi) {
+    // Pinot pulls in snakeyaml v2.0 which has conflicting APIs with the 1.x on the classpath.
+    exclude group: 'org.yaml'
+  }
   compileOnly libs.findbugs
-  // Note: tier-specific drivers (Kafka, Venice, etc.) are NOT compile dependencies.
-  // They are discovered at runtime via the DeployerProvider SPI (ServiceLoader).
-  // Add them as testRuntimeOnly in your application build if needed for integration tests.
+  testCompileOnly libs.findbugs.annotations
 
-  testImplementation libs.avro
-  testImplementation libs.commons.dbcp2
-  testImplementation(testFixtures(project(':hoptimator-k8s')))
+  testImplementation libs.assertj
+
+  testRuntimeOnly project(':hoptimator-k8s')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))
-  testRuntimeOnly project(':hoptimator-demodb')
-  testRuntimeOnly project(':hoptimator-mysql')
-  testRuntimeOnly project(':hoptimator-kafka')
-  testRuntimeOnly project(':hoptimator-venice')
-  testRuntimeOnly project(':hoptimator-pinot')
 }
 
 publishing {
@@ -48,7 +43,7 @@ publishing {
   publications {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
-      artifactId = 'hoptimator-logical'
+      artifactId = 'hoptimator-pinot'
       version = System.getenv('VERSION')
       from components.java
       pom {
