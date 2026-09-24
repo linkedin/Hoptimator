@@ -121,6 +121,27 @@ class TableServiceTest {
   }
 
   @Test
+  void deleteMergesConnectionHintsIntoSourceOptions() throws SQLException {
+    // Connection hints must reach deployers via source.options() on delete just as they do on create;
+    // an empty options map would strip hints a deployer's teardown may depend on.
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = Collections.singletonList(deployer);
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    deployment.when(() -> DeploymentService.parseHints(any()))
+        .thenReturn(Map.of("hintKey", "hintValue"));
+    deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
+        .thenReturn(deployers);
+
+    TableService.delete(new Properties(), path);
+
+    ArgumentCaptor<Source> sourceCaptor = ArgumentCaptor.forClass(Source.class);
+    deployment.verify(() ->
+        DeploymentService.deployers(sourceCaptor.capture(), any(DeploymentContext.class)));
+    assertThat(sourceCaptor.getValue().options()).containsEntry("hintKey", "hintValue");
+  }
+
+  @Test
   void deleteRestoresAndRethrowsWhenTeardownFails() {
     Deployer deployer = mock(Deployer.class);
     List<Deployer> deployers = Collections.singletonList(deployer);
