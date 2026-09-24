@@ -106,7 +106,11 @@ public final class TableService {
 
     DatabaseConfigResolver resolver = DatabaseConfigResolvers.forProperties(connectionProperties);
     String database = resolver.databaseName(path);
-    Source source = new Source(database, path, Map.of());
+    // Merge connection hints into the Source options, mirroring create(): deployers read their
+    // configuration from source.options(), so an empty map here would strip hints that a deployer's
+    // teardown may depend on.
+    Map<String, String> tableOptions = new HashMap<>(DeploymentService.parseHints(connectionProperties));
+    Source source = new Source(database, path, tableOptions);
     DeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver);
 
     Collection<Deployer> deployers = null;
