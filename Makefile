@@ -118,15 +118,25 @@ undeploy-venice:
 	kubectl delete -f ./deploy/samples/venicedb.yaml || echo "skipping"
 	docker compose -f ./deploy/docker/venice/docker-compose-single-dc-setup.yaml down
 
+# Deploys a single-node Pinot cluster in docker. The compose stack's pinot-init service registers a
+# native Pinot table (via the controller REST API) at startup.
+deploy-pinot: deploy
+	docker compose -f ./deploy/docker/pinot/docker-compose.yaml up -d --wait
+	kubectl apply -f ./deploy/samples/pinotdb.yaml || echo "skipping (no k8s)"
+
+undeploy-pinot:
+	kubectl delete -f ./deploy/samples/pinotdb.yaml || echo "skipping"
+	docker compose -f ./deploy/docker/pinot/docker-compose.yaml down
+
 deploy-logical: deploy deploy-flink deploy-kafka deploy-venice
 	kubectl apply -f ./deploy/samples/logicaldb.yaml
 
 undeploy-logical:
 	kubectl delete -f ./deploy/samples/logicaldb.yaml || echo "skipping"
 
-deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-mysql deploy-venice deploy-logical
+deploy-dev-environment: deploy deploy-demo deploy-flink deploy-kafka deploy-mysql deploy-venice deploy-pinot deploy-logical
 
-undeploy-dev-environment: undeploy-logical undeploy-venice undeploy-mysql undeploy-kafka undeploy-flink undeploy-demo undeploy
+undeploy-dev-environment: undeploy-logical undeploy-pinot undeploy-venice undeploy-mysql undeploy-kafka undeploy-flink undeploy-demo undeploy
 	kubectl delete -f ./deploy/dev || echo "skipping"
 
 # Integration test setup intended to be run locally
@@ -164,4 +174,4 @@ run-zeppelin: build-zeppelin
 	  --name hoptimator-zeppelin \
 	  hoptimator-zeppelin
 
-.PHONY: install test coverage build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice deploy-logical undeploy-logical build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
+.PHONY: install test coverage build bounce clean quickstart deploy-config undeploy-config deploy undeploy deploy-demo undeploy-demo deploy-flink undeploy-flink deploy-kafka undeploy-kafka deploy-mysql undeploy-mysql deploy-venice undeploy-venice deploy-pinot undeploy-pinot deploy-logical undeploy-logical build-zeppelin run-zeppelin integration-tests integration-tests-kind deploy-dev-environment undeploy-dev-environment generate-models release
