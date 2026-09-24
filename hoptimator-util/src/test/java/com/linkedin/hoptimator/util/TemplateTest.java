@@ -416,4 +416,121 @@ class TemplateTest {
     assertThrows(SQLException.class, () -> new Template.SimpleTemplate(template).render(env));
   }
 
+  // --- conditional guards are evaluated before other variables, regardless of position ---
+
+  @Test
+  void failingGuardAfterThrowingVariableSkipsTemplateWithoutEvaluatingIt() throws SQLException {
+    // The throwing variable appears *before* the guard in the text. Because the guard fails, the
+    // template must be skipped (return null) without ever evaluating the throwing variable.
+    Template.Environment env = new Template.SimpleEnvironment()
+        .with("body", () -> {
+          throw new SQLException("should not be evaluated");
+        })
+        .with("appType", "BEAM");
+    String template = "sql: {{body}}\nguard: {{appType==SQL}}";
+
+    String result = new Template.SimpleTemplate(template).render(env);
+
+    assertNull(result, "A failing guard must skip the template before the throwing variable runs");
+  }
+
+  @Test
+  void passingGuardAfterVariableStillExpandsVariable() throws SQLException {
+    // Guard passes, so the earlier variable is expanded normally and the guard marker is removed.
+    Template.Environment env = new Template.SimpleEnvironment()
+        .with("body", "SELECT 1")
+        .with("appType", "SQL");
+    String template = "sql: {{body}}\nguard: {{appType==SQL}}";
+
+    String result = new Template.SimpleTemplate(template).render(env);
+
+    assertEquals("sql: SELECT 1\nguard:", result);
+  }
+
+  @Test
+  void passingGuardAfterThrowingVariableStillThrows() {
+    // When the guard passes, the earlier variable IS evaluated, so its exception must still surface.
+    Template.Environment env = new Template.SimpleEnvironment()
+        .with("body", () -> {
+          throw new SQLException("real failure");
+        })
+        .with("appType", "SQL");
+    String template = "sql: {{body}}\nguard: {{appType==SQL}}";
+
+    assertThrows(SQLException.class, () -> new Template.SimpleTemplate(template).render(env));
+  }
+
+  @Test
+  void failingGuardBeforeThrowingVariableSkipsTemplate() throws SQLException {
+    // Guard first, throwing variable second: the guard fails and skips the template. (Pre-fix this
+    // already worked because of text order; this pins the behavior so it can't regress.)
+    Template.Environment env = new Template.SimpleEnvironment()
+        .with("appType", "BEAM")
+        .with("body", () -> {
+          throw new SQLException("should not be evaluated");
+        });
+    String template = "guard: {{appType==SQL}}\nsql: {{body}}";
+
+    String result = new Template.SimpleTemplate(template).render(env);
+
+    assertNull(result);
+  }
+
+  @Test
+  void laterFailingGuardSkipsBeforeEvaluatingEarlierThrowingVariable() throws SQLException {
+    // A passing guard, a throwing variable, then a FAILING guard — all in one template. Because
+    // every guard is settled before any variable is expanded, the failing guard skips the template
+    // and the throwing variable in the middle is never evaluated.
+    Template.Environment env = new Template.SimpleEnvironment()
+        .with("a", "SQL")
+        .with("body", () -> {
+          throw new SQLException("should not be evaluated");
+        })
+        .with("b", "BEAM");
+    String template = "{{a==SQL}} {{body}} {{b==SQL}}";
+
+    String result = new Template.SimpleTemplate(template).render(env);
+
+    assertNull(result);
+  }
+
+  // --- refactor-safety: parsing/rendering edge cases ---
+
+  @Test
+  void dollarAndBackslashInValueRenderedLiterally() throws SQLException {
+    // Rendering appends directly to a StringBuilder (no Matcher.appendReplacement), so `$` and `\`
+    // in a value must survive verbatim — no group-reference or escape interpretation.
+    Template.Environment env = new Template.SimpleEnvironment().with("v", "a$b\\c$1d");
+    Template template = new Template.SimpleTemplate("x={{v}}");
+
+    String result = template.render(env);
+
+    assertEquals("x=a$b\\c$1d", result);
+  }
+
+  @Test
+  void adjacentPlaceholdersRenderInOrder() throws SQLException {
+    // No literal span between the two placeholders; the token list must still stitch them together.
+    Template.Environment env = new Template.SimpleEnvironment().with("a", "A").with("b", "B");
+    Template template = new Template.SimpleTemplate("{{a}}{{b}}");
+
+    assertEquals("AB", template.render(env));
+  }
+
+  @Test
+  void emptyTemplateRendersEmpty() throws SQLException {
+    Template.Environment env = new Template.SimpleEnvironment();
+    Template template = new Template.SimpleTemplate("");
+
+    assertEquals("", template.render(env));
+  }
+
+  @Test
+  void guardOnlyTemplateRendersSurroundingLiteralsWhenPassing() throws SQLException {
+    // A template whose only placeholder is a passing guard renders just its literal text.
+    Template.Environment env = new Template.SimpleEnvironment().with("mode", "on");
+    Template template = new Template.SimpleTemplate("before{{mode==on}}after");
+
+    assertEquals("beforeafter", template.render(env));
+  }
 }
