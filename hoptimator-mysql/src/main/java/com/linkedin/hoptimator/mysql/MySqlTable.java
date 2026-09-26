@@ -49,7 +49,19 @@ public class MySqlTable extends AbstractTable {
           int nullable = rs.getInt("NULLABLE");
 
           SqlTypeName typeName = jdbcTypeToSqlType(sqlType);
-          builder.add(columnName, typeName);
+          if (hasFractionalSeconds(typeName)) {
+            // JDBC exposes a temporal column's fractional-seconds precision via DECIMAL_DIGITS
+            // (e.g. TIMESTAMP(3) -> 3, DATETIME(6) -> 6). Without carrying it through, the column
+            // would default to TIMESTAMP(0), silently dropping milli/microsecond precision.
+            int fractionalPrecision = rs.getInt("DECIMAL_DIGITS");
+            if (!rs.wasNull() && fractionalPrecision > 0) {
+              builder.add(columnName, typeFactory.createSqlType(typeName, fractionalPrecision));
+            } else {
+              builder.add(columnName, typeName);
+            }
+          } else {
+            builder.add(columnName, typeName);
+          }
           if (nullable == DatabaseMetaData.columnNullable) {
             builder.nullable(true);
           }
@@ -106,6 +118,19 @@ public class MySqlTable extends AbstractTable {
         log.warn("Unknown JDBC type {} for table {}.{}, defaulting to VARCHAR",
             jdbcType, database, table);
         return SqlTypeName.VARCHAR;
+    }
+  }
+
+  /** Whether a temporal type carries a fractional-seconds precision (from JDBC DECIMAL_DIGITS). */
+  private static boolean hasFractionalSeconds(SqlTypeName typeName) {
+    switch (typeName) {
+      case TIME:
+      case TIME_WITH_LOCAL_TIME_ZONE:
+      case TIMESTAMP:
+      case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+        return true;
+      default:
+        return false;
     }
   }
 }

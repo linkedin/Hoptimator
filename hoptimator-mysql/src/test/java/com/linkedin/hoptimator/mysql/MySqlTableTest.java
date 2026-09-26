@@ -222,4 +222,81 @@ class MySqlTableTest {
         "name column (columnNullable) should be nullable");
   }
 
+  // --- temporal fractional-seconds precision from JDBC DECIMAL_DIGITS ---
+
+  @Test
+  void testTimestampColumnCarriesMillisPrecision() throws SQLException {
+    stubSuccessfulConnection();
+    when(mockMetaData.getColumns(eq(DATABASE), isNull(), eq(TABLE), isNull())).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true, false);
+    when(mockResultSet.getString("COLUMN_NAME")).thenReturn("created_at");
+    when(mockResultSet.getInt("DATA_TYPE")).thenReturn(Types.TIMESTAMP);
+    when(mockResultSet.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls);
+    when(mockResultSet.getInt("DECIMAL_DIGITS")).thenReturn(3);
+    when(mockResultSet.wasNull()).thenReturn(false);
+
+    MySqlTable table = new MySqlTable(DATABASE, TABLE, properties);
+    RelDataType rowType = table.getRowType(typeFactory);
+
+    RelDataType type = rowType.getFieldList().get(0).getType();
+    assertEquals(SqlTypeName.TIMESTAMP, type.getSqlTypeName());
+    assertEquals(3, type.getPrecision());
+  }
+
+  @Test
+  void testTimestampColumnCarriesMicrosPrecision() throws SQLException {
+    stubSuccessfulConnection();
+    when(mockMetaData.getColumns(eq(DATABASE), isNull(), eq(TABLE), isNull())).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true, false);
+    when(mockResultSet.getString("COLUMN_NAME")).thenReturn("created_at");
+    when(mockResultSet.getInt("DATA_TYPE")).thenReturn(Types.TIMESTAMP);
+    when(mockResultSet.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls);
+    when(mockResultSet.getInt("DECIMAL_DIGITS")).thenReturn(6);
+    when(mockResultSet.wasNull()).thenReturn(false);
+
+    MySqlTable table = new MySqlTable(DATABASE, TABLE, properties);
+    RelDataType rowType = table.getRowType(typeFactory);
+
+    RelDataType type = rowType.getFieldList().get(0).getType();
+    assertEquals(SqlTypeName.TIMESTAMP, type.getSqlTypeName());
+    assertEquals(6, type.getPrecision());
+  }
+
+  @Test
+  void testTimestampColumnWithoutFractionalStaysDefaultPrecision() throws SQLException {
+    stubSuccessfulConnection();
+    when(mockMetaData.getColumns(eq(DATABASE), isNull(), eq(TABLE), isNull())).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true, false);
+    when(mockResultSet.getString("COLUMN_NAME")).thenReturn("event_time");
+    when(mockResultSet.getInt("DATA_TYPE")).thenReturn(Types.TIMESTAMP);
+    when(mockResultSet.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls);
+    when(mockResultSet.getInt("DECIMAL_DIGITS")).thenReturn(0);
+
+    MySqlTable table = new MySqlTable(DATABASE, TABLE, properties);
+    RelDataType rowType = table.getRowType(typeFactory);
+
+    RelDataType type = rowType.getFieldList().get(0).getType();
+    assertEquals(SqlTypeName.TIMESTAMP, type.getSqlTypeName());
+    assertEquals(0, type.getPrecision());
+  }
+
+  @Test
+  void testTimeColumnCarriesFractionalPrecision() throws SQLException {
+    stubSuccessfulConnection();
+    when(mockMetaData.getColumns(eq(DATABASE), isNull(), eq(TABLE), isNull())).thenReturn(mockResultSet);
+    when(mockResultSet.next()).thenReturn(true, false);
+    when(mockResultSet.getString("COLUMN_NAME")).thenReturn("event_time");
+    when(mockResultSet.getInt("DATA_TYPE")).thenReturn(Types.TIME);
+    when(mockResultSet.getInt("NULLABLE")).thenReturn(DatabaseMetaData.columnNoNulls);
+    when(mockResultSet.getInt("DECIMAL_DIGITS")).thenReturn(3);
+    when(mockResultSet.wasNull()).thenReturn(false);
+
+    MySqlTable table = new MySqlTable(DATABASE, TABLE, properties);
+    RelDataType rowType = table.getRowType(typeFactory);
+
+    RelDataType type = rowType.getFieldList().get(0).getType();
+    assertEquals(SqlTypeName.TIME, type.getSqlTypeName());
+    assertEquals(3, type.getPrecision());
+  }
+
 }

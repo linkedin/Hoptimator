@@ -1,0 +1,31 @@
+!set outputformat mysql
+!use k8s
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A MySQL source whose columns carry fractional-second precision (TIMESTAMP(3)
+# and TIMESTAMP(6)). This guards against precision being lost at the JDBC layer:
+# without carrying the JDBC DECIMAL_DIGITS through, the columns would surface as
+# TIMESTAMP(0) in the planner's row type even though the source is milli/micros.
+# ─────────────────────────────────────────────────────────────────────────────
++-----------------+-----------+------------+------------+
+| columnName      | typeName  | columnSize | isNullable |
++-----------------+-----------+------------+------------+
+| event_id        | INTEGER   | 10         | NO         |
+| event_ts        | TIMESTAMP | 3          | YES        |
+| event_ts_micros | TIMESTAMP | 6          | YES        |
++-----------------+-----------+------------+------------+
+(3 rows)
+
+!describe "MYSQL"."testdb"."events"
+
+# The generated Flink DDL for the source must carry the precision through, so a
+# downstream job reads/writes milli/microsecond timestamps rather than seconds.
+create or replace materialized view mysql."testdb"."events$partial" as select "event_ts", "event_ts_micros" from mysql."testdb"."events";
+(0 rows modified)
+
+!update
+
+drop materialized view "MYSQL"."testdb"."events$partial";
+(0 rows modified)
+
+!update

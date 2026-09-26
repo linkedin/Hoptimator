@@ -34,6 +34,15 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT
 );
 
+-- Create an events table with fractional-second TIMESTAMP columns. This models a source whose
+-- timestamps carry milli/microsecond precision, exercised by mysql-timestamp-precision.id to
+-- verify the JDBC layer preserves TIMESTAMP(3)/TIMESTAMP(6) rather than defaulting to TIMESTAMP(0).
+CREATE TABLE IF NOT EXISTS events (
+    event_id INT PRIMARY KEY AUTO_INCREMENT,
+    event_ts TIMESTAMP(3) NULL DEFAULT NULL,
+    event_ts_micros TIMESTAMP(6) NULL DEFAULT NULL
+);
+
 -- Insert sample data into users
 INSERT INTO users (username, email, is_active) VALUES
     ('alice', 'alice@example.com', TRUE),
