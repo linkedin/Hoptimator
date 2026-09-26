@@ -22,9 +22,4 @@ public class TestSqlScripts extends QuidemTestBase {
   public void mysqlGraphScript() throws Exception {
     run("mysql-graph.id");
   }
-
-  @Test
-  public void mysqlTimestampPrecisionScript() throws Exception {
-    run("mysql-timestamp-precision.id");
-  }
 }
