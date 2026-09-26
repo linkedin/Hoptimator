@@ -77,7 +77,6 @@ public class MySqlTable extends AbstractTable {
               builder.add(columnName, typeName, getPrecision(rs), getScale(rs));
             } else if (typeName.allowsPrec()) {
               builder.add(columnName, typeName, getPrecision(rs));
-
             } else {
               builder.add(columnName, typeName);
             }
