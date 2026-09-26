@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -778,5 +779,54 @@ public class ScriptImplementorTest {
     assertTrue(sql.contains("INSERT INTO"), "Should produce INSERT INTO. Got: " + sql);
     assertTrue(sql.contains("RENAMED_A"), "Column list should contain RENAMED_A. Got: " + sql);
     assertTrue(sql.contains("RENAMED_B"), "Column list should contain RENAMED_B. Got: " + sql);
+  }
+
+  @Test
+  void testConnectorImplementorRendersTimestampMillisPrecision() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
+    RelDataType rowType = typeFactory.builder()
+        .add("TS", typeFactory.createSqlType(SqlTypeName.TIMESTAMP, 3))
+        .build();
+    String sql = ScriptImplementor.empty()
+        .connector(null, "S", "T", rowType, Collections.emptyMap())
+        .sql();
+    assertTrue(sql.contains("TIMESTAMP(3)"), "Should render TIMESTAMP(3). Got: " + sql);
+  }
+
+  @Test
+  void testConnectorImplementorRendersTimestampMicrosPrecision() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
+    RelDataType rowType = typeFactory.builder()
+        .add("TS", typeFactory.createSqlType(SqlTypeName.TIMESTAMP, 6))
+        .build();
+    String sql = ScriptImplementor.empty()
+        .connector(null, "S", "T", rowType, Collections.emptyMap())
+        .sql();
+    assertTrue(sql.contains("TIMESTAMP(6)"), "Should render TIMESTAMP(6). Got: " + sql);
+  }
+
+  @Test
+  void testConnectorImplementorRendersTimestampNanosPrecision() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
+    RelDataType rowType = typeFactory.builder()
+        .add("TS", typeFactory.createSqlType(SqlTypeName.TIMESTAMP, 9))
+        .build();
+    String sql = ScriptImplementor.empty()
+        .connector(null, "S", "T", rowType, Collections.emptyMap())
+        .sql();
+    assertTrue(sql.contains("TIMESTAMP(9)"), "Should render TIMESTAMP(9). Got: " + sql);
+  }
+
+  @Test
+  void testConnectorImplementorOmitsBareTimestampPrecision() {
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
+    RelDataType rowType = typeFactory.builder()
+        .add("TS", typeFactory.createSqlType(SqlTypeName.TIMESTAMP))
+        .build();
+    String sql = ScriptImplementor.empty()
+        .connector(null, "S", "T", rowType, Collections.emptyMap())
+        .sql();
+    assertTrue(sql.contains("TIMESTAMP"), "Should render TIMESTAMP. Got: " + sql);
+    assertFalse(sql.contains("TIMESTAMP("), "Bare TIMESTAMP should carry no precision. Got: " + sql);
   }
 }

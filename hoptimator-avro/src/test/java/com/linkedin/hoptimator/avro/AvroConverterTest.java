@@ -557,7 +557,7 @@ public class AvroConverterTest {
 
   // --- type mapping tests (merged from AvroConverterTypeMappingTest) ---
 
-  private final RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+  private final RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
   static Stream<Arguments> relToAvroPrimitiveCases() {
     return Stream.of(
@@ -771,6 +771,71 @@ public class AvroConverterTest {
     RelDataType relDataTypeAgain = AvroConverter.rel(avroSchema);
     assertEquals(SqlTypeName.TIMESTAMP,
         Objects.requireNonNull(relDataTypeAgain.getField("timestampField", false, false)).getType().getSqlTypeName());
+  }
+
+  @Test
+  void testAvroFromMillisTimestampUsesMillisLogicalType() {
+    RelDataType timestampType = typeFactory.createTypeWithNullability(
+        typeFactory.createSqlType(SqlTypeName.TIMESTAMP, 3), true);
+    RelDataType rel = typeFactory.createStructType(
+        List.of(timestampType), List.of("timestampField"));
+
+    Schema avroSchema = AvroConverter.avro("NS", "R", rel);
+    Schema innerSchema = avroSchema.getFields().get(0).schema().getTypes().get(1);
+    assertEquals(Schema.Type.LONG, innerSchema.getType());
+    assertNotNull(innerSchema.getLogicalType());
+    assertEquals("timestamp-millis", innerSchema.getLogicalType().getName());
+  }
+
+  @Test
+  void testAvroFromMicrosTimestampUsesMicrosLogicalType() {
+    RelDataType timestampType = typeFactory.createTypeWithNullability(
+        typeFactory.createSqlType(SqlTypeName.TIMESTAMP, 6), true);
+    RelDataType rel = typeFactory.createStructType(
+        List.of(timestampType), List.of("timestampField"));
+
+    Schema avroSchema = AvroConverter.avro("NS", "R", rel);
+    Schema innerSchema = avroSchema.getFields().get(0).schema().getTypes().get(1);
+    assertEquals(Schema.Type.LONG, innerSchema.getType());
+    assertNotNull(innerSchema.getLogicalType());
+    assertEquals("timestamp-micros", innerSchema.getLogicalType().getName());
+  }
+
+  @Test
+  void testRelFromMillisTimestampUsesPrecision3() {
+    Schema avroSchema = new Schema.Parser().parse(
+        "{\"type\":\"record\",\"name\":\"R\",\"namespace\":\"NS\",\"fields\":["
+            + "{\"name\":\"ts\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-millis\"}}]}");
+
+    RelDataType rel = AvroConverter.rel(avroSchema);
+    RelDataType tsType = Objects.requireNonNull(rel.getField("ts", false, false)).getType();
+    assertEquals(SqlTypeName.TIMESTAMP, tsType.getSqlTypeName());
+    assertEquals(3, tsType.getPrecision());
+  }
+
+  @Test
+  void testRelFromMicrosTimestampUsesPrecision6() {
+    Schema avroSchema = new Schema.Parser().parse(
+        "{\"type\":\"record\",\"name\":\"R\",\"namespace\":\"NS\",\"fields\":["
+            + "{\"name\":\"ts\",\"type\":{\"type\":\"long\",\"logicalType\":\"timestamp-micros\"}}]}");
+
+    RelDataType rel = AvroConverter.rel(avroSchema);
+    RelDataType tsType = Objects.requireNonNull(rel.getField("ts", false, false)).getType();
+    assertEquals(SqlTypeName.TIMESTAMP, tsType.getSqlTypeName());
+    assertEquals(6, tsType.getPrecision());
+  }
+
+  @Test
+  void testMicrosTimestampRoundTripsLosslessly() {
+    RelDataType timestampType = typeFactory.createTypeWithNullability(
+        typeFactory.createSqlType(SqlTypeName.TIMESTAMP, 6), true);
+    RelDataType rel = typeFactory.createStructType(
+        List.of(timestampType), List.of("timestampField"));
+
+    Schema avroSchema = AvroConverter.avro("NS", "R", rel);
+    RelDataType relAgain = AvroConverter.rel(avroSchema);
+    assertEquals(6,
+        Objects.requireNonNull(relAgain.getField("timestampField", false, false)).getType().getPrecision());
   }
 
   @Test

@@ -123,3 +123,30 @@ drop table KAFKA."create-table-test";
 (0 rows modified)
 
 !update
+
+# ─────────────────────────────────────────────────────────────────────────────
+# TIMESTAMP precision: milli/micro/nanosecond precision must survive end-to-end.
+# Without HoptimatorTypeSystem (max datetime precision 9), TIMESTAMP(6)/(9) would
+# be clamped by Calcite's default down to TIMESTAMP(3).
+# ─────────────────────────────────────────────────────────────────────────────
+create or replace table "KAFKA"."ts-precision-test" ("KEY" VARCHAR, "TS3" TIMESTAMP(3), "TS6" TIMESTAMP(6), "TS9" TIMESTAMP(9)) WITH ("kafka.partitions" '1');
+(0 rows modified)
+
+!update
+
++------------+-----------+------------+------------+
+| columnName | typeName  | columnSize | isNullable |
++------------+-----------+------------+------------+
+| KEY        | VARCHAR   | null       | YES        |
+| TS3        | TIMESTAMP | 3          | YES        |
+| TS6        | TIMESTAMP | 6          | YES        |
+| TS9        | TIMESTAMP | 9          | YES        |
++------------+-----------+------------+------------+
+(4 rows)
+
+!describe "KAFKA"."ts-precision-test"
+
+drop table KAFKA."ts-precision-test";
+(0 rows modified)
+
+!update

@@ -27,6 +27,11 @@ public class TestSqlScripts extends QuidemTestBase {
   }
 
   @Test
+  public void timestampPrecisionDdlScript() throws Exception {
+    run("timestamp-precision-ddl.id");
+  }
+
+  @Test
   public void createViewWithAValidatorRejectingCreateViewThrowsException() throws Exception {
     // Runs the test in a separate thread to isolate the context class loader changes.
     Thread testThread = new Thread(() -> {
