@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IdentityQueryTest {
 
   private static RelDataType rowType() {
-    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     return factory.builder()
         .add("ID", factory.createSqlType(SqlTypeName.INTEGER))
         .add("NAME", factory.createSqlType(SqlTypeName.VARCHAR))
@@ -56,7 +56,7 @@ class IdentityQueryTest {
 
   @Test
   void fieldsOfEmptyRowTypeIsEmpty() {
-    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType empty = factory.builder().build();
 
     assertThat(IdentityQuery.fields(empty)).isEmpty();

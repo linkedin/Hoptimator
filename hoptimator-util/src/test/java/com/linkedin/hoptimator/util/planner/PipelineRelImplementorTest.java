@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.DeploymentContext;
 
 import com.linkedin.hoptimator.MissingConnectorException;
@@ -13,7 +14,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.SingleRel;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -101,7 +101,7 @@ class PipelineRelImplementorTest {
     PipelineRel.Implementor impl = new PipelineRel.Implementor(
         ImmutablePairList.of(), hints);
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -118,7 +118,7 @@ class PipelineRelImplementorTest {
     PipelineRel.Implementor impl = new PipelineRel.Implementor(
         ImmutablePairList.of(), hints);
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -141,7 +141,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testPipelineCreationWithSourceAndSink() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -165,7 +165,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testPipelineWithTableNameCollision() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -186,7 +186,7 @@ class PipelineRelImplementorTest {
   @Test
   void testSqlFunctionWithCollision() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -212,7 +212,7 @@ class PipelineRelImplementorTest {
   @Test
   void testSqlFunctionWithoutCollision() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -233,7 +233,7 @@ class PipelineRelImplementorTest {
   @Test
   void testSqlFunctionThrowsWhenSinkHasNoConnector() throws SQLException {
     // Arrange: no sources; the sink's connector configs are empty (configure returns empty by default).
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -254,7 +254,7 @@ class PipelineRelImplementorTest {
   @Test
   void testSqlFunctionThrowsWhenSourceHasNoConnector() throws SQLException {
     // Arrange: the sink has a connector, but the source's connector configs are empty.
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -281,7 +281,7 @@ class PipelineRelImplementorTest {
   @Test
   void testQueryFunctionReturnsSelectSql() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -301,7 +301,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testPipelineWithNoCollision() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -352,7 +352,7 @@ class PipelineRelImplementorTest {
     PipelineRel.Implementor impl = new PipelineRel.Implementor(
         ImmutablePairList.of(), hints);
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -371,7 +371,7 @@ class PipelineRelImplementorTest {
     PipelineRel.Implementor impl = new PipelineRel.Implementor(
         ImmutablePairList.of(), hints);
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -385,7 +385,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testValidateFieldMappingThrowsWhenFieldNotInSink() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType sinkRowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -400,7 +400,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testValidateFieldMappingSucceedsWhenFieldsMatch() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType sinkRowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -460,7 +460,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testPipelineWithNoSinkUsesQueryRowType() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -510,7 +510,7 @@ class PipelineRelImplementorTest {
   }
 
   private RelNode createScanRelNode() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -561,7 +561,7 @@ class PipelineRelImplementorTest {
 
   @Test
   void testFieldMapWithSinkRowTypeValidatesFields() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType sinkRowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -702,7 +702,7 @@ class PipelineRelImplementorTest {
   @Test
   void testAddSourceAppearsInPipelineSql() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -730,7 +730,7 @@ class PipelineRelImplementorTest {
   @Test
   void testSetSinkAppearsInPipelineSql() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -759,7 +759,7 @@ class PipelineRelImplementorTest {
   @Test
   void testNoCollisionWithNoSink() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -788,7 +788,7 @@ class PipelineRelImplementorTest {
   @Test
   void testNoCollisionWithDistinctSourceAndSink() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -817,7 +817,7 @@ class PipelineRelImplementorTest {
   @Test
   void testCollisionWithSameSourceAndSink() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -845,7 +845,7 @@ class PipelineRelImplementorTest {
   @Test
   void testCollisionAndNoCollisionProduceDifferentSql() throws SQLException {
     stubHasConnector();
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -879,7 +879,7 @@ class PipelineRelImplementorTest {
    */
   @Test
   void testFieldMapReturnsExpectedFieldNames() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .add("COL2", typeFactory.createSqlType(SqlTypeName.INTEGER))
@@ -925,7 +925,7 @@ class PipelineRelImplementorTest {
    */
   @Test
   void testFieldMapWithProjectedAliasReturnsAliasMapping() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -964,7 +964,7 @@ class PipelineRelImplementorTest {
   // After addSource, the pipeline's sources set must be non-empty.
   @Test
   void testPipelineHasNonNullJobAfterAddSource() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -986,7 +986,7 @@ class PipelineRelImplementorTest {
   // After setSink, the pipeline sink must be non-null.
   @Test
   void testPipelineHasNonNullSinkAfterSetSink() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -1003,7 +1003,7 @@ class PipelineRelImplementorTest {
   }
 
   private RelNode createAggregateRelNode() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .add("COL2", typeFactory.createSqlType(SqlTypeName.INTEGER))

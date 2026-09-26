@@ -2,19 +2,20 @@
 !use k8s
 
 # Create table with KEY fields (primary key)
-create or replace table "MYSQL"."test_database"."users" ("KEY_id" int, "name" VARCHAR, "email" VARCHAR);
+create or replace table "MYSQL"."test_database"."users" ("KEY_id" int, "name" VARCHAR, "email" VARCHAR, "ts" TIMESTAMP(3));
 (0 rows modified)
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY_id     | INTEGER  | 10         | YES        |
-| name       | VARCHAR  | null       | YES        |
-| email      | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
-(3 rows)
++------------+--------------+------------+-------------+------------+
+| columnName | typeName     | columnSize | columnScale | isNullable |
++------------+--------------+------------+-------------+------------+
+| KEY_id     | INTEGER      | 10         | 0           | YES        |
+| name       | VARCHAR      | null       | null        | YES        |
+| email      | VARCHAR      | null       | null        | YES        |
+| ts         | TIMESTAMP(3) | 3          | null        | YES        |
++------------+--------------+------------+-------------+------------+
+(4 rows)
 
 !describe "MYSQL"."test_database"."users"
 
@@ -24,13 +25,13 @@ create or replace table "MYSQL"."test_database"."users" ("KEY_id" int, "name" VA
 
 !update
 
-+------------+--------------+------------+------------+
-| columnName | typeName     | columnSize | isNullable |
-+------------+--------------+------------+------------+
-| KEY_id     | INTEGER      | 10         | YES        |
-| name       | VARCHAR(500) | 500        | YES        |
-| age        | INTEGER      | 10         | YES        |
-+------------+--------------+------------+------------+
++------------+--------------+------------+-------------+------------+
+| columnName | typeName     | columnSize | columnScale | isNullable |
++------------+--------------+------------+-------------+------------+
+| KEY_id     | INTEGER      | 10         | 0           | YES        |
+| name       | VARCHAR(500) | 500        | null        | YES        |
+| age        | INTEGER      | 10         | 0           | YES        |
++------------+--------------+------------+-------------+------------+
 (3 rows)
 
 !describe "MYSQL"."test_database"."users"
@@ -41,14 +42,14 @@ create or replace table "MYSQL"."test_database"."orders" ("KEY_user_id" int, "KE
 
 !update
 
-+--------------+----------+------------+------------+
-| columnName   | typeName | columnSize | isNullable |
-+--------------+----------+------------+------------+
-| KEY_user_id  | INTEGER  | 10         | YES        |
-| KEY_order_id | INTEGER  | 10         | YES        |
-| total        | DOUBLE   | 15         | YES        |
-| status       | VARCHAR  | null       | YES        |
-+--------------+----------+------------+------------+
++--------------+----------+------------+-------------+------------+
+| columnName   | typeName | columnSize | columnScale | isNullable |
++--------------+----------+------------+-------------+------------+
+| KEY_user_id  | INTEGER  | 10         | 0           | YES        |
+| KEY_order_id | INTEGER  | 10         | 0           | YES        |
+| total        | DOUBLE   | 15         | null        | YES        |
+| status       | VARCHAR  | null       | null        | YES        |
++--------------+----------+------------+-------------+------------+
 (4 rows)
 
 !describe "MYSQL"."test_database"."orders"

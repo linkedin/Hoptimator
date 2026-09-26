@@ -10,7 +10,6 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractTable;
@@ -18,6 +17,7 @@ import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.k8s.K8sApi;
 import com.linkedin.hoptimator.k8s.K8sApiEndpoints;
 import com.linkedin.hoptimator.k8s.K8sContext;
@@ -120,7 +120,7 @@ public final class LogicalTable extends AbstractTable {
           log.warn("Schema {} not found in tier {} for table {}", tierSchema, databaseName, name);
           return null;
         }
-        RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+        RelDataTypeFactory factory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
         Table tierTable = schema.tables().get(name);
         if (tierTable == null) {
           log.debug("Table {} not yet present in tier {} schema {}", name, databaseName, tierSchema);

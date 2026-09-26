@@ -53,7 +53,7 @@ class AvroTableValidator implements Validator {
   }
 
   private void validate(SchemaPlus schema, Table table, Table originalTable, Issues issues) {
-    RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
+    RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = table.getRowType(typeFactory);
     RelDataType originalRowType = originalTable.getRowType(typeFactory);
     Schema avroSchema = AvroConverter.avro("ns", "n", rowType);

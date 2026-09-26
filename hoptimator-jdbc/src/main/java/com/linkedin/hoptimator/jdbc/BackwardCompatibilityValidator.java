@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -18,7 +19,7 @@ class BackwardCompatibilityValidator extends CompatibilityValidatorBase {
 
   @Override
   protected void validate(Table table, Table originalTable, Issues issues) {
-    RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
+    RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = table.getRowType(typeFactory);
     RelDataType originalRowType = originalTable.getRowType(typeFactory);
     for (RelDataTypeField field : rowType.getFieldList()) {

@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Litmus;
@@ -32,7 +32,7 @@ class DataTypeUtilsTest {
 
   @BeforeEach
   void setUp() {
-    typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
   }
 
   // --- flatten tests ---

@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.util;
 
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.linq4j.Enumerable;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,7 +74,7 @@ class ArrayTableTest {
 
     // getRowType should use copyType
     assertNotNull(table.getRowType(new SqlTypeFactoryImpl(
-        RelDataTypeSystem.DEFAULT)));
+        HoptimatorTypeSystem.INSTANCE)));
   }
 
   @Test

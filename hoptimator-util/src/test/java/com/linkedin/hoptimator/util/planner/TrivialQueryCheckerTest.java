@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelShuttle;
 import org.apache.calcite.rel.core.TableFunctionScan;
@@ -22,7 +23,6 @@ import org.apache.calcite.rel.logical.LogicalUnion;
 import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
@@ -82,7 +82,7 @@ public class TrivialQueryCheckerTest {
 
     @BeforeEach
     void setUp() {
-        typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+        typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
         rexBuilder = new RexBuilder(typeFactory);
 
         // Set up accept() methods to properly dispatch to TrivialQueryChecker visit methods.

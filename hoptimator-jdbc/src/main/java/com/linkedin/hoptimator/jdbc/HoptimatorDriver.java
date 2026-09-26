@@ -6,14 +6,15 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.avro.AvroSchemas;
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.avro.Schema;
 import org.apache.calcite.avatica.ConnectStringParser;
+import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -121,6 +122,12 @@ public class HoptimatorDriver implements Driver {
       properties.putAll(props); // via getConnection()
       properties.putAll(ConnectStringParser.parse(url.substring(CONNECTION_PREFIX.length())));
 
+      // Route the whole Calcite planner/validator through Hoptimator's type system, which raises the
+      // datetime precision ceiling from Calcite's default of 3 (millis) up to 9 (nanos), so
+      // micro/nanosecond TIMESTAMP columns survive planning instead of being clamped to TIMESTAMP(3).
+      // putIfAbsent so an explicit user-supplied typeSystem still wins.
+      properties.putIfAbsent(CalciteConnectionProperty.TYPE_SYSTEM.camelName(), HoptimatorTypeSystem.class.getName());
+
       // For [Calcite]Driver.connect() to work, we need [Calcite]Driver.createPrepare()
       // to return our Prepare. But our Prepare requires a HoptimatorConnection, which
       // we cannot construct yet.
@@ -178,7 +185,7 @@ public class HoptimatorDriver implements Driver {
       for (String p : Util.skipLast(source.path())) {
         schema = Objects.requireNonNull(schema.subSchemas().get(p));
       }
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       Table table = schema.tables().get(source.table());
       if (table == null) {
         throw new SQLException("Table " + source.table() + " not found in schema " + schema.getName() + ".");

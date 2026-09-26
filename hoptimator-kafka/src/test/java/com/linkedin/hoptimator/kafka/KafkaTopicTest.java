@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.kafka;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
@@ -21,7 +21,7 @@ class KafkaTopicTest {
   void testGetRowTypeReturnsTwoColumns() {
     Properties props = new Properties();
     KafkaTopic topic = new KafkaTopic("test-topic", props);
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     RelDataType rowType = topic.getRowType(typeFactory);
 
@@ -32,7 +32,7 @@ class KafkaTopicTest {
   void testGetRowTypeHasKeyColumn() {
     Properties props = new Properties();
     KafkaTopic topic = new KafkaTopic("test-topic", props);
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     RelDataType rowType = topic.getRowType(typeFactory);
     RelDataTypeField keyField = rowType.getField("KEY", false, false);
@@ -46,7 +46,7 @@ class KafkaTopicTest {
   void testGetRowTypeHasValueColumn() {
     Properties props = new Properties();
     KafkaTopic topic = new KafkaTopic("test-topic", props);
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     RelDataType rowType = topic.getRowType(typeFactory);
     RelDataTypeField valueField = rowType.getField("VALUE", false, false);

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.DeploymentContext;
 
 import org.apache.calcite.adapter.jdbc.JdbcTable;
@@ -10,7 +11,6 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.volcano.VolcanoPlanner;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
@@ -39,7 +39,7 @@ class HoptimatorJdbcTableScanTest {
 
   @Test
   void testConstructorStoresJdbcTable() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     Expression expression = Expressions.call(Expressions.new_(Object.class), "toString");
     HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
         AnsiSqlDialect.DEFAULT, expression, "testDb", Collections.emptyList(), mockConnection);

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc.schema;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -28,7 +29,7 @@ class PrintTableTest {
 
   @Test
   void testGetRowTypeHasOutputColumn() {
-    RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
+    RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     RelDataType rowType = printTable.getRowType(typeFactory);
 

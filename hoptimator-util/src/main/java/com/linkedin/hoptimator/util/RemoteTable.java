@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
@@ -49,7 +50,7 @@ public abstract class RemoteTable<OBJECT_TYPE, ROW_TYPE> extends AbstractTable
   }
 
   public RemoteTable(Api<OBJECT_TYPE> api, Class<ROW_TYPE> elementType) {
-    this(api, elementType, new JavaTypeFactoryImpl());
+    this(api, elementType, new JavaTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE));
   }
 
   public Collection<ROW_TYPE> rows() {
