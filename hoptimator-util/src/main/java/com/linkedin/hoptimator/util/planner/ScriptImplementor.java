@@ -700,7 +700,7 @@ public interface ScriptImplementor {
     private static SqlBasicTypeNameSpec basicTypeNameSpec(RelDataType dataType) {
       SqlTypeName sqlTypeName = dataType.getSqlTypeName();
       int precision = dataType.getPrecision();
-      if (isDatetime(sqlTypeName) && precision != RelDataType.PRECISION_NOT_SPECIFIED && precision > 0) {
+      if (isDatetime(sqlTypeName) && precision > 0) {
         return new SqlBasicTypeNameSpec(sqlTypeName, precision, SqlParserPos.ZERO);
       }
       return new SqlBasicTypeNameSpec(sqlTypeName, SqlParserPos.ZERO);
