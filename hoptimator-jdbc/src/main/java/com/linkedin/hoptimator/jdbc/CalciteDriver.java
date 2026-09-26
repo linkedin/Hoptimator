@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.jdbc;
 
 import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.avatica.ConnectStringParser;
+import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteFactory;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -52,6 +53,11 @@ public class CalciteDriver extends Driver {
 
       String urlSuffix = url.substring(prefix.length());
       Properties info2 = ConnectStringParser.parse(urlSuffix, info);
+      // Report temporal fractional-seconds precision in DECIMAL_DIGITS, where Calcite's JDBC
+      // federation reader (JdbcSchema#getRelDataType) looks — otherwise TIMESTAMP(3) columns
+      // surface as TIMESTAMP(0) across the federation. See HoptimatorMetaColumnFactory.
+      info2.putIfAbsent(CalciteConnectionProperty.META_COLUMN_FACTORY.camelName(),
+          HoptimatorMetaColumnFactory.class.getName());
       CalciteSchema rootSchema = createRootSchema(info2);
       AvaticaConnection connection = ((CalciteFactory) this.factory)
           .newConnection(this, this.factory, url, info2, rootSchema, null);

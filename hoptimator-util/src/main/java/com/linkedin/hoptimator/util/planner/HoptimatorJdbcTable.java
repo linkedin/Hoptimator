@@ -47,30 +47,7 @@ public class HoptimatorJdbcTable extends AbstractQueryableTable implements Trans
 
   @Override
   public RelDataType getRowType(RelDataTypeFactory factory) {
-    // Calcite's JDBC federation derives a table's row type from DatabaseMetaData, and that round-trip
-    // drops temporal fractional-seconds precision: CalciteMetaImpl reports a TIMESTAMP's precision in
-    // COLUMN_SIZE while JdbcSchema#getRelDataType reads it from DECIMAL_DIGITS (which it leaves null),
-    // and that method builds the proto type with RelDataTypeSystem.DEFAULT (capped at millis). The net
-    // effect is TIMESTAMP(3)/(6) collapsing to TIMESTAMP(0). Prefer the upstream table's own row type,
-    // which preserves precision — the same source of truth already used for the Avro key/value schemas.
-    RelDataType upstreamRowType = upstreamRowType(factory);
-    if (upstreamRowType != null) {
-      // flatten+unflatten normalizes to the flattened-then-nested shape the metadata path produced,
-      // regardless of whether the upstream exposes a nested or an already-flattened row type.
-      return DataTypeUtils.unflatten(DataTypeUtils.flatten(upstreamRowType, factory), factory);
-    }
     return DataTypeUtils.unflatten(jdbcTable.getRowType(factory), factory);
-  }
-
-  /**
-   * The upstream table's own row type, or {@code null} when the upstream is not a Calcite connection
-   * (e.g. a raw JDBC source) or cannot be located. Unlike the JDBC-metadata path this preserves
-   * temporal fractional-seconds precision.
-   */
-  @VisibleForTesting
-  @Nullable RelDataType upstreamRowType(RelDataTypeFactory factory) {
-    Table upstream = upstreamTable();
-    return upstream == null ? null : upstream.getRowType(factory);
   }
 
   @Override
@@ -127,9 +104,6 @@ public class HoptimatorJdbcTable extends AbstractQueryableTable implements Trans
 
   @VisibleForTesting
   @Nullable Table upstreamTable() {
-    if (jdbcTable.jdbcSchema == null) {
-      return null;
-    }
     try (Connection upstream = jdbcTable.jdbcSchema.getDataSource().getConnection()) {
       CalciteConnection calciteUpstream;
       try {

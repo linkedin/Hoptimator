@@ -31,13 +31,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -85,52 +83,6 @@ class HoptimatorJdbcTableTest {
 
     assertSame(simpleType.getFieldList().get(0).getName(),
         result.getFieldList().get(0).getName());
-  }
-
-  @Test
-  void testGetRowTypePrefersUpstreamAndPreservesTimestampPrecision() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
-    RelDataType upstreamType = typeFactory.builder()
-        .add("KEY_id", typeFactory.createSqlType(SqlTypeName.BIGINT))
-        .add("created_at", typeFactory.createSqlType(SqlTypeName.TIMESTAMP, 3))
-        .add("updated_at", typeFactory.createSqlType(SqlTypeName.TIMESTAMP, 6))
-        .build();
-    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
-        AnsiSqlDialect.DEFAULT, mockExpression, "db", Collections.emptyList(), mockConnection);
-    HoptimatorJdbcTable tableWithUpstream = new HoptimatorJdbcTable(mockJdbcTable, convention) {
-      @Override
-      RelDataType upstreamRowType(RelDataTypeFactory factory) {
-        return upstreamType;
-      }
-    };
-
-    RelDataType result = tableWithUpstream.getRowType(typeFactory);
-
-    assertEquals(3, result.getField("created_at", true, false).getType().getPrecision());
-    assertEquals(6, result.getField("updated_at", true, false).getType().getPrecision());
-    // The lossy JDBC-metadata path must not be consulted when the upstream row type is available.
-    verify(mockJdbcTable, never()).getRowType(any());
-  }
-
-  @Test
-  void testGetRowTypeFallsBackToJdbcTableWhenNoUpstream() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
-    RelDataType simpleType = typeFactory.builder()
-        .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
-        .build();
-    when(mockJdbcTable.getRowType(any(RelDataTypeFactory.class))).thenReturn(simpleType);
-    HoptimatorJdbcConvention convention = new HoptimatorJdbcConvention(
-        AnsiSqlDialect.DEFAULT, mockExpression, "db", Collections.emptyList(), mockConnection);
-    HoptimatorJdbcTable tableNoUpstream = new HoptimatorJdbcTable(mockJdbcTable, convention) {
-      @Override
-      RelDataType upstreamRowType(RelDataTypeFactory factory) {
-        return null;
-      }
-    };
-
-    RelDataType result = tableNoUpstream.getRowType(typeFactory);
-
-    assertEquals("COL1", result.getFieldList().get(0).getName());
   }
 
   @Test
