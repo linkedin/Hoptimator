@@ -4,7 +4,6 @@ import com.linkedin.hoptimator.Validator;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -60,7 +59,7 @@ class AvroTableValidatorTest {
   @Test
   void testValidateRecordsErrorForIncompatibleSchemas() {
     // Build two tables with incompatible types: original has INTEGER, new has VARCHAR
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType originalRowType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.INTEGER)),
         List.of("value"));
@@ -108,7 +107,7 @@ class AvroTableValidatorTest {
   @Test
   void testValidatePassesForCompatibleSchemas() {
     // Both tables have the same VARCHAR field — evolution should succeed
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
         List.of("value"));

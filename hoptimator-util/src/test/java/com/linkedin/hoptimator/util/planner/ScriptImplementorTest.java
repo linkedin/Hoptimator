@@ -4,7 +4,6 @@ import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -31,7 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class ScriptImplementorTest {
   @Test
   public void testConnectorWithSuffix() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("CAMPAIGN_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .add("MEMBER_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -78,7 +77,7 @@ public class ScriptImplementorTest {
 
   @Test
   public void testTableNameReplacements() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     // Create a schema with a table to scan from
     SchemaPlus rootSchema = Frameworks.createRootSchema(true);
@@ -128,7 +127,7 @@ public class ScriptImplementorTest {
 
   @Test
   public void testFullPipelineWithCollision() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("CAMPAIGN_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .add("MEMBER_URN", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -181,7 +180,7 @@ public class ScriptImplementorTest {
   public void testExplicitColumnEnumeration() {
     // Test for Flink 1.20 regression where INSERT with SELECT * fails
     // when sink has more columns than source
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     // Source table: 2 columns
     RelDataType sourceType = typeFactory.builder()
@@ -268,7 +267,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testConnectorImplementorWithNullTypes() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.NULL))
         .build();
@@ -280,7 +279,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testConnectorImplementorWithPrimaryKey() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("PRIMARY_KEY", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .add("VALUE", typeFactory.createSqlType(SqlTypeName.INTEGER))
@@ -293,7 +292,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testConnectorImplementorWithConfig() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -309,7 +308,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testConnectorWithMapType() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType mapType = typeFactory.createMapType(
         typeFactory.createSqlType(SqlTypeName.VARCHAR),
         typeFactory.createSqlType(SqlTypeName.INTEGER));
@@ -324,7 +323,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testConnectorWithStructRowType() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType innerType = typeFactory.builder()
         .add("INNER_FIELD", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -340,7 +339,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testConnectorWithArrayOfStructType() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType innerType = typeFactory.builder()
         .add("FIELD1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -428,7 +427,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testConnectorWithNotNullableField() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType notNullVarchar = typeFactory.createTypeWithNullability(
         typeFactory.createSqlType(SqlTypeName.VARCHAR), false);
     RelDataType rowType = typeFactory.createStructType(
@@ -465,7 +464,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testQueryImplementorWithTableNameReplacement() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -502,7 +501,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testInsertWithTargetFieldsOnProject() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("ID", typeFactory.createSqlType(SqlTypeName.INTEGER))
         .add("NAME", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -533,7 +532,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testInsertWithTargetFieldsOnTableScan() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("ID", typeFactory.createSqlType(SqlTypeName.INTEGER))
         .add("NAME", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -578,7 +577,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testInsertWithTableNameReplacements() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -604,7 +603,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testColumnListImplementorWithDollarSigns() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("FOO$BAR", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -616,7 +615,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testDropFieldsOnProjectRemovesExtraFields() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("A", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .add("B", typeFactory.createSqlType(SqlTypeName.INTEGER))
@@ -648,7 +647,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testDropFieldsOnTableScanRemovesExtraFieldsByIndex() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("ID",   typeFactory.createSqlType(SqlTypeName.INTEGER))
         .add("NAME", typeFactory.createSqlType(SqlTypeName.VARCHAR))
@@ -678,7 +677,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testDropNullFieldsRemovesNullTypedColumns() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("GOOD_COL", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .add("NULL_COL", typeFactory.createSqlType(SqlTypeName.NULL))
@@ -717,7 +716,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testNonNullableColumnAppearsInCreateTable() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType notNullVarchar = typeFactory.createTypeWithNullability(
         typeFactory.createSqlType(SqlTypeName.VARCHAR), false);
     RelDataType rowType = typeFactory.createStructType(
@@ -734,7 +733,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testNullableColumnAppearsInCreateTableWithoutNullKeyword() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType nullableVarchar = typeFactory.createSqlType(SqlTypeName.VARCHAR);
     RelDataType rowType = typeFactory.createStructType(
         Collections.singletonList(nullableVarchar),
@@ -750,7 +749,7 @@ public class ScriptImplementorTest {
 
   @Test
   void testInsertColumnListComesFromProjectFieldNamesWhenProjectWithTargetFields() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType tableType = typeFactory.builder()
         .add("SRC_A", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .add("SRC_B", typeFactory.createSqlType(SqlTypeName.INTEGER))

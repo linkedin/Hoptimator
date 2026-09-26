@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.DeploymentContext;
 
 import com.linkedin.hoptimator.Deployable;
@@ -9,7 +10,6 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.AbstractTable;
@@ -504,7 +504,7 @@ class DeploymentServiceTest {
 
   @Test
   void testPlanCreatesImplementor() throws SQLException {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();

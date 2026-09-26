@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.mysql;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +63,7 @@ class MySqlTableTest {
     properties.setProperty("user", "testuser");
     properties.setProperty("password", "testpass");
 
-    typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
   }
 
   private void stubSuccessfulConnection() throws SQLException {

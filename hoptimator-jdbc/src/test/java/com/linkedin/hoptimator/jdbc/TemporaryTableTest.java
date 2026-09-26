@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.ModifiableTable;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 class TemporaryTableTest {
 
   private static RelDataTypeFactory factory() {
-    return new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    return new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
   }
 
   private static RelDataType buildRowType(RelDataTypeFactory f) {

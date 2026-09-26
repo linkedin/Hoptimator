@@ -5,7 +5,6 @@ import org.apache.avro.Schema;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -91,7 +90,7 @@ public class AvroConverterTest {
 
   @Test
   public void supportsNullTypes() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rel = typeFactory.createStructType(Collections.singletonList(typeFactory.createSqlType(SqlTypeName.NULL)),
         Collections.singletonList("field1"));
 
@@ -101,7 +100,7 @@ public class AvroConverterTest {
 
   @Test
   public void testAvroKeyPayloadSchemaNoKeyOptions() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(Collections.singletonList(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
         Collections.singletonList("field1"));
 
@@ -120,7 +119,7 @@ public class AvroConverterTest {
 
   @Test
   public void testAvroKeyPayloadSchemaNonStructDataType() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createSqlType(SqlTypeName.VARCHAR); // Non-struct type
 
     Map<String, String> keyOptions = Map.of(); // No key options provided
@@ -133,7 +132,7 @@ public class AvroConverterTest {
 
   @Test
   public void testAvroKeyPayloadSchemaValidKeyOptions() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
         List.of("KEY_field1", "field2"));
@@ -162,7 +161,7 @@ public class AvroConverterTest {
 
   @Test
   public void testAvroKeyPayloadSchemaPrimitiveKey() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
         List.of("field1", "KEY"));
@@ -268,14 +267,14 @@ public class AvroConverterTest {
   @Test
   public void handlesNullSchemaParameter() {
     // Passing null schema should not throw NPE - should handle gracefully
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rel = AvroConverter.rel(null, typeFactory);
     assertNotNull(rel);
   }
 
   @Test
   public void sanitizeHandlesNameStartingWithNumber() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.INTEGER)),
         List.of("1"));
@@ -289,7 +288,7 @@ public class AvroConverterTest {
     // Regression test: "1abc" must be sanitized to "_1abc", not left as "1abc".
     // Java String.matches() requires a full-string match, so the pattern must include .*
     // to cover names longer than one character.
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
         List.of("1fieldName"));
@@ -301,7 +300,7 @@ public class AvroConverterTest {
   public void relUnionNullStringProducesSingleNullableVarcharField() {
     // UNION(NULL, STRING) should collapse to a single nullable VARCHAR, not two fields
     Schema unionSchema = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rel = AvroConverter.rel(unionSchema, typeFactory);
 
     // Must NOT be a struct (would indicate NULL wasn't filtered out or union wasn't collapsed)
@@ -318,7 +317,7 @@ public class AvroConverterTest {
         Schema.create(Schema.Type.NULL),
         Schema.create(Schema.Type.INT),
         Schema.create(Schema.Type.STRING));
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rel = AvroConverter.rel(unionSchema, typeFactory);
 
     assertTrue(rel.isStruct(), "3-type union should become a struct");
@@ -332,7 +331,7 @@ public class AvroConverterTest {
   @Test
   public void relUnionTwoTypesVsThreeTypesProduceDifferentStructures() {
     // 2-type nullable union should produce a scalar; 3-type nullable union should produce a struct
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     Schema twoType = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
     RelDataType twoTypeRel = AvroConverter.rel(twoType, typeFactory);
@@ -349,7 +348,7 @@ public class AvroConverterTest {
 
   @Test
   public void avroKeyPayloadSchemaNullKeysReturnsNullKeySchema() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
         List.of("field1"));
@@ -364,7 +363,7 @@ public class AvroConverterTest {
 
   @Test
   public void avroKeyPayloadSchemaEmptyKeysReturnsNullKeySchema() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
         List.of("field1"));
@@ -379,7 +378,7 @@ public class AvroConverterTest {
 
   @Test
   public void avroKeyPayloadSchemaNonStructTypeReturnsNullKeySchema() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType primitiveType = typeFactory.createSqlType(SqlTypeName.INTEGER);
 
     Pair<Schema, Schema> result = AvroConverter.avroKeyPayloadSchema(
@@ -393,7 +392,7 @@ public class AvroConverterTest {
   @Test
   public void avroKeyPayloadSchemaFieldNotInKeyNamesGoesToPayload() {
     // field "nonKeyField" is NOT in keyNames — must go to payload, not key
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
         List.of("keyField", "nonKeyField"));
@@ -414,7 +413,7 @@ public class AvroConverterTest {
   @Test
   public void avroKeyPayloadSchemaAllFieldsAreKeysReturnsNullPayload() {
     // Every field matches a key name → payloadBuilder stays empty → payloadSchema == null
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
         List.of("KEY_field1", "KEY_field2"));
@@ -431,7 +430,7 @@ public class AvroConverterTest {
   @Test
   public void avroKeyPayloadSchemaKeyNamesMatchNoFieldsReturnsNullKey() {
     // key.fields names don't match any field in the type → keyBuilder stays empty → keySchema == null
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), typeFactory.createSqlType(SqlTypeName.INTEGER)),
         List.of("field1", "field2"));
@@ -448,7 +447,7 @@ public class AvroConverterTest {
   @Test
   public void avroKeyPayloadSchemaPrimitiveKeyWithNoPayloadReturnsNullPayload() {
     // Primitive key takes the only field → payloadBuilder stays empty → payloadSchema == null
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.INTEGER)),
         List.of("KEY"));
@@ -465,7 +464,7 @@ public class AvroConverterTest {
   @Test
   public void avroFieldDocumentationIsNonEmpty() {
     // describe() returns "fieldName TYPE_STRING" — verify it flows into schema field doc
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR)),
         List.of("myField"));
@@ -484,7 +483,7 @@ public class AvroConverterTest {
     // A struct with an UNKNOWN-typed field: avro() converts UNKNOWN → ["null"] union
     // This test validates the if-condition (innerField.isUnion() && innerField.isNullable())
     // which sets the null default value for nullable union fields
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType unknownType = typeFactory.createUnknownType();
     RelDataType dataType = typeFactory.createStructType(
         List.of(typeFactory.createSqlType(SqlTypeName.VARCHAR), unknownType),
@@ -507,7 +506,7 @@ public class AvroConverterTest {
 
   @Test
   public void handlesNamespaceInNestedArrayAndMapElements() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     // Create a "location" record type that will be reused - this mimics the real scenario
     RelDataType locationType1 = typeFactory.createStructType(

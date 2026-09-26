@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.mysql;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 
@@ -10,7 +11,6 @@ import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
 import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.BeforeEach;
@@ -103,7 +103,7 @@ class MySqlDeployerTest {
     }).thenReturn(mockConnection);
 
     // Mock HoptimatorDriver.rowType to return a simple schema with KEY_id and other fields
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("name", typeFactory.createSqlType(SqlTypeName.VARCHAR, 255));
@@ -138,7 +138,7 @@ class MySqlDeployerTest {
    * Helper: stub HoptimatorDriver.rowType to return KEY_id (INT) + name (VARCHAR(255) nullable).
    */
   private void stubDefaultRowType() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("name", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR, 255), true));
@@ -394,7 +394,7 @@ class MySqlDeployerTest {
   @Test
   void testValidateFailsWhenKeyFieldTypeChanges() throws Exception {
     // Override the default rowType to have KEY_id as VARCHAR (new type - should fail validation)
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.VARCHAR, 255)); // Changed from INTEGER to VARCHAR
     builder.add("name", typeFactory.createSqlType(SqlTypeName.VARCHAR, 255));
@@ -495,7 +495,7 @@ class MySqlDeployerTest {
   void testValidateFailsNoKeyFields() throws SQLException {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("name", typeFactory.createSqlType(SqlTypeName.VARCHAR, 255));
     builder.add("age", typeFactory.createSqlType(SqlTypeName.INTEGER));
@@ -557,7 +557,7 @@ class MySqlDeployerTest {
   void testValidateFailsWithInvalidColumnName() throws SQLException {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("invalid column", typeFactory.createSqlType(SqlTypeName.VARCHAR, 255));
@@ -681,7 +681,7 @@ class MySqlDeployerTest {
     stubConnection();
 
     // Row type with KEY_id, name, AND a new "email" column
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("name", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR, 255), true));
@@ -758,7 +758,7 @@ class MySqlDeployerTest {
     stubConnection();
 
     // Desired schema: KEY_id (INT), name (VARCHAR(500)) — name changes from VARCHAR(255) to VARCHAR(500)
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("name", typeFactory.createTypeWithNullability(typeFactory.createSqlType(SqlTypeName.VARCHAR, 500), true));
@@ -834,7 +834,7 @@ class MySqlDeployerTest {
   void testBuildDesiredColumnsInvalidColumnNameThrowsSqlException() throws Exception {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("invalid-col", typeFactory.createSqlType(SqlTypeName.VARCHAR, 100));
@@ -930,7 +930,7 @@ class MySqlDeployerTest {
       String expectedMySqlType) throws Exception {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     if (precision > 0 && scale >= 0) {
@@ -974,7 +974,7 @@ class MySqlDeployerTest {
   void testToMySqlTypeVarcharWithPrecisionGivesVarcharN() throws Exception {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("col", typeFactory.createSqlType(SqlTypeName.VARCHAR, 1)); // precision == 1 (> 0 boundary)
@@ -1005,7 +1005,7 @@ class MySqlDeployerTest {
   void testBuildCreateTableSqlNonNullableColumnContainsNotNull() throws Exception {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     // KEY_id is non-nullable by default from createSqlType
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
@@ -1038,7 +1038,7 @@ class MySqlDeployerTest {
   void testBuildCreateTableSqlNullableColumnDoesNotContainNotNull() throws Exception {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     // name is explicitly nullable
@@ -1075,7 +1075,7 @@ class MySqlDeployerTest {
   void testBuildCreateTableSqlContainsPrimaryKey() throws Exception {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("name", typeFactory.createTypeWithNullability(
@@ -1108,7 +1108,7 @@ class MySqlDeployerTest {
   void testBuildCreateTableSqlVarcharWithLengthInDdl() throws Exception {
     stubConnection();
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("description", typeFactory.createTypeWithNullability(
@@ -1142,7 +1142,7 @@ class MySqlDeployerTest {
     stubConnection();
 
     // Desired: KEY_id, name, email (email is new)
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("name", typeFactory.createTypeWithNullability(
@@ -1200,7 +1200,7 @@ class MySqlDeployerTest {
     stubConnection();
 
     // Desired: KEY_id (INT), name VARCHAR(500) -- changed from 255
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder builder = new RelDataTypeFactory.Builder(typeFactory);
     builder.add("KEY_id", typeFactory.createSqlType(SqlTypeName.INTEGER));
     builder.add("name", typeFactory.createTypeWithNullability(

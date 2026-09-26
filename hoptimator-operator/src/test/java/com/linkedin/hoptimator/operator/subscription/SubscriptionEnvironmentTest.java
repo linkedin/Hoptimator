@@ -1,8 +1,8 @@
 package com.linkedin.hoptimator.operator.subscription;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.planner.Pipeline;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
@@ -22,7 +22,7 @@ class SubscriptionEnvironmentTest {
   private Pipeline mockPipeline;
 
   private RelDataType buildSimpleRowType() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     return typeFactory.builder().add("col", SqlTypeName.VARCHAR).build();
   }
 
