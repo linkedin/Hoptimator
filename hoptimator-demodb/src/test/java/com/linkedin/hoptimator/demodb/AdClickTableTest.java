@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.demodb;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -40,7 +41,7 @@ class AdClickTableTest {
   @Test
   void testRowType() {
     AdClickTable table = new AdClickTable();
-    RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
+    RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = table.getRowType(typeFactory);
     assertNotNull(rowType);
     assertEquals(2, rowType.getFieldCount());

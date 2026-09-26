@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.catalog.builtin;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.catalog.ConfigProvider;
 import com.linkedin.hoptimator.catalog.Database;
 import com.linkedin.hoptimator.catalog.DatabaseSchema;
 import com.linkedin.hoptimator.catalog.HopTable;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaFactory;
 import org.apache.calcite.schema.SchemaPlus;
@@ -21,7 +21,7 @@ public class DatagenSchemaFactory implements SchemaFactory {
 
   @Override
   public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     Map<String, HopTable> datagenTables = new HashMap<>();
     datagenTables.put("PERSON", new HopTable("DATAGEN", "PERSON",
         (new RelDataTypeFactory.Builder(typeFactory)).add("NAME", SqlTypeName.VARCHAR)

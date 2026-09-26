@@ -7,6 +7,7 @@ dependencies {
   implementation project(':hoptimator-api')
   implementation project(':hoptimator-jdbc')
   implementation project(':hoptimator-util')
+  testImplementation project(':hoptimator-avro')
   implementation libs.calcite.core
   compileOnly libs.findbugs
 }
