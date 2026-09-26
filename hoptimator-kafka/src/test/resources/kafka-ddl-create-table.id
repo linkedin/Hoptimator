@@ -25,12 +25,12 @@ create or replace table "KAFKA"."create-table-test" ("KEY" VARCHAR, "VALUE" BINA
 !update
 
 # Verify schema - check columns
-+------------+-----------+------------+------------+
-| columnName | typeName  | columnSize | isNullable |
-+------------+-----------+------------+------------+
-| KEY        | VARCHAR   | null       | YES        |
-| VALUE      | BINARY(1) | 1          | YES        |
-+------------+-----------+------------+------------+
++------------+-----------+------------+-------------+------------+
+| columnName | typeName  | columnSize | columnScale | isNullable |
++------------+-----------+------------+-------------+------------+
+| KEY        | VARCHAR   | null       | null        | YES        |
+| VALUE      | BINARY(1) | 1          | null        | YES        |
++------------+-----------+------------+-------------+------------+
 (2 rows)
 
 !describe "KAFKA"."create-table-test"

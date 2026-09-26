@@ -15,24 +15,24 @@ create or replace table "LOGICAL"."testevent" ("KEY" varchar, "memberId" bigint,
 # Test 2: !describe — columns resolved from nearline physical tier schema
 # ─────────────────────────────────────────────────────────────────────────────
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | VARCHAR  | null       | YES        |
-| memberId   | BIGINT   | 19         | YES        |
-| pageKey    | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | VARCHAR  | null       | null        | YES        |
+| memberId   | BIGINT   | 19         | 0           | YES        |
+| pageKey    | VARCHAR  | null       | null        | YES        |
++------------+----------+------------+-------------+------------+
 (3 rows)
 
 !describe "LOGICAL"."testevent"
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | VARCHAR  | null       | YES        |
-| memberId   | BIGINT   | 19         | YES        |
-| pageKey    | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | VARCHAR  | null       | null        | YES        |
+| memberId   | BIGINT   | 19         | 0           | YES        |
+| pageKey    | VARCHAR  | null       | null        | YES        |
++------------+----------+------------+-------------+------------+
 (3 rows)
 
 !describe "VENICE"."testevent"
@@ -69,24 +69,24 @@ create or replace table "LOGICAL"."pageview" ("KEY" varchar, "header" row("membe
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | VARCHAR  | null       | YES        |
-| header     | ROW      | 0          | YES        |
-| body       | ROW      | 0          | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | VARCHAR  | null       | null        | YES        |
+| header     | ROW      | 0          | null        | YES        |
+| body       | ROW      | 0          | null        | YES        |
++------------+----------+------------+-------------+------------+
 (3 rows)
 
 !describe "LOGICAL"."pageview"
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | VARCHAR  | null       | YES        |
-| header     | ROW      | 0          | YES        |
-| body       | ROW      | 0          | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | VARCHAR  | null       | null        | YES        |
+| header     | ROW      | 0          | null        | YES        |
+| body       | ROW      | 0          | null        | YES        |
++------------+----------+------------+-------------+------------+
 (3 rows)
 
 !describe "VENICE"."pageview"
@@ -111,26 +111,26 @@ create or replace table "LOGICAL"."testevent" ("KEY" varchar,"memberId" bigint, 
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | VARCHAR  | null       | YES        |
-| memberId   | BIGINT   | 19         | YES        |
-| pageKey    | VARCHAR  | null       | YES        |
-| sessionId  | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | VARCHAR  | null       | null        | YES        |
+| memberId   | BIGINT   | 19         | 0           | YES        |
+| pageKey    | VARCHAR  | null       | null        | YES        |
+| sessionId  | VARCHAR  | null       | null        | YES        |
++------------+----------+------------+-------------+------------+
 (4 rows)
 
 !describe "LOGICAL"."testevent"
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | VARCHAR  | null       | YES        |
-| memberId   | BIGINT   | 19         | YES        |
-| pageKey    | VARCHAR  | null       | YES        |
-| sessionId  | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | VARCHAR  | null       | null        | YES        |
+| memberId   | BIGINT   | 19         | 0           | YES        |
+| pageKey    | VARCHAR  | null       | null        | YES        |
+| sessionId  | VARCHAR  | null       | null        | YES        |
++------------+----------+------------+-------------+------------+
 (4 rows)
 
 !describe "VENICE"."testevent"
@@ -143,26 +143,26 @@ create or replace table "LOGICAL"."testevent" ("memberId" bigint, "pageKey" varc
 Failed to generate key schema for Venice store testevent
 !error
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | VARCHAR  | null       | YES        |
-| memberId   | BIGINT   | 19         | YES        |
-| pageKey    | VARCHAR  | null       | YES        |
-| sessionId  | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | VARCHAR  | null       | null        | YES        |
+| memberId   | BIGINT   | 19         | 0           | YES        |
+| pageKey    | VARCHAR  | null       | null        | YES        |
+| sessionId  | VARCHAR  | null       | null        | YES        |
++------------+----------+------------+-------------+------------+
 (4 rows)
 
 !describe "LOGICAL"."testevent"
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | VARCHAR  | null       | YES        |
-| memberId   | BIGINT   | 19         | YES        |
-| pageKey    | VARCHAR  | null       | YES        |
-| sessionId  | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | VARCHAR  | null       | null        | YES        |
+| memberId   | BIGINT   | 19         | 0           | YES        |
+| pageKey    | VARCHAR  | null       | null        | YES        |
+| sessionId  | VARCHAR  | null       | null        | YES        |
++------------+----------+------------+-------------+------------+
 (4 rows)
 
 !describe "VENICE"."testevent"

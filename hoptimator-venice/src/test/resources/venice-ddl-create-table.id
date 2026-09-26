@@ -7,13 +7,13 @@ create or replace table "VENICE"."integration-test-store" ("KEY_id" int, "i" int
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY_id     | INTEGER  | 10         | YES        |
-| i          | INTEGER  | 10         | YES        |
-| s          | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY_id     | INTEGER  | 10         | 0           | YES        |
+| i          | INTEGER  | 10         | 0           | YES        |
+| s          | VARCHAR  | null       | null        | YES        |
++------------+----------+------------+-------------+------------+
 (3 rows)
 
 !describe "VENICE"."integration-test-store"
@@ -24,14 +24,14 @@ create or replace table "VENICE"."integration-test-store" ("KEY_id" int, "i" int
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY_id     | INTEGER  | 10         | YES        |
-| i          | INTEGER  | 10         | YES        |
-| s          | VARCHAR  | null       | YES        |
-| new_field  | DOUBLE   | 15         | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY_id     | INTEGER  | 10         | 0           | YES        |
+| i          | INTEGER  | 10         | 0           | YES        |
+| s          | VARCHAR  | null       | null        | YES        |
+| new_field  | DOUBLE   | 15         | null        | YES        |
++------------+----------+------------+-------------+------------+
 (4 rows)
 
 !describe "VENICE"."integration-test-store"
@@ -42,14 +42,14 @@ create or replace table "VENICE"."integration-test-store-composite" ("KEY_user_i
 
 !update
 
-+--------------+----------+------------+------------+
-| columnName   | typeName | columnSize | isNullable |
-+--------------+----------+------------+------------+
-| KEY_user_id  | INTEGER  | 10         | YES        |
-| KEY_order_id | INTEGER  | 10         | YES        |
-| total        | DOUBLE   | 15         | YES        |
-| status       | VARCHAR  | null       | YES        |
-+--------------+----------+------------+------------+
++--------------+----------+------------+-------------+------------+
+| columnName   | typeName | columnSize | columnScale | isNullable |
++--------------+----------+------------+-------------+------------+
+| KEY_user_id  | INTEGER  | 10         | 0           | YES        |
+| KEY_order_id | INTEGER  | 10         | 0           | YES        |
+| total        | DOUBLE   | 15         | null        | YES        |
+| status       | VARCHAR  | null       | null        | YES        |
++--------------+----------+------------+-------------+------------+
 (4 rows)
 
 !describe "VENICE"."integration-test-store-composite"
@@ -60,13 +60,13 @@ create or replace table "VENICE"."integration-test-store-primitive" ("KEY" int, 
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY        | INTEGER  | 10         | YES        |
-| i          | INTEGER  | 10         | YES        |
-| s          | VARCHAR  | null       | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY        | INTEGER  | 10         | 0           | YES        |
+| i          | INTEGER  | 10         | 0           | YES        |
+| s          | VARCHAR  | null       | null        | YES        |
++------------+----------+------------+-------------+------------+
 (3 rows)
 
 !describe "VENICE"."integration-test-store-primitive"

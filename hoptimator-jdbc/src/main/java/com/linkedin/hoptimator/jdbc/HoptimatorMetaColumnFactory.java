@@ -28,7 +28,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * path — no bypass required. It is wired in via the {@code metaColumnFactory} connection property (see
  * {@code CalciteDriver}).
  *
- * <p>Note: {@code JdbcSchema.getRelDataType} builds its proto type with {@code RelDataTypeSystem.DEFAULT}
+ * <p>TODO: {@code JdbcSchema.getRelDataType} builds its proto type with {@code RelDataTypeSystem.DEFAULT}
  * (max datetime precision 3), so precision beyond milliseconds is still clamped there; this factory
  * restores millisecond precision across the federation, which is as far as that Calcite path allows.
  */

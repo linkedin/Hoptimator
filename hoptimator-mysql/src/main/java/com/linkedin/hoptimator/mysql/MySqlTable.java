@@ -10,9 +10,12 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 
@@ -20,6 +23,8 @@ import java.util.Properties;
 public class MySqlTable extends AbstractTable {
 
   private static final Logger log = LoggerFactory.getLogger(MySqlTable.class);
+  private static final String DATETIME_PRECISION_QUERY =
+      "SELECT COLUMN_NAME, DATETIME_PRECISION FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ?  AND TABLE_NAME = ?";
 
   private final String database;
   private final String table;
@@ -41,6 +46,21 @@ public class MySqlTable extends AbstractTable {
         properties.getProperty("user", ""),
         properties.getProperty("password", ""))) {
 
+      Map<String, Integer> datetimePrecisions = new HashMap<>();
+      try (PreparedStatement stmt = conn.prepareStatement(DATETIME_PRECISION_QUERY)) {
+        stmt.setString(1, database);
+        stmt.setString(2, table);
+
+        try (ResultSet rs = stmt.executeQuery()) {
+          while (rs.next()) {
+            int precision = rs.getInt("DATETIME_PRECISION");
+            if (!rs.wasNull()) {
+              datetimePrecisions.put(rs.getString("COLUMN_NAME"), precision);
+            }
+          }
+        }
+      }
+
       DatabaseMetaData metaData = conn.getMetaData();
       try (ResultSet rs = metaData.getColumns(database, null, table, null)) {
         while (rs.next()) {
@@ -49,18 +69,18 @@ public class MySqlTable extends AbstractTable {
           int nullable = rs.getInt("NULLABLE");
 
           SqlTypeName typeName = jdbcTypeToSqlType(sqlType);
-          if (hasFractionalSeconds(typeName)) {
-            // JDBC exposes a temporal column's fractional-seconds precision via DECIMAL_DIGITS
-            // (e.g. TIMESTAMP(3) -> 3, DATETIME(6) -> 6). Without carrying it through, the column
-            // would default to TIMESTAMP(0), silently dropping milli/microsecond precision.
-            int fractionalPrecision = rs.getInt("DECIMAL_DIGITS");
-            if (!rs.wasNull() && fractionalPrecision > 0) {
-              builder.add(columnName, typeFactory.createSqlType(typeName, fractionalPrecision));
+          if (datetimePrecisions.containsKey(columnName)) {
+            builder.add(columnName, typeName, datetimePrecisions.get(columnName));
+          } else {
+            // There is no such thing as allowing scale without precision
+            if (typeName.allowsPrec() && typeName.allowsScale()) {
+              builder.add(columnName, typeName, getPrecision(rs), getScale(rs));
+            } else if (typeName.allowsPrec()) {
+              builder.add(columnName, typeName, getPrecision(rs));
+
             } else {
               builder.add(columnName, typeName);
             }
-          } else {
-            builder.add(columnName, typeName);
           }
           if (nullable == DatabaseMetaData.columnNullable) {
             builder.nullable(true);
@@ -121,16 +141,19 @@ public class MySqlTable extends AbstractTable {
     }
   }
 
-  /** Whether a temporal type carries a fractional-seconds precision (from JDBC DECIMAL_DIGITS). */
-  private static boolean hasFractionalSeconds(SqlTypeName typeName) {
-    switch (typeName) {
-      case TIME:
-      case TIME_WITH_LOCAL_TIME_ZONE:
-      case TIMESTAMP:
-      case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-        return true;
-      default:
-        return false;
+  private int getPrecision(ResultSet rs) throws SQLException {
+    int precision = rs.getInt("COLUMN_SIZE");
+    if (rs.wasNull()) {
+      precision = RelDataType.PRECISION_NOT_SPECIFIED;
     }
+    return precision;
+  }
+
+  private int getScale(ResultSet rs) throws SQLException {
+    int scale = rs.getInt("DECIMAL_DIGITS");
+    if (rs.wasNull()) {
+      scale = RelDataType.SCALE_NOT_SPECIFIED;
+    }
+    return scale;
   }
 }

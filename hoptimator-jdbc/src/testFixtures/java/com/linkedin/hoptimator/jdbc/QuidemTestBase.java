@@ -8,7 +8,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Assertions;
 
 import com.linkedin.hoptimator.graph.PipelineGraph;
@@ -143,31 +142,35 @@ public abstract class QuidemTestBase {
               List<String[]> rows = new ArrayList<>();
               for (RelDataTypeField field : rowType.getFieldList()) {
                 String columnName = field.getName();
-                SqlTypeName sqlType = field.getType().getSqlTypeName();
-                String typeName = sqlType.getName();
+                String typeName = field.getType().toString();
+                if (field.getType().isStruct()) {
+                  typeName = field.getType().getSqlTypeName().getName();
+                }
 
                 // Handle precision for types like VARCHAR, BINARY
                 Integer precision = field.getType().getPrecision();
                 String columnSize;
                 if (precision != RelDataType.PRECISION_NOT_SPECIFIED) {
                   columnSize = String.valueOf(precision);
-                  // For types with precision, append it to type name
-                  if (sqlType == SqlTypeName.VARCHAR || sqlType == SqlTypeName.CHAR
-                      || sqlType == SqlTypeName.BINARY || sqlType == SqlTypeName.VARBINARY) {
-                    if (precision > 0) {
-                      typeName = typeName + "(" + precision + ")";
-                    }
-                  }
                 } else {
                   columnSize = "null";
                 }
 
+                // Handle scale for types like DECIMAL
+                Integer scale = field.getType().getScale();
+                String columnScale;
+                if (scale != RelDataType.SCALE_NOT_SPECIFIED) {
+                  columnScale = String.valueOf(scale);
+                } else {
+                  columnScale = "null";
+                }
+
                 String isNullable = field.getType().isNullable() ? "YES" : "NO";
-                rows.add(new String[]{columnName, typeName, columnSize, isNullable});
+                rows.add(new String[]{columnName, typeName, columnSize, columnScale, isNullable});
               }
 
               // Calculate column widths
-              String[] headers = {"columnName", "typeName", "columnSize", "isNullable"};
+              String[] headers = {"columnName", "typeName", "columnSize", "columnScale", "isNullable"};
               int[] widths = new int[headers.length];
               for (int i = 0; i < headers.length; i++) {
                 widths[i] = headers[i].length();
