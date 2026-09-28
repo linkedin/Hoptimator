@@ -6,12 +6,12 @@ create or replace view kafka."new-topic$kafka-test" as select * from kafka."exis
 
 !update
 
-+------------+-----------+------------+------------+
-| columnName | typeName  | columnSize | isNullable |
-+------------+-----------+------------+------------+
-| KEY        | VARCHAR   | null       | YES        |
-| VALUE      | BINARY(1) | 1          | YES        |
-+------------+-----------+------------+------------+
++------------+-----------+------------+-------------+------------+
+| columnName | typeName  | columnSize | columnScale | isNullable |
++------------+-----------+------------+-------------+------------+
+| KEY        | VARCHAR   | null       | null        | YES        |
+| VALUE      | BINARY(1) | 1          | null        | YES        |
++------------+-----------+------------+-------------+------------+
 (2 rows)
 
 !describe "KAFKA"."new-topic$kafka-test"

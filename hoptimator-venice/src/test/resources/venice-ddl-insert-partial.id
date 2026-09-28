@@ -6,13 +6,13 @@ create or replace materialized view "VENICE"."test-store$insert-partial" ("KEY_n
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| KEY_name   | VARCHAR  | null       | YES        |
-| KEY_age    | INTEGER  | 10         | NO         |
-| intField   | INTEGER  | 10         | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| KEY_name   | VARCHAR  | null       | null        | YES        |
+| KEY_age    | INTEGER  | 10         | 0           | NO         |
+| intField   | INTEGER  | 10         | 0           | YES        |
++------------+----------+------------+-------------+------------+
 (3 rows)
 
 !describe "VENICE"."test-store$insert-partial"

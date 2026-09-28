@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.venice;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.Validator;
 import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
@@ -17,7 +18,6 @@ import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.AbstractTable;
@@ -364,7 +364,7 @@ class VeniceDeployerTest {
     // resolved through the Calcite catalog. Without a resolved "keys" option (there is no connector
     // on this unit-test classpath to supply one), avroKeyPayloadSchema treats the whole row type as
     // the payload; the real key/payload split is covered by the Venice integration test.
-    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = factory.builder()
         .add("id", factory.createSqlType(SqlTypeName.INTEGER))
         .add("name", factory.createSqlType(SqlTypeName.VARCHAR))

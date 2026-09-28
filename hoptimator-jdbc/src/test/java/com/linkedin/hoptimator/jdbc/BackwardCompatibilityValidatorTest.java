@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.Validator;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataType;
@@ -15,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BackwardCompatibilityValidatorTest {
 
-  private final RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl();
+  private final RelDataTypeFactory typeFactory = new JavaTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
   @Test
   void testAddNullableFieldIsCompatible() {

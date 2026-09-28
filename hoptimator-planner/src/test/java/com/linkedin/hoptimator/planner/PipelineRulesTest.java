@@ -1,10 +1,10 @@
 package com.linkedin.hoptimator.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.impl.AbstractTable;
@@ -51,7 +51,7 @@ public class PipelineRulesTest {
     Table mockTable = new AbstractTable() {
       @Override
       public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT).createStructType(
+        return new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE).createStructType(
             Collections.emptyList(), Collections.emptyList());
       }
     };
@@ -78,7 +78,7 @@ public class PipelineRulesTest {
     Table mockTable = new AbstractTable() {
       @Override
       public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT).createStructType(
+        return new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE).createStructType(
             Collections.emptyList(), Collections.emptyList());
       }
     };
@@ -111,7 +111,7 @@ public class PipelineRulesTest {
     Table mockTable = new AbstractTable() {
       @Override
       public RelDataType getRowType(RelDataTypeFactory typeFactory) {
-        return new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT).createStructType(
+        return new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE).createStructType(
             Collections.emptyList(), Collections.emptyList());
       }
     };

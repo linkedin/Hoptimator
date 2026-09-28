@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -44,7 +44,7 @@ class PipelineRulesTest {
 
   @Test
   void testFindTableSingleName() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -65,7 +65,7 @@ class PipelineRulesTest {
 
   @Test
   void testFindTableQualifiedName() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -114,7 +114,7 @@ class PipelineRulesTest {
 
   @Test
   void testQualifiedNameFromRelNode() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -144,7 +144,7 @@ class PipelineRulesTest {
 
   @Test
   void testQualifiedNameFromRelOptTable() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();
@@ -171,7 +171,7 @@ class PipelineRulesTest {
 
   @Test
   void testSchemaReturnsCalciteSchema() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("COL1", typeFactory.createSqlType(SqlTypeName.VARCHAR))
         .build();

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.logical;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -7,7 +8,6 @@ import java.util.Map;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,7 +39,7 @@ public class LogicalTableTest {
   private K8sContext mockContext;
 
   private static final RelDataTypeFactory TYPE_FACTORY =
-      new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
   private static Map<String, V1alpha1LogicalTableSpecTiers> sampleTiers() {
     Map<String, V1alpha1LogicalTableSpecTiers> tiers = new HashMap<>();

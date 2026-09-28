@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS orders (
     quantity INT NOT NULL,
     price DECIMAL(10, 2) NOT NULL,
     order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    order_date_ms TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3),
     status VARCHAR(20) DEFAULT 'pending',
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );

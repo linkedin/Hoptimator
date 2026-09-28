@@ -2,9 +2,9 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.avro.AvroConverter;
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 
 import javax.annotation.Nullable;
@@ -58,7 +58,7 @@ public final class DirectDeploymentContext implements DeploymentContext {
           + "A deployer requested a row type on a schema-free operation.");
     }
     if (rowType == null) {
-      rowType = AvroConverter.rel(avroSchema, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
+      rowType = AvroConverter.rel(avroSchema, new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE));
     }
     return rowType;
   }

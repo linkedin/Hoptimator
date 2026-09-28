@@ -1,12 +1,12 @@
 package com.linkedin.hoptimator.avro;
 
+import org.apache.avro.LogicalType;
 import org.apache.avro.LogicalTypes;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -26,6 +26,10 @@ public final class AvroConverter {
 
   private static final String KEY_OPTION = "key.fields";
   private static final String KEY_PREFIX_OPTION = "key.fields-prefix";
+
+  // Fractional-second precisions for Avro's timestamp logical types.
+  private static final int MILLIS_PRECISION = 3;
+  private static final int MICROS_PRECISION = 6;
 
   private AvroConverter() {
   }
@@ -75,8 +79,12 @@ public final class AvroConverter {
           return createAvroSchemaWithNullability(
               LogicalTypes.date().addToSchema(Schema.create(Schema.Type.INT)), dataType.isNullable());
         case TIMESTAMP:
+          // Avro distinguishes millisecond- and microsecond-precision timestamps. Map any
+          // precision beyond millis (3) to timestamp-micros, otherwise timestamp-millis.
+          LogicalType timestampLogicalType = dataType.getPrecision() > MILLIS_PRECISION
+              ? LogicalTypes.timestampMicros() : LogicalTypes.timestampMillis();
           return createAvroSchemaWithNullability(
-              LogicalTypes.timestampMillis().addToSchema(Schema.create(Schema.Type.LONG)), dataType.isNullable());
+              timestampLogicalType.addToSchema(Schema.create(Schema.Type.LONG)), dataType.isNullable());
         case BOOLEAN:
           return createAvroTypeWithNullability(Schema.Type.BOOLEAN, dataType.isNullable());
         case ARRAY:
@@ -101,7 +109,7 @@ public final class AvroConverter {
   }
 
   public static Schema avro(String namespace, String name, RelProtoDataType relProtoDataType) {
-    RelDataTypeFactory factory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory factory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     return avro(namespace, name, relProtoDataType.apply(factory));
   }
 
@@ -118,7 +126,7 @@ public final class AvroConverter {
       return new Pair<>(null, avro(namespace, payloadSchemaName, dataType));
     }
 
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataTypeFactory.Builder keyBuilder = new RelDataTypeFactory.Builder(typeFactory);
     RelDataTypeFactory.Builder payloadBuilder = new RelDataTypeFactory.Builder(typeFactory);
 
@@ -289,8 +297,11 @@ public final class AvroConverter {
       case LONG:
         if (schema.getLogicalType() != null) {
           String logicalName = schema.getLogicalType().getName();
-          if ("timestamp-millis".equals(logicalName) || "timestamp-micros".equals(logicalName)) {
-            return createRelType(typeFactory, SqlTypeName.TIMESTAMP, nullable);
+          if ("timestamp-millis".equals(logicalName)) {
+            return createRelType(typeFactory, SqlTypeName.TIMESTAMP, MILLIS_PRECISION, nullable);
+          }
+          if ("timestamp-micros".equals(logicalName)) {
+            return createRelType(typeFactory, SqlTypeName.TIMESTAMP, MICROS_PRECISION, nullable);
           }
         }
         return createRelType(typeFactory, SqlTypeName.BIGINT, nullable);
@@ -335,7 +346,7 @@ public final class AvroConverter {
   }
 
   public static RelDataType rel(Schema schema) {
-    return rel(schema, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT));
+    return rel(schema, new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE));
   }
 
   private static RelDataType createRelType(RelDataTypeFactory typeFactory, SqlTypeName typeName, boolean nullable) {
@@ -349,7 +360,7 @@ public final class AvroConverter {
   }
 
   public static RelProtoDataType proto(Schema schema) {
-    return RelDataTypeImpl.proto(rel(schema, new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT)));
+    return RelDataTypeImpl.proto(rel(schema, new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE)));
   }
 
   private static String describe(RelDataTypeField dataType) {

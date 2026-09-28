@@ -1,9 +1,9 @@
 package com.linkedin.hoptimator.catalog.builtin;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
@@ -38,7 +38,7 @@ class DatagenSchemaFactoryTest {
 
     Table person = schema.tables().get("PERSON");
     assertNotNull(person, "PERSON table should not be null");
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = person.getRowType(typeFactory);
     assertNotNull(rowType, "PERSON row type should not be null");
   }
@@ -50,7 +50,7 @@ class DatagenSchemaFactoryTest {
 
     Table company = schema.tables().get("COMPANY");
     assertNotNull(company, "COMPANY table should not be null");
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = company.getRowType(typeFactory);
     assertNotNull(rowType, "COMPANY row type should not be null");
   }

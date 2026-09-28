@@ -1,16 +1,32 @@
 !set outputformat mysql
 !use k8s
 
++---------------+----------------+------------+-------------+------------+
+| columnName    | typeName       | columnSize | columnScale | isNullable |
++---------------+----------------+------------+-------------+------------+
+| order_id      | INTEGER        | 10         | 0           | NO         |
+| user_id       | INTEGER        | 10         | 0           | NO         |
+| product_name  | VARCHAR(100)   | 100        | null        | NO         |
+| quantity      | INTEGER        | 10         | 0           | NO         |
+| price         | DECIMAL(10, 2) | 10         | 2           | NO         |
+| order_date    | TIMESTAMP(0)   | 0          | null        | YES        |
+| order_date_ms | TIMESTAMP(3)   | 3          | null        | YES        |
+| status        | VARCHAR(20)    | 20         | null        | YES        |
++---------------+----------------+------------+-------------+------------+
+(8 rows)
+
+!describe "MYSQL"."testdb"."orders"
+
 create or replace materialized view mysql."testdb"."users$partial" as select "user_id" from mysql."testdb"."orders";
 (0 rows modified)
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| user_id    | INTEGER  | 10         | NO         |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| user_id    | INTEGER  | 10         | 0           | NO         |
++------------+----------+------------+-------------+------------+
 (1 row)
 
 !describe "MYSQL"."testdb"."users$partial"
@@ -32,7 +48,7 @@ spec:
     args:
     - CREATE CATALOG IF NOT EXISTS `MYSQL` WITH ()
     - CREATE DATABASE IF NOT EXISTS `MYSQL`.`testdb` WITH ()
-    - CREATE TABLE IF NOT EXISTS `MYSQL`.`testdb`.`orders` (`order_id` INTEGER, `user_id` INTEGER, `product_name` VARCHAR, `quantity` INTEGER, `price` DECIMAL, `order_date` TIMESTAMP, `status` VARCHAR) WITH ('connector'='mysql', 'hostname'='localhost', 'password'='hoptimatorpassword', 'port'='3306', 'tables'='orders', 'username'='hoptimator')
+    - CREATE TABLE IF NOT EXISTS `MYSQL`.`testdb`.`orders` (`order_id` INTEGER, `user_id` INTEGER, `product_name` VARCHAR, `quantity` INTEGER, `price` DECIMAL, `order_date` TIMESTAMP, `order_date_ms` TIMESTAMP(3), `status` VARCHAR) WITH ('connector'='mysql', 'hostname'='localhost', 'password'='hoptimatorpassword', 'port'='3306', 'tables'='orders', 'username'='hoptimator')
     - CREATE CATALOG IF NOT EXISTS `MYSQL` WITH ()
     - CREATE DATABASE IF NOT EXISTS `MYSQL`.`testdb` WITH ()
     - CREATE TABLE IF NOT EXISTS `MYSQL`.`testdb`.`users` (`user_id` INTEGER, `username` VARCHAR, `email` VARCHAR, `created_at` TIMESTAMP, `is_active` BOOLEAN) WITH ('connector'='mysql', 'hostname'='localhost', 'password'='hoptimatorpassword', 'port'='3306', 'tables'='users', 'username'='hoptimator')

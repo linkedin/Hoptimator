@@ -686,8 +686,35 @@ public interface ScriptImplementor {
             toSpec(dataType.getKeyType()), toSpec(dataType.getValueType()), SqlParserPos.ZERO), SqlParserPos.ZERO));
       } else {
         return maybeNullable(dataType,
-            new SqlDataTypeSpec(new SqlBasicTypeNameSpec(dataType.getSqlTypeName(), SqlParserPos.ZERO),
-                SqlParserPos.ZERO));
+            new SqlDataTypeSpec(basicTypeNameSpec(dataType), SqlParserPos.ZERO));
+      }
+    }
+
+    /**
+     * Builds the type-name spec for a scalar type. Fractional-second precision is carried through
+     * for the datetime types (e.g. {@code TIMESTAMP(6)}) so that milli/micro/nanosecond precision
+     * survives into generated DDL — Flink SQL distinguishes {@code TIMESTAMP(3)} (millis) from
+     * {@code TIMESTAMP(6)} (micros). A bare {@code TIMESTAMP} (precision 0) is emitted without a
+     * precision to preserve existing behavior. Other types are emitted without precision, as before.
+     */
+    private static SqlBasicTypeNameSpec basicTypeNameSpec(RelDataType dataType) {
+      SqlTypeName sqlTypeName = dataType.getSqlTypeName();
+      int precision = dataType.getPrecision();
+      if (isDatetime(sqlTypeName) && precision > 0) {
+        return new SqlBasicTypeNameSpec(sqlTypeName, precision, SqlParserPos.ZERO);
+      }
+      return new SqlBasicTypeNameSpec(sqlTypeName, SqlParserPos.ZERO);
+    }
+
+    private static boolean isDatetime(SqlTypeName sqlTypeName) {
+      switch (sqlTypeName) {
+        case TIME:
+        case TIME_WITH_LOCAL_TIME_ZONE:
+        case TIMESTAMP:
+        case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+          return true;
+        default:
+          return false;
       }
     }
 

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import java.sql.SQLNonTransientException;
 import java.util.AbstractMap;
 import java.util.Collections;
@@ -13,7 +14,6 @@ import com.linkedin.hoptimator.util.ConnectionService;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.schema.SchemaPlus;
@@ -47,7 +47,7 @@ import static org.mockito.ArgumentMatchers.any;
 @ExtendWith(MockitoExtension.class)
 class PipelineRelCastTest {
 
-  private static final RelDataTypeFactory TYPE_FACTORY = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+  private static final RelDataTypeFactory TYPE_FACTORY = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
   private static final String SINK_COLUMN = "KEY_member_id";
 
   private static final Map<String, String> STRICT = Collections.emptyMap();

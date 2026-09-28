@@ -1,10 +1,10 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.DeploymentContext;
 
 import com.linkedin.hoptimator.Engine;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.FrameworkConfig;
 import org.apache.calcite.tools.Frameworks;
@@ -57,7 +57,7 @@ class RemoteToEnumerableConverterRuleTest {
     SchemaPlus root = Frameworks.createRootSchema(false);
     FrameworkConfig config = Frameworks.newConfigBuilder()
         .defaultSchema(root)
-        .typeSystem(RelDataTypeSystem.DEFAULT)
+        .typeSystem(HoptimatorTypeSystem.INSTANCE)
         .build();
     RelBuilder builder = RelBuilder.create(config);
     RelNode values = builder.values(new String[] {"C"}, 1).build();

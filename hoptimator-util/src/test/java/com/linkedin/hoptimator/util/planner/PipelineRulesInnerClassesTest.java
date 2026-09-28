@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -10,7 +11,6 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
@@ -63,7 +63,7 @@ class PipelineRulesInnerClassesTest {
 
   @BeforeEach
   void setUp() {
-    typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     rexBuilder = new RexBuilder(typeFactory);
     VolcanoPlanner planner = new VolcanoPlanner();
     planner.addRelTraitDef(ConventionTraitDef.INSTANCE);

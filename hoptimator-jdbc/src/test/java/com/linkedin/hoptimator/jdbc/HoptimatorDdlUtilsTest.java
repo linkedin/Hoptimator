@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeploymentContext;
@@ -17,7 +18,6 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.Schema;
@@ -494,7 +494,7 @@ class HoptimatorDdlUtilsTest {
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
 
       Runnable rollback = HoptimatorDdlUtils.registerTemporaryTable(rootSchema, "TEMP_TABLE_NEW", rowType, "test-db");
@@ -512,7 +512,7 @@ class HoptimatorDdlUtilsTest {
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
       TemporaryTable originalTable = new TemporaryTable(rowType, "original-db");
       rootSchema.add("EXISTING_TABLE", originalTable);
@@ -533,7 +533,7 @@ class HoptimatorDdlUtilsTest {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
 
       Runnable rollback = HoptimatorDdlUtils.registerTemporaryTableInSchema(
@@ -551,7 +551,7 @@ class HoptimatorDdlUtilsTest {
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
       // Add a subschema that registerTemporaryTableInSchema can find
       rootSchema.add("MY_SCHEMA", new AbstractSchema());
@@ -571,7 +571,7 @@ class HoptimatorDdlUtilsTest {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
 
       assertThrows(SQLException.class, () ->
@@ -586,7 +586,7 @@ class HoptimatorDdlUtilsTest {
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
       // Add a catalog subschema, and within it a database subschema
       SchemaPlus catalogSchema = rootSchema.add("MY_CATALOG", new AbstractSchema());
@@ -608,7 +608,7 @@ class HoptimatorDdlUtilsTest {
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
       rootSchema.add("SOME_CATALOG", new AbstractSchema());
 
@@ -623,7 +623,7 @@ class HoptimatorDdlUtilsTest {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
 
       assertThrows(SQLException.class, () ->
@@ -638,7 +638,7 @@ class HoptimatorDdlUtilsTest {
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
       // Add a plain AbstractSchema as catalog — it's NOT a HoptimatorJdbcCatalogSchema
       rootSchema.add("PLAIN_CATALOG", new AbstractSchema());
@@ -892,7 +892,7 @@ class HoptimatorDdlUtilsTest {
 
   @Test
   void columnDefOfWithNullExprAndNullableStrategy() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType type = typeFactory.createSqlType(SqlTypeName.VARCHAR);
 
     HoptimatorDdlUtils.ColumnDef columnDef =
@@ -905,7 +905,7 @@ class HoptimatorDdlUtilsTest {
 
   @Test
   void columnDefOfWithNullExprAndNotNullableStrategy() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType type = typeFactory.createSqlType(SqlTypeName.INTEGER);
 
     HoptimatorDdlUtils.ColumnDef columnDef =
@@ -918,7 +918,7 @@ class HoptimatorDdlUtilsTest {
 
   @Test
   void columnDefOfWithNullExprAndStoredStrategyThrowsIllegalArgumentException() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType type = typeFactory.createSqlType(SqlTypeName.VARCHAR);
 
     // STORED requires a non-null expr; checkArgument fails if expr==null and strategy!=NULLABLE/NOT_NULLABLE
@@ -928,7 +928,7 @@ class HoptimatorDdlUtilsTest {
 
   @Test
   void columnDefOfWithNonNullExprAndStoredStrategySucceeds() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType type = typeFactory.createSqlType(SqlTypeName.VARCHAR);
     SqlNode expr = SqlLiteral.createCharString("default_val", SqlParserPos.ZERO);
 
@@ -1621,7 +1621,7 @@ class HoptimatorDdlUtilsTest {
     HoptimatorDriver driver = new HoptimatorDriver();
     try (HoptimatorConnection connection =
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
       HoptimatorDdlUtils.registerTemporaryTableInSchema(
           connection, null, null, "ROOT_TMP", rowType, "db");
@@ -1641,7 +1641,7 @@ class HoptimatorDdlUtilsTest {
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
       rootSchema.add("KAFKA", new AbstractSchema());
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
       HoptimatorDdlUtils.registerTemporaryTableInSchema(
           connection, null, "KAFKA", "my_topic", rowType, "kafka-db");
@@ -1663,7 +1663,7 @@ class HoptimatorDdlUtilsTest {
       SchemaPlus rootSchema = connection.calciteConnection().getRootSchema();
       SchemaPlus catalogSchema = rootSchema.add("CAT", new AbstractSchema());
       SchemaPlus dbSchema = catalogSchema.add("DB", new AbstractSchema());
-      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+      RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
       RelDataType rowType = typeFactory.createStructType(Collections.emptyList(), Collections.emptyList());
       HoptimatorDdlUtils.registerTemporaryTableInSchema(
           connection, "CAT", "DB", "t", rowType, "mysql-db");

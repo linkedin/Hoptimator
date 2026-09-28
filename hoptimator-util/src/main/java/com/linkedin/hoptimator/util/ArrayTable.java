@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.EnumerableTableScan;
 import org.apache.calcite.adapter.java.JavaTypeFactory;
@@ -50,7 +51,7 @@ public abstract class ArrayTable<T> extends AbstractTable
   }
 
   public ArrayTable(Class<T> elementType) {
-    this(elementType, new JavaTypeFactoryImpl());
+    this(elementType, new JavaTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE));
   }
 
   public Collection<T> rows() {

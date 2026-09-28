@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.linq4j.Queryable;
 import org.apache.calcite.linq4j.tree.Expression;
 import org.apache.calcite.plan.RelOptCluster;
@@ -11,7 +12,6 @@ import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.logical.LogicalTableModify;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
@@ -82,7 +82,7 @@ class RemoteTableTest {
   @Test
   void testGetRowTypeReturnsCopiedType() {
     RemoteTable<String, TestRow> table = new TestRemoteTable(mockApi);
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     RelDataType rowType = table.getRowType(typeFactory);
 
@@ -113,7 +113,7 @@ class RemoteTableTest {
   @Test
   void testToModificationRelReturnsLogicalTableModify() {
     RemoteTable<String, TestRow> table = new TestRemoteTable(mockApi);
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RexBuilder rexBuilder = new RexBuilder(typeFactory);
     VolcanoPlanner planner = new VolcanoPlanner();
     RelOptCluster cluster = RelOptCluster.create(planner, rexBuilder);

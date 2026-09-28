@@ -1,7 +1,6 @@
 package com.linkedin.hoptimator.avro;
 
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
@@ -16,7 +15,7 @@ class HoptimatorArraySqlTypeTest {
 
   @Test
   void testDigestUsesGenerateTypeString() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType elementType = typeFactory.createSqlType(SqlTypeName.INTEGER);
 
     HoptimatorArraySqlType arrayType = new HoptimatorArraySqlType(elementType, false);
@@ -30,7 +29,7 @@ class HoptimatorArraySqlTypeTest {
 
   @Test
   void testNullableArrayDigest() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType elementType = typeFactory.createSqlType(SqlTypeName.FLOAT);
 
     HoptimatorArraySqlType arrayType = new HoptimatorArraySqlType(elementType, true);
@@ -43,7 +42,7 @@ class HoptimatorArraySqlTypeTest {
 
   @Test
   void testIsNullableReflectsConstructorArg() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType elementType = typeFactory.createSqlType(SqlTypeName.VARCHAR);
 
     HoptimatorArraySqlType nullableArray = new HoptimatorArraySqlType(elementType, true);
@@ -55,7 +54,7 @@ class HoptimatorArraySqlTypeTest {
 
   @Test
   void testComponentTypePreserved() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType elementType = typeFactory.createSqlType(SqlTypeName.DOUBLE);
 
     HoptimatorArraySqlType arrayType = new HoptimatorArraySqlType(elementType, false);

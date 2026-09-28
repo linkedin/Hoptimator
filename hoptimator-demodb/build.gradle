@@ -9,6 +9,8 @@ dependencies {
   implementation project(':hoptimator-util')
   implementation libs.calcite.core
   compileOnly libs.findbugs
+
+  testImplementation project(':hoptimator-avro')
 }
 
 publishing {

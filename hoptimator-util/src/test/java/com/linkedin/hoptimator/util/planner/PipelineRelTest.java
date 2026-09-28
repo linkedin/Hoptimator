@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.DeploymentContext;
 
 import com.linkedin.hoptimator.Job;
@@ -12,7 +13,6 @@ import org.apache.calcite.rel.logical.LogicalFilter;
 import org.apache.calcite.rel.logical.LogicalProject;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.runtime.ImmutablePairList;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -56,7 +56,7 @@ public class PipelineRelTest {
 
     @BeforeEach
     void setUp() {
-        typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+        typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
         // Create sample target fields mapping
         List<Map.Entry<Integer, String>> entries = List.of(

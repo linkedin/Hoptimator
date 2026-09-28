@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.util.planner;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -7,7 +8,6 @@ import java.util.Map;
 
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Named;
@@ -26,7 +26,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 class TypeCoercionTest {
 
-  private static final RelDataTypeFactory TF = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+  private static final RelDataTypeFactory TF = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
   private static RelDataType type(SqlTypeName name) {
     return TF.createSqlType(name);

@@ -1,11 +1,11 @@
 package com.linkedin.hoptimator.jdbc;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.impl.ViewTable;
@@ -44,7 +44,7 @@ class MaterializedViewTableTest {
 
   @BeforeEach
   void setUp() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     RelDataType rowType = typeFactory.builder()
         .add("ID", SqlTypeName.INTEGER)
         .add("NAME", SqlTypeName.VARCHAR)
@@ -77,7 +77,7 @@ class MaterializedViewTableTest {
 
   @Test
   void testGetRowTypeDelegatesToViewTable() {
-    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    RelDataTypeFactory typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
 
     RelDataType rowType = materializedViewTable.getRowType(typeFactory);
 

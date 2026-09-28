@@ -5,8 +5,6 @@ import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.util.LazyReference;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.sql.Connection;
@@ -22,8 +20,6 @@ import java.util.Properties;
  * This discovers tables for a specific database.
  */
 public class TableSchema extends AbstractSchema {
-
-  private static final Logger log = LoggerFactory.getLogger(TableSchema.class);
 
   private final Properties properties;
   private final String database;

@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator.subscription;
 
+import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import com.linkedin.hoptimator.catalog.Database;
@@ -23,7 +24,6 @@ import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.BeforeEach;
@@ -95,7 +95,7 @@ class SubscriptionReconcilerTest {
   }
 
   private RelDataType buildSimpleRowType() {
-    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(RelDataTypeSystem.DEFAULT);
+    SqlTypeFactoryImpl typeFactory = new SqlTypeFactoryImpl(HoptimatorTypeSystem.INSTANCE);
     return typeFactory.builder().add("col", SqlTypeName.VARCHAR).build();
   }
 
