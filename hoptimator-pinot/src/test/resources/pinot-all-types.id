@@ -4,25 +4,25 @@
 # Create a Pinot table referencing a column of each provisionable type. Provisioning supports
 # scalars and multi-valued (primitive array) columns; complex struct/map columns are rejected,
 # matching Pinot's flat-schema / JSON-column model.
-create or replace table "PINOT"."all_types_table" ("id" VARCHAR, "views" INTEGER, "count" BIGINT, "ratio" DOUBLE, "rate" REAL, "amount" DECIMAL, "active" BOOLEAN, "created" TIMESTAMP, "payload" VARBINARY, "tags" INTEGER ARRAY);
+create or replace table "PINOT"."all_types_table" ("id" VARCHAR, "views" INTEGER, "count" BIGINT, "ratio" DOUBLE, "rate" REAL, "amount" DECIMAL, "active" BOOLEAN, "created" TIMESTAMP(3), "payload" VARBINARY, "tags" INTEGER ARRAY);
 (0 rows modified)
 
 !update
 
-+------------+-----------+------------+------------+
-| columnName | typeName  | columnSize | isNullable |
-+------------+-----------+------------+------------+
-| id         | VARCHAR   | null       | YES        |
-| views      | INTEGER   | 10         | YES        |
-| count      | BIGINT    | 19         | YES        |
-| ratio      | DOUBLE    | 15         | YES        |
-| rate       | REAL      | 7          | YES        |
-| amount     | DECIMAL   | 19         | YES        |
-| active     | BOOLEAN   | 1          | YES        |
-| created    | TIMESTAMP | 0          | YES        |
-| payload    | VARBINARY | null       | YES        |
-| tags       | ARRAY     | null       | YES        |
-+------------+-----------+------------+------------+
++------------+----------------+------------+-------------+------------+
+| columnName | typeName       | columnSize | columnScale | isNullable |
++------------+----------------+------------+-------------+------------+
+| id         | VARCHAR        | null       | null        | YES        |
+| views      | INTEGER        | 10         | 0           | YES        |
+| count      | BIGINT         | 19         | 0           | YES        |
+| ratio      | DOUBLE         | 15         | null        | YES        |
+| rate       | REAL           | 7          | null        | YES        |
+| amount     | DECIMAL(19, 0) | 19         | null        | YES        |
+| active     | BOOLEAN        | 1          | null        | YES        |
+| created    | TIMESTAMP(3)   | 3          | null        | YES        |
+| payload    | VARBINARY      | null       | null        | YES        |
+| tags       | INTEGER ARRAY  | null       | null        | YES        |
++------------+----------------+------------+-------------+------------+
 (10 rows)
 
 !describe "PINOT"."all_types_table"

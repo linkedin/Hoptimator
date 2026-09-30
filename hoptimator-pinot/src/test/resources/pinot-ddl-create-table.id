@@ -7,13 +7,13 @@ create or replace table "PINOT"."integration_test_table" ("id" VARCHAR, "views" 
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| id         | VARCHAR  | null       | YES        |
-| views      | INTEGER  | 10         | YES        |
-| score      | DOUBLE   | 15         | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| id         | VARCHAR  | null       | null        | YES        |
+| views      | INTEGER  | 10         | 0           | YES        |
+| score      | DOUBLE   | 15         | null        | YES        |
++------------+----------+------------+-------------+------------+
 (3 rows)
 
 !describe "PINOT"."integration_test_table"
@@ -24,14 +24,14 @@ create or replace table "PINOT"."integration_test_table" ("id" VARCHAR, "views" 
 
 !update
 
-+------------+----------+------------+------------+
-| columnName | typeName | columnSize | isNullable |
-+------------+----------+------------+------------+
-| id         | VARCHAR  | null       | YES        |
-| views      | INTEGER  | 10         | YES        |
-| score      | DOUBLE   | 15         | YES        |
-| rank       | INTEGER  | 10         | YES        |
-+------------+----------+------------+------------+
++------------+----------+------------+-------------+------------+
+| columnName | typeName | columnSize | columnScale | isNullable |
++------------+----------+------------+-------------+------------+
+| id         | VARCHAR  | null       | null        | YES        |
+| views      | INTEGER  | 10         | 0           | YES        |
+| score      | DOUBLE   | 15         | null        | YES        |
+| rank       | INTEGER  | 10         | 0           | YES        |
++------------+----------+------------+-------------+------------+
 (4 rows)
 
 !describe "PINOT"."integration_test_table"
