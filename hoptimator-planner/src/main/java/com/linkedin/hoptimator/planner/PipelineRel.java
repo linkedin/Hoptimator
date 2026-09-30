@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.planner;
 
 import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.util.planner.HoptimatorSqlDialect;
 import com.linkedin.hoptimator.util.planner.ScriptImplementor;
 import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.RelOptUtil;
@@ -10,7 +11,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeImpl;
 import org.apache.calcite.rel.type.RelProtoDataType;
 import org.apache.calcite.sql.SqlDialect;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.util.Litmus;
 
 import java.util.ArrayList;
@@ -89,7 +89,7 @@ public interface PipelineRel extends RelNode {
 
     /** Combine SQL and any Resources into a Pipeline, using ANSI dialect */
     public Pipeline pipeline(HopTable sink) {
-      return pipeline(sink, AnsiSqlDialect.DEFAULT);
+      return pipeline(sink, HoptimatorSqlDialect.DEFAULT);
     }
 
     /** Combine SQL and any Resources into a Pipeline */

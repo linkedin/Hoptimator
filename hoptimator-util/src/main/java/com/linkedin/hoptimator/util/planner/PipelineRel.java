@@ -26,7 +26,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.fun.SqlItemOperator;
 import org.apache.calcite.sql.type.SqlTypeName;
 
@@ -393,7 +392,7 @@ public interface PipelineRel extends RelNode {
         switch (x) {
           case ANSI:
           case FLINK:
-            return innerFunction.apply(AnsiSqlDialect.DEFAULT);
+            return innerFunction.apply(HoptimatorSqlDialect.DEFAULT);
           default:
             throw new IllegalStateException("Unknown SQL dialect: " + x);
         }
