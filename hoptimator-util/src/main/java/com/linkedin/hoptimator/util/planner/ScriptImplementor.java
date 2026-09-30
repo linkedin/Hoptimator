@@ -24,7 +24,6 @@ import org.apache.calcite.sql.SqlRowTypeNameSpec;
 import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.SqlWriterConfig;
-import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.fun.SqlRowOperator;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
@@ -146,7 +145,7 @@ public interface ScriptImplementor {
 
   /** Render the script as DDL/SQL in the default dialect */
   default String sql() {
-    return sql(AnsiSqlDialect.DEFAULT);
+    return sql(HoptimatorSqlDialect.DEFAULT);
   }
 
   /** Render the script as DDL/SQL in the given dialect */
@@ -166,7 +165,7 @@ public interface ScriptImplementor {
       switch (x) {
         case ANSI:
         case FLINK:
-          sql = sql(AnsiSqlDialect.DEFAULT);
+          sql = sql(HoptimatorSqlDialect.DEFAULT);
           break;
         default:
           throw new IllegalStateException("unreachable");
