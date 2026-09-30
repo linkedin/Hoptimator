@@ -17,7 +17,7 @@ create or replace table "PINOT"."all_types_table" ("id" VARCHAR, "views" INTEGER
 | count      | BIGINT         | 19         | 0           | YES        |
 | ratio      | DOUBLE         | 15         | null        | YES        |
 | rate       | REAL           | 7          | null        | YES        |
-| amount     | DECIMAL(19, 0) | 19         | null        | YES        |
+| amount     | DECIMAL(19, 0) | 19         | 0           | YES        |
 | active     | BOOLEAN        | 1          | null        | YES        |
 | created    | TIMESTAMP(3)   | 3          | null        | YES        |
 | payload    | VARBINARY      | null       | null        | YES        |
