@@ -1,0 +1,20 @@
+{
+  "schemaName": "native_types_table",
+  "dimensionFieldSpecs": [
+    { "name": "id", "dataType": "STRING" },
+    { "name": "views", "dataType": "INT" },
+    { "name": "count", "dataType": "LONG" },
+    { "name": "ratio", "dataType": "DOUBLE" },
+    { "name": "rate", "dataType": "FLOAT" },
+    { "name": "amount", "dataType": "BIG_DECIMAL" },
+    { "name": "active", "dataType": "BOOLEAN" },
+    { "name": "payload", "dataType": "BYTES" },
+    { "name": "tags", "dataType": "INT", "singleValueField": false }
+  ],
+  "metricFieldSpecs": [
+    { "name": "revenue", "dataType": "DOUBLE" }
+  ],
+  "dateTimeFieldSpecs": [
+    { "name": "ts", "dataType": "LONG", "format": "1:MILLISECONDS:EPOCH", "granularity": "1:MILLISECONDS" }
+  ]
+}

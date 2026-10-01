@@ -1,27 +1,25 @@
 plugins {
-  id 'java'
-  id 'application'
-  id 'idea'
+  id 'java-library'
   id 'maven-publish'
 }
 
 dependencies {
   implementation project(':hoptimator-api')
-  implementation project(':hoptimator-avro')
-  implementation project(':hoptimator-demodb')
-  implementation project(':hoptimator-graph')
   implementation project(':hoptimator-jdbc')
-  implementation project(':hoptimator-kafka')
-  implementation project(':hoptimator-logical')
-  implementation project(':hoptimator-mysql')
-  implementation project(':hoptimator-pinot')
-  implementation project(':hoptimator-venice')
-  implementation project(':hoptimator-k8s')
   implementation project(':hoptimator-util')
   implementation libs.calcite.core
-  implementation libs.sqlline
-  implementation libs.slf4j.simple
-  implementation libs.flink.jdbc
+  implementation(libs.pinot.spi) {
+    // Pinot pulls in snakeyaml v2.0 which has conflicting APIs with the 1.x on the classpath.
+    exclude group: 'org.yaml'
+  }
+  compileOnly libs.findbugs
+  testCompileOnly libs.findbugs.annotations
+
+  testImplementation libs.assertj
+  testImplementation libs.kafka.clients
+
+  testRuntimeOnly project(':hoptimator-k8s')
+  testImplementation(testFixtures(project(':hoptimator-jdbc')))
 }
 
 publishing {
@@ -46,7 +44,7 @@ publishing {
   publications {
     maven(MavenPublication) {
       groupId = 'com.linkedin.hoptimator'
-      artifactId = 'hoptimator-cli'
+      artifactId = 'hoptimator-pinot'
       version = System.getenv('VERSION')
       from components.java
       pom {
@@ -57,27 +55,14 @@ publishing {
           license {
             name = 'BSD 2-Clause'
             url = 'https://raw.githubusercontent.com/linkedin/Hoptimator/main/LICENSE'
-            }
           }
+        }
         scm {
           connection = 'scm:git:git://github.com:linkedin/Hoptimator.git'
           developerConnection = 'scm:git:ssh://github.com:linkedin/Hoptimator.git'
           url = 'https://github.com/linkedin/Hoptimator'
         }
       }
-
     }
-  }
-}
-
-java {
-  withJavadocJar()
-  withSourcesJar()
-}
-
-idea {
-  module {
-    downloadJavadoc = true
-    downloadSources = true
   }
 }
