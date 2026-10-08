@@ -3,6 +3,7 @@ package com.linkedin.hoptimator.k8s;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTemplateSpec.MethodsEnum;
+import com.linkedin.hoptimator.util.IdentifierUtils;
 import io.kubernetes.client.common.KubernetesType;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
@@ -22,6 +23,13 @@ import java.util.stream.Stream;
 
 public final class K8sUtils {
 
+  // Kubernetes limits most resource (DNS-subdomain) names to 253 characters. The names validated
+  // here become the metadata.name of Hoptimator custom resources, so this is the relevant ceiling.
+  // Note this is distinct from the stricter 63-character DNS-label limit, which applies to label
+  // VALUES and to names of label-typed resources such as Services -- not to these resource names.
+  // Kept equal to the parser's identifier limit so parse-time and name-validation limits stay aligned.
+  public static final int MAX_NAME_LENGTH = IdentifierUtils.MAX_IDENTIFIER_LENGTH;
+
   private K8sUtils() {
   }
 
@@ -40,15 +48,15 @@ public final class K8sUtils {
   }
 
   // see:
-  // https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#rfc-1035-label-names
+  // https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#dns-subdomain-names
   public static void checkK8sName(String s) {
 
     if (s == null || s.isEmpty()) {
       throw new IllegalArgumentException("Name is empty.");
     }
 
-    // contain at most 63 characters
-    if (s.length() > 63) {
+    // contain at most 253 characters
+    if (s.length() > MAX_NAME_LENGTH) {
       throw new IllegalArgumentException("Name is too long: " + s);
     }
 

@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
+import com.linkedin.hoptimator.util.IdentifierUtils;
 import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
@@ -245,6 +246,32 @@ class HoptimatorDriverTest {
         (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       assertThrows(RuntimeException.class, () ->
           HoptimatorDriver.parseQuery(connection, "NOT VALID SQL %%%"));
+    }
+  }
+
+  @Test
+  void testParseQueryAcceptsIdentifierAtMaxLength() throws SQLException {
+    // Generated identifiers can far exceed Calcite's default of 128; the parser is configured to
+    // allow up to the Kubernetes DNS-subdomain limit of 253 characters.
+    String identifier = "a".repeat(IdentifierUtils.MAX_IDENTIFIER_LENGTH);
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SqlNode node = HoptimatorDriver.parseQuery(connection, "SELECT 1 AS \"" + identifier + "\"");
+
+      assertNotNull(node);
+    }
+  }
+
+  @Test
+  void testParseQueryRejectsIdentifierOverMaxLength() throws SQLException {
+    String identifier = "a".repeat(IdentifierUtils.MAX_IDENTIFIER_LENGTH + 1);
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      RuntimeException thrown = assertThrows(RuntimeException.class, () ->
+          HoptimatorDriver.parseQuery(connection, "SELECT 1 AS \"" + identifier + "\""));
+
+      assertTrue(thrown.getMessage().contains("must be less than or equal to 253 characters"),
+          "Error must report the configured 253-character limit, but was: " + thrown.getMessage());
     }
   }
 

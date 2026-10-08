@@ -92,14 +92,22 @@ class K8sUtilsTest {
 
   @Test
   void checkK8sNameTooLongThrows() {
-    String longName = "a".repeat(64);
+    String longName = "a".repeat(254);
     assertThrows(IllegalArgumentException.class, () -> K8sUtils.checkK8sName(longName));
   }
 
   @Test
   void checkK8sNameMaxLengthOk() {
-    String maxName = "a".repeat(63);
+    String maxName = "a".repeat(253);
     K8sUtils.checkK8sName(maxName);
+  }
+
+  @Test
+  void checkK8sNameAllowsNamesLongerThanDnsLabelLimit() {
+    // Names between the DNS-label limit (63) and the DNS-subdomain limit (253) are valid resource
+    // names and must be accepted; only label values and label-typed resources are capped at 63.
+    String name = "a".repeat(64);
+    K8sUtils.checkK8sName(name);
   }
 
   @Test

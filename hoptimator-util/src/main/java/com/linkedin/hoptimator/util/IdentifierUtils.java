@@ -16,11 +16,21 @@ import org.apache.calcite.sql.validate.SqlConformanceEnum;
 /** Helpers for turning user-typed SQL identifier strings into their component parts. */
 public final class IdentifierUtils {
 
+  /**
+   * Maximum length of a SQL identifier Hoptimator will parse. Set to the Kubernetes DNS-subdomain
+   * name limit (253) because these identifiers ultimately become Kubernetes resource names. This
+   * deliberately overrides Calcite's default of 128, which is too small for Hoptimator's generated
+   * pipeline/view/job identifiers. Shared by every parser path (see {@code HoptimatorDriver}) and by
+   * {@code K8sUtils#checkK8sName}, so the parse-time limit and the name-validation limit stay aligned.
+   */
+  public static final int MAX_IDENTIFIER_LENGTH = 253;
+
   private static final SqlParser.Config PARSER_CONFIG = SqlParser.config()
       .withQuoting(Quoting.DOUBLE_QUOTE)
       // Preserve case exactly as typed — Hoptimator schema/table names are case-sensitive.
       .withUnquotedCasing(Casing.UNCHANGED)
       .withQuotedCasing(Casing.UNCHANGED)
+      .withIdentifierMaxLength(MAX_IDENTIFIER_LENGTH)
       .withConformance(SqlConformanceEnum.BABEL);
 
   private IdentifierUtils() {
