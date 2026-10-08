@@ -7,6 +7,7 @@ import com.linkedin.hoptimator.avro.AvroConverter;
 import com.linkedin.hoptimator.avro.AvroSchemaSource;
 import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
+import com.linkedin.hoptimator.util.IdentifierUtils;
 import org.apache.avro.Schema;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.config.CalciteConnectionProperty;
@@ -271,7 +272,9 @@ public class HoptimatorDriver implements Driver {
 
     @Override
     protected SqlParser.Config parserConfig() {
-      return SqlParser.config().withParserFactory(HoptimatorDdlExecutor.PARSER_FACTORY);
+      return SqlParser.config()
+          .withParserFactory(HoptimatorDdlExecutor.PARSER_FACTORY)
+          .withIdentifierMaxLength(IdentifierUtils.MAX_IDENTIFIER_LENGTH);
     }
 
     @Override

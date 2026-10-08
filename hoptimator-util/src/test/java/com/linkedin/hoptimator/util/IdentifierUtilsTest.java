@@ -94,4 +94,19 @@ class IdentifierUtilsTest {
     List<String> parts = IdentifierUtils.parseIdentifier(null);
     assertThat(parts).isEmpty();
   }
+
+  @Test
+  void quotedSegmentAtMaxIdentifierLengthParses() {
+    // Generated identifiers can exceed Calcite's default of 128; the quoted path must accept up to
+    // the configured 253-character limit so graph resolution and CR lookups don't fail at parse time.
+    String segment = "a".repeat(IdentifierUtils.MAX_IDENTIFIER_LENGTH);
+    assertThat(IdentifierUtils.parseIdentifier("\"" + segment + "\"")).containsExactly(segment);
+  }
+
+  @Test
+  void quotedSegmentOverMaxIdentifierLengthThrows() {
+    String segment = "a".repeat(IdentifierUtils.MAX_IDENTIFIER_LENGTH + 1);
+    assertThatThrownBy(() -> IdentifierUtils.parseIdentifier("\"" + segment + "\""))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
 }
