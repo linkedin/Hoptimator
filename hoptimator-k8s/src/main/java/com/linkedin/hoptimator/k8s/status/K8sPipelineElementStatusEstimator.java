@@ -6,7 +6,6 @@ import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Pipeline;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +47,7 @@ public class K8sPipelineElementStatusEstimator {
   public K8sPipelineElementStatus estimateElementStatus(String elementYaml, String pipelineNamespace) {
     DynamicKubernetesObject obj;
     try {
-      obj = Dynamics.newFromYaml(elementYaml);
+      obj = K8sUtils.parseYaml(elementYaml);
     } catch (Exception e) {
       String message = String.format("Failed to parse element YAML: %s", e.getMessage());
       log.warn(message, e);
@@ -83,7 +82,7 @@ public class K8sPipelineElementStatusEstimator {
       String failureMessage =
           String.format("Encountered exception while checking status of %s in namespace %s: %s", nameWithKind,
               namespace, e);
-      log.error(failureMessage);
+      log.error(failureMessage, e);
       return defaultUnreadyStatusOnK8sObjectRetrievalFailure(nameWithKind, failureMessage);
     }
   }
