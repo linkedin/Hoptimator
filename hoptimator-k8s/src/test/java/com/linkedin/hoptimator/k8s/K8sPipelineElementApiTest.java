@@ -14,6 +14,7 @@ import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -51,7 +52,7 @@ class K8sPipelineElementApiTest {
     @Mock
     private DynamicKubernetesObject mockDynamicObject;
 
-    @Mock
+    @Mock(answer = Answers.CALLS_REAL_METHODS)
     private MockedStatic<K8sUtils> k8sUtilsMockedStatic;
 
     private K8sPipelineElementApi api;

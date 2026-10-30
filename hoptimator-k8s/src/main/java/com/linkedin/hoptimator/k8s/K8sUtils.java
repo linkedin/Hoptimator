@@ -8,6 +8,10 @@ import io.kubernetes.client.common.KubernetesType;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
+import io.kubernetes.client.util.generic.dynamic.Dynamics;
+import org.yaml.snakeyaml.LoaderOptions;
+import org.yaml.snakeyaml.Yaml;
+import org.yaml.snakeyaml.constructor.SafeConstructor;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -31,6 +35,11 @@ public final class K8sUtils {
   public static final int MAX_NAME_LENGTH = IdentifierUtils.MAX_IDENTIFIER_LENGTH;
 
   private K8sUtils() {
+  }
+
+  /** Parses with an isolated safe loader; Dynamics' default SnakeYAML instance is not thread-safe. */
+  public static DynamicKubernetesObject parseYaml(String yaml) {
+    return Dynamics.newFromYaml(new Yaml(new SafeConstructor(new LoaderOptions())), yaml);
   }
 
   public static String canonicalizeName(Collection<String> parts) {

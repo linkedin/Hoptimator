@@ -20,6 +20,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -39,6 +45,38 @@ import static org.mockito.Mockito.verify;
 
 
 class K8sYamlApiTest {
+
+  @Test
+  void objFromYamlIsolatedAcrossConcurrentRequests() throws Exception {
+    K8sYamlApi api = new K8sYamlApi(null);
+    ExecutorService executor = Executors.newFixedThreadPool(8);
+    CountDownLatch start = new CountDownLatch(1);
+    List<Future<Void>> results = new ArrayList<>();
+    try {
+      for (int i = 0; i < 8; i++) {
+        String name = "request-" + i;
+        Callable<Void> request = () -> {
+          start.await();
+          for (int j = 0; j < 100; j++) {
+            DynamicKubernetesObject obj = api.objFromYaml(
+                "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: " + name
+                    + "\n  namespace: test\ndata:\n  owner: " + name);
+            assertEquals("ConfigMap", obj.getKind());
+            assertEquals(name, obj.getMetadata().getName());
+            assertEquals(name, obj.getRaw().getAsJsonObject("data").get("owner").getAsString());
+          }
+          return null;
+        };
+        results.add(executor.submit(request));
+      }
+      start.countDown();
+      for (Future<Void> result : results) {
+        result.get(30, TimeUnit.SECONDS);
+      }
+    } finally {
+      executor.shutdownNow();
+    }
+  }
 
   @Test
   void listThrowsUnsupportedOperation() {

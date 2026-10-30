@@ -12,6 +12,7 @@ dependencies {
   implementation libs.avro
   implementation libs.calcite.server
   implementation libs.kubernetes.client
+  implementation libs.yaml
 
   testFixturesImplementation libs.kubernetes.client
   testFixturesImplementation project(':hoptimator-api')
