@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 
 public class TestBasicSql extends JdbcTestBase {
@@ -57,7 +58,8 @@ public class TestBasicSql extends JdbcTestBase {
         "[HoptimatorDdlExecutor] Deleting table T",
         "[HoptimatorDdlExecutor] Removed table T from schema DEFAULT",
         "[HoptimatorDdlExecutor] DROP TABLE `T` completed");
-    Assertions.assertEquals(expectedLogs, logs);
+    List<String> normalizedLogs = logs.stream().map(s -> s.replace("\r\n", "\n")).collect(Collectors.toList());
+    Assertions.assertEquals(expectedLogs, normalizedLogs);
   }
 
   @Test
