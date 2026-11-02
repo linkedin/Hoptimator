@@ -186,8 +186,9 @@ The repo is split into focused modules. The ones you'll touch most often:
 | `hoptimator-flink-runner`                | The runtime that executes Flink SQL jobs produced by the planner.   |
 | `hoptimator-flink-adapter`               | Flink-side adapter for catalog awareness.                           |
 | `hoptimator-kafka` / `-kafka-controller` | Kafka catalog and controller integration.                           |
-| `hoptimator-venice`                      | Venice catalog adapter.                                             |
 | `hoptimator-mysql`                       | MySQL catalog adapter.                                              |
+| `hoptimator-pinot`                       | Pinot catalog adapter.                                              |
+| `hoptimator-venice`                      | Venice catalog adapter.                                             |
 | `hoptimator-logical`                     | LogicalTable support — one logical entity, multiple physical tiers. |
 | `hoptimator-graph`                       | Pipeline graph renderers. Ships the Mermaid backend for `!graph`.   |
 | `hoptimator-demodb`                      | In-memory demo source used by the quickstart.                       |

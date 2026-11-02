@@ -9,7 +9,7 @@
 </div>
 
 Hoptimator turns SQL into running, multi-hop data pipelines that span
-Kafka, Flink, Venice, and anything else you plug in. You declare what you
+Kafka, Flink, Venice, Pinot, and anything else you plug in. You declare what you
 want — a materialized view from one system into another — and Hoptimator
 plans the topology, generates the specs, deploys them, and reconciles them.
 
@@ -35,7 +35,7 @@ but `hoptimator-api` is the actual extension point.
 
 ## Why Hoptimator?
 
-- **One SQL surface across many systems.** Kafka, Flink, Venice, MySQL — and
+- **One SQL surface across many systems.** Kafka, Flink, Venice, MySQL, Pinot — and
   pluggable for the rest. The catalog is unified; joins span systems.
 - **Multi-hop, declarative.** You don't write Flink jobs and you don't request
   topics. The planner figures out the topology from a query.
