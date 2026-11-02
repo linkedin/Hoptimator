@@ -9,7 +9,6 @@ import com.linkedin.hoptimator.k8s.status.K8sPipelineElementStatusEstimator;
 import com.linkedin.hoptimator.util.Api;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -71,7 +70,7 @@ public class K8sPipelineElementApi implements Api<K8sPipelineElement> {
   Map<String, String> getElementConfiguration(String elementYaml, String pipelineNamespace) {
     DynamicKubernetesObject obj;
     try {
-      obj = Dynamics.newFromYaml(elementYaml);
+      obj = K8sUtils.parseYaml(elementYaml);
     } catch (Exception e) {
       log.error("Failed to parse element YAML for configuration extraction: {}", e.getMessage(), e);
       return new HashMap<>();
@@ -108,7 +107,7 @@ public class K8sPipelineElementApi implements Api<K8sPipelineElement> {
       String failureMessage =
           String.format("Encountered exception while checking status of %s in namespace %s: %s", nameWithKind,
               namespace, e);
-      log.error(failureMessage);
+      log.error(failureMessage, e);
       return new HashMap<>();
     }
   }

@@ -4,7 +4,6 @@ import com.linkedin.hoptimator.util.Api;
 import io.kubernetes.client.openapi.models.V1OwnerReference;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,7 +152,7 @@ public class K8sYamlApi implements Api<String> {
   }
 
   public DynamicKubernetesObject objFromYaml(String yaml) {
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    DynamicKubernetesObject obj = K8sUtils.parseYaml(yaml);
     return K8sUtils.overrideNamespaceFromContext(this.context, obj);
   }
 }

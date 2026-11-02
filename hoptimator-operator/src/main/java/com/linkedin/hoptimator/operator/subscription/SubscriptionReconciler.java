@@ -2,6 +2,7 @@ package com.linkedin.hoptimator.operator.subscription;
 
 import com.linkedin.hoptimator.catalog.HopTable;
 import com.linkedin.hoptimator.catalog.Resource;
+import com.linkedin.hoptimator.k8s.K8sUtils;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Subscription;
 import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionSpec;
 import com.linkedin.hoptimator.k8s.models.V1alpha1SubscriptionStatus;
@@ -17,7 +18,6 @@ import io.kubernetes.client.extended.controller.reconciler.Request;
 import io.kubernetes.client.extended.controller.reconciler.Result;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -240,7 +240,7 @@ public final class SubscriptionReconciler implements Reconciler {
   private Map<String, String> fetchAttributes(String yaml) {
     DynamicKubernetesObject obj;
     try {
-      obj = Dynamics.newFromYaml(yaml);
+      obj = K8sUtils.parseYaml(yaml);
     } catch (Exception e) {
       log.warn("Failed to parse YAML in fetchAttributes: {}", e.getMessage());
       return Collections.emptyMap();
@@ -343,4 +343,3 @@ public final class SubscriptionReconciler implements Reconciler {
     return false;
   }
 }
-

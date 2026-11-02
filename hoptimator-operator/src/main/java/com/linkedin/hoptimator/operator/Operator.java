@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.operator;
 
+import com.linkedin.hoptimator.k8s.K8sUtils;
 import io.kubernetes.client.common.KubernetesListObject;
 import io.kubernetes.client.common.KubernetesObject;
 import io.kubernetes.client.informer.SharedIndexInformer;
@@ -13,7 +14,6 @@ import io.kubernetes.client.util.generic.GenericKubernetesApi;
 import io.kubernetes.client.util.generic.KubernetesApiResponse;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi;
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesObject;
-import io.kubernetes.client.util.generic.dynamic.Dynamics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -135,7 +135,7 @@ public class Operator {
         .name(owner.getMetadata().getName())
         .apiVersion(owner.getApiVersion())
         .uid(owner.getMetadata().getUid());
-    DynamicKubernetesObject obj = Dynamics.newFromYaml(yaml);
+    DynamicKubernetesObject obj = K8sUtils.parseYaml(yaml);
     if (obj.getMetadata().getNamespace() == null) {
       obj.getMetadata().setNamespace(owner.getMetadata().getNamespace());
     }
@@ -178,7 +178,7 @@ public class Operator {
   public boolean isReady(String yaml) {
     DynamicKubernetesObject obj;
     try {
-      obj = Dynamics.newFromYaml(yaml);
+      obj = K8sUtils.parseYaml(yaml);
     } catch (Exception e) {
       log.warn("Failed to parse YAML in isReady check: {}", e.getMessage());
       return false;
@@ -254,7 +254,7 @@ public class Operator {
   public boolean isFailed(String yaml) {
     DynamicKubernetesObject obj;
     try {
-      obj = Dynamics.newFromYaml(yaml);
+      obj = K8sUtils.parseYaml(yaml);
     } catch (Exception e) {
       log.warn("Failed to parse YAML in isFailed check: {}", e.getMessage());
       return false;
