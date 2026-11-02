@@ -9,13 +9,21 @@ import com.linkedin.hoptimator.avro.AvroSchemas;
 import com.linkedin.hoptimator.avro.HoptimatorTypeSystem;
 import com.linkedin.hoptimator.util.IdentifierUtils;
 import org.apache.avro.Schema;
+import org.apache.calcite.adapter.enumerable.EnumerableConvention;
+import org.apache.calcite.adapter.enumerable.EnumerableRel;
+import org.apache.calcite.adapter.java.JavaTypeFactory;
 import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.config.CalciteConnectionProperty;
+import org.apache.calcite.interpreter.BindableConvention;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.prepare.CalciteCatalogReader;
 import org.apache.calcite.prepare.CalcitePrepareImpl;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -29,6 +37,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -37,6 +46,8 @@ import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.sql.SQLTransientException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.logging.LogManager;
@@ -268,6 +279,24 @@ public class HoptimatorDriver implements Driver {
     public Prepare(HoptimatorConnection connection) {
       this.holder = new ConnectionHolder();
       this.holder.connection = connection;
+    }
+
+    // N.B. originally copy-pasted from Apache Calcite with getLattices override
+    @Override
+    protected CalcitePreparingStmt getPreparingStmt(Context context, Type elementType,
+        CalciteCatalogReader catalogReader, RelOptPlanner planner) {
+      JavaTypeFactory typeFactory = context.getTypeFactory();
+      EnumerableRel.Prefer prefer =
+          elementType == Object[].class ? EnumerableRel.Prefer.ARRAY : EnumerableRel.Prefer.CUSTOM;
+      return new CalcitePreparingStmt(this, context, catalogReader, typeFactory,
+          context.getRootSchema(), prefer, createCluster(planner, new RexBuilder(typeFactory)),
+          enableBindable ? BindableConvention.INSTANCE : EnumerableConvention.INSTANCE, createConvertletTable()) {
+        @Override
+        protected List<CalciteSchema.LatticeEntry> getLattices() {
+          // Hoptimator does not define lattices; discovery eagerly walks unrelated catalogs.
+          return Collections.emptyList();
+        }
+      };
     }
 
     @Override

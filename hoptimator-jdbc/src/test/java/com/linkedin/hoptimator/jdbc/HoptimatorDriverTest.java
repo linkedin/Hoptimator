@@ -6,6 +6,10 @@ import com.linkedin.hoptimator.util.IdentifierUtils;
 import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.schema.impl.AbstractSchema;
+import org.apache.calcite.schema.lookup.IgnoreCaseLookup;
+import org.apache.calcite.schema.lookup.LikePattern;
+import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.sql.SqlNode;
 import org.junit.jupiter.api.Test;
 
@@ -13,12 +17,16 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverPropertyInfo;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
+import java.sql.SQLTransientException;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -336,6 +344,78 @@ class HoptimatorDriverTest {
 
       assertNotNull(pstmt);
       pstmt.close();
+    }
+  }
+
+  @Test
+  void testQueriesDoNotEnumerateUnrelatedSchemas() throws SQLException {
+    AtomicInteger enumerations = new AtomicInteger();
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      connection.calciteConnection().getRootSchema().add("UNRELATED", new AbstractSchema() {
+        @Override public Lookup<AbstractSchema> subSchemas() {
+          return new IgnoreCaseLookup<>() {
+            @Override public AbstractSchema get(String name) {
+              return null;
+            }
+
+            @Override public Set<String> getNames(LikePattern pattern) {
+              enumerations.incrementAndGet();
+              return Collections.singleton("DISAPPEARED");
+            }
+          };
+        }
+      });
+
+      try (Statement statement = connection.createStatement();
+          ResultSet rows = statement.executeQuery("SELECT 42 AS ANSWER")) {
+        assertTrue(rows.next());
+        assertEquals(42, rows.getInt("ANSWER"));
+        assertFalse(rows.next());
+      }
+
+      try (PreparedStatement statement = connection.prepareStatement("SELECT CAST(? AS INTEGER) AS ANSWER")) {
+        statement.setInt(1, 43);
+        try (ResultSet rows = statement.executeQuery()) {
+          assertTrue(rows.next());
+          assertEquals(43, rows.getInt("ANSWER"));
+          assertFalse(rows.next());
+        }
+      }
+
+      assertEquals(0, enumerations.get(), "Query planning must not discover unrelated namespaces");
+    }
+  }
+
+  @Test
+  void testReferencedSchemaFailureStillPropagates() throws SQLException {
+    SQLTransientException backendFailure = new SQLTransientException("Catalog temporarily unavailable");
+    try (HoptimatorConnection connection =
+        (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      connection.calciteConnection().getRootSchema().add("UNAVAILABLE", new AbstractSchema() {
+        @Override public Lookup<AbstractSchema> subSchemas() {
+          return new IgnoreCaseLookup<>() {
+            @Override public AbstractSchema get(String name) {
+              throw new IllegalStateException(backendFailure);
+            }
+
+            @Override public Set<String> getNames(LikePattern pattern) {
+              throw new AssertionError("Resolving a named schema must not enumerate namespaces");
+            }
+          };
+        }
+      });
+
+      SQLException failure = assertThrows(SQLException.class, () -> {
+        try (PreparedStatement statement = connection.prepareStatement("SELECT * FROM UNAVAILABLE.NAMESPACE.DATA")) {
+          statement.execute();
+        }
+      });
+      Throwable cause = failure;
+      while (cause.getCause() != null) {
+        cause = cause.getCause();
+      }
+      assertSame(backendFailure, cause, "A referenced backend failure must retain its original cause");
     }
   }
 
