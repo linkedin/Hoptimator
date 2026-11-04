@@ -30,7 +30,8 @@ Bundled adapters:
   `ProfileSchema`) with hard-coded tables. Read this first.
 - [`hoptimator-kafka`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-kafka),
   [`hoptimator-venice`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-venice),
-  [`hoptimator-mysql`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-mysql)
+  [`hoptimator-mysql`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-mysql),
+  [`hoptimator-pinot`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-pinot),
   — progressively richer versions of the same pattern, each backing onto
   a real cluster API for table discovery.
 
