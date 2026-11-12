@@ -533,4 +533,26 @@ class TemplateTest {
 
     assertEquals("beforeafter", template.render(env));
   }
+
+  // --- value encoder ---
+
+  @Test
+  void valueEncoderAppliesToSubstitutedValuesAfterTransformOnly() throws SQLException {
+    Template.Environment env = new Template.SimpleEnvironment().with("x", "ab");
+    Template.SimpleTemplate template = new Template.SimpleTemplate("lit\\{{x toUpperCase}}-{{y:def}}");
+
+    String result = template.render(env, v -> "[" + v + "]");
+
+    assertEquals("lit\\[AB]-[def]", result);
+  }
+
+  @Test
+  void valueEncoderDoesNotAffectGuardComparison() throws SQLException {
+    Template.Environment env = new Template.SimpleEnvironment().with("mode", "on");
+    Template.SimpleTemplate template = new Template.SimpleTemplate("{{mode==on}}m={{mode}}");
+
+    String result = template.render(env, v -> v + "!");
+
+    assertEquals("m=on!", result);
+  }
 }
