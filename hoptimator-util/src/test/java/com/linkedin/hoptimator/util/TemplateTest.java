@@ -555,4 +555,14 @@ class TemplateTest {
 
     assertEquals("m=on!", result);
   }
+
+  @Test
+  void valueEncoderRunsBeforeMultilinePrefixExpansion() throws SQLException {
+    Template.Environment env = new Template.SimpleEnvironment().with("items", "a\nb");
+    Template.SimpleTemplate template = new Template.SimpleTemplate("  - {{items}}");
+
+    String result = template.render(env, v -> v.replace("\n", "\\n"));
+
+    assertEquals("  - a\\nb", result);
+  }
 }
