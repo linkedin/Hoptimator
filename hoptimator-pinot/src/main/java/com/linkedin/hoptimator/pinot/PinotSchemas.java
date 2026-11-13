@@ -109,13 +109,26 @@ public final class PinotSchemas {
           + timeColumns + " (table " + schemaName + ").");
     }
     // Build + validate the pinot-spi schema, surfacing any remaining Pinot rule violation (bad
-    // format/granularity, illegal metric data type, ...).
+    // format/granularity, illegal metric data type, ...). Pinot's SchemaBuilder.build() wraps the
+    // detailed Schema.validate() failure as RuntimeException("Invalid schema", cause), so surface the
+    // root-cause message (e.g. "Unsupported data type: STRING in METRIC field: first_name") rather
+    // than the opaque wrapper text.
     try {
       build(schemaName, rowType, hints).validate();
     } catch (RuntimeException e) {
-      errors.add("Invalid Pinot schema for table " + schemaName + ": " + e.getMessage());
+      errors.add("Invalid Pinot schema for table " + schemaName + ": " + rootMessage(e));
     }
     return errors;
+  }
+
+  /** The deepest cause's message, falling back to the throwable's own. Pinot wraps the actionable
+   *  validation error on the cause chain under a generic "Invalid schema" message. */
+  private static String rootMessage(Throwable t) {
+    Throwable cause = t;
+    while (cause.getCause() != null && cause.getCause() != cause) {
+      cause = cause.getCause();
+    }
+    return cause.getMessage() != null ? cause.getMessage() : t.getMessage();
   }
 
   /** The set of date-time column names, from {@code timeColumns} (CSV). */

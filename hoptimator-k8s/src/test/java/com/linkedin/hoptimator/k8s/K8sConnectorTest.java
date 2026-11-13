@@ -409,5 +409,111 @@ class K8sConnectorTest {
         "synthesized fallback produces the legacy namespace pattern; got " + config.get("avroValueSchema"));
   }
 
+  @Test
+  void configureAvroValueSchemaWithEscapesRoundTripsExactly() throws SQLException {
+    // Schema.toString() emits JSON escapes (\" \\ \n \u0001) in docs; Properties.load must not consume them.
+    Schema avroSchema = SchemaBuilder.record("Activity").namespace("com.linkedin.foo").fields()
+        .name("urn").doc("Urn of the activity. Example: \"urn:li:activity:123\". Path: C:\\tmp\nctrl:\u0001")
+        .type().stringType().noDefault()
+        .endRecord();
+
+    Map<String, String> config = configureWithAvroSchema(avroSchema,
+        "connector=kafka\ndefault.mode.payload = {{avroValueSchema}}");
+
+    assertEquals(avroSchema.toString(), config.get("default.mode.payload"));
+    assertEquals(avroSchema, new Schema.Parser().parse(config.get("default.mode.payload")));
+    assertEquals("kafka", config.get("connector"));
+  }
+
+  @Test
+  void configureAvroValueSchemaWithoutEscapesIsUnchanged() throws SQLException {
+    Schema avroSchema = SchemaBuilder.record("User").namespace("com.linkedin.foo").fields()
+        .name("name").doc("plain doc").type().stringType().noDefault()
+        .endRecord();
+
+    Map<String, String> config = configureWithAvroSchema(avroSchema,
+        "default.mode.payload = {{avroValueSchema}}");
+
+    assertEquals(avroSchema.toString(), config.get("default.mode.payload"));
+  }
+
+  @Test
+  void configureAvroStringDefaultWithEscapesRoundTripsExactly() throws SQLException {
+    Schema avroSchema = SchemaBuilder.record("Activity").namespace("com.linkedin.foo").fields()
+        .name("note").type().stringType().stringDefault("say \"hi\" C:\\tmp\n")
+        .endRecord();
+
+    Map<String, String> config = configureWithAvroSchema(avroSchema,
+        "default.mode.payload = {{avroValueSchema}}");
+
+    assertEquals(avroSchema.toString(), config.get("default.mode.payload"));
+    assertEquals(avroSchema, new Schema.Parser().parse(config.get("default.mode.payload")));
+  }
+
+  @Test
+  void configureOptionValueWithBackslashRoundTrips() throws SQLException {
+    Map<String, String> config = configureWithOption("pattern", " a\\.b\\\\c\\u0041\\n\td\r\fe\nf",
+        "connector=kafka\nregex = {{pattern}}\nliteral = x\\ty");
+
+    assertEquals(" a\\.b\\\\c\\u0041\\n\td\r\fe\nf", config.get("regex"));
+    // Literal template text is still parsed as .properties, so its escapes keep their meaning.
+    assertEquals("x\ty", config.get("literal"));
+  }
+
+  @Test
+  void configureOptionValueEndingInBackslashDoesNotContinueOntoNextLine() throws SQLException {
+    Map<String, String> config = configureWithOption("path", "C:\\tmp\\",
+        "path = {{path}}\nconnector = kafka");
+
+    assertEquals("C:\\tmp\\", config.get("path"));
+    assertEquals("kafka", config.get("connector"));
+  }
+
+  @Test
+  void configureOptionValueWithLineBreakCannotInjectProperties() throws SQLException {
+    Map<String, String> config = configureWithOption("note", "x\rconnector=evil",
+        "connector = kafka\nnote = {{note}}");
+
+    assertEquals("x\rconnector=evil", config.get("note"));
+    assertEquals("kafka", config.get("connector"));
+    assertEquals(List.of("connector", "note"), new ArrayList<>(config.keySet()));
+  }
+
+  private Map<String, String> configureWithOption(String key, String value, String connectorTemplate)
+      throws SQLException {
+    RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
+        .add("value", SqlTypeName.VARCHAR).build();
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
+        .thenReturn(rowType);
+
+    Map<String, String> options = new HashMap<>();
+    options.put(key, value);
+    Source source = new Source("testdb", Arrays.asList("schema", "table"), options);
+
+    FakeK8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> templateApi = new FakeK8sApi<>(
+        List.of(new V1alpha1TableTemplate()
+            .metadata(new V1ObjectMeta().name("tpl"))
+            .spec(new V1alpha1TableTemplateSpec().connector(connectorTemplate))));
+
+    return makeConnector(source, templateApi).configure();
+  }
+
+  private Map<String, String> configureWithAvroSchema(Schema avroSchema, String connectorTemplate)
+      throws SQLException {
+    RelDataType rowType = new RelDataTypeFactory.Builder(typeFactory)
+        .add("value", SqlTypeName.VARCHAR).build();
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.rowType(any(Source.class), nullable(DeploymentContext.class)))
+        .thenReturn(rowType);
+    hoptimatorDriverMock.when(() -> HoptimatorDriver.valueSchema(any(Source.class), nullable(DeploymentContext.class)))
+        .thenReturn(avroSchema);
+    Source source = new Source("testdb", Arrays.asList("schema", "table"), Collections.emptyMap());
+
+    FakeK8sApi<V1alpha1TableTemplate, V1alpha1TableTemplateList> templateApi = new FakeK8sApi<>(
+        List.of(new V1alpha1TableTemplate()
+            .metadata(new V1ObjectMeta().name("tpl"))
+            .spec(new V1alpha1TableTemplateSpec().connector(connectorTemplate))));
+
+    return makeConnector(source, templateApi).configure();
+  }
 }
 

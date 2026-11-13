@@ -182,8 +182,25 @@ public class HoptimatorDriver implements Driver {
       }
       throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {
+      // Catalog registration lists backend objects via RemoteRowList, which (being a Collection)
+      // can't throw checked exceptions and so wraps transient SQLExceptions in unchecked
+      // RuntimeExceptions. Inspect the cause chain so a retryable failure (e.g. a K8s 429) stays
+      // transient instead of being misreported as non-transient.
+      if (hasTransientCause(e)) {
+        throw new SQLTransientConnectionException("Problem loading " + url, e);
+      }
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
+  }
+
+  // True if the chain holds a transient failure, even when wrapped in unchecked exceptions.
+  static boolean hasTransientCause(Throwable t) {
+    for (Throwable x = t; x != null; x = x.getCause()) {
+      if (x instanceof IOException || x instanceof SQLTransientException) {
+        return true;
+      }
+    }
+    return false;
   }
 
   public static RelDataType rowType(Source source, DeploymentContext context)

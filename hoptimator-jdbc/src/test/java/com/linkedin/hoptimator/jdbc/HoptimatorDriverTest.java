@@ -13,6 +13,7 @@ import org.apache.calcite.schema.lookup.Lookup;
 import org.apache.calcite.sql.SqlNode;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverPropertyInfo;
@@ -123,6 +124,37 @@ class HoptimatorDriverTest {
 
     assertThrows(SQLNonTransientException.class, () ->
         driver.connect("jdbc:hoptimator://catalogs=nonexistent", props));
+  }
+
+  @Test
+  void hasTransientCauseDetectsWrappedSqlTransientException() {
+    // Catalog listing (RemoteRowList) wraps a retryable backend SQLTransientException in an
+    // unchecked RuntimeException; the transient marker must still be recognized through the chain.
+    Throwable wrapped = new RuntimeException("Could not list rows.",
+        new SQLTransientException("Error selecting null"));
+
+    assertTrue(HoptimatorDriver.hasTransientCause(wrapped));
+  }
+
+  @Test
+  void hasTransientCauseDetectsWrappedIOException() {
+    Throwable wrapped = new RuntimeException("Could not list rows.",
+        new IOException("connection reset"));
+
+    assertTrue(HoptimatorDriver.hasTransientCause(wrapped));
+  }
+
+  @Test
+  void hasTransientCauseFalseForNonTransientChain() {
+    Throwable wrapped = new RuntimeException("boom",
+        new SQLNonTransientException("bad request"));
+
+    assertFalse(HoptimatorDriver.hasTransientCause(wrapped));
+  }
+
+  @Test
+  void hasTransientCauseFalseForPlainRuntimeException() {
+    assertFalse(HoptimatorDriver.hasTransientCause(new IllegalArgumentException("Catalog x not found.")));
   }
 
   @Test
