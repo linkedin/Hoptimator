@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.DeploymentContext;
+import com.linkedin.hoptimator.Catalog;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.IdentifierUtils;
 import org.apache.avro.Schema;
@@ -8,6 +9,12 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -21,6 +28,7 @@ import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -30,8 +38,14 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 
 
+@Isolated
+@Execution(ExecutionMode.SAME_THREAD)
 class HoptimatorDriverTest {
 
   private final HoptimatorDriver driver = new HoptimatorDriver();
@@ -117,6 +131,42 @@ class HoptimatorDriverTest {
 
     assertThrows(SQLNonTransientException.class, () ->
         driver.connect("jdbc:hoptimator://catalogs=nonexistent", props));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"transient", "wrapped-transient", "non-transient"})
+  void failedCatalogInitializationReleasesOwnershipAndPreservesPrimaryFailure(String kind) throws Exception {
+    Exception original;
+    if ("transient".equals(kind)) {
+      original = new SQLTransientException("catalog unavailable");
+    } else if ("wrapped-transient".equals(kind)) {
+      original = new IllegalStateException("catalog unavailable", new IOException("backend unavailable"));
+    } else {
+      original = new IllegalArgumentException("invalid catalog");
+    }
+    AtomicInteger releases = new AtomicInteger();
+    Catalog catalog = mock(Catalog.class);
+    doAnswer(invocation -> {
+      Wrapped wrapper = invocation.getArgument(0);
+      CalciteDriver.addConnectionResource(wrapper.connection().calciteConnection(), () -> {
+        releases.incrementAndGet();
+        throw new SQLException("cleanup failed");
+      });
+      throw original;
+    }).when(catalog).register(any());
+    try (MockedStatic<CatalogService> catalogs = mockStatic(CatalogService.class)) {
+      catalogs.when(() -> CatalogService.catalog("failing")).thenReturn(catalog);
+
+      SQLException failure = assertThrows(SQLException.class,
+          () -> driver.connect("jdbc:hoptimator://catalogs=failing", new Properties()));
+
+      Class<? extends SQLException> expected = "non-transient".equals(kind)
+          ? SQLNonTransientException.class : java.sql.SQLTransientConnectionException.class;
+      assertInstanceOf(expected, failure);
+      assertSame(original, failure.getCause());
+      assertEquals(1, releases.get());
+      assertEquals(1, original.getSuppressed().length);
+    }
   }
 
   @Test

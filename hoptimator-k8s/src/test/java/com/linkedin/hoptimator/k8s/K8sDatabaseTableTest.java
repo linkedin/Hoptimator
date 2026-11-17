@@ -1,20 +1,28 @@
 package com.linkedin.hoptimator.k8s;
 
+import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.jdbc.JdbcDataSourcePool;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlDialect;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.dialect.MysqlSqlDialect;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -24,12 +32,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.sql.SQLException;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -41,7 +52,22 @@ import static org.mockito.Mockito.when;
 
 
 @ExtendWith(MockitoExtension.class)
+@Isolated
+@Execution(ExecutionMode.SAME_THREAD)
 class K8sDatabaseTableTest {
+  private CalciteConnection resourceOwner;
+
+  @BeforeEach
+  void createResourceOwner() throws SQLException {
+    resourceOwner = (CalciteConnection) new CalciteDriver().connect("jdbc:calcite:", new Properties());
+    lenient().when(connection.calciteConnection()).thenReturn(resourceOwner);
+  }
+
+  @AfterEach
+  void closeResourceOwner() throws SQLException {
+    resourceOwner.close();
+    JdbcDataSourcePool.shared().invalidateAll();
+  }
 
   @Mock
   private HoptimatorConnection connection;
@@ -191,47 +217,48 @@ class K8sDatabaseTableTest {
   }
 
   @Test
-  void dataSourceWithUserAndPassword() {
+  void dataSourceWithUserAndPassword() throws Exception {
     K8sDatabaseTable.Row row = new K8sDatabaseTable.Row("db", "jdbc:test://host", null, null, null, "com.Test");
     Properties props = new Properties();
     props.setProperty("user", "myuser");
     props.setProperty("password", "mypass");
 
-    DataSource ds = K8sDatabaseTable.dataSource(row, props);
-
-    assertNotNull(ds);
+    try (JdbcDataSourcePool.Lease lease = K8sDatabaseTable.dataSource(row, props)) {
+      assertEquals("myuser", lease.dataSource().getUsername());
+      assertEquals("mypass", lease.dataSource().getPassword());
+    }
   }
 
   @Test
-  void dataSourceWithExtraProperties() {
+  void dataSourceWithExtraProperties() throws Exception {
     K8sDatabaseTable.Row row = new K8sDatabaseTable.Row("db", "jdbc:test://host", null, null, null, null);
     Properties props = new Properties();
     props.setProperty("extra.prop", "value");
 
-    DataSource ds = K8sDatabaseTable.dataSource(row, props);
-
-    assertNotNull(ds);
+    try (JdbcDataSourcePool.Lease lease = K8sDatabaseTable.dataSource(row, props)) {
+      assertEquals("jdbc:test://host;extra.prop=value;database=db", lease.dataSource().getUrl());
+    }
   }
 
   @Test
-  void dataSourceWithUrlEndingInDoubleSlash() {
+  void dataSourceWithUrlEndingInDoubleSlash() throws Exception {
     K8sDatabaseTable.Row row = new K8sDatabaseTable.Row("db", "jdbc:test://", null, null, null, null);
     Properties props = new Properties();
     props.setProperty("key", "val");
 
-    DataSource ds = K8sDatabaseTable.dataSource(row, props);
-
-    assertNotNull(ds);
+    try (JdbcDataSourcePool.Lease lease = K8sDatabaseTable.dataSource(row, props)) {
+      assertEquals("jdbc:test://key=val;database=db", lease.dataSource().getUrl());
+    }
   }
 
   @Test
-  void dataSourceWithNoProperties() {
+  void dataSourceWithNoProperties() throws Exception {
     K8sDatabaseTable.Row row = new K8sDatabaseTable.Row("db", "jdbc:test://host", null, null, null, null);
     Properties props = new Properties();
 
-    DataSource ds = K8sDatabaseTable.dataSource(row, props);
-
-    assertNotNull(ds);
+    try (JdbcDataSourcePool.Lease lease = K8sDatabaseTable.dataSource(row, props)) {
+      assertEquals("jdbc:test://host;database=db", lease.dataSource().getUrl());
+    }
   }
 
   @Test
@@ -272,6 +299,33 @@ class K8sDatabaseTableTest {
     table.addDatabases(root, connection);
 
     assertNotNull(root.subSchemas().get("TESTSCH"));
+  }
+
+  @Test
+  void catalogLeaseSurvivesRemovalUntilOuterConnectionCloses() throws Exception {
+    Properties properties = new Properties();
+    when(connection.connectionProperties()).thenReturn(properties);
+    lenient().when(mockEngineTable.forDatabase(anyString())).thenReturn(Collections.emptyList());
+    K8sDatabaseTable table = spy(new K8sDatabaseTable(mockContext, mockEngineTable));
+    K8sDatabaseTable.Row row = new K8sDatabaseTable.Row("owned", "jdbc:calcite:", null, "OWNED", "ANSI", null);
+    doReturn(List.of(row)).when(table).rows();
+    HoptimatorJdbcSchema schema = mock(HoptimatorJdbcSchema.class);
+    mockedJdbcSchema.when(() -> HoptimatorJdbcSchema.create(
+        anyString(), any(), anyString(), any(DataSource.class), any(SchemaPlus.class),
+        any(), anyList(), any())).thenReturn(schema);
+    SchemaPlus root = resourceOwner.getRootSchema();
+
+    table.addDatabases(root, connection);
+    try (JdbcDataSourcePool.Lease observer = K8sDatabaseTable.dataSource(row, properties)) {
+      org.apache.commons.dbcp2.BasicDataSource source = observer.dataSource();
+      observer.close();
+      JdbcDataSourcePool.shared().invalidateAll();
+      assertFalse(source.isClosed(), "Lazy catalog metadata must retain its retired pool");
+
+      resourceOwner.close();
+
+      assertTrue(source.isClosed(), "Outer close must release the final catalog lease");
+    }
   }
 
   @Test

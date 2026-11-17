@@ -94,6 +94,24 @@ dispose these resources. Register only owned resources, not shared clients.
 disposes the connection if schema creation or registration fails. This cleanup
 does not define when a shared connection pool is evicted or shut down.
 
+For Kubernetes `Database` catalogs, `K8sDatabaseTable` uses
+`JdbcDataSourcePool.shared()` rather than Calcite's soft-value pool cache.
+The owner strongly retains each DBCP pool and preserves the existing effective
+URL, driver, username, and password key. Each outer Hoptimator connection holds
+a catalog-lifetime lease, so lazy metadata reads can still borrow connections
+after a pool is retired. `invalidate`/`invalidateAll` remove pools from reuse;
+physical disposal waits for the last catalog lease to close. Normal outer
+connection close releases its leases without discarding still-cached pools.
+Failed outer initialization also releases registered leases.
+
+The shared owner registers one JVM shutdown hook and can be closed explicitly;
+close rejects new catalog acquisitions and drains existing leases. There is
+no automatic idle timeout or capacity eviction in this ownership-only policy.
+Distinct keys can therefore retain distinct pools until explicit removal or
+shutdown. This is separate from schema/table metadata caching, whose behavior
+is unchanged. Engine data sources and direct Calcite pool users are not migrated
+by the Kubernetes Database integration.
+
 ## Step 2 — Plan
 
 The planner is built on [Apache Calcite](https://calcite.apache.org/). Its job
