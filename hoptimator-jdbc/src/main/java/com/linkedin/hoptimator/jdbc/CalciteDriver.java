@@ -1,10 +1,13 @@
 package com.linkedin.hoptimator.jdbc;
 
 import org.apache.calcite.avatica.AvaticaConnection;
+import org.apache.calcite.avatica.AvaticaStatement;
 import org.apache.calcite.avatica.ConnectStringParser;
+import org.apache.calcite.avatica.Handler;
 import org.apache.calcite.config.CalciteConnectionProperty;
 import org.apache.calcite.jdbc.CalciteFactory;
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.Driver;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -61,9 +64,86 @@ public class CalciteDriver extends Driver {
       CalciteSchema rootSchema = createRootSchema(info2);
       AvaticaConnection connection = ((CalciteFactory) this.factory)
           .newConnection(this, this.factory, url, info2, rootSchema, null);
-      onConnectionInit(connection);
-      return connection;
+      try {
+        onConnectionInit(connection);
+        return connection;
+      } catch (SQLException | RuntimeException e) {
+        closeOnFailure(connection, e);
+        throw e;
+      }
     }
+  }
+
+  /** Transfers an owned resource to the physical connection, not a pooled connection lease. */
+  public static void addConnectionResource(CalciteConnection connection, AutoCloseable resource) throws SQLException {
+    CalciteSchema root = CalciteSchema.from(connection.getRootSchema());
+    if (!(root instanceof HoptimatorCalciteSchema)) {
+      SQLException failure = new SQLException("Connection does not support owned resources");
+      try {
+        resource.close();
+      } catch (Exception e) {
+        if (e instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
+        failure.addSuppressed(e);
+      }
+      throw failure;
+    }
+    ((HoptimatorCalciteSchema) root).addConnectionResource(resource);
+  }
+
+  protected static void closeOnFailure(@Nullable Connection connection, Exception failure) {
+    if (connection != null) {
+      try {
+        connection.close();
+      } catch (Exception e) {
+        if (e != failure) {
+          failure.addSuppressed(e);
+        }
+      }
+    }
+  }
+
+  @Override
+  protected Handler createHandler() {
+    Handler delegate = super.createHandler();
+    return new Handler() {
+      @Override public void onConnectionInit(AvaticaConnection connection) throws SQLException {
+        delegate.onConnectionInit(connection);
+      }
+
+      @Override public void onConnectionClose(AvaticaConnection connection) {
+        RuntimeException failure = null;
+        try {
+          delegate.onConnectionClose(connection);
+        } catch (RuntimeException e) {
+          failure = e;
+        }
+        CalciteSchema root = CalciteSchema.from(((CalciteConnection) connection).getRootSchema());
+        if (root instanceof HoptimatorCalciteSchema) {
+          try {
+            ((HoptimatorCalciteSchema) root).closeConnectionResources();
+          } catch (SQLException e) {
+            if (failure == null) {
+              failure = new RuntimeException("Failed to close connection resources", e);
+            } else {
+              failure.addSuppressed(e);
+            }
+          }
+        }
+        if (failure != null) {
+          throw failure;
+        }
+      }
+
+      @Override public void onStatementExecute(AvaticaStatement statement, ResultSink resultSink) {
+        delegate.onStatementExecute(statement, resultSink);
+      }
+
+      @Override public void onStatementClose(AvaticaStatement statement) {
+        delegate.onStatementClose(statement);
+      }
+    };
   }
 
   /**

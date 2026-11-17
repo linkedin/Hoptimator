@@ -85,6 +85,15 @@ JDBC URL that Hoptimator dials in to enumerate schemas and tables — so a query
 joining `ADS.PAGE_VIEWS` and `PROFILE.MEMBERS` can pull metadata from two
 completely different systems with one logical query.
 
+Drivers based on `CalciteDriver` can transfer owned resources with
+`CalciteDriver.addConnectionResource`. Resources close once, in reverse
+registration order, when the physical connection closes, including failed
+connection initialization. A pooled connection's logical return does not
+dispose these resources. Register only owned resources, not shared clients.
+`VeniceDriver` registers closeable cluster schemas before publishing them and
+disposes the connection if schema creation or registration fails. This cleanup
+does not define when a shared connection pool is evicted or shut down.
+
 ## Step 2 — Plan
 
 The planner is built on [Apache Calcite](https://calcite.apache.org/). Its job
