@@ -50,6 +50,7 @@ import com.linkedin.hoptimator.k8s.LogicalTableNames;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.DeployerScope;
 
 import com.linkedin.hoptimator.jdbc.CalciteDeploymentContext;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
@@ -80,6 +81,8 @@ public class LogicalTableDeployer implements Deployer, Validated {
   private final K8sApi<V1alpha1Database, V1alpha1DatabaseList> databasesApi;
 
   private final List<Deployer> tierDeployers = new ArrayList<>();
+  private final List<DeployerScope> childDeployers = new ArrayList<>();
+  private boolean closed;
   private final List<K8sPipelineBundle> pipelineDeployers = new ArrayList<>();
   private final List<Deployer> triggerDeployers = new ArrayList<>();
   private final List<Runnable> schemaRollbacks = new ArrayList<>();
@@ -132,7 +135,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
       // These methods are self-caching; subsequent calls return the cached result.
       for (Map.Entry<String, Source> entry : buildTierSources().entrySet()) {
         Source tierSource = entry.getValue();
-        Collection<Deployer> deployers = DeploymentService.deployers(tierSource, context.deploymentContext());
+        Collection<Deployer> deployers = acquireTierDeployers(tierSource);
         for (Deployer deployer : deployers) {
           if (deployer instanceof Validated) {
             ((Validated) deployer).validate(issues, deploymentContext);
@@ -263,7 +266,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
     //    physical delete succeeded; failed tiers keep their entries so the user can retry.
     for (Source tierSource : tierSources.values()) {
       boolean tierSucceeded = true;
-      for (Deployer deployer : DeploymentService.deployers(tierSource, context.deploymentContext())) {
+      for (Deployer deployer : acquireTierDeployers(tierSource)) {
         try {
           deployer.delete();
         } catch (Exception e) {
@@ -305,6 +308,39 @@ public class LogicalTableDeployer implements Deployer, Validated {
       rollback.run();
     }
     schemaRollbacks.clear(); // Reset so re-registration occurs on the next attempt.
+  }
+
+  @Override
+  public void close() {
+    if (closed) {
+      return;
+    }
+    closed = true;
+    RuntimeException failure = null;
+    for (int i = childDeployers.size() - 1; i >= 0; i--) {
+      try {
+        childDeployers.get(i).close();
+      } catch (RuntimeException closeFailure) {
+        if (failure == null) {
+          failure = closeFailure;
+        } else if (failure != closeFailure) {
+          failure.addSuppressed(closeFailure);
+        }
+      }
+    }
+    childDeployers.clear();
+    if (failure != null) {
+      throw failure;
+    }
+  }
+
+  private Collection<Deployer> acquireTierDeployers(Source tierSource) throws SQLException {
+    if (closed) {
+      throw new IllegalStateException("Logical table deployer is closed");
+    }
+    DeployerScope scope = DeploymentService.deployers(tierSource, context.deploymentContext());
+    childDeployers.add(scope);
+    return scope.deployers();
   }
 
   /**
@@ -472,7 +508,7 @@ public class LogicalTableDeployer implements Deployer, Validated {
       Source tierSource = entry.getValue();
       log.info("Deploying tier {} (database custom resource: {}) for table {}",
           tierName, tierSource.database(), source.table());
-      Collection<Deployer> deployers = DeploymentService.deployers(tierSource, context.deploymentContext());
+      Collection<Deployer> deployers = acquireTierDeployers(tierSource);
       for (Deployer deployer : deployers) {
         // Always use update() — it is create-or-update, making deployment idempotent
         // if tier resources already exist (e.g. from a previous partial run).

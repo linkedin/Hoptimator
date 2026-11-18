@@ -32,6 +32,7 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.DeployerScope;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
 import com.linkedin.hoptimator.util.planner.PipelineRel;
@@ -434,60 +435,72 @@ public final class HoptimatorDdlUtils {
     Pair<SchemaPlus, Table> schemaSnapshot = snapshotAndSetSinkSchema(ctx, prepare, plan, sql, pair);
     logger.info("Added materialized view {} to schema {}", viewName, schemaPlus.getName());
 
-    Collection<Deployer> deployers = null;
-    boolean success = false;
+    Runnable restoreSchema = () -> {
+      if (schemaSnapshot != null) {
+        if (schemaSnapshot.right != null) {
+          schemaSnapshot.left.add(viewName, schemaSnapshot.right);
+          logger.info("Restored schema for materialized view {}", viewName);
+        } else {
+          schemaSnapshot.left.removeTable(viewName);
+          logger.info("Removed schema for materialized view {}", viewName);
+        }
+      }
+    };
+    final DeployerScope acquired;
+    boolean acquisitionSucceeded = false;
     try {
-      // Build the pipeline and create the MaterializedView hook.
       Pipeline pipeline = plan.pipeline(viewName, conn.deploymentContext());
       MaterializedView hook = new MaterializedView(database, viewPath, sql, pipeline.job().sql(), pipeline);
-
-      // Validate the hook and its deployers.
       logger.info("Validating materialized view {}", viewName);
       ValidationService.validateOrThrow(hook, conn.deploymentContext());
-      deployers = DeploymentService.deployers(hook, conn.deploymentContext());
-      logger.info("Validating deployable resources for materialized view {}", viewName);
-      ValidationService.validateOrThrow(deployers, conn.deploymentContext());
-      logger.info("Validated materialized view {}", viewName);
-
-      // Execute (create/update) or collect specs (specify).
-      if (mode == DdlMode.UPDATE) {
-        logger.info("Deploying update materialized view {}", viewName);
-      } else if (mode == DdlMode.CREATE) {
-        logger.info("Deploying create materialized view {}", viewName);
-      } else {
-        logger.info("Specifying materialized view {}", viewName);
-      }
-      List<String> specs = mode.executeDeployers(deployers);
-      if (!mode.dryRun()) {
-        logger.info("Deployed materialized view {}", viewName);
-      } else {
-        // SPECIFY (dry-run): roll back any side effects made by deployers during specify().
-        DeploymentService.restore(deployers);
-      }
-      success = true;
-      return new SpecifyResult(specs, sinkRowType, viewPath);
+      acquired = DeploymentService.deployers(hook, conn.deploymentContext());
+      acquisitionSucceeded = true;
     } catch (SQLException | RuntimeException e) {
       logger.warn("Failed to deploy materialized view {}", viewName, e);
-      if (deployers != null) {
-        DeploymentService.restore(deployers);
-        logger.info("Restored deployable resources for materialized view {}", viewName);
-      }
       throw e;
     } finally {
-      // Restore the schema snapshot.
-      // For SPECIFY (dry-run): always restore — the view was temporarily added to the schema
-      // for planning purposes and must be removed afterward.
-      // For CREATE/UPDATE on failure: restore to undo the partial schema mutation.
-      // For CREATE/UPDATE on success: do NOT restore — the view should remain in the schema.
-      if (!success || mode.dryRun()) {
-        if (schemaSnapshot != null) {
-          if (schemaSnapshot.right != null) {
-            schemaSnapshot.left.add(viewName, schemaSnapshot.right);
-            logger.info("Restored schema for materialized view {}", viewName);
-          } else {
-            schemaSnapshot.left.removeTable(viewName);
-            logger.info("Removed schema for materialized view {}", viewName);
-          }
+      if (!acquisitionSucceeded) {
+        restoreSchema.run();
+      }
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      boolean success = false;
+      try {
+        logger.info("Validating deployable resources for materialized view {}", viewName);
+        ValidationService.validateOrThrow(deployers, conn.deploymentContext());
+        logger.info("Validated materialized view {}", viewName);
+
+        // Execute (create/update) or collect specs (specify).
+        if (mode == DdlMode.UPDATE) {
+          logger.info("Deploying update materialized view {}", viewName);
+        } else if (mode == DdlMode.CREATE) {
+          logger.info("Deploying create materialized view {}", viewName);
+        } else {
+          logger.info("Specifying materialized view {}", viewName);
+        }
+        List<String> specs = mode.executeDeployers(deployers);
+        if (!mode.dryRun()) {
+          logger.info("Deployed materialized view {}", viewName);
+        } else {
+          // SPECIFY (dry-run): roll back any side effects made by deployers during specify().
+          DeploymentService.restore(deployers);
+        }
+        success = true;
+        return new SpecifyResult(specs, sinkRowType, viewPath);
+      } catch (SQLException | RuntimeException e) {
+        logger.warn("Failed to deploy materialized view {}", viewName, e);
+        DeploymentService.restore(deployers);
+        logger.info("Restored deployable resources for materialized view {}", viewName);
+        throw e;
+      } finally {
+        // Restore the schema snapshot.
+        // For SPECIFY (dry-run): always restore — the view was temporarily added to the schema
+        // for planning purposes and must be removed afterward.
+        // For CREATE/UPDATE on failure: restore to undo the partial schema mutation.
+        // For CREATE/UPDATE on success: do NOT restore — the view should remain in the schema.
+        if (!success || mode.dryRun()) {
+          restoreSchema.run();
         }
       }
     }
@@ -719,11 +732,8 @@ public final class HoptimatorDdlUtils {
     }
 
     // Snapshot current state for rollback (only meaningful when we mutate the Calcite schema).
-    Pair<SchemaPlus, Table> schemaSnapshot = null;
-    if (manageCalciteSchema && !isNewSchema) {
-      Table currentTable = schemaPlus.tables().get(tableName);
-      schemaSnapshot = Pair.of(schemaPlus, currentTable);
-    }
+    Pair<SchemaPlus, Table> schemaSnapshot = manageCalciteSchema && !isNewSchema
+        ? Pair.of(schemaPlus, schemaPlus.tables().get(tableName)) : null;
 
     if (manageCalciteSchema) {
       // For a brand-new schema, register the JDBC-backed sub-schema, then the temporary table.
@@ -743,65 +753,12 @@ public final class HoptimatorDdlUtils {
 
     Source source = new Source(database, tablePath, options);
 
-    Collection<Deployer> deployers = null;
-    boolean success = false;
-    try {
-      logger.info("Validating new table {}", source);
-      ValidationService.validateOrThrow(source, context);
-      deployers = DeploymentService.deployers(source, context);
-      // Enforce CREATE (not OR REPLACE) semantics on the connection-free direct path, mirroring the
-      // Calcite existence check the SQL path ran above. Gated on !manageCalciteSchema so the SQL/DDL
-      // path (which already checked existence + OR REPLACE) never double-checks or calls exists().
-      if (!manageCalciteSchema && mode == DdlMode.CREATE) {
-        for (Deployer deployer : deployers) {
-          if (deployer.exists()) {
-            throw new SQLNonTransientException("Table " + tableName
-                + " already exists. Set updateIfExists=true to update it.");
-          }
-        }
-      }
-      logger.info("Validating deployable resources for table {}", tableName);
-      ValidationService.validateOrThrow(deployers, context);
-
-      if (mode == DdlMode.UPDATE) {
-        logger.info("Deploying update table {}", source);
-      } else if (mode == DdlMode.CREATE) {
-        logger.info("Deploying create table {}", source);
-      } else {
-        logger.info("Specifying table {}", source);
-      }
-      List<String> specs = mode.executeDeployers(deployers);
-      if (!mode.dryRun()) {
-        logger.info("Deployed table {}", source);
-      } else {
-        // SPECIFY (dry-run): roll back any side effects made by deployers during specify()
-        DeploymentService.restore(deployers);
-      }
-      success = true;
-      // Resolve the sink row type only now, for the result: the SQL path already has it on the
-      // Calcite target; the direct path derives it from the schema carried on its context. Neither
-      // deployment nor validation above needs it (deployers resolve the row type themselves).
-      RelDataType sinkRowType = calcite == null ? HoptimatorDriver.rowType(source, context) : calcite.rowType;
-      return new SpecifyResult(specs, sinkRowType, tablePath);
-    } catch (SQLException | RuntimeException e) {
-      logger.warn("Failed to deploy table {}", tableName, e);
-      if (deployers != null) {
-        DeploymentService.restore(deployers);
-        logger.info("Restored deployable resources for table {}", tableName);
-      }
-      throw e;
-    } finally {
-      // Undo any Calcite-catalog mutations we made when we are not keeping them (SQL path only;
-      // the direct path made none):
-      //   - SPECIFY (dry-run): always undo.
-      //   - CREATE/UPDATE on success: keep.
-      //   - CREATE/UPDATE on failure: undo.
-      if (manageCalciteSchema && (!success || mode.dryRun())) {
+    Runnable restoreSchema = () -> {
+      if (manageCalciteSchema) {
         if (isNewSchema) {
           calcite.pair.left.removeSubSchema(database);
           logger.info("Removed schema {} from catalog", database);
         } else if (schemaSnapshot != null) {
-          // Restore the temporary table's prior state.
           if (schemaSnapshot.right == null) {
             schemaSnapshot.left.removeTable(tableName);
             logger.info("Removed schema for table {}", tableName);
@@ -809,6 +766,75 @@ public final class HoptimatorDdlUtils {
             schemaPlus.add(tableName, schemaSnapshot.right);
             logger.info("Restored schema for table {}", tableName);
           }
+        }
+      }
+    };
+    final DeployerScope acquired;
+    boolean acquisitionSucceeded = false;
+    try {
+      logger.info("Validating new table {}", source);
+      ValidationService.validateOrThrow(source, context);
+      acquired = DeploymentService.deployers(source, context);
+      acquisitionSucceeded = true;
+    } catch (SQLException | RuntimeException e) {
+      logger.warn("Failed to deploy table {}", tableName, e);
+      throw e;
+    } finally {
+      if (!acquisitionSucceeded) {
+        restoreSchema.run();
+      }
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      boolean success = false;
+      try {
+        // Enforce CREATE (not OR REPLACE) semantics on the connection-free direct path, mirroring the
+        // Calcite existence check the SQL path ran above. Gated on !manageCalciteSchema so the SQL/DDL
+        // path (which already checked existence + OR REPLACE) never double-checks or calls exists().
+        if (!manageCalciteSchema && mode == DdlMode.CREATE) {
+          for (Deployer deployer : deployers) {
+            if (deployer.exists()) {
+              throw new SQLNonTransientException("Table " + tableName
+                  + " already exists. Set updateIfExists=true to update it.");
+            }
+          }
+        }
+        logger.info("Validating deployable resources for table {}", tableName);
+        ValidationService.validateOrThrow(deployers, context);
+
+        if (mode == DdlMode.UPDATE) {
+          logger.info("Deploying update table {}", source);
+        } else if (mode == DdlMode.CREATE) {
+          logger.info("Deploying create table {}", source);
+        } else {
+          logger.info("Specifying table {}", source);
+        }
+        List<String> specs = mode.executeDeployers(deployers);
+        if (!mode.dryRun()) {
+          logger.info("Deployed table {}", source);
+        } else {
+          // SPECIFY (dry-run): roll back any side effects made by deployers during specify()
+          DeploymentService.restore(deployers);
+        }
+        success = true;
+        // Resolve the sink row type only now, for the result: the SQL path already has it on the
+        // Calcite target; the direct path derives it from the schema carried on its context. Neither
+        // deployment nor validation above needs it (deployers resolve the row type themselves).
+        RelDataType sinkRowType = calcite == null ? HoptimatorDriver.rowType(source, context) : calcite.rowType;
+        return new SpecifyResult(specs, sinkRowType, tablePath);
+      } catch (SQLException | RuntimeException e) {
+        logger.warn("Failed to deploy table {}", tableName, e);
+        DeploymentService.restore(deployers);
+        logger.info("Restored deployable resources for table {}", tableName);
+        throw e;
+      } finally {
+        // Undo any Calcite-catalog mutations we made when we are not keeping them (SQL path only;
+        // the direct path made none):
+        //   - SPECIFY (dry-run): always undo.
+        //   - CREATE/UPDATE on success: keep.
+        //   - CREATE/UPDATE on failure: undo.
+        if (manageCalciteSchema && (!success || mode.dryRun())) {
+          restoreSchema.run();
         }
       }
     }
@@ -839,27 +865,33 @@ public final class HoptimatorDdlUtils {
     Map<String, String> dbOptions = options(create.options);
     DatabaseDeployable database = new DatabaseDeployable(name, dbOptions);
 
-    Collection<Deployer> deployers = null;
+    final DeployerScope acquired;
     try {
       logger.info("Validating database {}", name);
       ValidationService.validateOrThrow(database, conn.deploymentContext());
-      deployers = DeploymentService.deployers(database, conn.deploymentContext());
-      ValidationService.validateOrThrow(deployers, conn.deploymentContext());
-
-      List<String> specs = mode.executeDeployers(deployers);
-      if (!mode.dryRun()) {
-        logger.info("Deployed database {}", name);
-      } else {
-        DeploymentService.restore(deployers);
-      }
-      return new SpecifyResult(specs, null, Collections.singletonList(name));
+      acquired = DeploymentService.deployers(database, conn.deploymentContext());
     } catch (SQLException | RuntimeException e) {
       logger.warn("Failed to deploy database {}", name, e);
-      if (deployers != null) {
+      throw e;
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      try {
+        ValidationService.validateOrThrow(deployers, conn.deploymentContext());
+
+        List<String> specs = mode.executeDeployers(deployers);
+        if (!mode.dryRun()) {
+          logger.info("Deployed database {}", name);
+        } else {
+          DeploymentService.restore(deployers);
+        }
+        return new SpecifyResult(specs, null, Collections.singletonList(name));
+      } catch (SQLException | RuntimeException e) {
+        logger.warn("Failed to deploy database {}", name, e);
         DeploymentService.restore(deployers);
         logger.info("Restored deployable resources for database {}", name);
+        throw e;
       }
-      throw e;
     }
   }
 

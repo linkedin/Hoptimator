@@ -9,6 +9,7 @@ import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Sink;
 import com.linkedin.hoptimator.ThrowingFunction;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.DeployerScope;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateDatabase;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
@@ -35,7 +36,11 @@ import org.apache.calcite.sql.type.SqlTypeFactoryImpl;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.Pair;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -54,6 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -62,6 +68,9 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.doAnswer;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -69,6 +78,12 @@ class HoptimatorDdlUtilsTest {
 
   @Mock
   private MockedStatic<DeploymentService> mockDeploymentService;
+
+  @BeforeEach
+  void setUpDeployers() throws SQLException {
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+        .thenAnswer(invocation -> new DeployerScope(List.of()));
+  }
 
   /** Stubs DeploymentService.plan() to return a spy Implementor whose pipeline() method
    * returns the given Pipeline mock, allowing tests to exercise the full deployment path. */
@@ -1605,6 +1620,89 @@ class HoptimatorDdlUtilsTest {
     @Override
     public String databaseName() {
       return name;
+    }
+  }
+
+    @ParameterizedTest
+    @EnumSource(HoptimatorDdlUtils.DdlMode.class)
+    void databaseModesCloseDeployersAfterOperationAndAnyRestore(HoptimatorDdlUtils.DdlMode mode) throws Exception {
+      Deployer deployer = mock(Deployer.class);
+      List<Deployer> deployers = List.of(deployer);
+      mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+          .thenReturn(new DeployerScope(deployers));
+      if (mode.dryRun()) {
+        when(deployer.specify()).thenAnswer(invocation -> {
+          verify(deployer, never()).close();
+          return List.of("database spec");
+        });
+        mockDeploymentService.when(() -> DeploymentService.restore(deployers)).thenAnswer(invocation -> {
+          verify(deployer, never()).close();
+          return null;
+        });
+      }
+
+      try (HoptimatorConnection conn = (HoptimatorConnection) new HoptimatorDriver()
+          .connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+        SqlCreateDatabase create = (SqlCreateDatabase) HoptimatorDriver.parseQuery(conn, "CREATE DATABASE \"owned\"");
+        HoptimatorDdlUtils.SpecifyResult result = HoptimatorDdlUtils.processCreateDatabase(conn, create, mode);
+        assertEquals(mode.dryRun() ? List.of("database spec") : List.of(), result.specs);
+        verify(deployer).close();
+      }
+    }
+
+    @ParameterizedTest
+    @EnumSource(HoptimatorDdlUtils.DdlMode.class)
+    void materializedViewModesCloseDeployersAfterUse(HoptimatorDdlUtils.DdlMode mode) throws Exception {
+      Deployer deployer = mock(Deployer.class);
+      List<Deployer> deployers = List.of(deployer);
+      mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+          .thenReturn(new DeployerScope(deployers));
+      if (mode.dryRun()) {
+        when(deployer.specify()).thenReturn(List.of("materialized view spec"));
+      }
+      stubPlan(mockPipeline());
+
+      try (HoptimatorConnection conn = (HoptimatorConnection) new HoptimatorDriver()
+          .connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+        SchemaPlus database = conn.calciteConnection().getRootSchema().add("OWNED_DB", new TestDatabaseSchema("owned-db"));
+        doAnswer(invocation -> {
+          if (mode.dryRun()) {
+            assertNull(database.tables().get("mv"));
+          } else {
+            assertNotNull(database.tables().get("mv"));
+          }
+          return null;
+        }).when(deployer).close();
+        SqlCreateMaterializedView create = (SqlCreateMaterializedView) HoptimatorDriver.parseQuery(conn,
+            "CREATE MATERIALIZED VIEW \"OWNED_DB\".\"mv\" AS SELECT 1 AS \"id\"");
+
+        HoptimatorDdlUtils.SpecifyResult result = HoptimatorDdlUtils.processCreateMaterializedView(
+            conn.createPrepareContext(), new HoptimatorDriver.Prepare(conn), conn, create, mode);
+
+        assertEquals(mode.dryRun() ? List.of("materialized view spec") : List.of(), result.specs);
+        verify(deployer).close();
+      }
+    }
+
+  @ParameterizedTest
+  @CsvSource({"table,sql", "table,error", "view,sql", "view,error"})
+  void acquisitionFailuresRestoreStagedSchemaWithoutAHandle(String target, String failureType) throws Exception {
+    Throwable expected = "sql".equals(failureType)
+        ? new SQLException("factory failed") : new AssertionError("factory failed");
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any())).thenThrow(expected);
+    if ("view".equals(target)) {
+      stubPlan(mockPipeline());
+    }
+    try (HoptimatorConnection conn = (HoptimatorConnection) new HoptimatorDriver()
+        .connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus database = conn.calciteConnection().getRootSchema().add("OWNED_DB", new TestDatabaseSchema("owned-db"));
+      String sql = "table".equals(target)
+          ? "CREATE TABLE \"OWNED_DB\".\"staged\" (\"id\" INT)"
+          : "CREATE MATERIALIZED VIEW \"OWNED_DB\".\"staged\" AS SELECT 1 AS \"id\"";
+
+      assertSame(expected, assertThrows(expected.getClass(), () -> HoptimatorDdlUtils.specifyFromSql(sql, conn)));
+
+      assertNull(database.tables().get("staged"));
     }
   }
 

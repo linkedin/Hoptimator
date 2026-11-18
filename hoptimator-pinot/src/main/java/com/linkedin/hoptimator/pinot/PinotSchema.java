@@ -1,6 +1,7 @@
 package com.linkedin.hoptimator.pinot;
 
 import com.linkedin.hoptimator.jdbc.schema.LazyLookup;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -19,15 +20,24 @@ import org.slf4j.LoggerFactory;
  * {@link LazyLookup}, so repeated lookups are O(1) map accesses with no extra round-trips. Per-table
  * failures during {@code loadAll} are isolated so one bad table does not blank out the catalog.
  */
-public class PinotSchema extends AbstractSchema {
+public class PinotSchema extends AbstractSchema implements AutoCloseable {
 
   private static final Logger log = LoggerFactory.getLogger(PinotSchema.class);
 
   protected final PinotClient client;
   private final LazyReference<Lookup<Table>> tables = new LazyReference<>();
+  private boolean closed;
 
   public PinotSchema(PinotClient client) {
     this.client = client;
+  }
+
+  @Override
+  public synchronized void close() throws IOException {
+    if (!closed) {
+      closed = true;
+      client.close();
+    }
   }
 
   @Override

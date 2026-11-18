@@ -22,20 +22,25 @@ deployers handle the apply for you.
 ## The interface
 
 ```java
-public interface Deployer {
+public interface Deployer extends AutoCloseable {
   void create() throws SQLException;
   void update() throws SQLException;
   void delete() throws SQLException;
+  boolean exists() throws SQLException;
 
   /** Render a list of specs (usually YAML) without applying them. */
   List<String> specify() throws SQLException;
 
   /** Revert any changes made during the current operation. */
   void restore();
+
+  /** Release owned clients and transports, not deployed backend resources. */
+  default void close() {
+  }
 }
 ```
 
-Five methods, three lifecycle expectations.
+Deployment and resource cleanup have separate lifetimes.
 
 ### `create` / `update` / `delete`
 
@@ -64,6 +69,47 @@ the deployer is asked to undo what it did. Track each side effect as you
 make it; on `restore`, walk the list in reverse and undo each. The bundled
 deployers keep an explicit list of rollback closures in a field; this is a
 good pattern to copy.
+
+### `close`
+
+Release clients and transports created and owned by this deployer. Never close a
+borrowed framework client, and do not delete deployed resources. Make cleanup
+idempotent. The default no-op keeps deployers without owned resources compatible.
+
+SQL DDL, direct table operations, and on-demand `DeploymentService.specify`
+close their acquired deployers after validation, synchronous operations and
+polling, and any `restore()` have finished. A cleanup failure must not trigger
+rollback of a successful deployment. When an operation has already failed,
+try-with-resources preserves it and suppresses cleanup failures.
+
+`DeploymentService.deployers` returns the owning handle directly. Callers must
+close it, rather than registering the returned deployers in another scope:
+
+```java
+try (DeployerScope scope = DeploymentService.deployers(source, context)) {
+  Collection<Deployer> deployers = scope.deployers();
+  try {
+    ValidationService.validateOrThrow(deployers, context);
+    DeploymentService.create(deployers);
+  } catch (SQLException | RuntimeException failure) {
+    DeploymentService.restore(deployers);
+    throw failure;
+  }
+}
+```
+
+The handle exposes a read-only snapshot and closes unique instances in reverse
+acquisition order. It attempts
+every close even when one fails. Keep the rollback catch **inside** the scope:
+resources must remain open while `restore()` runs. The collection-based
+`DeploymentService.create/update/delete/restore` methods do not take ownership.
+Composite deployers must retain child handles before invoking their deployers,
+and close every child handle from their own `close()`, even if one close fails.
+
+Providers own resources until returning their deployers. If construction fails,
+release partial acquisitions before propagating the original failure.
+`DeploymentService.deployers` similarly closes results already returned by other
+providers when a later provider fails.
 
 ## The provider
 
@@ -154,11 +200,12 @@ The validate-then-specify path is the main test surface:
 ```java
 Source source = new Source("my-database", List.of("MYSYS", "foo"), Map.of());
 DeployerProvider provider = new MyDeployerProvider();
-Collection<Deployer> deployers = provider.deployers(source, context);
-
-assertThat(deployers).hasSize(1);
-List<String> specs = deployers.iterator().next().specify();
-assertThat(specs).contains("expected-yaml-fragment");
+try (DeployerScope scope = DeploymentService.deployers(source, context)) {
+  Collection<Deployer> deployers = scope.deployers();
+  assertThat(deployers).hasSize(1);
+  List<String> specs = deployers.iterator().next().specify();
+  assertThat(specs).contains("expected-yaml-fragment");
+}
 ```
 
 For end-to-end tests, the bundled `make integration-tests` target spins
@@ -168,6 +215,9 @@ verify a new deployer doesn't break the operator's reconcile loop.
 
 ## Common pitfalls
 
+- **Confusing `restore()` with cleanup**. Restore reverts backend changes; close
+  releases owned local resources. Validation and read-only requests also need
+  cleanup even when no backend mutation occurred.
 - **Forgetting `restore()`**. If `create()` partially succeeds and then
   throws, and `restore()` is a no-op, the cluster is left in a partial
   state and the next reconcile may fail in confusing ways. Keep a list of
