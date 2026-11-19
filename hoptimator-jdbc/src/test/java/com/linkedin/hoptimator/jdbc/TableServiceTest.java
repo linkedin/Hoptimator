@@ -176,6 +176,79 @@ class TableServiceTest {
     verify(deployer).close();
   }
 
+  @Test
+  void deletePreservesTeardownFailureWhenCloseAlsoFails() {
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = List.of(deployer);
+    SQLException operationFailure = new SQLException("teardown failed");
+    RuntimeException closeFailure = new IllegalStateException("close failed");
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
+        .thenReturn(new DeployerScope(deployers));
+    deployment.when(() -> DeploymentService.delete(deployers)).thenThrow(operationFailure);
+    deployment.when(() -> DeploymentService.restore(deployers)).thenAnswer(invocation -> {
+      verify(deployer, never()).close();
+      return null;
+    });
+    doThrow(closeFailure).when(deployer).close();
+
+    assertThatThrownBy(() -> TableService.delete(new Properties(), path))
+        .isSameAs(operationFailure)
+        .satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(closeFailure));
+
+    deployment.verify(() -> DeploymentService.restore(deployers));
+    verify(deployer).close();
+  }
+
+  @Test
+  void createDryRunRendersWithoutCreatingUpdatingOrDeleting() throws SQLException {
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = List.of(deployer);
+    deployment.when(() -> DeploymentService.deployers(any(), any())).thenReturn(new DeployerScope(deployers));
+    when(deployer.specify()).thenReturn(List.of("table spec"));
+
+    HoptimatorDdlUtils.SpecifyResult result = TableService.create(new Properties(), List.of(), path,
+        recordSchema(), Map.of(), true, true);
+
+    assertThat(result.specs).containsExactly("table spec");
+    deployment.verify(() -> DeploymentService.create(any()), never());
+    deployment.verify(() -> DeploymentService.update(any()), never());
+    deployment.verify(() -> DeploymentService.delete(any()), never());
+    deployment.verify(() -> DeploymentService.restore(deployers));
+    verify(deployer, never()).create();
+    verify(deployer, never()).update();
+    verify(deployer, never()).delete();
+    verify(deployer).close();
+  }
+
+  @Test
+  void createPreservesDeploymentFailureWhenCloseAlsoFails() {
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = List.of(deployer);
+    SQLException operationFailure = new SQLException("create failed");
+    RuntimeException closeFailure = new IllegalStateException("close failed");
+    deployment.when(() -> DeploymentService.deployers(any(), any())).thenReturn(new DeployerScope(deployers));
+    deployment.when(() -> DeploymentService.create(deployers)).thenThrow(operationFailure);
+    deployment.when(() -> DeploymentService.restore(deployers)).thenAnswer(invocation -> {
+      verify(deployer, never()).close();
+      return null;
+    });
+    doThrow(closeFailure).when(deployer).close();
+
+    assertThatThrownBy(() -> TableService.create(new Properties(), List.of(), path,
+        recordSchema(), Map.of(), false, false))
+        .isSameAs(operationFailure)
+        .satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(closeFailure));
+
+    deployment.verify(() -> DeploymentService.restore(deployers));
+    verify(deployer).close();
+  }
+
   @ParameterizedTest
   @EnumSource(HoptimatorDdlUtils.DdlMode.class)
   void createModesReleaseDeployersAfterPollingOrDryRun(HoptimatorDdlUtils.DdlMode mode) throws SQLException {
