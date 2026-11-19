@@ -60,7 +60,7 @@ public class LogicalTableDriverTest {
 
   @Test
   public void connectThrowsWhenDatabasePropertyMissing() throws Exception {
-    // Two valid tiers but no "database" property — should throw before calling super.connect()
+    // Two valid tiers but no "database" property — should throw before acquiring a connection.
     String url = "jdbc:logical://nearline=kafka-database;online=venice";
     try (Connection ignored = DriverManager.getConnection(url, new Properties())) {
       throw new AssertionError("Expected SQLNonTransientException");

@@ -137,7 +137,7 @@ public class HoptimatorDriver implements Driver {
       if (connection == null) {
         throw new IOException("Could not connect to " + url + ": Could not create Calcite connection.");
       }
-      return CalciteDriver.initializeConnection(connection, () -> {
+      try {
         CalciteConnection calciteConnection = (CalciteConnection) connection;
         calciteConnection.setAutoCommit(true); // to prevent rollback()
         SchemaPlus rootSchema = calciteConnection.getRootSchema();
@@ -165,7 +165,10 @@ public class HoptimatorDriver implements Driver {
           }
         }
         return hoptimatorConnection;
-      });
+      } catch (Exception e) {
+        CalciteDriver.closeOnFailure(connection, e);
+        throw e;
+      }
     } catch (IOException | SQLTransientException e) {
       throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {

@@ -2,9 +2,9 @@ package com.linkedin.hoptimator.mysql;
 
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import com.linkedin.hoptimator.jdbc.HoptimatorCalciteSchema;
-import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.impl.AbstractSchema;
 import org.slf4j.Logger;
@@ -13,7 +13,6 @@ import org.slf4j.LoggerFactory;
 import org.apache.calcite.avatica.AvaticaConnection;
 
 import java.io.IOException;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Properties;
@@ -47,33 +46,22 @@ public class MySqlDriver extends CalciteDriver {
   }
 
   @Override
-  public Connection connect(String url, Properties props) throws SQLException {
-    if (!url.startsWith(getConnectStringPrefix())) {
-      return null;
-    }
-    // Connection string properties are given precedence over config properties
-    Properties properties = new Properties();
-    properties.putAll(props); // in case the driver is loaded via getConnection()
-    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
-    try {
-      Connection connection = super.connect(url, props); // createRootSchema() called here
-      if (connection == null) {
-        throw new IOException("Could not connect to " + url);
-      }
-      return initializeConnection(connection, () -> {
-        connection.setAutoCommit(true); // to prevent rollback()
-        connection.setCatalog(CATALOG_NAME);
+  protected void configureConnection(CalciteConnection connection, String url, Properties properties) throws SQLException {
+    connection.setAutoCommit(true); // to prevent rollback()
+    connection.setCatalog(CATALOG_NAME);
 
-        String mySqlUrl = properties.getProperty("url");
-        if (mySqlUrl == null) {
-          throw new SQLException("Missing required parameter 'url' for MySQL connection");
-        }
-
-        return connection;
-      });
-    } catch (IOException e) {
-      throw new SQLNonTransientException("Problem loading " + url, e);
+    String mySqlUrl = properties.getProperty("url");
+    if (mySqlUrl == null) {
+      throw new SQLException("Missing required parameter 'url' for MySQL connection");
     }
+  }
+
+  @Override
+  protected SQLException connectionException(String url, Exception failure) {
+    if (failure instanceof IOException) {
+      return new SQLNonTransientException("Problem loading " + url, failure);
+    }
+    return super.connectionException(url, failure);
   }
 
   /**

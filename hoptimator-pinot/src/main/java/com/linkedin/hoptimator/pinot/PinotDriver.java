@@ -2,12 +2,10 @@ package com.linkedin.hoptimator.pinot;
 
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import java.io.IOException;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.util.Properties;
-import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.schema.SchemaPlus;
@@ -34,35 +32,21 @@ public class PinotDriver extends CalciteDriver {
   }
 
   @Override
-  public Connection connect(String url, Properties props) throws SQLException {
-    if (!url.startsWith(getConnectStringPrefix())) {
-      return null;
-    }
-    // Connection string properties are given precedence over config properties.
-    Properties properties = new Properties();
-    properties.putAll(props); // in case the driver is loaded via getConnection()
-    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
+  protected void configureConnection(CalciteConnection connection, String url, Properties properties) throws SQLException {
+    connection.setAutoCommit(true); // to prevent rollback()
+    connection.setCatalog(CATALOG_NAME);
+    SchemaPlus rootSchema = connection.getRootSchema();
+    PinotSchema schema = createPinotSchema(properties);
+    addConnectionResource(connection, schema);
+    rootSchema.add(CATALOG_NAME, schema);
+  }
 
-    try {
-      Connection connection = super.connect(url, props);
-      if (connection == null) {
-        throw new IOException("Could not connect to " + url);
-      }
-      return initializeConnection(connection, () -> {
-        connection.setAutoCommit(true); // to prevent rollback()
-        connection.setCatalog(CATALOG_NAME);
-        CalciteConnection calciteConnection = (CalciteConnection) connection;
-        SchemaPlus rootSchema = calciteConnection.getRootSchema();
-        PinotSchema schema = createPinotSchema(properties);
-        addConnectionResource(calciteConnection, schema);
-        rootSchema.add(CATALOG_NAME, schema);
-        return connection;
-      });
-    } catch (IOException e) {
-      throw new SQLTransientConnectionException("Problem loading " + url, e);
-    } catch (Exception e) {
-      throw new SQLNonTransientException("Problem loading " + url, e);
+  @Override
+  protected SQLException connectionException(String url, Exception failure) {
+    if (failure instanceof IOException) {
+      return new SQLTransientConnectionException("Problem loading " + url, failure);
     }
+    return new SQLNonTransientException("Problem loading " + url, failure);
   }
 
   protected PinotSchema createPinotSchema(Properties properties) {

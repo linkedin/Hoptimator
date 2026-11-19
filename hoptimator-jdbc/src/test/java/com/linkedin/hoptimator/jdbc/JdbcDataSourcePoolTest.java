@@ -253,11 +253,10 @@ class JdbcDataSourcePoolTest {
 
   private static JdbcDataSourcePool realPool(AtomicInteger physicalCloses) {
     CalciteDriver driver = new CalciteDriver() {
-      @Override public Connection connect(String url, Properties properties) throws SQLException {
-        Connection connection = super.connect(url, properties);
+      @Override protected void configureConnection(CalciteConnection connection, String url, Properties properties)
+          throws SQLException {
         connection.setAutoCommit(true);
-        addConnectionResource((CalciteConnection) connection, physicalCloses::incrementAndGet);
-        return connection;
+        addConnectionResource(connection, physicalCloses::incrementAndGet);
       }
     };
     return new JdbcDataSourcePool(() -> {
@@ -280,12 +279,11 @@ class JdbcDataSourcePoolTest {
       AtomicInteger closed = new AtomicInteger();
       AtomicInteger failures = new AtomicInteger();
       CalciteDriver driver = new CalciteDriver() {
-        @Override public Connection connect(String url, Properties properties) throws SQLException {
-          Connection connection = super.connect(url, properties);
+        @Override protected void configureConnection(CalciteConnection connection, String url, Properties properties)
+            throws SQLException {
           connection.setAutoCommit(true);
           opened.incrementAndGet();
-          addConnectionResource((CalciteConnection) connection, closed::incrementAndGet);
-          return connection;
+          addConnectionResource(connection, closed::incrementAndGet);
         }
       };
       try (JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> {

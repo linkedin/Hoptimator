@@ -42,49 +42,53 @@ public class CalciteDriver extends Driver {
   }
 
   @Override
-  public Connection connect(String url, Properties info) throws SQLException {
+  public final Connection connect(String url, Properties info) throws SQLException {
     return connect(url, info, false);
   }
 
-  public Connection connect(String url, Properties info, boolean cache) throws SQLException {
+  public final Connection connect(String url, Properties info, boolean cache) throws SQLException {
     if (!this.acceptsURL(url)) {
       return null;
-    } else {
-      String prefix = this.getConnectStringPrefix();
-
-      assert url.startsWith(prefix);
-
-      String urlSuffix = url.substring(prefix.length());
-      Properties info2 = ConnectStringParser.parse(urlSuffix, info);
+    }
+    Properties properties = connectionProperties(url, info);
+    AvaticaConnection connection = null;
+    try {
+      Properties info2 = (Properties) properties.clone();
       // Report temporal fractional-seconds precision in DECIMAL_DIGITS, where Calcite's JDBC
       // federation reader (JdbcSchema#getRelDataType) looks — otherwise TIMESTAMP(3) columns
       // surface as TIMESTAMP(0) across the federation. See HoptimatorMetaColumnFactory.
       info2.putIfAbsent(CalciteConnectionProperty.META_COLUMN_FACTORY.camelName(),
           HoptimatorMetaColumnFactory.class.getName());
       CalciteSchema rootSchema = createRootSchema(info2);
-      AvaticaConnection connection = ((CalciteFactory) this.factory)
+      connection = ((CalciteFactory) this.factory)
           .newConnection(this, this.factory, url, info2, rootSchema, null);
-      return initializeConnection(connection, () -> {
-        onConnectionInit(connection);
-        return connection;
-      });
-    }
-  }
-
-  /** Closes an acquired connection if remaining initialization fails, preserving the original failure. */
-  protected static <T extends Connection, E extends Exception> T initializeConnection(
-      Connection connection, ConnectionInitializer<T, E> initializer) throws E {
-    try {
-      return initializer.initialize();
+      onConnectionInit(connection);
+      configureConnection((CalciteConnection) connection, url, properties);
+      return connection;
     } catch (Exception failure) {
       closeOnFailure(connection, failure);
-      throw failure;
+      throw connectionException(url, failure);
     }
   }
 
-  @FunctionalInterface
-  protected interface ConnectionInitializer<T extends Connection, E extends Exception> {
-    T initialize() throws E;
+  /** Merges URL properties over caller properties. Override to validate before acquiring resources. */
+  protected Properties connectionProperties(String url, Properties info) throws SQLException {
+    return ConnectStringParser.parse(url.substring(getConnectStringPrefix().length()), info);
+  }
+
+  /** Configures an acquired connection after Calcite initialization; failures trigger physical cleanup. */
+  protected void configureConnection(CalciteConnection connection, String url, Properties properties) throws Exception {
+  }
+
+  /** Maps initialization failures after cleanup, preserving checked SQL and unchecked failures by default. */
+  protected SQLException connectionException(String url, Exception failure) {
+    if (failure instanceof SQLException) {
+      return (SQLException) failure;
+    }
+    if (failure instanceof RuntimeException) {
+      throw (RuntimeException) failure;
+    }
+    return new SQLException("Problem loading " + url, failure);
   }
 
   /** Transfers an owned resource to the physical connection, not a pooled connection lease. */

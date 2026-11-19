@@ -90,10 +90,19 @@ Drivers based on `CalciteDriver` can transfer owned resources with
 registration order, when the physical connection closes, including failed
 connection initialization. A pooled connection's logical return does not
 dispose these resources. Register only owned resources, not shared clients.
-Driver overrides use `CalciteDriver.initializeConnection` to guard their
-post-connection setup. If setup fails, it closes the acquired connection and
-preserves the original failure, attaching any cleanup failure as suppressed.
-Successful initialization transfers ownership to the caller.
+Both public `CalciteDriver.connect` overloads are final and own acquisition,
+initialization, and cleanup. Subclasses override `configureConnection` with the
+acquired connection, URL, and merged properties instead of overriding `connect`
+or passing an initialization callback. Calcite's `onConnectionInit` runs first;
+its existing overrides still control lattice scanning and schema model loading.
+`connectionProperties` merges URL properties over caller properties and can
+validate before allocation. `connectionException` preserves each driver's
+exception classification after cleanup. If initialization fails, the base driver
+closes the connection and attaches cleanup failures to the original failure as
+suppressed exceptions. Successful initialization transfers ownership to the caller.
+External subclasses overriding `connect` must migrate to these hooks and be
+rebuilt against the updated driver. `HoptimatorDriver` remains a separate wrapping
+facade with its own explicit failure-cleanup boundary.
 `VeniceDriver` registers closeable cluster schemas before publishing them and
 disposes the connection if schema creation or registration fails. This cleanup
 does not define when a shared connection pool is evicted or shut down.
