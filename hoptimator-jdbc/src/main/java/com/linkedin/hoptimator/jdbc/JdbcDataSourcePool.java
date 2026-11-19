@@ -5,22 +5,29 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
+import java.lang.ref.Cleaner;
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
 
-/** Owns shared JDBC pools independently of cache reachability and individual JDBC leases. */
+/** Reuses softly retained JDBC pools and closes them when their unleased owners are reclaimed. */
 public final class JdbcDataSourcePool implements AutoCloseable {
   private static final Logger LOG = LoggerFactory.getLogger(JdbcDataSourcePool.class);
+  private static final Cleaner CLEANER = Cleaner.create();
 
   private final Map<List<String>, Entry> pools = new HashMap<>();
+  private final Set<Entry> owned = new HashSet<>();
   private final Supplier<BasicDataSource> factory;
   private boolean closed;
 
@@ -36,7 +43,7 @@ public final class JdbcDataSourcePool implements AutoCloseable {
     return Shared.INSTANCE;
   }
 
-  /** Holds a pool for the entire catalog lifetime, including lazy future metadata reads. */
+  /** Pins a pool for the entire catalog lifetime; keep the lease open while using its data source. */
   public synchronized Lease acquire(String url, @Nullable String driver,
       @Nullable String user, @Nullable String password) throws SQLException {
     if (closed) {
@@ -44,17 +51,21 @@ public final class JdbcDataSourcePool implements AutoCloseable {
     }
     List<String> key = key(url, driver, user, password);
     Entry entry = pools.get(key);
-    if (entry == null) {
+    Object token = entry == null ? null : entry.get();
+    if (token == null) {
       BasicDataSource source = factory.get();
       source.setUrl(url);
       source.setDriverClassName(driver);
       source.setUsername(user);
       source.setPassword(password);
-      entry = new Entry(source);
+      token = new Object();
+      entry = new Entry(token, key, source);
+      owned.add(entry);
       pools.put(key, entry);
     }
-    entry.leases++;
-    return new Lease(entry);
+    Entry acquired = requireNonNull(entry);
+    acquired.leases++;
+    return new Lease(acquired, token);
   }
 
   /** Retires one exact pool key without disrupting catalogs already holding it. */
@@ -85,7 +96,9 @@ public final class JdbcDataSourcePool implements AutoCloseable {
     List<Entry> disposable = new ArrayList<>();
     synchronized (this) {
       closed |= terminal;
-      pools.values().forEach(entry -> retire(entry, disposable));
+      for (Entry entry : new ArrayList<>(owned)) {
+        retire(entry, disposable);
+      }
       pools.clear();
     }
     dispose(disposable);
@@ -97,9 +110,17 @@ public final class JdbcDataSourcePool implements AutoCloseable {
     return Arrays.asList(requireNonNull(url, "url"), user, password, driver);
   }
 
-  private static void retire(Entry entry, List<Entry> disposable) {
+  private void retire(Entry entry, List<Entry> disposable) {
     entry.retired = true;
-    if (entry.leases == 0) {
+    if (entry.leases == 0 || entry.get() == null) {
+      claim(entry, disposable);
+    }
+  }
+
+  private void claim(Entry entry, List<Entry> disposable) {
+    if (!entry.disposed) {
+      entry.disposed = true;
+      owned.remove(entry);
       disposable.add(entry);
     }
   }
@@ -115,6 +136,8 @@ public final class JdbcDataSourcePool implements AutoCloseable {
         } else {
           failure.addSuppressed(e);
         }
+      } finally {
+        entry.cleanable.clean();
       }
     }
     if (failure != null) {
@@ -122,22 +145,48 @@ public final class JdbcDataSourcePool implements AutoCloseable {
     }
   }
 
-  private static final class Entry {
+  // Cleanup owns the pool, never its softly referenced token. Active catalog leases pin the token.
+  private final class Entry extends SoftReference<Object> implements Runnable {
+    private final List<String> key;
     private final BasicDataSource source;
+    private final Cleaner.Cleanable cleanable;
     private int leases;
     private boolean retired;
+    private boolean disposed;
 
-    private Entry(BasicDataSource source) {
+    private Entry(Object token, List<String> key, BasicDataSource source) {
+      super(token);
+      this.key = key;
       this.source = source;
+      cleanable = CLEANER.register(token, this);
+    }
+
+    @Override public void run() {
+      List<Entry> disposable = new ArrayList<>();
+      synchronized (JdbcDataSourcePool.this) {
+        if (disposed) {
+          return;
+        }
+        pools.remove(key, this);
+        // No reachable lease can remain once its token is phantom reachable, even if not closed.
+        claim(this, disposable);
+      }
+      try {
+        dispose(disposable);
+      } catch (SQLException e) {
+        LOG.error("Failed to close reclaimed JDBC pool", e);
+      }
     }
   }
 
   public final class Lease implements AutoCloseable {
     private final Entry entry;
+    @Nullable private Object token;
     private boolean released;
 
-    private Lease(Entry entry) {
+    private Lease(Entry entry, Object token) {
       this.entry = entry;
+      this.token = token;
     }
 
     public BasicDataSource dataSource() {
@@ -152,17 +201,24 @@ public final class JdbcDataSourcePool implements AutoCloseable {
     @Override
     public void close() throws SQLException {
       List<Entry> disposable = new ArrayList<>();
+      Object pinned;
       synchronized (JdbcDataSourcePool.this) {
         if (released) {
           return;
         }
         released = true;
+        pinned = token;
+        token = null;
         entry.leases--;
         if (entry.retired && entry.leases == 0) {
-          disposable.add(entry);
+          claim(entry, disposable);
         }
       }
-      dispose(disposable);
+      try {
+        dispose(disposable);
+      } finally {
+        Reference.reachabilityFence(pinned);
+      }
     }
   }
 

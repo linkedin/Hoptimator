@@ -3,9 +3,15 @@ package com.linkedin.hoptimator.jdbc;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.commons.dbcp2.BasicDataSource;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.lang.ref.Reference;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
@@ -20,6 +26,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -34,6 +41,31 @@ import static org.mockito.Mockito.verify;
 
 class JdbcDataSourcePoolTest {
   private static final String URL = "jdbc:calcite:";
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  @Timeout(value = 2, unit = TimeUnit.MINUTES)
+  void gcClosesUnleasedPoolsAndKeepsActiveCatalogsUsable(boolean failFirstClose, @TempDir Path temporary)
+      throws Exception {
+    Path output = temporary.resolve("pool-gc.log");
+    Process process = new ProcessBuilder(
+        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+        "-Xmx64m", "-cp",
+        System.getProperty("hoptimator.test.classpath", System.getProperty("java.class.path")),
+        GcProbe.class.getName(), Boolean.toString(failFirstClose))
+        .redirectErrorStream(true).redirectOutput(output.toFile()).start();
+    try {
+      assertTrue(process.waitFor(90, TimeUnit.SECONDS), "Isolated GC probe must finish");
+      String log = Files.readString(output);
+      assertEquals(0, process.exitValue(), log);
+      assertThat(log).contains("reclaimed=3; created=4; failures=" + (failFirstClose ? 1 : 0) + "; open=0");
+    } finally {
+      if (process.isAlive()) {
+        process.destroyForcibly();
+        assertTrue(process.waitFor(10, TimeUnit.SECONDS), "GC probe must terminate");
+      }
+    }
+  }
 
   @Test
   void reusesPhysicalConnectionAcrossCatalogLeasesAndClosesOnRemoval() throws Exception {
@@ -233,6 +265,100 @@ class JdbcDataSourcePoolTest {
       source.setDriver(driver);
       return source;
     });
+  }
+
+  /** Heap pressure is confined to this small child JVM, never the shared test worker. */
+  public static final class GcProbe {
+    private static final int MIB = 1024 * 1024;
+    private static final String ACTIVE_URL = URL + "pool=active";
+    private static final String IDLE_URL = URL + "pool=idle";
+
+    public static void main(String[] args) throws Exception {
+      boolean failFirstClose = Boolean.parseBoolean(args[0]);
+      AtomicInteger createdPools = new AtomicInteger();
+      AtomicInteger opened = new AtomicInteger();
+      AtomicInteger closed = new AtomicInteger();
+      AtomicInteger failures = new AtomicInteger();
+      CalciteDriver driver = new CalciteDriver() {
+        @Override public Connection connect(String url, Properties properties) throws SQLException {
+          Connection connection = super.connect(url, properties);
+          connection.setAutoCommit(true);
+          opened.incrementAndGet();
+          addConnectionResource((CalciteConnection) connection, closed::incrementAndGet);
+          return connection;
+        }
+      };
+      try (JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> {
+        boolean fail = createdPools.incrementAndGet() == 2 && failFirstClose;
+        BasicDataSource source = new BasicDataSource() {
+          @Override public synchronized void close() throws SQLException {
+            super.close();
+            if (fail) {
+              failures.incrementAndGet();
+              throw new SQLException("GC cleanup failure control");
+            }
+          }
+        };
+        source.setDriver(driver);
+        return source;
+      });
+          JdbcDataSourcePool.Lease active = owner.acquire(ACTIVE_URL, null, null, null)) {
+        BasicDataSource activeSource = active.dataSource();
+        CalciteConnection activePhysical;
+        try (Connection connection = activeSource.getConnection()) {
+          activePhysical = connection.unwrap(CalciteConnection.class);
+        }
+        // Even a retained closed handle must release its strong ownership token.
+        List<JdbcDataSourcePool.Lease> released = new ArrayList<>();
+        for (int cycle = 0; cycle < 3; cycle++) {
+          released.add(warmAndRelease(owner));
+          int expectedCloses = closed.get() + 1;
+          awaitReclamation(closed, expectedCloses);
+          assertEquals(expectedCloses, closed.get());
+          assertFalse(activeSource.isClosed());
+          assertFalse(activePhysical.isClosed());
+          try (JdbcDataSourcePool.Lease same = owner.acquire(ACTIVE_URL, null, null, null);
+              Connection connection = same.dataSource().getConnection()) {
+            assertSame(activeSource, same.dataSource());
+            assertSame(activePhysical, connection.unwrap(CalciteConnection.class));
+          }
+        }
+        assertEquals(4, createdPools.get());
+        assertEquals(failFirstClose ? 1 : 0, failures.get());
+        Reference.reachabilityFence(released);
+      }
+      assertEquals(opened.get(), closed.get());
+      System.out.println("reclaimed=3; created=" + createdPools.get()
+          + "; failures=" + failures.get() + "; open=" + (opened.get() - closed.get()));
+    }
+
+    private static JdbcDataSourcePool.Lease warmAndRelease(JdbcDataSourcePool owner) throws SQLException {
+      JdbcDataSourcePool.Lease lease = owner.acquire(IDLE_URL, null, null, null);
+      try (Connection connection = lease.dataSource().getConnection()) {
+        assertTrue(connection.getAutoCommit());
+      }
+      lease.close();
+      return lease;
+    }
+
+    private static void awaitReclamation(AtomicInteger closed, int expected) throws InterruptedException {
+      List<byte[]> pressure = new ArrayList<>();
+      Runtime runtime = Runtime.getRuntime();
+      long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(25);
+      do {
+        while (runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory() > 8L * MIB
+            && closed.get() < expected) {
+          pressure.add(new byte[16 * 1024]);
+        }
+        System.gc();
+        if (closed.get() >= expected) {
+          break;
+        }
+        TimeUnit.MILLISECONDS.sleep(100);
+      } while (System.nanoTime() < deadline);
+      Reference.reachabilityFence(pressure);
+      assertEquals(expected, closed.get(), "GC must dispose the idle physical connection without invalidation");
+    }
   }
 
   private static final class CountingDataSource extends BasicDataSource {

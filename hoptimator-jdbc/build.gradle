@@ -32,6 +32,12 @@ java {
   targetCompatibility = JavaVersion.VERSION_11
 }
 
+tasks.named('test') {
+  doFirst {
+    systemProperty 'hoptimator.test.classpath', sourceSets.test.runtimeClasspath.asPath
+  }
+}
+
 // Work-around for gradle test fixtures bug, which spontaneously started publishing
 // junit-bom to maven, for some reason.
 components.java.withVariantsFromConfiguration(configurations.testFixturesApiElements) {

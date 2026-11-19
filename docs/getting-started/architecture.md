@@ -96,21 +96,44 @@ does not define when a shared connection pool is evicted or shut down.
 
 For Kubernetes `Database` catalogs, `K8sDatabaseTable` uses
 `JdbcDataSourcePool.shared()` rather than Calcite's soft-value pool cache.
-The owner strongly retains each DBCP pool and preserves the existing effective
-URL, driver, username, and password key. Each outer Hoptimator connection holds
-a catalog-lifetime lease, so lazy metadata reads can still borrow connections
-after a pool is retired. `invalidate`/`invalidateAll` remove pools from reuse;
+The owner preserves soft retention and the existing effective URL, driver,
+username, and password key. Each outer Hoptimator connection holds
+a catalog-lifetime lease that strongly pins the pool's ownership token, so lazy
+metadata reads can still borrow connections after a pool is retired.
+`invalidate`/`invalidateAll` remove pools from reuse;
 physical disposal waits for the last catalog lease to close. Normal outer
 connection close releases its leases without discarding still-cached pools.
 Failed outer initialization also releases registered leases.
 
-The shared owner registers one JVM shutdown hook and can be closed explicitly;
-close rejects new catalog acquisitions and drains existing leases. There is
-no automatic idle timeout or capacity eviction in this ownership-only policy.
-Distinct keys can therefore retain distinct pools until explicit removal or
-shutdown. This is separate from schema/table metadata caching, whose behavior
-is unchanged. Engine data sources and direct Calcite pool users are not migrated
-by the Kubernetes Database integration.
+Once no catalog lease pins a token, it is only softly reachable. GC can reclaim
+it, and one shared Java `Cleaner` closes the associated pool, which physically
+closes its idle connections and their explicitly owned resources. Cleanup state
+retains the pool but not the token; otherwise GC-driven cleanup would never run.
+Closed leases release their tokens even if the lease handles themselves remain
+reachable. Asynchronous cleanup failures are logged; explicit retirement and
+lease-close failures are returned to the caller.
+
+Calcite's pool cache has no supported removal-listener hook, so this cleanup is
+limited to Hoptimator's Kubernetes Database ownership helper. No Calcite internals
+are modified or accessed reflectively. The shared owner also registers one JVM
+shutdown hook and can be closed explicitly; close rejects new catalog acquisitions
+and drains existing leases. There is no automatic idle timeout, capacity limit,
+or freshness interval: soft reclamation depends on GC and is not time-bounded.
+Schema/table metadata caching is unchanged. Engine data sources and direct
+Calcite pool users are not migrated by the Kubernetes Database integration.
+
+Opening a new outer connection is not a metadata-refresh boundary. It rebuilds
+the Kubernetes catalog and its JDBC schema wrappers, but can reuse a downstream
+physical connection, including that driver's metadata caches. In particular,
+Venice's `ClusterSchema` keeps targeted table lookups and a once-loaded bulk
+store listing for its physical connection's lifetime. After bulk enumeration,
+later requests can miss newly created stores; a cached dropped store can still
+resolve and fail when its schema is fetched. Pool retirement replaces these
+caches for new requests without breaking catalogs still leasing the old pool.
+This is a freshness limitation, distinct from resource ownership, not a reason
+to close shared pools whenever an individual request finishes. Lifecycle
+integration tests verify create/drop visibility after explicit pool retirement,
+not an unconditional refresh whenever an outer connection opens.
 
 ## Step 2 — Plan
 

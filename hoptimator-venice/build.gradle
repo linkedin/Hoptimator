@@ -29,6 +29,12 @@ dependencies {
   testRuntimeOnly project(':hoptimator-mysql')
 }
 
+tasks.named('intTest') {
+  doFirst {
+    systemProperty 'hoptimator.test.classpath', sourceSets.test.runtimeClasspath.asPath
+  }
+}
+
 publishing {
   repositories {
     maven {

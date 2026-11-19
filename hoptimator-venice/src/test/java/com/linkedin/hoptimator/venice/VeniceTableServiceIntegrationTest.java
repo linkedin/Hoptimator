@@ -208,14 +208,11 @@ public class VeniceTableServiceIntegrationTest {
    * primitive key, followed by the value fields), failing if the store is not present.
    *
    * <p>Uses a direct {@code jdbc:venice://} connection rather than the shared {@code catalogs=k8s}
-   * catalog on purpose. The catalog resolves a table by enumerating the whole schema, which for
-   * Venice means the router's bulk {@code /stores} list — a periodically-refreshed cache that lags
-   * the controller, so a just-created store can be momentarily absent from it (and, because that
-   * refresh window can outlast a whole test run, absent for every store created that run — the
-   * "all three or none" flake). A direct connection instead resolves the single store via the
-   * router's targeted {@code discover_cluster} endpoint, which reflects the create immediately, so
-   * no polling is needed. The store deployers run synchronously, so the store exists the instant
-   * {@code create} returns.
+   * catalog on purpose, avoiding metadata cached by shared physical JDBC connections and the
+   * router's bulk {@code /stores} list. The targeted {@code discover_cluster} lookup can still
+   * race router propagation: a synchronous controller create is not a router-visibility barrier.
+   * This immediate assertion can therefore fail even when the controller successfully created
+   * the store.
    */
   private RelDataType resolveVenice(String store) throws SQLException {
     Properties veniceProps = DatabaseConfigResolvers.forProperties(new Properties())
