@@ -64,8 +64,10 @@ public final class DeploymentService {
   public static <T extends Deployable> List<String> specify(T obj, DeploymentContext context)
       throws SQLException {
     List<String> specs = new ArrayList<>();
-    for (Deployer deployer : deployers(obj, context)) {
-      specs.addAll(deployer.specify());
+    try (DeployerScope scope = deployers(obj, context)) {
+      for (Deployer deployer : scope.deployers()) {
+        specs.addAll(deployer.specify());
+      }
     }
     return specs;
   }
@@ -84,12 +86,13 @@ public final class DeploymentService {
     return providers;
   }
 
-  public static <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context)
+  /** Acquires deployers and transfers their cleanup responsibility to the returned handle. */
+  public static <T extends Deployable> DeployerScope deployers(T obj, DeploymentContext context)
       throws SQLException {
     return deployers(obj, context, providers());
   }
 
-  static <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context,
+  static <T extends Deployable> DeployerScope deployers(T obj, DeploymentContext context,
       Collection<DeployerProvider> providers) throws SQLException {
     // Filter out base classes when subclasses exist
     Set<DeployerProvider> filteredProviders = new HashSet<>();
@@ -109,10 +112,21 @@ public final class DeploymentService {
 
     // Now collect deployers from filtered providers
     List<Deployer> deployers = new ArrayList<>();
-    for (DeployerProvider provider : filteredProviders) {
-      deployers.addAll(provider.deployers(obj, context));
+    try {
+      for (DeployerProvider provider : filteredProviders) {
+        deployers.addAll(provider.deployers(obj, context));
+      }
+    } catch (SQLException | RuntimeException failure) {
+      try {
+        new DeployerScope(deployers).close();
+      } catch (RuntimeException closeFailure) {
+        if (failure != closeFailure) {
+          failure.addSuppressed(closeFailure);
+        }
+      }
+      throw failure;
     }
-    return deployers;
+    return new DeployerScope(deployers);
   }
 
   /** Plans a deployable Pipeline which implements the query. */

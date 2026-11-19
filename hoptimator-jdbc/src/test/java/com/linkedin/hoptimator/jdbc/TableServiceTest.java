@@ -4,15 +4,19 @@ import com.linkedin.hoptimator.Deployer;
 import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.DeployerScope;
 import org.apache.avro.Schema;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
@@ -29,6 +33,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 
 /**
@@ -51,6 +56,12 @@ class TableServiceTest {
 
   @Mock
   private MockedStatic<DeploymentService> deployment;
+
+  @BeforeEach
+  void setUp() throws SQLException {
+    deployment.when(() -> DeploymentService.deployers(any(), any()))
+        .thenAnswer(invocation -> new DeployerScope(List.of()));
+  }
 
   @Test
   void createDryRunDerivesRowTypeFromAvroSchema() throws SQLException {
@@ -112,12 +123,13 @@ class TableServiceTest {
     DatabaseConfigResolver resolver = stubResolver();
     resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
     deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
-        .thenReturn(deployers);
+        .thenReturn(new DeployerScope(deployers));
 
     TableService.delete(new Properties(), path);
 
     deployment.verify(() -> DeploymentService.delete(deployers), times(1));
     deployment.verify(() -> DeploymentService.restore(any()), never());
+    verify(deployer).close();
   }
 
   @Test
@@ -131,7 +143,7 @@ class TableServiceTest {
     deployment.when(() -> DeploymentService.parseHints(any()))
         .thenReturn(Map.of("hintKey", "hintValue"));
     deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
-        .thenReturn(deployers);
+        .thenReturn(new DeployerScope(deployers));
 
     TableService.delete(new Properties(), path);
 
@@ -148,15 +160,73 @@ class TableServiceTest {
     DatabaseConfigResolver resolver = stubResolver();
     resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
     deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
-        .thenReturn(deployers);
+        .thenReturn(new DeployerScope(deployers));
     deployment.when(() -> DeploymentService.delete(deployers))
         .thenThrow(new SQLException("teardown boom"));
+    deployment.when(() -> DeploymentService.restore(deployers)).thenAnswer(invocation -> {
+      verify(deployer, never()).close();
+      return null;
+    });
 
     assertThatThrownBy(() -> TableService.delete(new Properties(), path))
         .isInstanceOf(SQLException.class)
         .hasMessageContaining("teardown boom");
 
     deployment.verify(() -> DeploymentService.restore(deployers), times(1));
+    verify(deployer).close();
+  }
+
+  @ParameterizedTest
+  @EnumSource(HoptimatorDdlUtils.DdlMode.class)
+  void createModesReleaseDeployersAfterPollingOrDryRun(HoptimatorDdlUtils.DdlMode mode) throws SQLException {
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = List.of(deployer);
+    deployment.when(() -> DeploymentService.deployers(any(), any())).thenReturn(new DeployerScope(deployers));
+    if (mode.dryRun()) {
+      when(deployer.specify()).thenAnswer(invocation -> {
+        verify(deployer, never()).close();
+        return List.of("table spec");
+      });
+      deployment.when(() -> DeploymentService.restore(deployers)).thenAnswer(invocation -> {
+        verify(deployer, never()).close();
+        return null;
+      });
+    } else if (mode == HoptimatorDdlUtils.DdlMode.CREATE) {
+      deployment.when(() -> DeploymentService.create(deployers)).thenAnswer(invocation -> {
+        verify(deployer, never()).close();
+        return null;
+      });
+    } else {
+      deployment.when(() -> DeploymentService.update(deployers)).thenAnswer(invocation -> {
+        verify(deployer, never()).close();
+        return null;
+      });
+    }
+
+    HoptimatorDdlUtils.SpecifyResult result = TableService.create(new Properties(), List.of(), path,
+        recordSchema(), Map.of(), mode == HoptimatorDdlUtils.DdlMode.UPDATE, mode.dryRun());
+
+    assertThat(result.specs).isEqualTo(mode.dryRun() ? List.of("table spec") : List.of());
+    verify(deployer).close();
+  }
+
+  @Test
+  void cleanupFailureDoesNotRestoreSuccessfulDirectCreate() throws SQLException {
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    Deployer deployer = mock(Deployer.class);
+    RuntimeException expected = new IllegalStateException("close failed");
+    doThrow(expected).when(deployer).close();
+    deployment.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(deployer)));
+
+    assertThatThrownBy(() -> TableService.create(new Properties(), List.of(), path,
+        recordSchema(), Map.of(), false, false)).isSameAs(expected);
+
+    deployment.verify(() -> DeploymentService.create(List.of(deployer)));
+    deployment.verify(() -> DeploymentService.restore(any()), never());
   }
 
   @Test
@@ -168,7 +238,7 @@ class TableServiceTest {
     Deployer deployer = mock(Deployer.class);
     when(deployer.exists()).thenReturn(true);
     deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
-        .thenReturn(Collections.singletonList(deployer));
+        .thenReturn(new DeployerScope(Collections.singletonList(deployer)));
 
     assertThatThrownBy(() -> TableService.create(new Properties(), Collections.emptyList(), path,
         recordSchema(), Collections.emptyMap(), false, false))
@@ -186,7 +256,7 @@ class TableServiceTest {
     when(deployer.exists()).thenReturn(false);
     List<Deployer> deployers = Collections.singletonList(deployer);
     deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
-        .thenReturn(deployers);
+        .thenReturn(new DeployerScope(deployers));
 
     TableService.create(new Properties(), Collections.emptyList(), path, recordSchema(),
         Collections.emptyMap(), false, false);
@@ -201,7 +271,7 @@ class TableServiceTest {
     Deployer deployer = mock(Deployer.class);
     List<Deployer> deployers = Collections.singletonList(deployer);
     deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
-        .thenReturn(deployers);
+        .thenReturn(new DeployerScope(deployers));
 
     TableService.create(new Properties(), Collections.emptyList(), path, recordSchema(),
         Collections.emptyMap(), true, false);
@@ -223,7 +293,7 @@ class TableServiceTest {
     when(deployer.exists()).thenReturn(false);
     List<Deployer> deployers = Collections.singletonList(deployer);
     deployment.when(() -> DeploymentService.deployers(any(Source.class), any(DeploymentContext.class)))
-        .thenReturn(deployers);
+        .thenReturn(new DeployerScope(deployers));
 
     Map<String, String> callerOptions = Map.of("owner", "caller-attempt", "callerOnly", "callerValue");
     TableService.create(new Properties(), Collections.emptyList(), path, recordSchema(),

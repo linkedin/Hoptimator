@@ -35,6 +35,8 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlFireTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.DeployerScope;
+import com.linkedin.hoptimator.Deployable;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
 import org.apache.calcite.jdbc.CalcitePrepare;
@@ -145,30 +147,36 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     logger.info("Validated sql statement. The view is named {} and has path {}",
         viewName, viewPath);
 
-    Collection<Deployer> deployers = null;
+    final DeployerScope acquired;
     try {
       logger.info("Validating deployable resources for view {}", viewName);
       ValidationService.validateOrThrow(viewTable, connection.deploymentContext());
-      deployers = DeploymentService.deployers(view, connection.deploymentContext());
-      ValidationService.validateOrThrow(deployers, connection.deploymentContext());
-      logger.info("Validated view {}", viewName);
-      if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
-        logger.info("Deploying update view {}", viewName);
-        DeploymentService.update(deployers);
-      } else {
-        logger.info("Deploying create view {}", viewName);
-        DeploymentService.create(deployers);
-      }
-      logger.info("Deployed view {}", viewName);
-      schemaPlus.add(viewName, viewTable);
-      logger.info("Added view {} to schema {}", viewName, schemaPlus.getName());
+      acquired = DeploymentService.deployers(view, connection.deploymentContext());
     } catch (SQLException | RuntimeException e) {
       logger.warn("Failed to deploy view {}", viewName, e);
-      if (deployers != null) {
+      throw new DdlException(create, e.getMessage(), e);
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      try {
+        ValidationService.validateOrThrow(deployers, connection.deploymentContext());
+        logger.info("Validated view {}", viewName);
+        if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
+          logger.info("Deploying update view {}", viewName);
+          DeploymentService.update(deployers);
+        } else {
+          logger.info("Deploying create view {}", viewName);
+          DeploymentService.create(deployers);
+        }
+        logger.info("Deployed view {}", viewName);
+        schemaPlus.add(viewName, viewTable);
+        logger.info("Added view {} to schema {}", viewName, schemaPlus.getName());
+      } catch (SQLException | RuntimeException e) {
+        logger.warn("Failed to deploy view {}", viewName, e);
         DeploymentService.restore(deployers);
         logger.info("Restored deployable resources for view {}", viewName);
+        throw new DdlException(create, e.getMessage(), e);
       }
-      throw new DdlException(create, e.getMessage(), e);
     }
     logger.info("CREATE VIEW {} completed", viewName);
   }
@@ -233,28 +241,33 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     Source source = new Source(databaseOf(target), targetPath, Collections.emptyMap());
     Trigger trigger = new Trigger(name, job, cronSchedule, options, source, null);
 
-    Collection<Deployer> deployers = null;
+    final DeployerScope acquired;
     try {
       logger.info("Validating trigger {} with deployers", name);
       ValidationService.validateOrThrow(trigger, connection.deploymentContext());
-      deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
-      ValidationService.validateOrThrow(deployers, connection.deploymentContext());
-      logger.info("Validated trigger {}", name);
-      HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
-      if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
-        logger.info("Updating trigger {}", name);
-        DeploymentService.update(deployers);
-      } else {
-        logger.info("Creating trigger {}", name);
-        DeploymentService.create(deployers);
-      }
-      logger.info("Deployed trigger {}", name);
-      logger.info("CREATE TRIGGER {} completed", name);
+      acquired = DeploymentService.deployers(trigger, connection.deploymentContext());
     } catch (Exception e) {
-      if (deployers != null) {
-        DeploymentService.restore(deployers);
-      }
       throw new DdlException(create, e.getMessage(), e);
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      try {
+        ValidationService.validateOrThrow(deployers, connection.deploymentContext());
+        logger.info("Validated trigger {}", name);
+        HoptimatorDdlUtils.DdlMode mode = HoptimatorDdlUtils.effectiveMode(create.getReplace(), connection.deploymentContext());
+        if (mode == HoptimatorDdlUtils.DdlMode.UPDATE) {
+          logger.info("Updating trigger {}", name);
+          DeploymentService.update(deployers);
+        } else {
+          logger.info("Creating trigger {}", name);
+          DeploymentService.create(deployers);
+        }
+        logger.info("Deployed trigger {}", name);
+        logger.info("CREATE TRIGGER {} completed", name);
+      } catch (Exception e) {
+        DeploymentService.restore(deployers);
+        throw new DdlException(create, e.getMessage(), e);
+      }
     }
   }
 
@@ -332,17 +345,22 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     options.put(Trigger.FIRE_OPTION, "true");
     Trigger trigger = new Trigger(name, null, null, options, null, null);
 
-    Collection<Deployer> deployers = null;
+    final DeployerScope acquired;
     try {
       logger.info("Firing trigger {} with {} option(s)", name, options.size() - 1);
-      deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
-      DeploymentService.update(deployers);
-      logger.info("FIRE TRIGGER {} completed", name);
+      acquired = DeploymentService.deployers(trigger, connection.deploymentContext());
     } catch (Exception e) {
-      if (deployers != null) {
-        DeploymentService.restore(deployers);
-      }
       throw new DdlException(fire, e.getMessage(), e);
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      try {
+        DeploymentService.update(deployers);
+        logger.info("FIRE TRIGGER {} completed", name);
+      } catch (Exception e) {
+        DeploymentService.restore(deployers);
+        throw new DdlException(fire, e.getMessage(), e);
+      }
     }
   }
 
@@ -362,23 +380,32 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
 
     Trigger trigger = new Trigger(name, null, null, new HashMap<>(), null, null);
 
-    Collection<Deployer> deployers = null;
+    final DeployerScope acquired;
     try {
       logger.info("Deleting trigger {}", name);
-      deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
-      DeploymentService.delete(deployers);
-      logger.info("Deleted trigger {}", name);
-      logger.info("DROP TRIGGER {} completed", name);
+      acquired = DeploymentService.deployers(trigger, connection.deploymentContext());
     } catch (Exception e) {
-      if (deployers != null) {
-        DeploymentService.restore(deployers);
-      }
-      // Handle IF EXISTS
       if (drop.ifExists && e.getMessage() != null && e.getMessage().contains("Error getting TableTrigger")) {
         logger.info("Trigger {} does not exist (IF EXISTS specified)", name);
         return;
       }
       throw new DdlException(drop, e.getMessage(), e);
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      try {
+        DeploymentService.delete(deployers);
+        logger.info("Deleted trigger {}", name);
+        logger.info("DROP TRIGGER {} completed", name);
+      } catch (Exception e) {
+        DeploymentService.restore(deployers);
+        // Handle IF EXISTS
+        if (drop.ifExists && e.getMessage() != null && e.getMessage().contains("Error getting TableTrigger")) {
+          logger.info("Trigger {} does not exist (IF EXISTS specified)", name);
+          return;
+        }
+        throw new DdlException(drop, e.getMessage(), e);
+      }
     }
   }
 
@@ -399,17 +426,22 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     options.put(Trigger.PAUSED_OPTION, String.valueOf(paused));
     Trigger trigger = new Trigger(name, null, null, options, null, null);
 
-    Collection<Deployer> deployers = null;
+    final DeployerScope acquired;
     try {
       logger.info("Updating trigger {} with paused state: {}", name, paused);
-      deployers = DeploymentService.deployers(trigger, connection.deploymentContext());
-      DeploymentService.update(deployers);
-      logger.info("Successfully updated trigger {} with paused state: {}", name, paused);
+      acquired = DeploymentService.deployers(trigger, connection.deploymentContext());
     } catch (Exception e) {
-      if (deployers != null) {
-        DeploymentService.restore(deployers);
-      }
       throw new DdlException(sqlNode, e.getMessage(), e);
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      try {
+        DeploymentService.update(deployers);
+        logger.info("Successfully updated trigger {} with paused state: {}", name, paused);
+      } catch (Exception e) {
+        DeploymentService.restore(deployers);
+        throw new DdlException(sqlNode, e.getMessage(), e);
+      }
     }
   }
 
@@ -449,32 +481,26 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
     List<String> tablePath = new ArrayList<>(schemaPath);
     tablePath.add(tableName);
 
-    Collection<Deployer> deployers = null;
+    final DeployerScope acquired;
+    final String elementKind;
     try {
+      Deployable target;
       if (table instanceof MaterializedViewTable) {
         if (!(drop instanceof SqlDropMaterializedView)) {
           throw new DdlException(drop,
               "Element " + tableName + " is a materialized view and does not correspond to " + drop.getOperator());
         }
         MaterializedViewTable materializedViewTable = (MaterializedViewTable) table;
-        View view = new View(tablePath, materializedViewTable.viewSql());
-        deployers = DeploymentService.deployers(view, connection.deploymentContext());
-        logger.info("Deleting materialized view {}", tableName);
-        DeploymentService.delete(deployers);
-        schemaPlus.removeTable(tableName);
-        logger.info("Removed materialized table {} from schema {}", tableName, schemaPlus.getName());
+        target = new View(tablePath, materializedViewTable.viewSql());
+        elementKind = "materialized view";
       } else if (table instanceof ViewTable) {
         if (!(drop instanceof SqlDropView)) {
           throw new DdlException(drop,
               "Element " + tableName + " is a view and does not correspond to " + drop.getOperator());
         }
         ViewTable viewTable = (ViewTable) table;
-        View view = new View(tablePath, viewTable.getViewSql());
-        deployers = DeploymentService.deployers(view, connection.deploymentContext());
-        logger.info("Deleting view {}", tableName);
-        DeploymentService.delete(deployers);
-        schemaPlus.removeTable(tableName);
-        logger.info("Removed view {} from schema {}", tableName, schemaPlus.getName());
+        target = new View(tablePath, viewTable.getViewSql());
+        elementKind = "view";
       } else if (table instanceof HoptimatorJdbcTable || table instanceof TemporaryTable) {
         if (!(drop instanceof SqlDropTable)) {
           throw new DdlException(drop,
@@ -489,25 +515,31 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
           TemporaryTable temporaryTable = (TemporaryTable) table;
           source = new Source(temporaryTable.databaseName(), tablePath, Collections.emptyMap());
         }
-        // Pre-delete dependency guard. PendingDelete is the explicit "delete intent" signal
-        // — only validators that key off it (the K8s dep checker) fire here. The check throws
-        // before any deployer-level state change.
+        // Check delete intent before allocating deployer clients.
         ValidationService.validateOrThrow(new PendingDelete<>(source), connection.deploymentContext());
-        deployers = DeploymentService.deployers(source, connection.deploymentContext());
-        logger.info("Deleting table {}", tableName);
-        DeploymentService.delete(deployers);
-        schemaPlus.removeTable(tableName);
-        logger.info("Removed table {} from schema {}", tableName, schemaPlus.getName());
+        target = source;
+        elementKind = "table";
       } else {
         throw new SQLException(String.format("Unsupported drop type %s.", table.getClass().getSimpleName()));
       }
+      acquired = DeploymentService.deployers(target, connection.deploymentContext());
     } catch (SQLException | RuntimeException e) {
       logger.warn("Failed to delete element {}", tableName, e);
-      if (deployers != null) {
+      throw new DdlException(drop, e.getMessage(), e);
+    }
+    try (DeployerScope scope = acquired) {
+      Collection<Deployer> deployers = scope.deployers();
+      try {
+        logger.info("Deleting {} {}", elementKind, tableName);
+        DeploymentService.delete(deployers);
+        schemaPlus.removeTable(tableName);
+        logger.info("Removed {} {} from schema {}", elementKind, tableName, schemaPlus.getName());
+      } catch (SQLException | RuntimeException e) {
+        logger.warn("Failed to delete element {}", tableName, e);
         DeploymentService.restore(deployers);
         logger.info("Restored deployable resources for element {}", tableName);
+        throw new DdlException(drop, e.getMessage(), e);
       }
-      throw new DdlException(drop, e.getMessage(), e);
     }
     logger.info("{} completed", drop, tableName);
   }
