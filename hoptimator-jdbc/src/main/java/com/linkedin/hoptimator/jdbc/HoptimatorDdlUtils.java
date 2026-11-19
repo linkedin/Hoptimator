@@ -581,6 +581,7 @@ public final class HoptimatorDdlUtils {
         };
 
     Map<String, String> tableOptions = options(create.options);
+    tableOptions.putAll(DeploymentService.parseHints(conn.connectionProperties()));
     CalciteSchemaTarget calcite = new CalciteSchemaTarget(target.pair, target.isNewSchema, ief, rowType);
     return deployTableInternal(conn.logHooks(), conn.deploymentContext(), calcite, target.tablePath(),
         target.database, target.tableName, tableOptions,

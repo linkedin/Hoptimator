@@ -7,6 +7,7 @@ import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.Job;
 import com.linkedin.hoptimator.Pipeline;
 import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.ThrowingFunction;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.DeployerScope;
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -956,6 +958,53 @@ class HoptimatorDdlUtilsTest {
   }
 
   // ── processCreateTable validation paths ──────────────────────────────────────
+
+  @ParameterizedTest
+  @EnumSource(HoptimatorDdlUtils.DdlMode.class)
+  void processCreateTablePassesConnectionHintsToDeployers(HoptimatorDdlUtils.DdlMode mode)
+      throws SQLException {
+    Properties properties = new Properties();
+    properties.setProperty("hints",
+        "li.caller.principal.urn=urn%3Ali%3Acorpuser%3Aalice,task.parallelism=2");
+    try (HoptimatorConnection conn = (HoptimatorConnection) new HoptimatorDriver()
+        .connect("jdbc:hoptimator://catalogs=util", properties)) {
+      Map<String, String> hints =
+          Map.of("li.caller.principal.urn", "urn:li:corpuser:alice", "task.parallelism", "2");
+      mockDeploymentService.when(() -> DeploymentService.parseHints(conn.connectionProperties())).thenReturn(hints);
+      conn.calciteConnection().getRootSchema().add("HINT_DB", new TestDatabaseSchema("hint-db"));
+      SqlCreateTable create = (SqlCreateTable) HoptimatorDriver.parseQuery(conn,
+          "CREATE TABLE \"HINT_DB\".\"t\" (\"id\" INTEGER)");
+
+      HoptimatorDdlUtils.processCreateTable(conn.createPrepareContext(), conn, create, mode);
+
+      ArgumentCaptor<Source> source = ArgumentCaptor.forClass(Source.class);
+      mockDeploymentService.verify(() -> DeploymentService.deployers(source.capture(), any()));
+      assertEquals(hints, source.getValue().options());
+    }
+  }
+
+  @Test
+  void processCreateTableConnectionHintsOverrideStatementOptions() throws SQLException {
+    Properties properties = new Properties();
+    properties.setProperty("hints", "li.caller.principal.urn=urn%3Ali%3Acorpuser%3Aalice");
+    try (HoptimatorConnection conn = (HoptimatorConnection) new HoptimatorDriver()
+        .connect("jdbc:hoptimator://catalogs=util", properties)) {
+      mockDeploymentService.when(() -> DeploymentService.parseHints(conn.connectionProperties()))
+          .thenReturn(Map.of("li.caller.principal.urn", "urn:li:corpuser:alice"));
+      conn.calciteConnection().getRootSchema().add("HINT_DB", new TestDatabaseSchema("hint-db"));
+      SqlCreateTable create = (SqlCreateTable) HoptimatorDriver.parseQuery(conn,
+          "CREATE TABLE \"HINT_DB\".\"t\" (\"id\" INTEGER) WITH ("
+              + "'li.caller.principal.urn' 'urn:li:corpuser:other', 'table.option' 'retained')");
+
+      HoptimatorDdlUtils.processCreateTable(conn.createPrepareContext(), conn, create,
+          HoptimatorDdlUtils.DdlMode.SPECIFY);
+
+      ArgumentCaptor<Source> source = ArgumentCaptor.forClass(Source.class);
+      mockDeploymentService.verify(() -> DeploymentService.deployers(source.capture(), any()));
+      assertEquals(Map.of("li.caller.principal.urn", "urn:li:corpuser:alice", "table.option", "retained"),
+          source.getValue().options());
+    }
+  }
 
   @Test
   void processCreateTableThrowsWhenQueryIsNotNull() throws SQLException {

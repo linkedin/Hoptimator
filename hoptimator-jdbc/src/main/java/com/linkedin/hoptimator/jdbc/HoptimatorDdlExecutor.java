@@ -506,14 +506,15 @@ public final class HoptimatorDdlExecutor extends ServerDdlExecutor {
           throw new DdlException(drop,
               "Element " + tableName + " is a table and does not correspond to " + drop.getOperator());
         }
+        Map<String, String> tableOptions = DeploymentService.parseHints(connection.connectionProperties());
         Source source;
         if (table instanceof HoptimatorJdbcTable) {
           HoptimatorJdbcTable jdbcTable = (HoptimatorJdbcTable) table;
           HoptimatorJdbcSchema jdbcSchema = (HoptimatorJdbcSchema) jdbcTable.jdbcTable().jdbcSchema;
-          source = new Source(jdbcSchema.databaseName(), tablePath, Collections.emptyMap());
+          source = new Source(jdbcSchema.databaseName(), tablePath, tableOptions);
         } else {
           TemporaryTable temporaryTable = (TemporaryTable) table;
-          source = new Source(temporaryTable.databaseName(), tablePath, Collections.emptyMap());
+          source = new Source(temporaryTable.databaseName(), tablePath, tableOptions);
         }
         // Check delete intent before allocating deployer clients.
         ValidationService.validateOrThrow(new PendingDelete<>(source), connection.deploymentContext());

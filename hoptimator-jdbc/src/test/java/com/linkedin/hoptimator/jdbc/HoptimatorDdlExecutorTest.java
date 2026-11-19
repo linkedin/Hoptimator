@@ -2,6 +2,8 @@ package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
 import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.PendingDelete;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
@@ -10,10 +12,14 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.DeployerScope;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
+import org.apache.calcite.adapter.jdbc.JdbcTable;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -35,6 +41,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -45,6 +52,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -54,11 +62,14 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -570,6 +581,46 @@ class HoptimatorDdlExecutorTest {
   // ---------------------------------------------------------------------------
   // CREATE TABLE / DROP TABLE
   // ---------------------------------------------------------------------------
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void dropTablePassesConnectionHintsToValidationAndDeployers(boolean jdbc) throws SQLException {
+    connection.connectionProperties().setProperty("hints",
+        "li.caller.principal.urn=urn%3Ali%3Acorpuser%3Aalice,task.parallelism=2");
+    Map<String, String> hints =
+        Map.of("li.caller.principal.urn", "urn:li:corpuser:alice", "task.parallelism", "2");
+    mockDeploymentService.when(() -> DeploymentService.parseHints(connection.connectionProperties()))
+        .thenReturn(hints);
+    SchemaPlus schema = connection.calciteConnection().getRootSchema()
+        .add("DROP_DB", new TestDatabaseSchema("drop-db"));
+    Table table;
+    if (jdbc) {
+      HoptimatorJdbcSchema jdbcSchema = mock(HoptimatorJdbcSchema.class);
+      when(jdbcSchema.databaseName()).thenReturn("drop-db");
+      JdbcTable jdbcTable = mock(JdbcTable.class, withSettings()
+          .useConstructor(jdbcSchema, null, null, "t", Schema.TableType.TABLE));
+      HoptimatorJdbcTable wrappedTable = mock(HoptimatorJdbcTable.class);
+      when(wrappedTable.jdbcTable()).thenReturn(jdbcTable);
+      table = wrappedTable;
+    } else {
+      RelDataType rowType = connection.createPrepareContext().getTypeFactory().builder()
+          .add("id", SqlTypeName.INTEGER).build();
+      table = new TemporaryTable(rowType, "drop-db");
+    }
+    schema.add("t", table);
+    SqlNode drop = HoptimatorDriver.parseQuery(connection, "DROP TABLE \"DROP_DB\".\"t\"");
+
+    new HoptimatorDdlExecutor(connection).executeDdl(connection.createPrepareContext(), drop);
+
+    ArgumentCaptor<Source> source = ArgumentCaptor.forClass(Source.class);
+    mockDeploymentService.verify(() -> DeploymentService.deployers(source.capture(), any()));
+    assertEquals("drop-db", source.getValue().database());
+    assertEquals(hints, source.getValue().options());
+    mockValidationService.verify(() -> ValidationService.validateOrThrow(
+        argThat((Object pending) -> pending instanceof PendingDelete
+            && ((PendingDelete<?>) pending).target() == source.getValue()),
+        eq(connection.deploymentContext())));
+  }
 
   @Test
   void testExecuteCreateTableThenDropTable() {
