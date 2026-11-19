@@ -1,14 +1,15 @@
 package com.linkedin.hoptimator.k8s;
 
 import com.linkedin.hoptimator.DeploymentContext;
+import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.jdbc.JdbcDataSourcePool;
 import com.linkedin.hoptimator.k8s.models.V1alpha1Database;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseList;
 import com.linkedin.hoptimator.k8s.models.V1alpha1DatabaseSpec;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcCatalogSchema;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
-import org.apache.calcite.adapter.jdbc.JdbcSchema;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlDialect;
@@ -19,6 +20,7 @@ import org.apache.calcite.sql.dialect.MysqlSqlDialect;
 import javax.sql.DataSource;
 import java.util.Objects;
 import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Properties;
@@ -54,17 +56,19 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     this.engines = engines;
   }
 
-  public void addDatabases(SchemaPlus parentSchema, Connection connection) {
-    DeploymentContext context = ((HoptimatorConnection) connection).deploymentContext();
+  public void addDatabases(SchemaPlus parentSchema, Connection connection) throws SQLException {
+    HoptimatorConnection owner = (HoptimatorConnection) connection;
+    DeploymentContext context = owner.deploymentContext();
     for (Row row : rows()) {
+      JdbcDataSourcePool.Lease lease = dataSource(row, owner.connectionProperties());
+      CalciteDriver.addConnectionResource(owner.calciteConnection(), lease);
+      DataSource source = lease.dataSource();
       if (row.CATALOG != null) {
-        Schema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
-                ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
+        Schema catalogSchema = HoptimatorJdbcCatalogSchema.create(row.NAME, row.CATALOG, row.SCHEMA, source, parentSchema,
             dialect(row), engines.forDatabase(row.NAME), context);
         parentSchema.add(row.CATALOG.toUpperCase(Locale.ROOT), catalogSchema);
       } else {
-        Schema schema = HoptimatorJdbcSchema.create(row.NAME, row.CATALOG, row.SCHEMA, dataSource(row,
-                ((HoptimatorConnection) connection).connectionProperties()), parentSchema,
+        Schema schema = HoptimatorJdbcSchema.create(row.NAME, row.CATALOG, row.SCHEMA, source, parentSchema,
             dialect(row), engines.forDatabase(row.NAME), context);
         parentSchema.add(schemaName(row), schema);
       }
@@ -105,7 +109,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
     }
   }
 
-  static DataSource dataSource(Row row, Properties connectionProperties) {
+  static JdbcDataSourcePool.Lease dataSource(Row row, Properties connectionProperties) throws SQLException {
     String user = "nouser";
     String pass = "nopass";
     for (String key : connectionProperties.stringPropertyNames()) {
@@ -115,7 +119,7 @@ public class K8sDatabaseTable extends K8sTable<V1alpha1Database, V1alpha1Databas
         pass = connectionProperties.getProperty(key);
       }
     }
-    return JdbcSchema.dataSource(joinedUrl(row, connectionProperties), row.DRIVER, user, pass);
+    return JdbcDataSourcePool.shared().acquire(joinedUrl(row, connectionProperties), row.DRIVER, user, pass);
   }
 
   /**

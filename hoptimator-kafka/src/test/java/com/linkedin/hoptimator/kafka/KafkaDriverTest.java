@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.kafka;
 
+import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,11 +11,13 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -74,16 +77,26 @@ class KafkaDriverTest {
   }
 
   @Test
-  void connectWithExceptionWrapsInSQLNonTransientException() {
+  void connectWithExceptionWrapsInSQLNonTransientException() throws SQLException {
+    AtomicReference<AvaticaConnection> created = new AtomicReference<>();
+    RuntimeException expected = new IllegalStateException("test error");
     KafkaDriver driver = new KafkaDriver() {
       @Override
+      protected void onConnectionInit(AvaticaConnection connection) throws SQLException {
+        super.onConnectionInit(connection);
+        created.set(connection);
+      }
+
+      @Override
       protected ClusterSchema createClusterSchema(Properties properties) {
-        throw new RuntimeException("test error");
+        throw expected;
       }
     };
     SQLNonTransientException exception = assertThrows(SQLNonTransientException.class,
         () -> driver.connect("jdbc:kafka://", new Properties()));
     assertTrue(exception.getMessage().contains("Problem loading"));
+    assertSame(expected, exception.getCause());
+    assertTrue(created.get().isClosed());
   }
 
   @Test

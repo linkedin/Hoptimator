@@ -1,21 +1,58 @@
 package com.linkedin.hoptimator.demodb;
 
+import com.linkedin.hoptimator.jdbc.HoptimatorCalciteSchema;
+import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.jdbc.CalciteConnection;
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.impl.AbstractSchema;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.SQLNonTransientException;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 class DemoDriverTest {
+
+  @Test
+  void schemaRegistrationFailureClosesConnection() throws SQLException {
+    AtomicReference<AvaticaConnection> created = new AtomicReference<>();
+    RuntimeException expected = new IllegalStateException("schema registration failed");
+    DemoDriver driver = new DemoDriver() {
+      @Override
+      protected void onConnectionInit(AvaticaConnection connection) throws SQLException {
+        super.onConnectionInit(connection);
+        created.set(connection);
+      }
+
+      @Override
+      protected CalciteSchema createRootSchema(Properties properties) {
+        return new HoptimatorCalciteSchema(null, new AbstractSchema(), "") {
+          @Override
+          public CalciteSchema add(String name, Schema schema) {
+            throw expected;
+          }
+        };
+      }
+    };
+
+    SQLNonTransientException failure = assertThrows(SQLNonTransientException.class,
+        () -> driver.connect("jdbc:demodb://names=PROFILE", new Properties()));
+
+    assertSame(expected, failure.getCause());
+    assertTrue(created.get().isClosed());
+  }
 
   @Test
   void testGetConnectStringPrefix() {

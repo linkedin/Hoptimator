@@ -17,6 +17,7 @@ dependencies {
 
   testImplementation libs.assertj
   testImplementation libs.kafka.clients
+  testImplementation libs.commons.dbcp2
 
   testRuntimeOnly project(':hoptimator-k8s')
   testImplementation(testFixtures(project(':hoptimator-jdbc')))

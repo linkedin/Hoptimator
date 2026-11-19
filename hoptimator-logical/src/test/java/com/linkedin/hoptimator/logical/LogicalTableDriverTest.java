@@ -2,11 +2,14 @@ package com.linkedin.hoptimator.logical;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.linkedin.hoptimator.k8s.K8sContext;
 import com.linkedin.hoptimator.DeploymentContext;
+import org.apache.calcite.avatica.AvaticaConnection;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -16,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 
 
@@ -56,7 +60,7 @@ public class LogicalTableDriverTest {
 
   @Test
   public void connectThrowsWhenDatabasePropertyMissing() throws Exception {
-    // Two valid tiers but no "database" property — should throw before calling super.connect()
+    // Two valid tiers but no "database" property — should throw before acquiring a connection.
     String url = "jdbc:logical://nearline=kafka-database;online=venice";
     try (Connection ignored = DriverManager.getConnection(url, new Properties())) {
       throw new AssertionError("Expected SQLNonTransientException");
@@ -119,22 +123,26 @@ public class LogicalTableDriverTest {
   }
 
   @Test
-  void connectPreservesCauseWhenK8sContextCreationFails() throws Exception {
-    // The catch(Exception e) branch must wrap the underlying failure as the cause rather than
-    // swallowing it. Stub K8sContext.create() to throw a known exception and assert it is preserved.
-    RuntimeException boom = new RuntimeException("boom");
-    k8sContextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenThrow(boom);
+  void connectPreservesCauseAndClosesConnectionWhenK8sContextCreationFails() throws Exception {
+    RuntimeException expected = new IllegalStateException("invalid context");
+    AtomicReference<AvaticaConnection> created = new AtomicReference<>();
+    LogicalTableDriver driver = new LogicalTableDriver() {
+      @Override
+      protected void onConnectionInit(AvaticaConnection connection) throws SQLException {
+        super.onConnectionInit(connection);
+        created.set(connection);
+      }
+    };
+    k8sContextStatic.when(() -> K8sContext.create(any(DeploymentContext.class))).thenThrow(expected);
 
     Properties props = new Properties();
     props.setProperty("database", "logical");
 
-    try (Connection ignored = DriverManager.getConnection(
-        "jdbc:logical://nearline=kafka-database;online=venice", props)) {
-      throw new AssertionError("Expected SQLNonTransientException");
-    } catch (SQLNonTransientException e) {
-      assertTrue(e.getMessage().contains("Problem loading"));
-      assertSame(boom, e.getCause(), "original failure should be preserved as the cause");
-    }
+    SQLException failure = assertThrows(SQLNonTransientException.class, () ->
+        driver.connect("jdbc:logical://nearline=kafka-database;online=venice", props));
+    assertTrue(failure.getMessage().contains("Problem loading"));
+    assertSame(expected, failure.getCause());
+    assertTrue(created.get().isClosed());
   }
 
 }

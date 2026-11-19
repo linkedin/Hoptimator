@@ -85,6 +85,14 @@ JDBC URL that Hoptimator dials in to enumerate schemas and tables — so a query
 joining `ADS.PAGE_VIEWS` and `PROFILE.MEMBERS` can pull metadata from two
 completely different systems with one logical query.
 
+The outer Hoptimator connection owns catalog wrappers and leases on shared
+metadata pools, not every downstream physical connection. Returning a borrowed
+JDBC handle to a pool does not close its adapter clients, and opening another
+outer connection does not guarantee fresh metadata. Query execution can use a
+separate Engine URL selected by the planner. See
+[JDBC routing and resource ownership](jdbc-architecture.md) for the connection
+layers, driver initialization hooks, cleanup boundaries, and pool retirement.
+
 ## Step 2 — Plan
 
 The planner is built on [Apache Calcite](https://calcite.apache.org/). Its job
@@ -177,7 +185,7 @@ The repo is split into focused modules. The ones you'll touch most often:
 |------------------------------------------|---------------------------------------------------------------------|
 | `hoptimator-api`                         | The interfaces. `Deployer`, `Engine`, `Connector`, `View`, etc.     |
 | `hoptimator-jdbc`                        | Calcite-based JDBC driver. Catalog, parser, planner integration.    |
-| `hoptimator-jdbc-driver`                 | Lightweight wrapper that exposes the driver to standard JDBC code.  |
+| `hoptimator-jdbc-driver`                 | Fat JAR packaging the JDBC driver and catalog dependencies.         |
 | `hoptimator-cli`                         | The `./hoptimator` SQL CLI (sqlline + custom commands).             |
 | `hoptimator-mcp-server`                  | MCP server that wraps the JDBC driver for AI agents and IDEs.       |
 | `hoptimator-util`                        | Planner rules, deployment service, template engine.                 |
