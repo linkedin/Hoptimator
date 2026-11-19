@@ -46,12 +46,14 @@ public class KafkaDriver extends CalciteDriver {
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
-      connection.setAutoCommit(true); // to prevent rollback()
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      ClusterSchema schema = createClusterSchema(properties);
-      rootSchema.add("KAFKA", schema);
-      return connection;
+      return initializeConnection(connection, () -> {
+        connection.setAutoCommit(true); // to prevent rollback()
+        CalciteConnection calciteConnection = (CalciteConnection) connection;
+        SchemaPlus rootSchema = calciteConnection.getRootSchema();
+        ClusterSchema schema = createClusterSchema(properties);
+        rootSchema.add("KAFKA", schema);
+        return connection;
+      });
     } catch (IOException e) {
       throw new SQLTransientException("Problem loading " + url, e);
     } catch (Exception e) {

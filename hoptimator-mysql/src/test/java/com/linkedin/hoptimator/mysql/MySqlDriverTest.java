@@ -1,5 +1,6 @@
 package com.linkedin.hoptimator.mysql;
 
+import org.apache.calcite.avatica.AvaticaConnection;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -15,6 +16,7 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -78,10 +80,19 @@ class MySqlDriverTest {
   }
 
   @Test
-  void connectWithMissingUrlThrowsSQLException() {
+  void connectWithMissingUrlThrowsSQLException() throws SQLException {
+    AtomicReference<AvaticaConnection> created = new AtomicReference<>();
+    MySqlDriver driver = new MySqlDriver() {
+      @Override
+      protected void onConnectionInit(AvaticaConnection connection) {
+        created.set(connection);
+      }
+    };
     SQLException exception = assertThrows(SQLException.class,
-        () -> driverWithMockRootSchema().connect("jdbc:mysql-hoptimator://", new Properties()));
+        () -> driver.connect("jdbc:mysql-hoptimator://", new Properties()));
+    assertEquals(SQLException.class, exception.getClass());
     assertTrue(exception.getMessage().contains("Missing required parameter 'url'"));
+    assertTrue(created.get().isClosed());
   }
 
   @Test

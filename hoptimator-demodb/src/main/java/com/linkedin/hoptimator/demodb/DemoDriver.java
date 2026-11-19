@@ -54,16 +54,18 @@ public class DemoDriver extends CalciteDriver {
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
-      connection.setAutoCommit(true); // to prevent rollback()
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      if (schemas.isEmpty() || schemas.contains("PROFILE")) {
-        rootSchema.add("PROFILE", new ProfileSchema());
-      }
-      if (schemas.isEmpty() || schemas.contains("ADS")) {
-        rootSchema.add("ADS", new AdsSchema());
-      }
-      return connection;
+      return initializeConnection(connection, () -> {
+        connection.setAutoCommit(true); // to prevent rollback()
+        CalciteConnection calciteConnection = (CalciteConnection) connection;
+        SchemaPlus rootSchema = calciteConnection.getRootSchema();
+        if (schemas.isEmpty() || schemas.contains("PROFILE")) {
+          rootSchema.add("PROFILE", new ProfileSchema());
+        }
+        if (schemas.isEmpty() || schemas.contains("ADS")) {
+          rootSchema.add("ADS", new AdsSchema());
+        }
+        return connection;
+      });
     } catch (IOException e) {
       throw new SQLTransientException("Problem loading " + url, e);
     } catch (Exception e) {

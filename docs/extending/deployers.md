@@ -189,7 +189,7 @@ public class MyDeployer implements Deployer, Validated {
 }
 ```
 
-`ValidationService.validateOrThrow(deployers)` is called before any
+`ValidationService.validateOrThrow(deployers, context)` is called before any
 `create`/`update` happens — if any deployer reports `Issues.error(...)`,
 the whole pipeline is rejected. See [Validators](validators.md) for more.
 
@@ -200,9 +200,10 @@ The validate-then-specify path is the main test surface:
 ```java
 Source source = new Source("my-database", List.of("MYSYS", "foo"), Map.of());
 DeployerProvider provider = new MyDeployerProvider();
-try (DeployerScope scope = DeploymentService.deployers(source, context)) {
+try (DeployerScope scope = new DeployerScope(provider.deployers(source, context))) {
   Collection<Deployer> deployers = scope.deployers();
   assertThat(deployers).hasSize(1);
+  ValidationService.validateOrThrow(deployers, context);
   List<String> specs = deployers.iterator().next().specify();
   assertThat(specs).contains("expected-yaml-fragment");
 }

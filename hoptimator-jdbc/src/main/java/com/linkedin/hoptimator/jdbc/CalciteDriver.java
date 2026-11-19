@@ -64,14 +64,27 @@ public class CalciteDriver extends Driver {
       CalciteSchema rootSchema = createRootSchema(info2);
       AvaticaConnection connection = ((CalciteFactory) this.factory)
           .newConnection(this, this.factory, url, info2, rootSchema, null);
-      try {
+      return initializeConnection(connection, () -> {
         onConnectionInit(connection);
         return connection;
-      } catch (SQLException | RuntimeException e) {
-        closeOnFailure(connection, e);
-        throw e;
-      }
+      });
     }
+  }
+
+  /** Closes an acquired connection if remaining initialization fails, preserving the original failure. */
+  protected static <T extends Connection, E extends Exception> T initializeConnection(
+      Connection connection, ConnectionInitializer<T, E> initializer) throws E {
+    try {
+      return initializer.initialize();
+    } catch (Exception failure) {
+      closeOnFailure(connection, failure);
+      throw failure;
+    }
+  }
+
+  @FunctionalInterface
+  protected interface ConnectionInitializer<T extends Connection, E extends Exception> {
+    T initialize() throws E;
   }
 
   /** Transfers an owned resource to the physical connection, not a pooled connection lease. */

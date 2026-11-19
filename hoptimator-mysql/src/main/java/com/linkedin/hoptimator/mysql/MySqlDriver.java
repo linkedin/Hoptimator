@@ -60,15 +60,17 @@ public class MySqlDriver extends CalciteDriver {
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
-      connection.setAutoCommit(true); // to prevent rollback()
-      connection.setCatalog(CATALOG_NAME);
+      return initializeConnection(connection, () -> {
+        connection.setAutoCommit(true); // to prevent rollback()
+        connection.setCatalog(CATALOG_NAME);
 
-      String mySqlUrl = properties.getProperty("url");
-      if (mySqlUrl == null) {
-        throw new SQLException("Missing required parameter 'url' for MySQL connection");
-      }
+        String mySqlUrl = properties.getProperty("url");
+        if (mySqlUrl == null) {
+          throw new SQLException("Missing required parameter 'url' for MySQL connection");
+        }
 
-      return connection;
+        return connection;
+      });
     } catch (IOException e) {
       throw new SQLNonTransientException("Problem loading " + url, e);
     }

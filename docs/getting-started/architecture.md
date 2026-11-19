@@ -90,6 +90,10 @@ Drivers based on `CalciteDriver` can transfer owned resources with
 registration order, when the physical connection closes, including failed
 connection initialization. A pooled connection's logical return does not
 dispose these resources. Register only owned resources, not shared clients.
+Driver overrides use `CalciteDriver.initializeConnection` to guard their
+post-connection setup. If setup fails, it closes the acquired connection and
+preserves the original failure, attaching any cleanup failure as suppressed.
+Successful initialization transfers ownership to the caller.
 `VeniceDriver` registers closeable cluster schemas before publishing them and
 disposes the connection if schema creation or registration fails. This cleanup
 does not define when a shared connection pool is evicted or shut down.

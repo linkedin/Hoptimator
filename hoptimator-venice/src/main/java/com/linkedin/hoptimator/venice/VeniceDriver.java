@@ -43,26 +43,26 @@ public class VeniceDriver extends CalciteDriver {
     properties.putAll(props); // in case the driver is loaded via getConnection()
     properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
 
-    Connection connection = null;
     try {
-      connection = super.connect(url, props);
+      Connection connection = super.connect(url, props);
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
-      connection.setAutoCommit(true); // to prevent rollback()
-      connection.setCatalog(CATALOG_NAME);
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
-      ClusterSchema schema = createClusterSchema(properties);
-      if (schema instanceof AutoCloseable) {
-        addConnectionResource(calciteConnection, (AutoCloseable) schema);
-      }
-      rootSchema.add(CATALOG_NAME, schema);
-      return connection;
+      return initializeConnection(connection, () -> {
+        connection.setAutoCommit(true); // to prevent rollback()
+        connection.setCatalog(CATALOG_NAME);
+        CalciteConnection calciteConnection = (CalciteConnection) connection;
+        SchemaPlus rootSchema = calciteConnection.getRootSchema();
+        ClusterSchema schema = createClusterSchema(properties);
+        if (schema instanceof AutoCloseable) {
+          addConnectionResource(calciteConnection, (AutoCloseable) schema);
+        }
+        rootSchema.add(CATALOG_NAME, schema);
+        return connection;
+      });
     } catch (IOException e) {
       throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {
-      closeOnFailure(connection, e);
       throw new SQLNonTransientException("Problem loading " + url, e);
     }
   }

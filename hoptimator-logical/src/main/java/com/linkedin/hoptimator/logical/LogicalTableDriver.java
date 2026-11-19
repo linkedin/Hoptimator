@@ -85,16 +85,19 @@ public class LogicalTableDriver extends CalciteDriver {
       if (connection == null) {
         throw new IOException("Could not connect to " + url);
       }
-      connection.setAutoCommit(true); // prevent rollback()
+      return initializeConnection(connection, () -> {
+        connection.setAutoCommit(true); // prevent rollback()
 
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
+        CalciteConnection calciteConnection = (CalciteConnection) connection;
+        SchemaPlus rootSchema = calciteConnection.getRootSchema();
 
-      K8sContext context = K8sContext.create(new HoptimatorConnection(calciteConnection, properties).deploymentContext());
-      LogicalTableSchema logicalSchema = new LogicalTableSchema(properties, context, databaseName);
-      rootSchema.add(databaseName.toUpperCase(), logicalSchema);
+        K8sContext context =
+            K8sContext.create(new HoptimatorConnection(calciteConnection, properties).deploymentContext());
+        LogicalTableSchema logicalSchema = new LogicalTableSchema(properties, context, databaseName);
+        rootSchema.add(databaseName.toUpperCase(), logicalSchema);
 
-      return connection;
+        return connection;
+      });
     } catch (IOException e) {
       throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (SQLException e) {
