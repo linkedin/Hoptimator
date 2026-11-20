@@ -229,7 +229,7 @@ public class ScriptImplementorTest {
     assertEquals(
         "INSERT INTO `sink`.`mypipeline` (`KEY_sink`, `nestedValue_sink`) "
             + "SELECT `KEY_source` AS `KEY_sink`, `nestedValue_source` AS `nestedValue_sink` "
-            + "FROM `source`.`table`;", sql);
+            + "FROM `source`.`table`;", sql.replaceAll("\\s+", " "));
   }
 
   // --- inner-class tests (merged from ScriptImplementorInnerClassesTest) ---
