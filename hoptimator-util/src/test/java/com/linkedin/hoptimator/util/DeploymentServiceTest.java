@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.linkedin.hoptimator.util.DeploymentService.HINT_OPTION;
 import static com.linkedin.hoptimator.util.DeploymentService.PIPELINE_OPTION;
@@ -44,6 +45,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -258,10 +262,9 @@ class DeploymentServiceTest {
     // A simple Deployable implementation for testing
     Deployable deployable = new Deployable() { };
 
-    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection);
-
-    assertNotNull(deployers);
-    assertTrue(deployers.isEmpty());
+    try (DeployerScope scope = DeploymentService.deployers(deployable, mockConnection)) {
+      assertTrue(scope.deployers().isEmpty());
+    }
   }
 
   @Test
@@ -373,6 +376,75 @@ class DeploymentServiceTest {
     assertEquals(2, specs.size());
     assertEquals("spec-a", specs.get(0));
     assertEquals("spec-b", specs.get(1));
+    verify(mockDeployer1).close();
+  }
+
+  @Test
+  void specifyReturnsGeneratedSpecsWhenCleanupFails() throws SQLException {
+    Deployable deployable = new Deployable() { };
+    mockedDeploymentService.when(() -> DeploymentService.deployers(deployable, mockConnection))
+        .thenReturn(new DeployerScope(List.of(mockDeployer1, mockDeployer2)));
+    when(mockDeployer1.specify()).thenReturn(List.of("spec-a"));
+    when(mockDeployer2.specify()).thenReturn(List.of("spec-b"));
+    doThrow(new IllegalStateException("close failed")).when(mockDeployer2).close();
+
+    List<String> specs = DeploymentService.specify(deployable, mockConnection);
+
+    assertEquals(List.of("spec-a", "spec-b"), specs);
+    verify(mockDeployer1).close();
+    verify(mockDeployer2).close();
+  }
+
+  @Test
+  void specifyClosesAllAcquiredDeployersWhenRenderingFails() throws SQLException {
+    Deployable deployable = new Deployable() { };
+    mockedDeploymentService.when(() -> DeploymentService.deployers(deployable, mockConnection))
+        .thenReturn(new DeployerScope(List.of(mockDeployer1, mockDeployer2)));
+    SQLException expected = new SQLException("render failed");
+    RuntimeException closeFailure = new IllegalStateException("close failed");
+    when(mockDeployer1.specify()).thenThrow(expected);
+    doThrow(closeFailure).when(mockDeployer2).close();
+
+    SQLException failure = assertThrows(SQLException.class,
+        () -> DeploymentService.specify(deployable, mockConnection));
+
+    assertSame(expected, failure);
+    assertEquals(0, failure.getSuppressed().length);
+    verify(mockDeployer1).close();
+    verify(mockDeployer2).close();
+    verify(mockDeployer2, never()).specify();
+  }
+
+  @Test
+  void providerFailureClosesPreviouslyAcquiredDeployersWithoutMaskingFailure() {
+    AtomicInteger calls = new AtomicInteger();
+    RuntimeException expected = new IllegalArgumentException("provider failed");
+    RuntimeException closeFailure = new IllegalStateException("close failed");
+    doThrow(closeFailure).when(mockDeployer1).close();
+    BaseTestProvider first = new BaseTestProvider(mockDeployer1) {
+      @Override public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context) {
+        if (calls.getAndIncrement() == 0) {
+          return List.of(mockDeployer1);
+        }
+        throw expected;
+      }
+    };
+    AnotherTestProvider second = new AnotherTestProvider(mockDeployer1) {
+      @Override public <T extends Deployable> Collection<Deployer> deployers(T obj, DeploymentContext context) {
+        if (calls.getAndIncrement() == 0) {
+          return List.of(mockDeployer1);
+        }
+        throw expected;
+      }
+    };
+
+    RuntimeException failure = assertThrows(RuntimeException.class,
+        () -> DeploymentService.deployers(new Deployable() { }, mockConnection, List.of(first, second)));
+
+    assertSame(expected, failure);
+    assertEquals(2, calls.get());
+    assertEquals(0, failure.getSuppressed().length);
+    verify(mockDeployer1).close();
   }
 
   @Test
@@ -381,8 +453,9 @@ class DeploymentServiceTest {
     // Without registered providers, the filtering loop doesn't execute
     // This test verifies the method handles the empty providers case
     Deployable deployable = new Deployable() { };
-    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection);
-    assertTrue(deployers.isEmpty());
+    try (DeployerScope scope = DeploymentService.deployers(deployable, mockConnection)) {
+      assertTrue(scope.deployers().isEmpty());
+    }
   }
 
   @Test
@@ -399,10 +472,12 @@ class DeploymentServiceTest {
     }
     };
 
-    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection,
-        Collections.singletonList(provider));
-
-    assertEquals(1, deployers.size());
+    try (DeployerScope scope = DeploymentService.deployers(deployable, mockConnection,
+        Collections.singletonList(provider))) {
+      assertEquals(1, scope.deployers().size());
+      verify(mockDeployer1, never()).close();
+    }
+    verify(mockDeployer1).close();
   }
 
   @Test
@@ -434,10 +509,10 @@ class DeploymentServiceTest {
 
     // Both are anonymous classes of DeployerProvider, so neither is a subclass of the other
     // Both should be included
-    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection,
-        Arrays.asList(baseProvider, subProvider));
-
-    assertEquals(2, deployers.size());
+    try (DeployerScope scope = DeploymentService.deployers(deployable, mockConnection,
+        Arrays.asList(baseProvider, subProvider))) {
+      assertEquals(2, scope.deployers().size());
+    }
   }
 
   @Test
@@ -450,21 +525,20 @@ class DeploymentServiceTest {
     // Subclass provider
     SubTestProvider subProvider = new SubTestProvider(mockDeployer2);
 
-    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection,
-        Arrays.asList(baseProvider, subProvider));
-
-    // Base class should be filtered out, only subclass remains
-    assertEquals(1, deployers.size());
+    try (DeployerScope scope = DeploymentService.deployers(deployable, mockConnection,
+        Arrays.asList(baseProvider, subProvider))) {
+      assertEquals(List.of(mockDeployer2), new ArrayList<>(scope.deployers()));
+    }
   }
 
   @Test
   void testDeployersFilteringWithEmptyProviders() throws SQLException {
     Deployable deployable = new Deployable() { };
 
-    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection,
-        Collections.emptyList());
-
-    assertTrue(deployers.isEmpty());
+    try (DeployerScope scope = DeploymentService.deployers(deployable, mockConnection,
+        Collections.emptyList())) {
+      assertTrue(scope.deployers().isEmpty());
+    }
   }
 
   @Test
@@ -474,11 +548,10 @@ class DeploymentServiceTest {
     BaseTestProvider provider1 = new BaseTestProvider(mockDeployer1);
     AnotherTestProvider provider2 = new AnotherTestProvider(mockDeployer2);
 
-    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection,
-        Arrays.asList(provider1, provider2));
-
-    // Neither is a subclass of the other, both should be included
-    assertEquals(2, deployers.size());
+    try (DeployerScope scope = DeploymentService.deployers(deployable, mockConnection,
+        Arrays.asList(provider1, provider2))) {
+      assertEquals(2, scope.deployers().size());
+    }
   }
 
   private static class BaseTestProvider implements DeployerProvider {
@@ -617,9 +690,10 @@ class DeploymentServiceTest {
     // and a single-provider scenario works via the package-private overload.
     Deployable deployable = new Deployable() { };
     BaseTestProvider provider = new BaseTestProvider(mockDeployer1);
-    Collection<Deployer> deployers = DeploymentService.deployers(deployable, mockConnection,
-        Collections.singletonList(provider));
-    assertEquals(1, deployers.size(),
-        "deployers() from a single provider must return exactly 1 deployer");
+    try (DeployerScope scope = DeploymentService.deployers(deployable, mockConnection,
+        Collections.singletonList(provider))) {
+      assertEquals(1, scope.deployers().size(),
+          "deployers() from a single provider must return exactly 1 deployer");
+    }
   }
 }

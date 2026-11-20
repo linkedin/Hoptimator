@@ -181,6 +181,10 @@ Each form removes the corresponding Kubernetes resource and (where
 applicable) the pipeline behind it. `DROP MATERIALIZED VIEW` tears down the
 job, the sink, and any intermediate hops the planner created.
 
+`DROP TABLE` forwards connection `hints`, including the authenticated caller
+identity, to delete-intent validation and deployers for both JDBC-backed and
+temporary tables, matching the SQL-free TableService API.
+
 ## CREATE TRIGGER
 
 ```
@@ -237,6 +241,12 @@ asks the Kafka deployer to create the topic itself — no separate Strimzi
 manifest, no operator round-trip. Against the Venice adapter it asks for a
 new store. Against `demodb` it's a no-op because the source is in-memory.
 Each Deployer contains its own set of configuration options.
+
+Connection `hints` are merged into the table's deployment options, including
+for `!specify` dry runs. Connection hints take precedence over matching
+`WITH` options, so a caller identity supplied by the connection reaches
+deployer validation and cannot be replaced by a statement option. This
+matches the SQL-free TableService API.
 
 ```sql
 CREATE TABLE KAFKA.audience (

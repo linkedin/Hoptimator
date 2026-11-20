@@ -5,7 +5,7 @@ import java.util.List;
 
 
 /** Deploys something. */
-public interface Deployer {
+public interface Deployer extends AutoCloseable {
 
   void create() throws SQLException;
 
@@ -26,4 +26,9 @@ public interface Deployer {
 
   /** Deployers are expected to track the state of changes made and revert them on demand. */
   void restore();
+
+  /** Releases only resources owned by this deployer, after operations and any restore have finished. */
+  @Override
+  default void close() {
+  }
 }

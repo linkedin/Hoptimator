@@ -1,13 +1,28 @@
 package com.linkedin.hoptimator.mcp.server;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
+import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.Job;
+import com.linkedin.hoptimator.Pipeline;
+import com.linkedin.hoptimator.Sink;
+import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
+import com.linkedin.hoptimator.jdbc.HoptimatorDriver;
+import com.linkedin.hoptimator.util.DeployerScope;
+import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.planner.PipelineRel;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
+import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.schema.Table;
+import org.apache.calcite.schema.impl.AbstractSchema;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.Connection;
@@ -20,17 +35,25 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import static io.modelcontextprotocol.spec.McpSchema.CallToolResult;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Answers.CALLS_REAL_METHODS;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
@@ -44,6 +67,9 @@ import static org.mockito.Mockito.when;
         + "invocation. The values are mocks and there is no alternative Mockito syntax that "
         + "avoids the AutoCloseable call site.")
 class HoptimatorMcpServerTest {
+
+  @Mock(answer = CALLS_REAL_METHODS)
+  private MockedStatic<DeploymentService> planDeployment;
 
   @Mock
   private Connection mockConnection;
@@ -503,6 +529,105 @@ class HoptimatorMcpServerTest {
   private PreparedStatement mockPreparedStatement;
 
   private final Gson gson = new Gson();
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testHandlePlanRestoresSchemaAfterSuccessfulSpecify(boolean existingView) throws SQLException {
+    try (HoptimatorConnection connection = (HoptimatorConnection) new HoptimatorDriver()
+        .connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus schema = connection.calciteConnection().getRootSchema().add("TESTDB", new PlanDatabase());
+      Table original = existingView ? mock(Table.class) : null;
+      if (original != null) {
+        schema.add("V", original);
+      }
+      Deployer deployer = mock(Deployer.class);
+      stubPlanDeployment(deployer);
+      when(deployer.specify()).thenReturn(List.of("{}"));
+
+      CallToolResult result = HoptimatorMcpServer.handlePlan(connection, gson, new ObjectMapper(),
+          "CREATE OR REPLACE MATERIALIZED VIEW \"TESTDB\".\"V\" AS SELECT 1 AS X");
+
+      assertFalse(result.isError());
+      assertEquals("[{},{}]", ((TextContent) result.content().get(0)).text());
+      assertThat(schema.tables().get("V")).isSameAs(original);
+      verify(deployer, times(2)).specify();
+      verify(deployer, times(2)).close();
+      verify(deployer, never()).create();
+      verify(deployer, never()).update();
+      verify(deployer, never()).delete();
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testHandlePlanRestoresSchemaAndReturnsSpecsWhenCloseFails(boolean existingView) throws SQLException {
+    try (HoptimatorConnection connection = (HoptimatorConnection) new HoptimatorDriver()
+        .connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus schema = connection.calciteConnection().getRootSchema().add("TESTDB", new PlanDatabase());
+      Table original = existingView ? mock(Table.class) : null;
+      if (original != null) {
+        schema.add("V", original);
+      }
+      Deployer deployer = mock(Deployer.class);
+      stubPlanDeployment(deployer);
+      when(deployer.specify()).thenReturn(List.of("{}"));
+      doThrow(new IllegalStateException("close failed")).when(deployer).close();
+
+      CallToolResult result = HoptimatorMcpServer.handlePlan(connection, gson, new ObjectMapper(),
+          "CREATE OR REPLACE MATERIALIZED VIEW \"TESTDB\".\"V\" AS SELECT 1 AS X");
+
+      assertFalse(result.isError());
+      assertEquals("[{},{}]", ((TextContent) result.content().get(0)).text());
+      assertThat(schema.tables().get("V")).isSameAs(original);
+      verify(deployer, times(2)).specify();
+      verify(deployer, times(2)).close();
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void testHandlePlanPreservesSpecifyFailureAndRestoresSchema(boolean existingView) throws SQLException {
+    try (HoptimatorConnection connection = (HoptimatorConnection) new HoptimatorDriver()
+        .connect("jdbc:hoptimator://catalogs=util", new Properties())) {
+      SchemaPlus schema = connection.calciteConnection().getRootSchema().add("TESTDB", new PlanDatabase());
+      Table original = existingView ? mock(Table.class) : null;
+      if (original != null) {
+        schema.add("V", original);
+      }
+      Deployer deployer = mock(Deployer.class);
+      stubPlanDeployment(deployer);
+      SQLException specifyFailure = new SQLException("specify failed");
+      RuntimeException closeFailure = new IllegalStateException("close failed");
+      when(deployer.specify()).thenThrow(specifyFailure);
+      doThrow(closeFailure).when(deployer).close();
+
+      CallToolResult result = HoptimatorMcpServer.handlePlan(connection, gson, new ObjectMapper(),
+          "CREATE OR REPLACE MATERIALIZED VIEW \"TESTDB\".\"V\" AS SELECT 1 AS X");
+
+      assertTrue(result.isError());
+      assertThat(((TextContent) result.content().get(0)).text())
+          .contains("ERROR:", "specify failed");
+      assertThat(specifyFailure.getSuppressed()).isEmpty();
+      assertThat(schema.tables().get("V")).isSameAs(original);
+      verify(deployer).close();
+    }
+  }
+
+  private void stubPlanDeployment(Deployer deployer) throws SQLException {
+    PipelineRel.Implementor plan = mock(PipelineRel.Implementor.class);
+    Pipeline pipeline = new Pipeline(List.of(), mock(Sink.class), mock(Job.class));
+    when(plan.pipeline(anyString(), any())).thenReturn(pipeline);
+    planDeployment.when(() -> DeploymentService.plan(any(), any(), any())).thenReturn(plan);
+    planDeployment.when(() -> DeploymentService.deployers(any(), any()))
+        .thenAnswer(invocation -> new DeployerScope(List.of(deployer)));
+  }
+
+  private static class PlanDatabase extends AbstractSchema implements Database {
+    @Override
+    public String databaseName() {
+      return "test-db";
+    }
+  }
 
   @Test
   void testHandleFetchSchemasSuccess() throws SQLException {
