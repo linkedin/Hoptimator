@@ -74,7 +74,7 @@ class K8sConnector implements Connector {
         .collect(Collectors.toList());
     List<String> renderedTemplates = new ArrayList<>();
     for (String template : templates) {
-      String renderedTemplate = new Template.SimpleTemplate(template).render(env);
+      String renderedTemplate = new Template.SimpleTemplate(template).render(env, K8sConnector::escapePropertiesValue);
       if (renderedTemplate != null) {
         renderedTemplates.add(renderedTemplate);
       }
@@ -124,6 +124,43 @@ class K8sConnector implements Connector {
       return provided;
     }
     return AvroConverter.avro("com.linkedin.hoptimator", source.table(), sourceRowType);
+  }
+
+  /**
+   * Escapes a substituted value so {@link Properties#load} reads it back verbatim when it appears in
+   * value position. Without this, backslash escapes in values (e.g. {@code \"} inside an Avro doc in
+   * {@code {{avroValueSchema}}}) are consumed by the parser and the value is corrupted.
+   */
+  private static String escapePropertiesValue(String value) {
+    StringBuilder sb = new StringBuilder(value.length());
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      switch (c) {
+        case '\\':
+          sb.append("\\\\");
+          break;
+        case '\n':
+          sb.append("\\n");
+          break;
+        case '\r':
+          sb.append("\\r");
+          break;
+        case '\t':
+          sb.append("\\t");
+          break;
+        case '\f':
+          sb.append("\\f");
+          break;
+        case ' ':
+          // Properties.load strips leading whitespace from a value.
+          sb.append(i == 0 ? "\\ " : " ");
+          break;
+        default:
+          sb.append(c);
+          break;
+      }
+    }
+    return sb.toString();
   }
 
   @VisibleForTesting

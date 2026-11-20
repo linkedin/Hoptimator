@@ -11,6 +11,7 @@ dependencies {
   runtimeOnly project(':hoptimator-kafka')
   runtimeOnly project(':hoptimator-logical')
   runtimeOnly project(':hoptimator-mysql')
+  runtimeOnly project(':hoptimator-pinot')
   runtimeOnly project(':hoptimator-venice')
 
   testImplementation libs.gson

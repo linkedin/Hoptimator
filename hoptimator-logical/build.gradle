@@ -24,6 +24,7 @@ dependencies {
   testRuntimeOnly project(':hoptimator-mysql')
   testRuntimeOnly project(':hoptimator-kafka')
   testRuntimeOnly project(':hoptimator-venice')
+  testRuntimeOnly project(':hoptimator-pinot')
 }
 
 publishing {

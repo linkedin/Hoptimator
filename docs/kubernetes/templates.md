@@ -69,6 +69,12 @@ spec:
   Hoptimator applies when this source/sink is deployed.
 - `connector` — a properties-style block consumed by the engine. For Flink,
   it shows up in the auto-generated `CREATE TABLE … WITH (…)` clause.
+  Substituted placeholder values are escaped for the `.properties` format,
+  so they come through verbatim, including backslashes and line breaks (for
+  example, the JSON escapes in `{{avroValueSchema}}`). A multi-line value
+  stays a single property and is not split into one line per entry. Literal
+  text in the block is still parsed as `.properties`, so write a literal
+  backslash as `\\`.
 
 A template that supplies only `connector` is useful when the upstream
 infrastructure already exists — the connector tells the engine how to

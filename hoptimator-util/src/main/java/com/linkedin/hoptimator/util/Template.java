@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -215,6 +216,15 @@ public interface Template {
 
     @Override
     public String render(Environment env) throws SQLException {
+      return render(env, UnaryOperator.identity());
+    }
+
+    /**
+     * Renders with {@code valueEncoder} applied to each substituted variable value (after any
+     * transformations). Literal template text and guard evaluation are unaffected. Use this to
+     * escape values for the target format, e.g. .properties.
+     */
+    public String render(Environment env, UnaryOperator<String> valueEncoder) throws SQLException {
       // Conditional guards ({{var==value}} / {{var!=value}}) decide whether the template is used at
       // all, so they must be settled before any other variable is expanded — expanding a variable
       // can be expensive or can throw for reasons irrelevant to a skipped template (e.g. a Flink SQL
@@ -237,7 +247,7 @@ public interface Template {
           if (value == null) {
             return null;
           }
-          String transformed = applyTransform(value, token.transform);
+          String transformed = valueEncoder.apply(applyTransform(value, token.transform));
           sb.append(token.prefix).append(transformed.replace("\n", token.prefix));
         }
       }
