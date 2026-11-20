@@ -52,6 +52,7 @@ import com.linkedin.hoptimator.util.DeploymentService;
 import com.linkedin.hoptimator.util.DeployerScope;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -318,7 +319,7 @@ class LogicalTableDeployerTest {
   }
 
   @Test
-  void closeAttemptsEveryChildScopeAndPreservesFailures() throws SQLException {
+  void closeAttemptsEveryChildScopeWhenCleanupFails() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
         List.of(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
@@ -332,10 +333,7 @@ class LogicalTableDeployerTest {
     doThrow(firstFailure).when(first).close();
     doThrow(secondFailure).when(second).close();
 
-    RuntimeException failure = assertThrows(RuntimeException.class, deployer::close);
-
-    assertEquals(secondFailure, failure);
-    assertEquals(List.of(firstFailure), List.of(failure.getSuppressed()));
+    assertDoesNotThrow(deployer::close);
     deployer.close();
     verify(first).close();
     verify(second).close();

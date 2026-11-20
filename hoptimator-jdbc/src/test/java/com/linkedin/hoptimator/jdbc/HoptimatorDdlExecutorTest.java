@@ -58,6 +58,7 @@ import java.util.Properties;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -65,6 +66,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -1277,7 +1279,7 @@ class HoptimatorDdlExecutorTest {
         () -> new HoptimatorDdlExecutor(connection).executeDdl(context, create));
 
     assertSame(expected, failure.getCause());
-    assertEquals(List.of(closeFailure), List.of(expected.getSuppressed()));
+    assertEquals(0, expected.getSuppressed().length);
     mockDeploymentService.verify(() -> DeploymentService.restore(deployers));
     verify(deployer).close();
     assertTrue(context.getMutableRootSchema().plus().subSchemas().get("OWNED_DB").tables().get("owned") == null);
@@ -1291,14 +1293,70 @@ class HoptimatorDdlExecutorTest {
     mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
         .thenReturn(new DeployerScope(List.of(deployer)));
     CalcitePrepare.Context context = connection.createPrepareContext();
+    SchemaPlus schema = registerDatabaseSchema(context, "OWNED_DB");
     SqlNode create = HoptimatorDriver.parseQuery(connection,
-        "CREATE VIEW \"ownedView\" AS SELECT 1 AS \"col1\"");
+        "CREATE VIEW \"OWNED_DB\".\"ownedView\" AS SELECT 1 AS \"col1\"");
 
-    RuntimeException failure = assertThrows(RuntimeException.class,
+    assertDoesNotThrow(
         () -> new HoptimatorDdlExecutor(connection).executeDdl(context, create));
 
-    assertSame(expected, failure);
+    assertNotNull(schema.tables().get("ownedView"));
     mockDeploymentService.verify(() -> DeploymentService.create(List.of(deployer)));
+    mockDeploymentService.verify(() -> DeploymentService.restore(any()), never());
+    verify(deployer).close();
+  }
+
+  @Test
+  void nestedSpecifyCleanupFailureDoesNotRollBackOuterCreate() throws SQLException {
+    Deployer outer = mock(Deployer.class);
+    Deployer child = mock(Deployer.class);
+    Source source = new Source("child-db", List.of("CHILD", "t"), Map.of());
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(outer)));
+    mockDeploymentService.when(() -> DeploymentService.deployers(source, connection.deploymentContext()))
+        .thenReturn(new DeployerScope(List.of(child)));
+    mockDeploymentService.when(() -> DeploymentService.create(any())).thenCallRealMethod();
+    mockDeploymentService.when(() -> DeploymentService.specify(source, connection.deploymentContext()))
+        .thenCallRealMethod();
+    when(child.specify()).thenReturn(List.of("child spec"));
+    doThrow(new IllegalStateException("child close failed")).when(child).close();
+    doAnswer(invocation -> {
+      assertEquals(List.of("child spec"), DeploymentService.specify(source, connection.deploymentContext()));
+      return null;
+    }).when(outer).create();
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SchemaPlus schema = registerDatabaseSchema(context, "OWNED_DB");
+    SqlNode create = HoptimatorDriver.parseQuery(connection,
+        "CREATE VIEW \"OWNED_DB\".\"ownedView\" AS SELECT 1 AS \"col1\"");
+
+    assertDoesNotThrow(() -> new HoptimatorDdlExecutor(connection).executeDdl(context, create));
+
+    assertNotNull(schema.tables().get("ownedView"));
+    verify(outer).create();
+    verify(outer).close();
+    verify(child).specify();
+    verify(child).close();
+    mockDeploymentService.verify(() -> DeploymentService.restore(any()), never());
+  }
+
+  @Test
+  void cleanupFailureDoesNotFailSuccessfulDropTable() throws SQLException {
+    Deployer deployer = mock(Deployer.class);
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(deployer)));
+    doThrow(new IllegalStateException("close failed")).when(deployer).close();
+    SchemaPlus schema = connection.calciteConnection().getRootSchema()
+        .add("OWNED_DB", new TestDatabaseSchema("OWNED_DB"));
+    RelDataType rowType = connection.createPrepareContext().getTypeFactory().builder()
+        .add("id", SqlTypeName.INTEGER).build();
+    schema.add("owned", new TemporaryTable(rowType, "OWNED_DB"));
+    SqlNode drop = HoptimatorDriver.parseQuery(connection, "DROP TABLE \"OWNED_DB\".\"owned\"");
+
+    assertDoesNotThrow(() -> new HoptimatorDdlExecutor(connection)
+        .executeDdl(connection.createPrepareContext(), drop));
+
+    assertNull(schema.tables().get("owned"));
+    mockDeploymentService.verify(() -> DeploymentService.delete(List.of(deployer)));
     mockDeploymentService.verify(() -> DeploymentService.restore(any()), never());
     verify(deployer).close();
   }

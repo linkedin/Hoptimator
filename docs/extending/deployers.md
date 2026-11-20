@@ -79,8 +79,10 @@ idempotent. The default no-op keeps deployers without owned resources compatible
 SQL DDL, direct table operations, and on-demand `DeploymentService.specify`
 close their acquired deployers after validation, synchronous operations and
 polling, and any `restore()` have finished. A cleanup failure must not trigger
-rollback of a successful deployment. When an operation has already failed,
-try-with-resources preserves it and suppresses cleanup failures.
+rollback of a successful deployment or turn its result into an operation error.
+`DeployerScope.close()` logs aggregated cleanup failures rather than throwing
+them. Operation failures propagate unchanged; cleanup diagnostics are reported
+through the logs instead of the operation's exception.
 
 `DeploymentService.deployers` returns the owning handle directly. Callers must
 close it, rather than registering the returned deployers in another scope:

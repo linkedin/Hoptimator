@@ -3,6 +3,8 @@ package com.linkedin.hoptimator.util;
 import com.linkedin.hoptimator.Deployer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -10,10 +12,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Collection;
 import java.util.ArrayList;
 import java.util.List;
+import java.sql.SQLException;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
@@ -50,13 +56,38 @@ class DeployerScopeTest {
     doThrow(secondFailure).when(second).close();
     DeployerScope scope = new DeployerScope(List.of(first, second));
 
-    RuntimeException failure = assertThrows(RuntimeException.class, scope::close);
+    assertDoesNotThrow(scope::close);
 
-    assertThat(failure).isSameAs(secondFailure);
-    assertThat(failure.getSuppressed()).containsExactly(firstFailure);
+    assertThat(secondFailure.getSuppressed()).containsExactly(firstFailure);
     verify(first).close();
     verify(second).close();
     scope.close();
+  }
+
+  @ParameterizedTest
+  @MethodSource("operationFailures")
+  void preservesOperationFailureWhenCleanupFails(Throwable expected) {
+    RuntimeException firstFailure = new IllegalStateException("first close");
+    RuntimeException secondFailure = new IllegalArgumentException("second close");
+    doThrow(firstFailure).when(first).close();
+    doThrow(secondFailure).when(second).close();
+    Throwable failure = assertThrows(expected.getClass(), () -> {
+      try (DeployerScope scope = new DeployerScope(List.of(first, second))) {
+        assertThat(scope.deployers()).containsExactly(first, second);
+        throw expected;
+      }
+    });
+
+    assertSame(expected, failure);
+    assertThat(failure.getSuppressed()).isEmpty();
+    assertThat(secondFailure.getSuppressed()).containsExactly(firstFailure);
+    verify(first).close();
+    verify(second).close();
+  }
+
+  private static Stream<Throwable> operationFailures() {
+    return Stream.of(new SQLException("operation failed"),
+        new IllegalStateException("operation failed"), new AssertionError("operation failed"));
   }
 
   @Test

@@ -380,6 +380,22 @@ class DeploymentServiceTest {
   }
 
   @Test
+  void specifyReturnsGeneratedSpecsWhenCleanupFails() throws SQLException {
+    Deployable deployable = new Deployable() { };
+    mockedDeploymentService.when(() -> DeploymentService.deployers(deployable, mockConnection))
+        .thenReturn(new DeployerScope(List.of(mockDeployer1, mockDeployer2)));
+    when(mockDeployer1.specify()).thenReturn(List.of("spec-a"));
+    when(mockDeployer2.specify()).thenReturn(List.of("spec-b"));
+    doThrow(new IllegalStateException("close failed")).when(mockDeployer2).close();
+
+    List<String> specs = DeploymentService.specify(deployable, mockConnection);
+
+    assertEquals(List.of("spec-a", "spec-b"), specs);
+    verify(mockDeployer1).close();
+    verify(mockDeployer2).close();
+  }
+
+  @Test
   void specifyClosesAllAcquiredDeployersWhenRenderingFails() throws SQLException {
     Deployable deployable = new Deployable() { };
     mockedDeploymentService.when(() -> DeploymentService.deployers(deployable, mockConnection))
@@ -393,7 +409,7 @@ class DeploymentServiceTest {
         () -> DeploymentService.specify(deployable, mockConnection));
 
     assertSame(expected, failure);
-    assertEquals(List.of(closeFailure), List.of(failure.getSuppressed()));
+    assertEquals(0, failure.getSuppressed().length);
     verify(mockDeployer1).close();
     verify(mockDeployer2).close();
     verify(mockDeployer2, never()).specify();
@@ -427,7 +443,7 @@ class DeploymentServiceTest {
 
     assertSame(expected, failure);
     assertEquals(2, calls.get());
-    assertEquals(List.of(closeFailure), List.of(failure.getSuppressed()));
+    assertEquals(0, failure.getSuppressed().length);
     verify(mockDeployer1).close();
   }
 

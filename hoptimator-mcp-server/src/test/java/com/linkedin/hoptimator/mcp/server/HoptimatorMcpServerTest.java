@@ -560,7 +560,7 @@ class HoptimatorMcpServerTest {
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
-  void testHandlePlanRestoresSchemaAndReturnsErrorWhenCloseFails(boolean existingView) throws SQLException {
+  void testHandlePlanRestoresSchemaAndReturnsSpecsWhenCloseFails(boolean existingView) throws SQLException {
     try (HoptimatorConnection connection = (HoptimatorConnection) new HoptimatorDriver()
         .connect("jdbc:hoptimator://catalogs=util", new Properties())) {
       SchemaPlus schema = connection.calciteConnection().getRootSchema().add("TESTDB", new PlanDatabase());
@@ -576,12 +576,11 @@ class HoptimatorMcpServerTest {
       CallToolResult result = HoptimatorMcpServer.handlePlan(connection, gson, new ObjectMapper(),
           "CREATE OR REPLACE MATERIALIZED VIEW \"TESTDB\".\"V\" AS SELECT 1 AS X");
 
-      assertTrue(result.isError());
-      assertThat(((TextContent) result.content().get(0)).text())
-          .contains("ERROR:", "close failed");
+      assertFalse(result.isError());
+      assertEquals("[{},{}]", ((TextContent) result.content().get(0)).text());
       assertThat(schema.tables().get("V")).isSameAs(original);
-      verify(deployer).specify();
-      verify(deployer).close();
+      verify(deployer, times(2)).specify();
+      verify(deployer, times(2)).close();
     }
   }
 
@@ -608,7 +607,7 @@ class HoptimatorMcpServerTest {
       assertTrue(result.isError());
       assertThat(((TextContent) result.content().get(0)).text())
           .contains("ERROR:", "specify failed");
-      assertThat(specifyFailure.getSuppressed()).containsExactly(closeFailure);
+      assertThat(specifyFailure.getSuppressed()).isEmpty();
       assertThat(schema.tables().get("V")).isSameAs(original);
       verify(deployer).close();
     }

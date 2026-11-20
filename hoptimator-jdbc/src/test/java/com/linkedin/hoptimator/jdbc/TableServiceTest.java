@@ -195,7 +195,7 @@ class TableServiceTest {
 
     assertThatThrownBy(() -> TableService.delete(new Properties(), path))
         .isSameAs(operationFailure)
-        .satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(closeFailure));
+        .satisfies(failure -> assertThat(failure.getSuppressed()).isEmpty());
 
     deployment.verify(() -> DeploymentService.restore(deployers));
     verify(deployer).close();
@@ -243,7 +243,7 @@ class TableServiceTest {
     assertThatThrownBy(() -> TableService.create(new Properties(), List.of(), path,
         recordSchema(), Map.of(), false, false))
         .isSameAs(operationFailure)
-        .satisfies(failure -> assertThat(failure.getSuppressed()).containsExactly(closeFailure));
+        .satisfies(failure -> assertThat(failure.getSuppressed()).isEmpty());
 
     deployment.verify(() -> DeploymentService.restore(deployers));
     verify(deployer).close();
@@ -285,8 +285,9 @@ class TableServiceTest {
     verify(deployer).close();
   }
 
-  @Test
-  void cleanupFailureDoesNotRestoreSuccessfulDirectCreate() throws SQLException {
+  @ParameterizedTest
+  @EnumSource(HoptimatorDdlUtils.DdlMode.class)
+  void cleanupFailurePreservesSuccessfulDirectTableResult(HoptimatorDdlUtils.DdlMode mode) throws SQLException {
     DatabaseConfigResolver resolver = stubResolver();
     resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
     Deployer deployer = mock(Deployer.class);
@@ -294,12 +295,41 @@ class TableServiceTest {
     doThrow(expected).when(deployer).close();
     deployment.when(() -> DeploymentService.deployers(any(), any()))
         .thenReturn(new DeployerScope(List.of(deployer)));
+    if (mode.dryRun()) {
+      when(deployer.specify()).thenReturn(List.of("table spec"));
+    }
 
-    assertThatThrownBy(() -> TableService.create(new Properties(), List.of(), path,
-        recordSchema(), Map.of(), false, false)).isSameAs(expected);
+    HoptimatorDdlUtils.SpecifyResult result = TableService.create(new Properties(), List.of(), path,
+        recordSchema(), Map.of(), mode == HoptimatorDdlUtils.DdlMode.UPDATE, mode.dryRun());
 
-    deployment.verify(() -> DeploymentService.create(List.of(deployer)));
+    assertThat(result.specs).isEqualTo(mode.dryRun() ? List.of("table spec") : List.of());
+    if (mode.dryRun()) {
+      deployment.verify(() -> DeploymentService.restore(List.of(deployer)));
+    } else {
+      if (mode == HoptimatorDdlUtils.DdlMode.CREATE) {
+        deployment.verify(() -> DeploymentService.create(List.of(deployer)));
+      } else {
+        deployment.verify(() -> DeploymentService.update(List.of(deployer)));
+      }
+      deployment.verify(() -> DeploymentService.restore(any()), never());
+    }
+    verify(deployer).close();
+  }
+
+  @Test
+  void cleanupFailureDoesNotFailSuccessfulDirectDelete() throws SQLException {
+    DatabaseConfigResolver resolver = stubResolver();
+    resolvers.when(() -> DatabaseConfigResolvers.forProperties(any())).thenReturn(resolver);
+    Deployer deployer = mock(Deployer.class);
+    deployment.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(deployer)));
+    doThrow(new IllegalStateException("close failed")).when(deployer).close();
+
+    TableService.delete(new Properties(), path);
+
+    deployment.verify(() -> DeploymentService.delete(List.of(deployer)));
     deployment.verify(() -> DeploymentService.restore(any()), never());
+    verify(deployer).close();
   }
 
   @Test

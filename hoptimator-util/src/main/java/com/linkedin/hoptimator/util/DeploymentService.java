@@ -117,13 +117,7 @@ public final class DeploymentService {
         deployers.addAll(provider.deployers(obj, context));
       }
     } catch (SQLException | RuntimeException failure) {
-      try {
-        new DeployerScope(deployers).close();
-      } catch (RuntimeException closeFailure) {
-        if (failure != closeFailure) {
-          failure.addSuppressed(closeFailure);
-        }
-      }
+      new DeployerScope(deployers).close();
       throw failure;
     }
     return new DeployerScope(deployers);

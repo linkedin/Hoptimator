@@ -1,6 +1,8 @@
 package com.linkedin.hoptimator.util;
 
 import com.linkedin.hoptimator.Deployer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -12,6 +14,8 @@ import java.util.Set;
 
 /** Owns deployers until validation, deployment and any rollback have all completed. */
 public final class DeployerScope implements AutoCloseable {
+  private static final Logger LOG = LoggerFactory.getLogger(DeployerScope.class);
+
   private List<Deployer> deployers;
   private boolean closed;
 
@@ -27,6 +31,7 @@ public final class DeployerScope implements AutoCloseable {
     return deployers;
   }
 
+  /** Attempts every close and logs failures without changing the operation's outcome. */
   @Override
   public void close() {
     List<Deployer> owned;
@@ -56,7 +61,7 @@ public final class DeployerScope implements AutoCloseable {
       }
     }
     if (failure != null) {
-      throw failure;
+      LOG.warn("Failed to close deployers", failure);
     }
   }
 }
