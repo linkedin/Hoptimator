@@ -16,7 +16,7 @@ and are applied by `make deploy` along with the operator.
 > ```
 >
 > The script invokes the upstream Kubernetes Java client's
-> [`crd-model-gen`](https://github.com/kubernetes-client/java/tree/master/crd-model-gen)
+> [`crd-model-gen`](https://github.com/kubernetes-client/java/blob/master/docs/generate-model-from-third-party-resources.md)
 > Docker image to produce the typed `V1alpha1*` classes the operator and
 > deployers consume. Commit the regenerated files with your CRD change.
 
