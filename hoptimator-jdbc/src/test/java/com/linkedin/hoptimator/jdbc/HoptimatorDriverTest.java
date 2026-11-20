@@ -6,6 +6,7 @@ import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.IdentifierUtils;
 import org.apache.avro.Schema;
 import org.apache.calcite.jdbc.CalcitePrepare;
+import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -165,7 +167,37 @@ class HoptimatorDriverTest {
       assertInstanceOf(expected, failure);
       assertSame(original, failure.getCause());
       assertEquals(1, releases.get());
-      assertEquals(1, original.getSuppressed().length);
+      assertEquals(0, original.getSuppressed().length);
+    }
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void catalogInitializationErrorClosesConnectionAndPropagatesUnchanged(boolean allCatalogs) throws Exception {
+    AssertionError expected = new AssertionError("catalog initialization error");
+    AtomicReference<CalciteConnection> created = new AtomicReference<>();
+    AtomicInteger releases = new AtomicInteger();
+    Catalog catalog = mock(Catalog.class);
+    doAnswer(invocation -> {
+      Wrapped wrapper = invocation.getArgument(0);
+      created.set(wrapper.connection().calciteConnection());
+      CalciteDriver.addConnectionResource(created.get(), releases::incrementAndGet);
+      throw expected;
+    }).when(catalog).register(any());
+    try (MockedStatic<CatalogService> catalogs = mockStatic(CatalogService.class)) {
+      catalogs.when(CatalogService::catalogs).thenReturn(Collections.singletonList(catalog));
+      catalogs.when(() -> CatalogService.catalog("failing")).thenReturn(catalog);
+      String url = allCatalogs ? "jdbc:hoptimator://" : "jdbc:hoptimator://catalogs=failing";
+
+      AssertionError failure = assertThrows(AssertionError.class, () -> driver.connect(url, new Properties()));
+
+      assertSame(expected, failure);
+      assertTrue(created.get().isClosed());
+      assertEquals(1, releases.get());
+    } finally {
+      if (created.get() != null) {
+        created.get().close();
+      }
     }
   }
 

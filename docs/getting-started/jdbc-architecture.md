@@ -81,15 +81,21 @@ receives the acquired connection and installs adapter schemas. Subclasses use
 these hooks, not `connect` overrides or initialization callbacks.
 
 If initialization fails after acquisition, the base driver closes the
-connection before applying `connectionException`. Cleanup failures are attached
+connection before applying `connectionException`. Owned-resource cleanup failures
+are logged by the physical close hook; other JDBC close failures are attached
 to the original failure as suppressed exceptions. `HoptimatorDriver` is a
 separate wrapping facade: it explicitly closes its underlying connection when
-wrapping or catalog registration fails.
+wrapping or catalog registration fails. Both drivers also attempt cleanup when
+initialization throws an `Error`, then rethrow that same error without SQL
+exception mapping. A failure of the cleanup attempt, including another `Error`,
+is suppressed on the original initialization failure rather than replacing it.
 
 Adapters transfer **owned** closeables with
 `CalciteDriver.addConnectionResource` before publishing their schemas.
 `ConnectionResources`, held by `HoptimatorCalciteSchema`, closes them once in
-reverse registration order, attempts every close, and surfaces cleanup failures.
+reverse registration order and attempts every close. The physical close hook
+logs aggregated cleanup failures rather than throwing, so closing an already
+completed operation does not change its result or replace its original failure.
 It does not scan schemas for arbitrary `AutoCloseable` objects or assume
 ownership of shared clients. A resource created before the physical connection
 exists remains its creator's cleanup responsibility.
@@ -111,8 +117,24 @@ the shared owner also has a JVM shutdown hook.
 
 Pool shutdown closes idle physical connections and their owned resources;
 active borrows follow the pool's return/disposal behavior, rather than being
-forcibly interrupted. Explicit cleanup failures are surfaced to callers;
-asynchronous Cleaner and shutdown-hook failures are logged.
+forcibly interrupted. A failed resource close does not mean a connection is
+still usable: Calcite marks it closed before invoking resource cleanup, and DBCP
+removes disposed connections from the pool even when physical cleanup fails.
+DBCP also swallows some disposal exceptions, so owned-resource failures are
+logged at the physical close hook, not left to the pool to report.
+
+Failures from explicit `invalidate`, `invalidateAll`, and pool-owner `close`
+remain errors for their callers. Disposal triggered by the final lease release
+is logged instead: releasing a catalog must not turn a completed request into
+a failure. Retired entries are removed from reuse before disposal, and another
+catalog acquires a replacement pool. Cleaner and shutdown-hook failures are
+also logged. Logging does not guarantee that a backend client whose close
+failed released every resource; repeated connection close is not a retry
+mechanism for that client.
+
+This policy is limited to owned-resource and lease cleanup. Ordinary JDBC
+statement, transaction, connection-return, and execution-driver errors are not
+suppressed, and shared pools are not closed after each request.
 
 ## Cleanup is not metadata freshness
 

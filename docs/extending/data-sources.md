@@ -54,9 +54,12 @@ The shape every adapter has in common:
 Both public `connect` overloads are final. The base driver creates the
 connection, calls Calcite's `onConnectionInit`, and then invokes
 `configureConnection`. If initialization throws an exception, the base closes
-the connection before applying the driver's exception mapping; cleanup
-failures are suppressed on the original exception. Register owned closeable
-clients with `addConnectionResource` before publishing their schemas.
+the connection before applying the driver's exception mapping. Owned-resource
+cleanup failures are logged without replacing the initialization failure;
+other JDBC close failures are suppressed on the original exception. Register
+owned closeable clients with `addConnectionResource` before publishing their schemas.
+Initialization `Error`s also trigger cleanup and are rethrown unchanged rather
+than translated into SQL exceptions.
 
 Override `connectionProperties` when validation must happen before acquiring
 a connection, and `connectionException` when your adapter needs a specific

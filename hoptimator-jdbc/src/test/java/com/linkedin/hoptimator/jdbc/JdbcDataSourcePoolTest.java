@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -193,20 +194,79 @@ class JdbcDataSourcePoolTest {
     }
   }
 
-  @Test
-  void finalLeaseDisposalSurfacesFailureWithoutDoubleClose() throws Exception {
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void finalLeaseDisposalKeepsOperationResultAndReplacementUsable(boolean unchecked) throws Exception {
     BasicDataSource source = mock(BasicDataSource.class);
-    SQLException cleanup = new SQLException("cleanup");
+    Exception cleanup = unchecked ? new IllegalStateException("cleanup") : new SQLException("cleanup");
     doThrow(cleanup).when(source).close();
-    try (JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> source)) {
+    BasicDataSource replacement = new BasicDataSource();
+    Queue<BasicDataSource> sources = new ArrayDeque<>(List.of(source, replacement));
+    try (JdbcDataSourcePool owner = new JdbcDataSourcePool(sources::remove)) {
       JdbcDataSourcePool.Lease lease = owner.acquire(URL, null, null, null);
       owner.invalidateAll();
 
-      SQLException failure = assertThrows(SQLException.class, lease::close);
-
-      assertSame(cleanup, failure.getCause());
+      String result;
+      try (lease;
+          JdbcDataSourcePool.Lease next = owner.acquire(URL, null, null, null)) {
+        assertSame(replacement, next.dataSource());
+        result = "completed";
+      }
+      assertNotNull(lease);
       lease.close();
+
+      assertEquals("completed", result);
+      assertThrows(IllegalStateException.class, lease::dataSource);
+      assertFalse(replacement.isClosed());
       verify(source, times(1)).close();
+    }
+    assertTrue(replacement.isClosed());
+  }
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void physicalCleanupFailureDoesNotBreakPoolRetirementOrActiveBorrow(boolean active) throws Exception {
+    AtomicInteger physicalCloses = new AtomicInteger();
+    AtomicInteger failedCloses = new AtomicInteger();
+    try (JdbcDataSourcePool owner = realPool(physicalCloses)) {
+      JdbcDataSourcePool.Lease lease = owner.acquire(URL, null, null, null);
+      BasicDataSource source = lease.dataSource();
+      Connection borrowed = source.getConnection();
+      CalciteConnection physical = borrowed.unwrap(CalciteConnection.class);
+      CalciteDriver.addConnectionResource(physical, () -> {
+        failedCloses.incrementAndGet();
+        throw new SQLException("physical client cleanup failed");
+      });
+      int initialCloses = physicalCloses.get();
+      if (!active) {
+        borrowed.close();
+        assertEquals(0, failedCloses.get());
+      }
+
+      owner.invalidateAll();
+      lease.close();
+
+      assertTrue(source.isClosed());
+      assertThrows(SQLException.class, source::getConnection);
+      if (active) {
+        assertFalse(physical.isClosed());
+        try (java.sql.Statement statement = borrowed.createStatement();
+            java.sql.ResultSet result = statement.executeQuery("SELECT 1")) {
+          assertTrue(result.next());
+          assertEquals(1, result.getInt(1));
+        }
+      }
+      borrowed.close();
+      borrowed.close();
+
+      assertTrue(physical.isClosed());
+      assertEquals(1, failedCloses.get());
+      assertEquals(initialCloses + 1, physicalCloses.get());
+      try (JdbcDataSourcePool.Lease next = owner.acquire(URL, null, null, null);
+          Connection replacement = next.dataSource().getConnection()) {
+        assertNotSame(source, next.dataSource());
+        assertFalse(replacement.isClosed());
+      }
     }
   }
 

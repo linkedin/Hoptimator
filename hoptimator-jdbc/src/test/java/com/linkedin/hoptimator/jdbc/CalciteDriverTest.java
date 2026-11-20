@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -31,6 +30,9 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 
 class CalciteDriverTest {
@@ -93,7 +95,7 @@ class CalciteDriverTest {
   }
 
   @Test
-  void failedInitializationSuppressesCleanupFailure() throws SQLException {
+  void failedInitializationPreservesFailureDespiteCleanupFailure() throws SQLException {
     SQLException expected = new SQLException("initialization failed");
     SQLException cleanupFailure = new SQLException("close failed");
     AtomicReference<CalciteConnection> created = new AtomicReference<>();
@@ -121,13 +123,120 @@ class CalciteDriverTest {
         () -> driver.connect("jdbc:calcite:", new Properties()));
 
     assertSame(expected, failure);
-    assertEquals(1, failure.getSuppressed().length);
-    assertThat(failure.getSuppressed()[0]).hasRootCause(cleanupFailure);
+    assertEquals(0, failure.getSuppressed().length);
+  }
+
+  @Test
+  void successfulOperationKeepsResultAndClosesAllResourcesDespiteCleanupFailure() throws SQLException {
+    List<Integer> closes = new ArrayList<>();
+    CalciteConnection connection = (CalciteConnection) new CalciteDriver()
+        .connect("jdbc:calcite:", new Properties());
+    CalciteDriver.addConnectionResource(connection, () -> closes.add(1));
+    CalciteDriver.addConnectionResource(connection, () -> {
+      closes.add(2);
+      throw new IOException("cleanup failed");
+    });
+    CalciteDriver.addConnectionResource(connection, () -> {
+      closes.add(3);
+      throw new IllegalStateException("another cleanup failure");
+    });
+
+    String result;
+    try (connection) {
+      result = "completed";
+    }
+    assertNotNull(connection);
+    connection.close();
+
+    assertEquals("completed", result);
+    assertTrue(connection.isClosed());
+    assertEquals(List.of(3, 2, 1), closes);
+  }
+
+  @ParameterizedTest
+  @MethodSource("initializationFailures")
+  void operationFailureIsNotReplacedByCleanupFailure(Exception expected) throws SQLException {
+    AtomicInteger closes = new AtomicInteger();
+    Connection connection = new CalciteDriver().connect("jdbc:calcite:", new Properties());
+    CalciteDriver.addConnectionResource((CalciteConnection) connection, () -> {
+      closes.incrementAndGet();
+      throw new IOException("cleanup failed");
+    });
+
+    Exception failure = assertThrows(Exception.class, () -> {
+      try (connection) {
+        throw expected;
+      }
+    });
+
+    assertSame(expected, failure);
+    assertEquals(0, failure.getSuppressed().length);
+    assertTrue(connection.isClosed());
+    assertEquals(1, closes.get());
   }
 
   private static Stream<Exception> initializationFailures() {
     return Stream.of(new SQLException("SQL setup failure"), new IOException("I/O setup failure"),
         new IllegalStateException("runtime setup failure"));
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"calcite", "adapter"})
+  void initializationErrorClosesConnectionAndPropagatesUnchanged(String stage) throws SQLException {
+    AssertionError expected = new AssertionError("initialization error");
+    AtomicReference<CalciteConnection> created = new AtomicReference<>();
+    AtomicInteger closes = new AtomicInteger();
+    CalciteDriver driver = new CalciteDriver() {
+      private void fail(CalciteConnection connection) throws SQLException {
+        created.set(connection);
+        addConnectionResource(connection, closes::incrementAndGet);
+        throw expected;
+      }
+
+      @Override protected void onConnectionInit(AvaticaConnection connection) throws SQLException {
+        if ("calcite".equals(stage)) {
+          fail((CalciteConnection) connection);
+        }
+        super.onConnectionInit(connection);
+      }
+
+      @Override protected void configureConnection(CalciteConnection connection, String url, Properties properties)
+          throws SQLException {
+        fail(connection);
+      }
+    };
+
+    try {
+      AssertionError failure = assertThrows(AssertionError.class,
+          () -> driver.connect("jdbc:calcite:", new Properties()));
+
+      assertSame(expected, failure);
+      assertTrue(created.get().isClosed());
+      assertEquals(1, closes.get());
+    } finally {
+      if (created.get() != null) {
+        created.get().close();
+      }
+    }
+  }
+
+  @ParameterizedTest
+  @MethodSource("cleanupFailures")
+  void failedInitializationCleanupDoesNotReplacePrimaryFailure(Throwable cleanup) throws SQLException {
+    Connection connection = mock(Connection.class);
+    doThrow(cleanup).when(connection).close();
+    SQLException original = new SQLException("initialization failed");
+
+    CalciteDriver.closeOnFailure(connection, original);
+
+    assertEquals(1, original.getSuppressed().length);
+    assertSame(cleanup, original.getSuppressed()[0]);
+    verify(connection).close();
+  }
+
+  private static Stream<Throwable> cleanupFailures() {
+    return Stream.of(new SQLException("SQL cleanup failure"), new IllegalStateException("runtime cleanup failure"),
+        new AssertionError("cleanup error"));
   }
 
   @ParameterizedTest

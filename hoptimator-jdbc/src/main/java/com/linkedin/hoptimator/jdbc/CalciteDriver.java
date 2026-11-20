@@ -11,6 +11,8 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalciteSchema;
 import org.apache.calcite.jdbc.Driver;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -23,6 +25,7 @@ import static java.util.Objects.requireNonNull;
 // CalciteDriver is an extension of Driver that extends the connect() method to allow for disabling caching.
 // Caching enables snapshots via CachingCalciteSchema which has the side effect of preloading all tables for a driver
 public class CalciteDriver extends Driver {
+  private static final Logger LOG = LoggerFactory.getLogger(CalciteDriver.class);
 
   public CalciteDriver() {
     this(null);
@@ -68,6 +71,9 @@ public class CalciteDriver extends Driver {
     } catch (Exception failure) {
       closeOnFailure(connection, failure);
       throw connectionException(url, failure);
+    } catch (Error failure) {
+      closeOnFailure(connection, failure);
+      throw failure;
     }
   }
 
@@ -109,11 +115,11 @@ public class CalciteDriver extends Driver {
     ((HoptimatorCalciteSchema) root).addConnectionResource(resource);
   }
 
-  protected static void closeOnFailure(@Nullable Connection connection, Exception failure) {
+  protected static void closeOnFailure(@Nullable Connection connection, Throwable failure) {
     if (connection != null) {
       try {
         connection.close();
-      } catch (Exception e) {
+      } catch (Exception | Error e) {
         if (e != failure) {
           failure.addSuppressed(e);
         }
@@ -149,7 +155,7 @@ public class CalciteDriver extends Driver {
           }
         }
         if (failure != null) {
-          throw failure;
+          LOG.warn("Failed to close physical connection resources", failure);
         }
       }
 

@@ -198,6 +198,7 @@ public final class JdbcDataSourcePool implements AutoCloseable {
       }
     }
 
+    /** Releases catalog ownership; disposal failures are logged, not failures of the catalog operation. */
     @Override
     public void close() throws SQLException {
       List<Entry> disposable = new ArrayList<>();
@@ -216,6 +217,8 @@ public final class JdbcDataSourcePool implements AutoCloseable {
       }
       try {
         dispose(disposable);
+      } catch (SQLException e) {
+        LOG.warn("Failed to close retired JDBC pool after catalog lease release", e);
       } finally {
         Reference.reachabilityFence(pinned);
       }

@@ -165,7 +165,7 @@ public class HoptimatorDriver implements Driver {
           }
         }
         return hoptimatorConnection;
-      } catch (Exception e) {
+      } catch (Exception | Error e) {
         CalciteDriver.closeOnFailure(connection, e);
         throw e;
       }
