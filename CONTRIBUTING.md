@@ -62,7 +62,7 @@ For bugs, please include:
    make generate-models
    ```
    The script uses the upstream Kubernetes Java client's
-   [`crd-model-gen`](https://github.com/kubernetes-client/java/tree/master/crd-model-gen)
+   [`crd-model-gen`](https://github.com/kubernetes-client/java/blob/master/docs/generate-model-from-third-party-resources.md)
    Docker image, so Docker must be running. Commit the regenerated
    files alongside your CRD change.
 5. **Match the existing style.** The project runs Checkstyle and SpotBugs as
