@@ -32,7 +32,7 @@ import java.util.Map;
  * SQL job spec
  */
 @ApiModel(description = "SQL job spec")
-@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-06-23T18:44:48.199Z[Etc/UTC]")
+@javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", date = "2026-10-04T19:57:58.328Z[Etc/UTC]")
 public class V1alpha1SqlJobSpec {
   public static final String SERIALIZED_NAME_CONFIGS = "configs";
   @SerializedName(SERIALIZED_NAME_CONFIGS)
@@ -142,6 +142,10 @@ public class V1alpha1SqlJobSpec {
   @SerializedName(SERIALIZED_NAME_EXECUTION_MODE)
   private ExecutionModeEnum executionMode;
 
+  public static final String SERIALIZED_NAME_JARS = "jars";
+  @SerializedName(SERIALIZED_NAME_JARS)
+  private List<String> jars = null;
+
   public static final String SERIALIZED_NAME_SQL = "sql";
   @SerializedName(SERIALIZED_NAME_SQL)
   private List<String> sql = new ArrayList<>();
@@ -224,6 +228,37 @@ public class V1alpha1SqlJobSpec {
   }
 
 
+  public V1alpha1SqlJobSpec jars(List<String> jars) {
+    
+    this.jars = jars;
+    return this;
+  }
+
+  public V1alpha1SqlJobSpec addJarsItem(String jarsItem) {
+    if (this.jars == null) {
+      this.jars = new ArrayList<>();
+    }
+    this.jars.add(jarsItem);
+    return this;
+  }
+
+   /**
+   * JAR URIs (e.g. UDF implementations) the job loads before running its SQL. Runners fetch and register them (e.g. via ADD JAR), so classes they contain can be referenced by the SQL. 
+   * @return jars
+  **/
+  @javax.annotation.Nullable
+  @ApiModelProperty(value = "JAR URIs (e.g. UDF implementations) the job loads before running its SQL. Runners fetch and register them (e.g. via ADD JAR), so classes they contain can be referenced by the SQL. ")
+
+  public List<String> getJars() {
+    return jars;
+  }
+
+
+  public void setJars(List<String> jars) {
+    this.jars = jars;
+  }
+
+
   public V1alpha1SqlJobSpec sql(List<String> sql) {
     
     this.sql = sql;
@@ -263,12 +298,13 @@ public class V1alpha1SqlJobSpec {
     return Objects.equals(this.configs, v1alpha1SqlJobSpec.configs) &&
         Objects.equals(this.dialect, v1alpha1SqlJobSpec.dialect) &&
         Objects.equals(this.executionMode, v1alpha1SqlJobSpec.executionMode) &&
+        Objects.equals(this.jars, v1alpha1SqlJobSpec.jars) &&
         Objects.equals(this.sql, v1alpha1SqlJobSpec.sql);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(configs, dialect, executionMode, sql);
+    return Objects.hash(configs, dialect, executionMode, jars, sql);
   }
 
 
@@ -279,6 +315,7 @@ public class V1alpha1SqlJobSpec {
     sb.append("    configs: ").append(toIndentedString(configs)).append("\n");
     sb.append("    dialect: ").append(toIndentedString(dialect)).append("\n");
     sb.append("    executionMode: ").append(toIndentedString(executionMode)).append("\n");
+    sb.append("    jars: ").append(toIndentedString(jars)).append("\n");
     sb.append("    sql: ").append(toIndentedString(sql)).append("\n");
     sb.append("}");
     return sb.toString();

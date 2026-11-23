@@ -58,6 +58,14 @@ spec:
                   type: object
                   additionalProperties:
                     type: string
+                jars:
+                  description: >
+                    JAR URIs (e.g. UDF implementations) the job loads before running its SQL.
+                    Runners fetch and register them (e.g. via ADD JAR), so classes they contain
+                    can be referenced by the SQL.
+                  type: array
+                  items:
+                    type: string
               required:
               - sql
             status:
