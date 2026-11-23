@@ -39,8 +39,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -66,7 +66,6 @@ class K8sDatabaseTableTest {
   @AfterEach
   void closeResourceOwner() throws SQLException {
     resourceOwner.close();
-    JdbcDataSourcePool.shared().invalidateAll();
   }
 
   @Mock
@@ -302,7 +301,7 @@ class K8sDatabaseTableTest {
   }
 
   @Test
-  void catalogLeaseSurvivesRemovalUntilOuterConnectionCloses() throws Exception {
+  void closingOuterConnectionKeepsSharedPoolUsableByAnotherCatalog() throws Exception {
     Properties properties = new Properties();
     when(connection.connectionProperties()).thenReturn(properties);
     lenient().when(mockEngineTable.forDatabase(anyString())).thenReturn(Collections.emptyList());
@@ -318,13 +317,9 @@ class K8sDatabaseTableTest {
     table.addDatabases(root, connection);
     try (JdbcDataSourcePool.Lease observer = K8sDatabaseTable.dataSource(row, properties)) {
       org.apache.commons.dbcp2.BasicDataSource source = observer.dataSource();
-      observer.close();
-      JdbcDataSourcePool.shared().invalidateAll();
-      assertFalse(source.isClosed(), "Lazy catalog metadata must retain its retired pool");
-
       resourceOwner.close();
-
-      assertTrue(source.isClosed(), "Outer close must release the final catalog lease");
+      assertFalse(source.isClosed());
+      assertSame(source, observer.dataSource());
     }
   }
 

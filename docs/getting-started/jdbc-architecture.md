@@ -100,41 +100,37 @@ It does not scan schemas for arbitrary `AutoCloseable` objects or assume
 ownership of shared clients. A resource created before the physical connection
 exists remains its creator's cleanup responsibility.
 
-## Pool retention and retirement
+## Pool retention and cleanup
 
-Live catalog leases strongly pin a pool's ownership token so lazy metadata
-lookups remain usable. After the last lease releases the token, it is only
-softly reachable. GC can reclaim it, and a shared Java `Cleaner` removes and
-closes the pool. Cleanup state retains the pool, but not the token.
+Like Calcite's original cache, the shared pool can reuse a data source even
+after all catalogs close. Live catalog leases strongly pin an ownership token;
+after the last lease releases it, the token is only softly reachable. Under
+memory pressure GC can reclaim it, and a shared Java `Cleaner` removes and
+closes the data source. Cleanup state retains the pool but not the token.
+
+The distinction matters because `AutoCloseable` does not cause GC to call
+`close()`. Closing the data source closes its idle physical connections, which
+in turn close the resources owned by those connections. Checked-out connections
+are disposed when returned. A catalog must keep its lease open while it uses
+the data source.
+
 This is soft retention, **not an idle timeout, capacity limit, or guaranteed
-cleanup deadline**.
+cleanup deadline**. There is no explicit invalidation or shutdown hook: JVM
+shutdown does not guarantee that cached pools or their clients are closed.
+Cleaner failures are logged. DBCP can swallow disposal exceptions, so
+owned-resource failures are logged by the physical close hook as well; logging
+does not guarantee that a client whose close failed released every resource.
+Ordinary JDBC operation and connection-return errors are not suppressed.
 
-`invalidate` and `invalidateAll` explicitly retire pools from reuse. New catalog
-acquisitions get replacement pools, while catalogs already leasing a retired
-pool can continue borrowing from it. Disposal waits for those leases to close.
-Closing the pool owner rejects further acquisitions and retires its pools;
-the shared owner also has a JVM shutdown hook.
-
-Pool shutdown closes idle physical connections and their owned resources;
-active borrows follow the pool's return/disposal behavior, rather than being
-forcibly interrupted. A failed resource close does not mean a connection is
-still usable: Calcite marks it closed before invoking resource cleanup, and DBCP
-removes disposed connections from the pool even when physical cleanup fails.
-DBCP also swallows some disposal exceptions, so owned-resource failures are
-logged at the physical close hook, not left to the pool to report.
-
-Failures from explicit `invalidate`, `invalidateAll`, and pool-owner `close`
-remain errors for their callers. Disposal triggered by the final lease release
-is logged instead: releasing a catalog must not turn a completed request into
-a failure. Retired entries are removed from reuse before disposal, and another
-catalog acquires a replacement pool. Cleaner and shutdown-hook failures are
-also logged. Logging does not guarantee that a backend client whose close
-failed released every resource; repeated connection close is not a retry
-mechanism for that client.
-
-This policy is limited to owned-resource and lease cleanup. Ordinary JDBC
-statement, transaction, connection-return, and execution-driver errors are not
-suppressed, and shared pools are not closed after each request.
+For an isolated cleanup check, run
+`./gradlew :hoptimator-jdbc:test --tests '*JdbcDataSourcePoolTest.cappedCacheUsesCleanerWithoutClosingActiveCatalogs'`.
+Its test-only capacity-one cache forcibly clears evicted soft references and
+requests GC in a child JVM. Cleanup uses the same `Cleaner` as production, but
+forced eviction can remove an active catalog's cache entry, unlike GC. The
+limit applies to cached entries, not active or total physical pools. An isolated
+probe can construct `JdbcPoolCacheCap` from the JDBC test fixtures and call
+`enforce()` after each operation; the cap is not automatic and must not be
+installed in a production JVM.
 
 ## Cleanup is not metadata freshness
 
@@ -144,9 +140,8 @@ downstream physical connections and their metadata caches. For example, Venice's
 for the physical connection's lifetime. Later lookups can miss a newly created
 store or retain a dropped store after enumeration.
 
-Explicit pool retirement gives new catalogs replacement physical connections
-and their caches without breaking old catalog leases. Normal outer close is
-not a refresh boundary, and soft reclamation provides no freshness interval.
+Normal outer close is not a refresh boundary, and soft reclamation provides no
+freshness interval or explicit refresh operation.
 Do not close shared pools after every request to work around metadata caching.
 
 The direct `TableService` API bypasses the outer JDBC catalog and planning

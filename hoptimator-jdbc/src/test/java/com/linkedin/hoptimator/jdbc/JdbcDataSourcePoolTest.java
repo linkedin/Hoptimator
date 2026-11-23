@@ -14,11 +14,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
-import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -30,14 +28,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 
 
 class JdbcDataSourcePoolTest {
@@ -59,7 +52,7 @@ class JdbcDataSourcePoolTest {
       assertTrue(process.waitFor(90, TimeUnit.SECONDS), "Isolated GC probe must finish");
       String log = Files.readString(output);
       assertEquals(0, process.exitValue(), log);
-      assertThat(log).contains("reclaimed=3; created=4; failures=" + (failFirstClose ? 1 : 0) + "; open=0");
+      assertThat(log).contains("reclaimed=5; created=5; failures=" + (failFirstClose ? 1 : 0) + "; open=0");
     } finally {
       if (process.isAlive()) {
         process.destroyForcibly();
@@ -69,77 +62,64 @@ class JdbcDataSourcePoolTest {
   }
 
   @Test
-  void reusesPhysicalConnectionAcrossCatalogLeasesAndClosesOnRemoval() throws Exception {
-    AtomicInteger physicalCloses = new AtomicInteger();
-    try (JdbcDataSourcePool owner = realPool(physicalCloses)) {
-      JdbcDataSourcePool.Lease first = owner.acquire(URL, null, null, null);
-      BasicDataSource source = first.dataSource();
-      CalciteConnection physical;
-      try (Connection connection = source.getConnection()) {
-        physical = connection.unwrap(CalciteConnection.class);
+  @Timeout(value = 2, unit = TimeUnit.MINUTES)
+  void cappedCacheUsesCleanerWithoutClosingActiveCatalogs(@TempDir Path temporary) throws Exception {
+    Path output = temporary.resolve("pool-cap.log");
+    Process process = new ProcessBuilder(
+        Path.of(System.getProperty("java.home"), "bin", "java").toString(),
+        "-Xmx64m", "-cp",
+        System.getProperty("hoptimator.test.classpath", System.getProperty("java.class.path")),
+        CappedProbe.class.getName())
+        .redirectErrorStream(true).redirectOutput(output.toFile()).start();
+    try {
+      assertTrue(process.waitFor(90, TimeUnit.SECONDS), "Isolated cache-cap probe must finish");
+      String log = Files.readString(output);
+      assertEquals(0, process.exitValue(), log);
+      assertThat(log).contains("capacity=1; created=3; reclaimed=3; active-usable=true");
+    } finally {
+      if (process.isAlive()) {
+        process.destroyForcibly();
+        assertTrue(process.waitFor(10, TimeUnit.SECONDS), "Cache-cap probe must terminate");
       }
-      int initialCloses = physicalCloses.get();
-      first.close();
-      assertEquals(initialCloses, physicalCloses.get());
-      assertFalse(physical.isClosed());
-
-      try (JdbcDataSourcePool.Lease second = owner.acquire(URL, null, null, null);
-          Connection connection = second.dataSource().getConnection()) {
-        assertSame(source, second.dataSource());
-        assertSame(physical, connection.unwrap(CalciteConnection.class));
-      }
-      owner.invalidate(URL, null, null, null);
-      owner.invalidate(URL, null, null, null);
-
-      assertTrue(source.isClosed());
-      assertTrue(physical.isClosed());
-      assertEquals(initialCloses + 1, physicalCloses.get());
-      assertThrows(IllegalStateException.class, first::dataSource);
     }
   }
 
   @Test
-  void retirementPreservesLazyCatalogReadsAndSeparatesReplacementPool() throws Exception {
+  void reusesPhysicalConnectionAfterCatalogLeaseCloses() throws Exception {
     AtomicInteger physicalCloses = new AtomicInteger();
-    try (JdbcDataSourcePool owner = realPool(physicalCloses);
-        JdbcDataSourcePool.Lease first = owner.acquire(URL, null, null, null);
-        JdbcDataSourcePool.Lease second = owner.acquire(URL, null, null, null)) {
-      BasicDataSource retired = first.dataSource();
-      owner.invalidateAll();
-      first.close();
-      try (Connection connection = second.dataSource().getConnection()) {
-        assertFalse(connection.isClosed());
-        assertFalse(retired.isClosed());
+    CalciteDriver driver = new CalciteDriver() {
+      @Override protected void configureConnection(CalciteConnection connection, String url, Properties properties)
+          throws SQLException {
+        connection.setAutoCommit(true);
+        addConnectionResource(connection, physicalCloses::incrementAndGet);
       }
-      int initialCloses = physicalCloses.get();
-      try (JdbcDataSourcePool.Lease replacement = owner.acquire(URL, null, null, null)) {
-        assertNotSame(retired, replacement.dataSource());
-        second.close();
-        second.close();
-        assertTrue(retired.isClosed());
-        assertFalse(replacement.dataSource().isClosed());
-      }
-      assertEquals(initialCloses + 1, physicalCloses.get());
+    };
+    JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> {
+      BasicDataSource source = new BasicDataSource();
+      source.setDriver(driver);
+      return source;
+    });
+    JdbcDataSourcePool.Lease first = owner.acquire(URL, null, null, null);
+    BasicDataSource source = first.dataSource();
+    CalciteConnection physical;
+    try (Connection connection = source.getConnection()) {
+      physical = connection.unwrap(CalciteConnection.class);
     }
-  }
+    int initialCloses = physicalCloses.get();
+    first.close();
+    first.close();
+    assertThrows(IllegalStateException.class, first::dataSource);
+    assertEquals(initialCloses, physicalCloses.get());
 
-  @Test
-  void shutdownRejectsAcquisitionAndDrainsActiveCatalogBeforePhysicalClose() throws Exception {
-    AtomicInteger physicalCloses = new AtomicInteger();
-    try (JdbcDataSourcePool owner = realPool(physicalCloses);
-        JdbcDataSourcePool.Lease lease = owner.acquire(URL, null, null, null)) {
-      BasicDataSource source = lease.dataSource();
-      owner.close();
-      owner.close();
-      assertThrows(SQLException.class, () -> owner.acquire(URL, null, null, null));
-      try (Connection connection = source.getConnection()) {
-        assertFalse(connection.isClosed());
-      }
-      int initialCloses = physicalCloses.get();
-      lease.close();
-      assertTrue(source.isClosed());
-      assertEquals(initialCloses + 1, physicalCloses.get());
+    try (JdbcDataSourcePool.Lease second = owner.acquire(URL, null, null, null);
+        Connection connection = second.dataSource().getConnection()) {
+      assertSame(source, second.dataSource());
+      assertSame(physical, connection.unwrap(CalciteConnection.class));
+    } finally {
+      source.close();
     }
+    assertTrue(physical.isClosed());
+    assertEquals(initialCloses + 1, physicalCloses.get());
   }
 
   @ParameterizedTest
@@ -149,10 +129,9 @@ class JdbcDataSourcePoolTest {
       "jdbc:calcite:,driver,other,password",
       "jdbc:calcite:,driver,user,other"
   })
-  void retainsExactUrlDriverAndCredentialIsolation(String url, String driver, String user, String password)
-      throws Exception {
-    try (JdbcDataSourcePool owner = new JdbcDataSourcePool();
-        JdbcDataSourcePool.Lease first = owner.acquire(URL, "driver", "user", "password");
+  void retainsExactUrlDriverAndCredentialIsolation(String url, String driver, String user, String password) {
+    JdbcDataSourcePool owner = new JdbcDataSourcePool(BasicDataSource::new);
+    try (JdbcDataSourcePool.Lease first = owner.acquire(URL, "driver", "user", "password");
         JdbcDataSourcePool.Lease same = owner.acquire(URL, "driver", "user", "password");
         JdbcDataSourcePool.Lease distinct = owner.acquire(url, driver, user, password)) {
       assertSame(first.dataSource(), same.dataSource());
@@ -161,124 +140,23 @@ class JdbcDataSourcePoolTest {
   }
 
   @Test
-  void preservesNullVersusEmptyCredentialKeys() throws Exception {
-    try (JdbcDataSourcePool owner = new JdbcDataSourcePool();
-        JdbcDataSourcePool.Lease unset = owner.acquire(URL, null, null, null);
+  void preservesNullVersusEmptyCredentialKeys() {
+    JdbcDataSourcePool owner = new JdbcDataSourcePool(BasicDataSource::new);
+    try (JdbcDataSourcePool.Lease unset = owner.acquire(URL, null, null, null);
         JdbcDataSourcePool.Lease empty = owner.acquire(URL, "", "", "")) {
       assertNotSame(unset.dataSource(), empty.dataSource());
     }
   }
 
   @Test
-  void attemptsAllPoolDisposalsAndReportsEveryFailure() throws Exception {
-    BasicDataSource first = mock(BasicDataSource.class);
-    BasicDataSource second = mock(BasicDataSource.class);
-    SQLException checked = new SQLException("first");
-    IllegalStateException unchecked = new IllegalStateException("second");
-    doThrow(checked).when(first).close();
-    doThrow(unchecked).when(second).close();
-    Queue<BasicDataSource> sources = new ArrayDeque<>(List.of(first, second));
-    try (JdbcDataSourcePool owner = new JdbcDataSourcePool(sources::remove)) {
-      owner.acquire("jdbc:first:", null, null, null).close();
-      owner.acquire("jdbc:second:", null, null, null).close();
-
-      SQLException failure = assertThrows(SQLException.class, owner::invalidateAll);
-
-      List<Throwable> failures = List.of(failure.getCause(), failure.getSuppressed()[0]);
-      assertEquals(1, failure.getSuppressed().length);
-      assertTrue(failures.contains(checked));
-      assertTrue(failures.contains(unchecked));
-      owner.invalidateAll();
-      verify(first, times(1)).close();
-      verify(second, times(1)).close();
-    }
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void finalLeaseDisposalKeepsOperationResultAndReplacementUsable(boolean unchecked) throws Exception {
-    BasicDataSource source = mock(BasicDataSource.class);
-    Exception cleanup = unchecked ? new IllegalStateException("cleanup") : new SQLException("cleanup");
-    doThrow(cleanup).when(source).close();
-    BasicDataSource replacement = new BasicDataSource();
-    Queue<BasicDataSource> sources = new ArrayDeque<>(List.of(source, replacement));
-    try (JdbcDataSourcePool owner = new JdbcDataSourcePool(sources::remove)) {
-      JdbcDataSourcePool.Lease lease = owner.acquire(URL, null, null, null);
-      owner.invalidateAll();
-
-      String result;
-      try (lease;
-          JdbcDataSourcePool.Lease next = owner.acquire(URL, null, null, null)) {
-        assertSame(replacement, next.dataSource());
-        result = "completed";
-      }
-      assertNotNull(lease);
-      lease.close();
-
-      assertEquals("completed", result);
-      assertThrows(IllegalStateException.class, lease::dataSource);
-      assertFalse(replacement.isClosed());
-      verify(source, times(1)).close();
-    }
-    assertTrue(replacement.isClosed());
-  }
-
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void physicalCleanupFailureDoesNotBreakPoolRetirementOrActiveBorrow(boolean active) throws Exception {
-    AtomicInteger physicalCloses = new AtomicInteger();
-    AtomicInteger failedCloses = new AtomicInteger();
-    try (JdbcDataSourcePool owner = realPool(physicalCloses)) {
-      JdbcDataSourcePool.Lease lease = owner.acquire(URL, null, null, null);
-      BasicDataSource source = lease.dataSource();
-      Connection borrowed = source.getConnection();
-      CalciteConnection physical = borrowed.unwrap(CalciteConnection.class);
-      CalciteDriver.addConnectionResource(physical, () -> {
-        failedCloses.incrementAndGet();
-        throw new SQLException("physical client cleanup failed");
-      });
-      int initialCloses = physicalCloses.get();
-      if (!active) {
-        borrowed.close();
-        assertEquals(0, failedCloses.get());
-      }
-
-      owner.invalidateAll();
-      lease.close();
-
-      assertTrue(source.isClosed());
-      assertThrows(SQLException.class, source::getConnection);
-      if (active) {
-        assertFalse(physical.isClosed());
-        try (java.sql.Statement statement = borrowed.createStatement();
-            java.sql.ResultSet result = statement.executeQuery("SELECT 1")) {
-          assertTrue(result.next());
-          assertEquals(1, result.getInt(1));
-        }
-      }
-      borrowed.close();
-      borrowed.close();
-
-      assertTrue(physical.isClosed());
-      assertEquals(1, failedCloses.get());
-      assertEquals(initialCloses + 1, physicalCloses.get());
-      try (JdbcDataSourcePool.Lease next = owner.acquire(URL, null, null, null);
-          Connection replacement = next.dataSource().getConnection()) {
-        assertNotSame(source, next.dataSource());
-        assertFalse(replacement.isClosed());
-      }
-    }
-  }
-
-  @Test
-  void concurrentAcquisitionRetirementAndReleaseNeverPrematurelyOrMultiplyClosePools() throws Exception {
-    List<CountingDataSource> sources = new ArrayList<>();
+  void concurrentAcquisitionsReuseThePinnedPool() throws Exception {
+    AtomicInteger created = new AtomicInteger();
+    JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> {
+      created.incrementAndGet();
+      return new BasicDataSource();
+    });
     ExecutorService executor = Executors.newFixedThreadPool(4);
-    try (JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> {
-      CountingDataSource source = new CountingDataSource();
-      sources.add(source);
-      return source;
-    })) {
+    try (JdbcDataSourcePool.Lease pinned = owner.acquire(URL, null, null, null)) {
       CountDownLatch start = new CountDownLatch(1);
       List<Future<?>> work = new ArrayList<>();
       for (int worker = 0; worker < 4; worker++) {
@@ -286,10 +164,7 @@ class JdbcDataSourcePoolTest {
           assertTrue(start.await(10, TimeUnit.SECONDS));
           for (int iteration = 0; iteration < 40; iteration++) {
             try (JdbcDataSourcePool.Lease lease = owner.acquire(URL, null, null, null)) {
-              if (iteration % 3 == 0) {
-                owner.invalidateAll();
-              }
-              assertFalse(lease.dataSource().isClosed());
+              assertSame(pinned.dataSource(), lease.dataSource());
             }
           }
           return null;
@@ -299,31 +174,86 @@ class JdbcDataSourcePoolTest {
       for (Future<?> task : work) {
         task.get(20, TimeUnit.SECONDS);
       }
-      owner.close();
-      assertFalse(sources.isEmpty());
-      for (CountingDataSource source : sources) {
-        assertTrue(source.isClosed());
-        assertEquals(1, source.closes.get());
-      }
+      assertEquals(1, created.get());
     } finally {
       executor.shutdownNow();
       assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
     }
   }
 
-  private static JdbcDataSourcePool realPool(AtomicInteger physicalCloses) {
-    CalciteDriver driver = new CalciteDriver() {
-      @Override protected void configureConnection(CalciteConnection connection, String url, Properties properties)
-          throws SQLException {
-        connection.setAutoCommit(true);
-        addConnectionResource(connection, physicalCloses::incrementAndGet);
+  /** Isolated test-only capacity eviction; production retains Calcite-like soft-reference behavior. */
+  public static final class CappedProbe {
+    public static void main(String[] args) throws Exception {
+      AtomicInteger created = new AtomicInteger();
+      CalciteDriver driver = new CalciteDriver() {
+        @Override protected void configureConnection(CalciteConnection connection, String url, Properties properties)
+            throws SQLException {
+          connection.setAutoCommit(true);
+        }
+      };
+      JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> {
+        created.incrementAndGet();
+        BasicDataSource source = new BasicDataSource();
+        source.setDriver(driver);
+        return source;
+      });
+      JdbcPoolCacheCap cap = new JdbcPoolCacheCap(owner, 1);
+      AtomicInteger firstClosed = new AtomicInteger();
+      AtomicInteger secondClosed = new AtomicInteger();
+      AtomicInteger replacementClosed = new AtomicInteger();
+      try (JdbcDataSourcePool.Lease first = owner.acquire(URL + "pool=first", null, null, null)) {
+        assertEquals(1, cap.enforce());
+        BasicDataSource firstSource = first.dataSource();
+        recordPhysicalClose(firstSource, firstClosed);
+        try (JdbcDataSourcePool.Lease second = owner.acquire(URL + "pool=second", null, null, null)) {
+          assertEquals(1, cap.enforce());
+          recordPhysicalClose(second.dataSource(), secondClosed);
+        }
+        try (JdbcDataSourcePool.Lease replacement = owner.acquire(URL + "pool=first", null, null, null)) {
+          assertEquals(1, cap.enforce());
+          assertNotSame(firstSource, replacement.dataSource());
+          recordPhysicalClose(replacement.dataSource(), replacementClosed);
+          awaitClose(secondClosed);
+          assertFalse(firstSource.isClosed());
+          try (Connection connection = firstSource.getConnection()) {
+            assertFalse(connection.isClosed());
+          }
+          first.close();
+          awaitClose(firstClosed);
+          assertFalse(replacement.dataSource().isClosed());
+          try (JdbcDataSourcePool.Lease again = owner.acquire(URL + "pool=first", null, null, null)) {
+            assertSame(replacement.dataSource(), again.dataSource());
+            assertEquals(1, cap.enforce());
+          }
+        }
       }
-    };
-    return new JdbcDataSourcePool(() -> {
-      BasicDataSource source = new BasicDataSource();
-      source.setDriver(driver);
-      return source;
-    });
+      assertEquals(0, new JdbcPoolCacheCap(owner, 0).enforce());
+      awaitClose(replacementClosed);
+      assertEquals(3, created.get());
+      assertEquals(1, firstClosed.get());
+      assertEquals(1, secondClosed.get());
+      assertEquals(1, replacementClosed.get());
+      System.out.println("capacity=1; created=3; reclaimed=3; active-usable=true");
+    }
+
+    private static void recordPhysicalClose(BasicDataSource source, AtomicInteger closed) throws SQLException {
+      try (Connection connection = source.getConnection()) {
+        CalciteDriver.addConnectionResource(connection.unwrap(CalciteConnection.class), closed::incrementAndGet);
+      }
+    }
+
+    private static void awaitClose(AtomicInteger closed) throws InterruptedException {
+      long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(25);
+      do {
+        System.gc();
+        if (closed.get() != 0) {
+          break;
+        }
+        TimeUnit.MILLISECONDS.sleep(50);
+      } while (System.nanoTime() < deadline);
+      assertEquals(1, closed.get(), "Evicted pool must close its physical connection");
+    }
+
   }
 
   /** Heap pressure is confined to this small child JVM, never the shared test worker. */
@@ -346,7 +276,7 @@ class JdbcDataSourcePoolTest {
           addConnectionResource(connection, closed::incrementAndGet);
         }
       };
-      try (JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> {
+      JdbcDataSourcePool owner = new JdbcDataSourcePool(() -> {
         boolean fail = createdPools.incrementAndGet() == 2 && failFirstClose;
         BasicDataSource source = new BasicDataSource() {
           @Override public synchronized void close() throws SQLException {
@@ -360,33 +290,38 @@ class JdbcDataSourcePoolTest {
         source.setDriver(driver);
         return source;
       });
-          JdbcDataSourcePool.Lease active = owner.acquire(ACTIVE_URL, null, null, null)) {
-        BasicDataSource activeSource = active.dataSource();
-        CalciteConnection activePhysical;
-        try (Connection connection = activeSource.getConnection()) {
-          activePhysical = connection.unwrap(CalciteConnection.class);
-        }
-        // Even a retained closed handle must release its strong ownership token.
-        List<JdbcDataSourcePool.Lease> released = new ArrayList<>();
-        for (int cycle = 0; cycle < 3; cycle++) {
-          released.add(warmAndRelease(owner));
-          int expectedCloses = closed.get() + 1;
-          awaitReclamation(closed, expectedCloses);
-          assertEquals(expectedCloses, closed.get());
-          assertFalse(activeSource.isClosed());
-          assertFalse(activePhysical.isClosed());
-          try (JdbcDataSourcePool.Lease same = owner.acquire(ACTIVE_URL, null, null, null);
-              Connection connection = same.dataSource().getConnection()) {
-            assertSame(activeSource, same.dataSource());
-            assertSame(activePhysical, connection.unwrap(CalciteConnection.class));
-          }
-        }
-        assertEquals(4, createdPools.get());
-        assertEquals(failFirstClose ? 1 : 0, failures.get());
-        Reference.reachabilityFence(released);
+      JdbcDataSourcePool.Lease active = owner.acquire(ACTIVE_URL, null, null, null);
+      BasicDataSource activeSource = active.dataSource();
+      CalciteConnection activePhysical;
+      try (Connection connection = activeSource.getConnection()) {
+        activePhysical = connection.unwrap(CalciteConnection.class);
       }
+      List<JdbcDataSourcePool.Lease> released = new ArrayList<>();
+      for (int cycle = 0; cycle < 3; cycle++) {
+        released.add(warmAndRelease(owner));
+        int expectedCloses = closed.get() + 1;
+        awaitReclamation(closed, expectedCloses);
+        assertFalse(activeSource.isClosed());
+        assertFalse(activePhysical.isClosed());
+        try (JdbcDataSourcePool.Lease same = owner.acquire(ACTIVE_URL, null, null, null);
+            Connection connection = same.dataSource().getConnection()) {
+          assertSame(activeSource, same.dataSource());
+          assertSame(activePhysical, connection.unwrap(CalciteConnection.class));
+        }
+      }
+      warmAndAbandon(owner);
+      int abandonedClose = closed.get() + 1;
+      awaitReclamation(closed, abandonedClose);
+      assertFalse(activeSource.isClosed());
+      assertEquals(5, createdPools.get());
+      assertEquals(failFirstClose ? 1 : 0, failures.get());
+      int finalClose = closed.get() + 1;
+      active.close();
+      awaitReclamation(closed, finalClose);
       assertEquals(opened.get(), closed.get());
-      System.out.println("reclaimed=3; created=" + createdPools.get()
+      Reference.reachabilityFence(released);
+      Reference.reachabilityFence(active);
+      System.out.println("reclaimed=5; created=" + createdPools.get()
           + "; failures=" + failures.get() + "; open=" + (opened.get() - closed.get()));
     }
 
@@ -397,6 +332,14 @@ class JdbcDataSourcePoolTest {
       }
       lease.close();
       return lease;
+    }
+
+    private static void warmAndAbandon(JdbcDataSourcePool owner) throws SQLException {
+      JdbcDataSourcePool.Lease lease = owner.acquire(IDLE_URL, null, null, null);
+      try (Connection connection = lease.dataSource().getConnection()) {
+        assertTrue(connection.getAutoCommit());
+      }
+      Reference.reachabilityFence(lease);
     }
 
     private static void awaitReclamation(AtomicInteger closed, int expected) throws InterruptedException {
@@ -415,16 +358,7 @@ class JdbcDataSourcePoolTest {
         TimeUnit.MILLISECONDS.sleep(100);
       } while (System.nanoTime() < deadline);
       Reference.reachabilityFence(pressure);
-      assertEquals(expected, closed.get(), "GC must dispose the idle physical connection without invalidation");
-    }
-  }
-
-  private static final class CountingDataSource extends BasicDataSource {
-    private final AtomicInteger closes = new AtomicInteger();
-
-    @Override public synchronized void close() throws SQLException {
-      closes.incrementAndGet();
-      super.close();
+      assertEquals(expected, closed.get(), "GC must dispose the idle physical connection");
     }
   }
 }

@@ -156,6 +156,9 @@ public class CalciteDriver extends Driver {
         }
         if (failure != null) {
           LOG.warn("Failed to close physical connection resources", failure);
+        } else {
+          LOG.info("Closed physical JDBC connection and owned resources driver={}",
+              CalciteDriver.this.getClass().getName());
         }
       }
 

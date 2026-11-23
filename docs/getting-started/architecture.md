@@ -91,7 +91,7 @@ JDBC handle to a pool does not close its adapter clients, and opening another
 outer connection does not guarantee fresh metadata. Query execution can use a
 separate Engine URL selected by the planner. See
 [JDBC routing and resource ownership](jdbc-architecture.md) for the connection
-layers, driver initialization hooks, cleanup boundaries, and pool retirement.
+layers, driver initialization hooks, cleanup boundaries, and pool retention.
 
 ## Step 2 — Plan
 

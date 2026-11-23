@@ -3,7 +3,6 @@ package com.linkedin.hoptimator.venice;
 import com.linkedin.hoptimator.jdbc.CalciteDriver;
 import com.linkedin.hoptimator.jdbc.DatabaseConfigResolvers;
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import com.linkedin.hoptimator.jdbc.JdbcDataSourcePool;
 import com.linkedin.hoptimator.jdbc.TableService;
 import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
 import com.linkedin.venice.client.store.StoreMetadataFetcher;
@@ -17,15 +16,11 @@ import org.apache.commons.dbcp2.BasicDataSource;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
-import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.Isolated;
 
 import java.net.URI;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -55,32 +50,7 @@ final class VeniceJdbcLifecycleIntegrationTest {
   private static final List<String> EVOLVED_COLUMNS = List.of("KEY_id", "i", "new_field");
 
   @Test
-  void cliProcessShutdownClosesBackendRetainedAfterOuterConnectionClose(@TempDir Path temporary) throws Exception {
-    try (Session session = new Session();
-        TestStore store = session.store()) {
-      store.create();
-      Path closed = temporary.resolve("backend-closed");
-      Path output = temporary.resolve("cli.log");
-      Process process = new ProcessBuilder(
-          Path.of(System.getProperty("java.home"), "bin", "java").toString(),
-          "-cp", System.getProperty("hoptimator.test.classpath"),
-          CliSession.class.getName(), store.name, closed.toString())
-          .redirectErrorStream(true).redirectOutput(output.toFile()).start();
-      try {
-        assertThat(process.waitFor(30, TimeUnit.SECONDS)).as("CLI process exits without hanging").isTrue();
-        assertThat(process.exitValue()).as(Files.readString(output)).isZero();
-        assertThat(Files.readString(closed)).isEqualTo("physical-close\n");
-      } finally {
-        if (process.isAlive()) {
-          process.destroyForcibly();
-          assertThat(process.waitFor(10, TimeUnit.SECONDS)).as("Timed-out child process terminated").isTrue();
-        }
-      }
-    }
-  }
-
-  @Test
-  void retiringPoolPreservesOverlappingRequestsAndClosesOnlyAfterFinalConnection() throws Exception {
+  void sharedPoolPreservesOverlappingRequestsAndReusesPhysicalConnection() throws Exception {
     try (Session session = new Session();
         TestStore store = session.store();
         HoptimatorConnection first = session.connect();
@@ -88,38 +58,34 @@ final class VeniceJdbcLifecycleIntegrationTest {
       store.create();
       assertThat(columns(first, store.name)).containsExactlyElementsOf(INITIAL_COLUMNS);
       assertThat(columns(second, store.name)).containsExactlyElementsOf(INITIAL_COLUMNS);
-      BasicDataSource retired = source(first);
-      assertThat(source(second)).isSameAs(retired);
-      CalciteConnection physical = physical(retired);
+      BasicDataSource pooled = source(first);
+      assertThat(source(second)).isSameAs(pooled);
+      CalciteConnection physical = physical(pooled);
       AtomicInteger ownedCloses = new AtomicInteger();
       CalciteDriver.addConnectionResource(physical, ownedCloses::incrementAndGet);
       BorrowedSchema borrowed = new BorrowedSchema();
       physical.getRootSchema().add("BORROWED", borrowed);
 
-      session.retire(retired);
-      try (HoptimatorConnection replacement = session.connect()) {
-        BasicDataSource replacementSource = source(replacement);
-        assertThat(replacementSource).isNotSameAs(retired);
-        assertThat(columns(replacement, store.name)).containsExactlyElementsOf(INITIAL_COLUMNS);
-        first.close();
-        assertThat(retired.isClosed()).isFalse();
-        assertThat(physical.isClosed()).isFalse();
-        assertThat(ownedCloses.get()).isZero();
-        assertThat(columns(second, store.name)).containsExactlyElementsOf(INITIAL_COLUMNS);
-
-        second.close();
-        assertThat(retired.isClosed()).isTrue();
-        assertThat(physical.isClosed()).isTrue();
-        assertThat(ownedCloses.get()).isEqualTo(1);
-        assertThat(borrowed.closes.get()).isZero();
-        assertThat(replacementSource.isClosed()).isFalse();
-        assertThat(columns(replacement, store.name)).containsExactlyElementsOf(INITIAL_COLUMNS);
+      first.close();
+      assertThat(pooled.isClosed()).isFalse();
+      assertThat(physical.isClosed()).isFalse();
+      assertThat(ownedCloses.get()).isZero();
+      assertThat(columns(second, store.name)).containsExactlyElementsOf(INITIAL_COLUMNS);
+      second.close();
+      try (HoptimatorConnection next = session.connect()) {
+        assertThat(source(next)).isSameAs(pooled);
+        assertThat(physical(pooled)).isSameAs(physical);
+        assertThat(columns(next, store.name)).containsExactlyElementsOf(INITIAL_COLUMNS);
       }
+      session.close();
+      assertThat(physical.isClosed()).isTrue();
+      assertThat(ownedCloses.get()).isEqualTo(1);
+      assertThat(borrowed.closes.get()).isZero();
     }
   }
 
   @Test
-  void retiringPoolRefreshesStoresCreatedAfterEarlierEnumeration() throws Exception {
+  void newPoolRefreshesStoresCreatedAfterEarlierEnumeration() throws Exception {
     try (Session session = new Session()) {
       String name = storeName();
       BasicDataSource pooled;
@@ -133,8 +99,8 @@ final class VeniceJdbcLifecycleIntegrationTest {
       try (TestStore store = session.store(name)) {
         store.create();
         session.awaitRouterStore(name, true);
-        // Request-level catalog refresh is separate; these checks require pool retirement.
-        session.retire(pooled);
+        // Use a fresh cache key after closing the old pool; this is test isolation, not a production refresh API.
+        session.replacePool(pooled);
         assertThat(pooled.isClosed()).isTrue();
         assertThat(physical.isClosed()).isTrue();
         try (HoptimatorConnection fresh = session.connect()) {
@@ -170,7 +136,7 @@ final class VeniceJdbcLifecycleIntegrationTest {
   }
 
   @Test
-  void retiringPoolDoesNotResolveDroppedStore() throws Exception {
+  void newPoolDoesNotResolveDroppedStore() throws Exception {
     try (Session session = new Session();
         TestStore store = session.store()) {
       store.create();
@@ -184,7 +150,7 @@ final class VeniceJdbcLifecycleIntegrationTest {
       store.delete();
       session.awaitRouterStore(store.name, false);
       session.awaitDirectColumns(store.name, List.of());
-      session.retire(pooled);
+      session.replacePool(pooled);
       assertThat(pooled.isClosed()).isTrue();
       assertThat(physical.isClosed()).isTrue();
       try (HoptimatorConnection fresh = session.connect()) {
@@ -242,27 +208,6 @@ final class VeniceJdbcLifecycleIntegrationTest {
 
     @Override public void close() {
       closes.incrementAndGet();
-    }
-  }
-
-  /** Separate JVM so its real JDBC shutdown hook cannot close the test runner's shared pools. */
-  public static final class CliSession {
-    public static void main(String[] args) throws Exception {
-      Session session = new Session();
-      Path closed = Path.of(args[1]);
-      BasicDataSource pooled;
-      CalciteConnection physical;
-      try (HoptimatorConnection connection = session.connect()) {
-        assertThat(columns(connection, args[0])).containsExactlyElementsOf(INITIAL_COLUMNS);
-        pooled = source(connection);
-        physical = physical(pooled);
-        CalciteDriver.addConnectionResource(physical, () ->
-            Files.writeString(closed, "physical-close\n", StandardOpenOption.CREATE, StandardOpenOption.APPEND));
-      }
-      assertThat(pooled.isClosed()).isFalse();
-      assertThat(physical.isClosed()).isFalse();
-      assertThat(Files.exists(closed)).isFalse();
-      System.exit(0);
     }
   }
 
@@ -352,14 +297,14 @@ final class VeniceJdbcLifecycleIntegrationTest {
           .isEqualTo(exists);
     }
 
-    private void retire(BasicDataSource source) throws SQLException {
-      JdbcDataSourcePool.shared().invalidate(source.getUrl(), source.getDriverClassName(),
-          properties.getProperty("user", "nouser"), properties.getProperty("password", "nopass"));
+    private void replacePool(BasicDataSource source) throws SQLException {
+      source.close();
+      properties.setProperty("jdbc.lifecycle.test", UUID.randomUUID().toString());
     }
 
     @Override public void close() throws SQLException {
       for (BasicDataSource pool : pools) {
-        retire(pool);
+        pool.close();
       }
     }
   }
