@@ -18,12 +18,28 @@ import static java.util.Objects.requireNonNull;
 
 
 /**
- * Caches shared DBCP data sources by their exact JDBC connection settings, like Calcite's soft cache.
- * A catalog handle pins its pool while the catalog can use it; closing the handle does not close the
- * pool, which remains available for reuse. Once no handles pin a pool, memory pressure may clear its
- * soft reference. A Cleaner then closes the data source and its idle physical connections, whose
- * cleanup is not guaranteed by garbage collection alone. There is no time-based eviction or
- * deterministic shutdown cleanup; checked-out connections are closed when returned to a closed pool.
+ * Caches shared DBCP data sources by their exact JDBC connection settings.
+ *
+ * <p>Calcite's {@link org.apache.calcite.adapter.jdbc.JdbcSchema#dataSource(String, String, String, String)}
+ * delegates to the package-private {@code JdbcUtils.DataSourcePool}, which caches
+ * {@link BasicDataSource} instances in a Guava {@code softValues()} cache keyed by URL, username,
+ * password, and driver. That cache has no removal listener to close a reclaimed data source.
+ * Reclaiming a Java object does not invoke {@code AutoCloseable.close()}, so backend clients owned
+ * by idle physical connections can survive reclamation of their data source.
+ *
+ * <p>This class keeps the same exact-key reuse and DBCP connection pooling, but softly references a
+ * separate ownership token instead of the data source. A Cleaner holds the data source without
+ * pinning that token and explicitly closes it when the token is reclaimed. We do not replace DBCP's
+ * physical connection pool; we add ownership and cleanup around its cached data source.
+ *
+ * <p>A catalog handle pins the token while the catalog can use its pool; closing the handle does not
+ * close the pool, which remains available for reuse. Once no handles pin a pool, memory pressure may
+ * clear its soft reference. Cleaner cleanup closes the data source and its idle physical connections.
+ * There is no time-based eviction or deterministic shutdown cleanup; checked-out connections are
+ * closed when returned to a closed pool.
+ *
+ * @see <a href="https://github.com/apache/calcite/blob/calcite-1.42.0/core/src/main/java/org/apache/calcite/adapter/jdbc/JdbcUtils.java">
+ *     Calcite 1.42.0 JdbcUtils.DataSourcePool</a>
  */
 public final class JdbcDataSourcePool {
   private static final Logger LOG = LoggerFactory.getLogger(JdbcDataSourcePool.class);

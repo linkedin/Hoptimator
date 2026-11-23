@@ -9,13 +9,17 @@ import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.SqlNode;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.api.parallel.Isolated;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -43,7 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 
 
 @Isolated
@@ -135,28 +138,33 @@ class HoptimatorDriverTest {
         driver.connect("jdbc:hoptimator://catalogs=nonexistent", props));
   }
 
-  @ParameterizedTest
-  @ValueSource(strings = {"transient", "wrapped-transient", "non-transient"})
-  void failedCatalogInitializationReleasesOwnershipAndPreservesPrimaryFailure(String kind) throws Exception {
-    Exception original;
-    if ("transient".equals(kind)) {
-      original = new SQLTransientException("catalog unavailable");
-    } else if ("wrapped-transient".equals(kind)) {
-      original = new IllegalStateException("catalog unavailable", new IOException("backend unavailable"));
-    } else {
-      original = new IllegalArgumentException("invalid catalog");
-    }
-    AtomicInteger releases = new AtomicInteger();
-    Catalog catalog = mock(Catalog.class);
-    doAnswer(invocation -> {
-      Wrapped wrapper = invocation.getArgument(0);
-      CalciteDriver.addConnectionResource(wrapper.connection().calciteConnection(), () -> {
-        releases.incrementAndGet();
-        throw new SQLException("cleanup failed");
-      });
-      throw original;
-    }).when(catalog).register(any());
-    try (MockedStatic<CatalogService> catalogs = mockStatic(CatalogService.class)) {
+  @Nested
+  @ExtendWith(MockitoExtension.class)
+  class CatalogInitializationFailureTest {
+    @Mock
+    private MockedStatic<CatalogService> catalogs;
+
+    @ParameterizedTest
+    @ValueSource(strings = {"transient", "wrapped-transient", "non-transient"})
+    void failedCatalogInitializationReleasesOwnershipAndPreservesPrimaryFailure(String kind) throws Exception {
+      Exception original;
+      if ("transient".equals(kind)) {
+        original = new SQLTransientException("catalog unavailable");
+      } else if ("wrapped-transient".equals(kind)) {
+        original = new IllegalStateException("catalog unavailable", new IOException("backend unavailable"));
+      } else {
+        original = new IllegalArgumentException("invalid catalog");
+      }
+      AtomicInteger releases = new AtomicInteger();
+      Catalog catalog = mock(Catalog.class);
+      doAnswer(invocation -> {
+        Wrapped wrapper = invocation.getArgument(0);
+        CalciteDriver.addConnectionResource(wrapper.connection().calciteConnection(), () -> {
+          releases.incrementAndGet();
+          throw new SQLException("cleanup failed");
+        });
+        throw original;
+      }).when(catalog).register(any());
       catalogs.when(() -> CatalogService.catalog("failing")).thenReturn(catalog);
 
       SQLException failure = assertThrows(SQLException.class,
@@ -169,34 +177,34 @@ class HoptimatorDriverTest {
       assertEquals(1, releases.get());
       assertEquals(0, original.getSuppressed().length);
     }
-  }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {false, true})
-  void catalogInitializationErrorClosesConnectionAndPropagatesUnchanged(boolean allCatalogs) throws Exception {
-    AssertionError expected = new AssertionError("catalog initialization error");
-    AtomicReference<CalciteConnection> created = new AtomicReference<>();
-    AtomicInteger releases = new AtomicInteger();
-    Catalog catalog = mock(Catalog.class);
-    doAnswer(invocation -> {
-      Wrapped wrapper = invocation.getArgument(0);
-      created.set(wrapper.connection().calciteConnection());
-      CalciteDriver.addConnectionResource(created.get(), releases::incrementAndGet);
-      throw expected;
-    }).when(catalog).register(any());
-    try (MockedStatic<CatalogService> catalogs = mockStatic(CatalogService.class)) {
-      catalogs.when(CatalogService::catalogs).thenReturn(Collections.singletonList(catalog));
-      catalogs.when(() -> CatalogService.catalog("failing")).thenReturn(catalog);
-      String url = allCatalogs ? "jdbc:hoptimator://" : "jdbc:hoptimator://catalogs=failing";
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void catalogInitializationErrorClosesConnectionAndPropagatesUnchanged(boolean allCatalogs) throws Exception {
+      AssertionError expected = new AssertionError("catalog initialization error");
+      AtomicReference<CalciteConnection> created = new AtomicReference<>();
+      AtomicInteger releases = new AtomicInteger();
+      Catalog catalog = mock(Catalog.class);
+      doAnswer(invocation -> {
+        Wrapped wrapper = invocation.getArgument(0);
+        created.set(wrapper.connection().calciteConnection());
+        CalciteDriver.addConnectionResource(created.get(), releases::incrementAndGet);
+        throw expected;
+      }).when(catalog).register(any());
+      try {
+        catalogs.when(CatalogService::catalogs).thenReturn(Collections.singletonList(catalog));
+        catalogs.when(() -> CatalogService.catalog("failing")).thenReturn(catalog);
+        String url = allCatalogs ? "jdbc:hoptimator://" : "jdbc:hoptimator://catalogs=failing";
 
-      AssertionError failure = assertThrows(AssertionError.class, () -> driver.connect(url, new Properties()));
+        AssertionError failure = assertThrows(AssertionError.class, () -> driver.connect(url, new Properties()));
 
-      assertSame(expected, failure);
-      assertTrue(created.get().isClosed());
-      assertEquals(1, releases.get());
-    } finally {
-      if (created.get() != null) {
-        created.get().close();
+        assertSame(expected, failure);
+        assertTrue(created.get().isClosed());
+        assertEquals(1, releases.get());
+      } finally {
+        if (created.get() != null) {
+          created.get().close();
+        }
       }
     }
   }
