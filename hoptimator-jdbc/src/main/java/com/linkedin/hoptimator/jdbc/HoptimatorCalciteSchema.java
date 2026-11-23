@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSortedSet;
 
 import org.checkerframework.checker.nullness.qual.Nullable;
 
+import java.sql.SQLException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -81,6 +82,15 @@ import java.util.Set;
  * racey in Calcite — and adds synchronization only where a new hazard was introduced.
  */
 public class HoptimatorCalciteSchema extends CalciteSchema {
+  private final ConnectionResources connectionResources = new ConnectionResources();
+
+  void addConnectionResource(AutoCloseable resource) throws SQLException {
+    connectionResources.add(resource);
+  }
+
+  void closeConnectionResources() throws SQLException {
+    connectionResources.close();
+  }
 
   /**
    * Creates a root {@link HoptimatorCalciteSchema}, optionally including the Calcite

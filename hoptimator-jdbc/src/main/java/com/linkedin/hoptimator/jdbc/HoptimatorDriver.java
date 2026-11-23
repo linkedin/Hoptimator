@@ -115,7 +115,6 @@ public class HoptimatorDriver implements Driver {
     if (!acceptsURL(url)) {
       return null;
     }
-    Connection connection = null;
     try {
       // Load properties from the URL and from getConnection()'s properties.
       // URL properties take precedence.
@@ -133,42 +132,44 @@ public class HoptimatorDriver implements Driver {
       // to return our Prepare. But our Prepare requires a HoptimatorConnection, which
       // we cannot construct yet.
       ConnectionHolder holder = new ConnectionHolder();
-      connection = new CalciteDriver().withPrepareFactory(() -> new Prepare(holder))
+      Connection connection = new CalciteDriver().withPrepareFactory(() -> new Prepare(holder))
           .connect("jdbc:calcite:", properties);
       if (connection == null) {
         throw new IOException("Could not connect to " + url + ": Could not create Calcite connection.");
       }
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      calciteConnection.setAutoCommit(true); // to prevent rollback()
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
+      try {
+        CalciteConnection calciteConnection = (CalciteConnection) connection;
+        calciteConnection.setAutoCommit(true); // to prevent rollback()
+        SchemaPlus rootSchema = calciteConnection.getRootSchema();
 
-      // built-in schemas
-      rootSchema.add("DEFAULT", new AbstractSchema());
+        // built-in schemas
+        rootSchema.add("DEFAULT", new AbstractSchema());
 
-      calciteConnection.setSchema("DEFAULT");
+        calciteConnection.setSchema("DEFAULT");
 
-      HoptimatorConnection hoptimatorConnection = new HoptimatorConnection(calciteConnection, properties);
-      holder.connection = hoptimatorConnection;
+        HoptimatorConnection hoptimatorConnection = new HoptimatorConnection(calciteConnection, properties);
+        holder.connection = hoptimatorConnection;
 
-      Wrapped wrapped = new Wrapped(hoptimatorConnection, rootSchema);
-      String[] catalogs = properties.getProperty("catalogs", "").split(",");
+        Wrapped wrapped = new Wrapped(hoptimatorConnection, rootSchema);
+        String[] catalogs = properties.getProperty("catalogs", "").split(",");
 
-      if (catalogs.length == 0 || catalogs[0].isEmpty()) {
-        // load all catalogs (typical usage)
-        for (Catalog catalog : CatalogService.catalogs()) {
-          catalog.register(wrapped);
+        if (catalogs.length == 0 || catalogs[0].isEmpty()) {
+          // load all catalogs (typical usage)
+          for (Catalog catalog : CatalogService.catalogs()) {
+            catalog.register(wrapped);
+          }
+        } else {
+          // load specific catalogs when loaded as `jdbc:hoptimator://catalogs=foo,bar`
+          for (String catalog : catalogs) {
+            CatalogService.catalog(catalog).register(wrapped);
+          }
         }
-      } else {
-        // load specific catalogs when loaded as `jdbc:hoptimator://catalogs=foo,bar`
-        for (String catalog : catalogs) {
-          CatalogService.catalog(catalog).register(wrapped);
-        }
+        return hoptimatorConnection;
+      } catch (Exception | Error e) {
+        CalciteDriver.closeOnFailure(connection, e);
+        throw e;
       }
-      return hoptimatorConnection;
     } catch (IOException | SQLTransientException e) {
-      if (connection != null) {
-        connection.close();
-      }
       throw new SQLTransientConnectionException("Problem loading " + url, e);
     } catch (Exception e) {
       // Catalog registration lists backend objects via RemoteRowList, which (being a Collection)

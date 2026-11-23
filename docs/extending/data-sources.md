@@ -22,11 +22,15 @@ connection over your URL scheme (`jdbc:my-system://...`). The driver's job
 is to expose the system's tables to Calcite — once Calcite can see them,
 the planner can route queries through them.
 
+For the distinction between metadata and execution connections, pool leases,
+and physical cleanup, see
+[JDBC routing and resource ownership](../getting-started/jdbc-architecture.md).
+
 Bundled adapters:
 
 - [`hoptimator-demodb`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-demodb)
   — the smallest end-to-end example. `DemoDriver` extends `CalciteDriver`,
-  parses the URL, and registers in-memory schemas (`AdsSchema`,
+  uses the connection setup hooks to register in-memory schemas (`AdsSchema`,
   `ProfileSchema`) with hard-coded tables. Read this first.
 - [`hoptimator-kafka`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-kafka),
   [`hoptimator-venice`](https://github.com/linkedin/Hoptimator/tree/main/hoptimator-venice),
@@ -39,12 +43,30 @@ The shape every adapter has in common:
 
 - Extends `CalciteDriver` (from `hoptimator-jdbc`).
 - Declares a URL prefix via `getConnectStringPrefix()`.
-- In `connect()`, parses the URL parameters and calls `super.connect()`
-  to get a `CalciteConnection`, then registers one or more `Schema`
-  instances on its root.
+- Overrides `configureConnection(CalciteConnection connection, String url,
+  Properties properties)` to register one or more `Schema` instances on
+  the acquired connection's root. The properties are already merged, with
+  URL parameters taking precedence over caller properties.
 - Schemas implement Calcite's `Schema` (typically extending
   `AbstractSchema`); their `getTables()` returns the tables you want
   exposed, each with a row type and any metadata the templates will need.
+
+Both public `connect` overloads are final. The base driver creates the
+connection, calls Calcite's `onConnectionInit`, and then invokes
+`configureConnection`. If initialization throws an exception, the base closes
+the connection before applying the driver's exception mapping. Owned-resource
+cleanup failures are logged without replacing the initialization failure;
+other JDBC close failures are suppressed on the original exception. Register
+owned closeable clients with `addConnectionResource` before publishing their schemas.
+Initialization `Error`s also trigger cleanup and are rethrown unchanged rather
+than translated into SQL exceptions.
+
+Override `connectionProperties` when validation must happen before acquiring
+a connection, and `connectionException` when your adapter needs a specific
+SQL exception classification. Keep existing `onConnectionInit` overrides if
+the adapter must skip Calcite's lattice scan or model processing.
+Existing subclasses overriding `connect` must migrate to these hooks and
+be rebuilt against the updated Hoptimator API.
 
 Register the driver via `META-INF/services/java.sql.Driver`:
 

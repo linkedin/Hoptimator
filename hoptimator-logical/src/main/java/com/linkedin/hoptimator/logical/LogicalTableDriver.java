@@ -1,14 +1,12 @@
 package com.linkedin.hoptimator.logical;
 
 import java.io.IOException;
-import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLNonTransientException;
 import java.sql.SQLTransientConnectionException;
 import java.util.Properties;
 
 import com.linkedin.hoptimator.jdbc.HoptimatorConnection;
-import org.apache.calcite.avatica.ConnectStringParser;
 import org.apache.calcite.avatica.DriverVersion;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.schema.SchemaPlus;
@@ -50,15 +48,8 @@ public class LogicalTableDriver extends CalciteDriver {
   }
 
   @Override
-  public Connection connect(String url, Properties props) throws SQLException {
-    if (!url.startsWith(getConnectStringPrefix())) {
-      return null;
-    }
-
-    // Merge URL params into props; URL params take precedence.
-    Properties properties = new Properties();
-    properties.putAll(props);
-    properties.putAll(ConnectStringParser.parse(url.substring(getConnectStringPrefix().length())));
+  protected Properties connectionProperties(String url, Properties info) throws SQLException {
+    Properties properties = super.connectionProperties(url, info);
 
     // Validate tier count: a logical table must span at least 2 tiers.
     long tierCount = properties.stringPropertyNames().stream()
@@ -80,27 +71,28 @@ public class LogicalTableDriver extends CalciteDriver {
           + "Ensure the Database custom resource has metadata.name set (injected by K8sDatabaseTable).");
     }
 
-    try {
-      Connection connection = super.connect(url, props);
-      if (connection == null) {
-        throw new IOException("Could not connect to " + url);
-      }
-      connection.setAutoCommit(true); // prevent rollback()
+    return properties;
+  }
 
-      CalciteConnection calciteConnection = (CalciteConnection) connection;
-      SchemaPlus rootSchema = calciteConnection.getRootSchema();
+  @Override
+  protected void configureConnection(CalciteConnection connection, String url, Properties properties) throws SQLException {
+    connection.setAutoCommit(true); // prevent rollback()
+    SchemaPlus rootSchema = connection.getRootSchema();
+    String databaseName = properties.getProperty("database");
 
-      K8sContext context = K8sContext.create(new HoptimatorConnection(calciteConnection, properties).deploymentContext());
-      LogicalTableSchema logicalSchema = new LogicalTableSchema(properties, context, databaseName);
-      rootSchema.add(databaseName.toUpperCase(), logicalSchema);
+    K8sContext context = K8sContext.create(new HoptimatorConnection(connection, properties).deploymentContext());
+    LogicalTableSchema logicalSchema = new LogicalTableSchema(properties, context, databaseName);
+    rootSchema.add(databaseName.toUpperCase(), logicalSchema);
+  }
 
-      return connection;
-    } catch (IOException e) {
-      throw new SQLTransientConnectionException("Problem loading " + url, e);
-    } catch (SQLException e) {
-      throw e;
-    } catch (Exception e) {
-      throw new SQLNonTransientException("Problem loading " + url, e);
+  @Override
+  protected SQLException connectionException(String url, Exception failure) {
+    if (failure instanceof IOException) {
+      return new SQLTransientConnectionException("Problem loading " + url, failure);
     }
+    if (failure instanceof SQLException) {
+      return (SQLException) failure;
+    }
+    return new SQLNonTransientException("Problem loading " + url, failure);
   }
 }
