@@ -343,14 +343,16 @@ public class HoptimatorMcpServer {
         mappedObjs.add(yamlMapper.readValue(spec, Object.class));
       }
       result = new CallToolResult(gson.toJson(mappedObjs), false);
-    } catch (SQLException | JsonProcessingException e) {
+    } catch (SQLException | JsonProcessingException | RuntimeException e) {
       result = new CallToolResult("ERROR: " + e, true);
-    }
-    if (schemaSnapshot != null) {
-      if (schemaSnapshot.right != null) {
-        schemaSnapshot.left.add(viewName, schemaSnapshot.right);
+    } finally {
+      if (schemaSnapshot != null) {
+        if (schemaSnapshot.right != null) {
+          schemaSnapshot.left.add(viewName, schemaSnapshot.right);
+        } else {
+          schemaSnapshot.left.removeTable(viewName);
+        }
       }
-      schemaSnapshot.left.removeTable(viewName);
     }
     return result;
   }

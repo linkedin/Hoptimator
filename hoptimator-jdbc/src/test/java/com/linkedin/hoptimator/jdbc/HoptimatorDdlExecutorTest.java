@@ -1,6 +1,9 @@
 package com.linkedin.hoptimator.jdbc;
 
 import com.linkedin.hoptimator.Database;
+import com.linkedin.hoptimator.Deployer;
+import com.linkedin.hoptimator.PendingDelete;
+import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateMaterializedView;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTable;
 import com.linkedin.hoptimator.jdbc.ddl.SqlCreateTrigger;
@@ -8,10 +11,15 @@ import com.linkedin.hoptimator.jdbc.ddl.SqlDropTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlPauseTrigger;
 import com.linkedin.hoptimator.jdbc.ddl.SqlResumeTrigger;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.DeployerScope;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcSchema;
+import com.linkedin.hoptimator.util.planner.HoptimatorJdbcTable;
+import org.apache.calcite.adapter.jdbc.JdbcTable;
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.jdbc.CalcitePrepare;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
+import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -31,6 +39,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -41,15 +52,26 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -94,7 +116,7 @@ class HoptimatorDdlExecutorTest {
     connection = (HoptimatorConnection) driver.connect("jdbc:hoptimator://catalogs=util", props);
 
     mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
-        .thenReturn(Collections.emptyList());
+        .thenAnswer(invocation -> new DeployerScope(Collections.emptyList()));
     mockDeploymentService.when(DeploymentService::providers)
         .thenReturn(Collections.emptyList());
   }
@@ -561,6 +583,46 @@ class HoptimatorDdlExecutorTest {
   // ---------------------------------------------------------------------------
   // CREATE TABLE / DROP TABLE
   // ---------------------------------------------------------------------------
+
+  @ParameterizedTest
+  @ValueSource(booleans = {false, true})
+  void dropTablePassesConnectionHintsToValidationAndDeployers(boolean jdbc) throws SQLException {
+    connection.connectionProperties().setProperty("hints",
+        "li.caller.principal.urn=urn%3Ali%3Acorpuser%3Aalice,task.parallelism=2");
+    Map<String, String> hints =
+        Map.of("li.caller.principal.urn", "urn:li:corpuser:alice", "task.parallelism", "2");
+    mockDeploymentService.when(() -> DeploymentService.parseHints(connection.connectionProperties()))
+        .thenReturn(hints);
+    SchemaPlus schema = connection.calciteConnection().getRootSchema()
+        .add("DROP_DB", new TestDatabaseSchema("drop-db"));
+    Table table;
+    if (jdbc) {
+      HoptimatorJdbcSchema jdbcSchema = mock(HoptimatorJdbcSchema.class);
+      when(jdbcSchema.databaseName()).thenReturn("drop-db");
+      JdbcTable jdbcTable = mock(JdbcTable.class, withSettings()
+          .useConstructor(jdbcSchema, null, null, "t", Schema.TableType.TABLE));
+      HoptimatorJdbcTable wrappedTable = mock(HoptimatorJdbcTable.class);
+      when(wrappedTable.jdbcTable()).thenReturn(jdbcTable);
+      table = wrappedTable;
+    } else {
+      RelDataType rowType = connection.createPrepareContext().getTypeFactory().builder()
+          .add("id", SqlTypeName.INTEGER).build();
+      table = new TemporaryTable(rowType, "drop-db");
+    }
+    schema.add("t", table);
+    SqlNode drop = HoptimatorDriver.parseQuery(connection, "DROP TABLE \"DROP_DB\".\"t\"");
+
+    new HoptimatorDdlExecutor(connection).executeDdl(connection.createPrepareContext(), drop);
+
+    ArgumentCaptor<Source> source = ArgumentCaptor.forClass(Source.class);
+    mockDeploymentService.verify(() -> DeploymentService.deployers(source.capture(), any()));
+    assertEquals("drop-db", source.getValue().database());
+    assertEquals(hints, source.getValue().options());
+    mockValidationService.verify(() -> ValidationService.validateOrThrow(
+        argThat((Object pending) -> pending instanceof PendingDelete
+            && ((PendingDelete<?>) pending).target() == source.getValue()),
+        eq(connection.deploymentContext())));
+  }
 
   @Test
   void testExecuteCreateTableThenDropTable() {
@@ -1172,6 +1234,132 @@ class HoptimatorDdlExecutorTest {
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  @ParameterizedTest
+  @ValueSource(strings = {
+      "CREATE VIEW \"ownedView\" AS SELECT 1 AS \"col1\"",
+      "CREATE TRIGGER \"ownedTrigger\" ON \"UTIL\".\"PRINT\" AS 'myJob'",
+      "FIRE TRIGGER \"ownedTrigger\"",
+      "PAUSE TRIGGER \"ownedTrigger\"",
+      "RESUME TRIGGER \"ownedTrigger\"",
+      "DROP TRIGGER \"ownedTrigger\""
+  })
+  void closesStatementDeployersAfterUse(String sql) {
+    Deployer deployer = mock(Deployer.class);
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(deployer)));
+    HoptimatorDdlExecutor executor = new HoptimatorDdlExecutor(connection);
+
+    executor.executeDdl(connection.createPrepareContext(), HoptimatorDriver.parseQuery(connection, sql));
+
+    verify(deployer).close();
+  }
+
+  @Test
+  void validationFailureRestoresBeforeCloseAndPreservesPrimaryFailure() {
+    Deployer deployer = mock(Deployer.class);
+    List<Deployer> deployers = List.of(deployer);
+    SQLException expected = new SQLException("deployer validation failed");
+    RuntimeException closeFailure = new IllegalStateException("channel close failed");
+    doThrow(closeFailure).when(deployer).close();
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(deployers));
+    mockValidationService.when(() -> ValidationService.validateOrThrow(deployers, connection.deploymentContext()))
+        .thenThrow(expected);
+    mockDeploymentService.when(() -> DeploymentService.restore(deployers)).thenAnswer(invocation -> {
+      verify(deployer, never()).close();
+      return null;
+    });
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    registerDatabaseSchema(context, "OWNED_DB");
+    SqlNode create = HoptimatorDriver.parseQuery(connection,
+        "CREATE TABLE \"OWNED_DB\".\"owned\" (\"id\" INT)");
+
+    HoptimatorDdlExecutor.DdlException failure = assertThrows(HoptimatorDdlExecutor.DdlException.class,
+        () -> new HoptimatorDdlExecutor(connection).executeDdl(context, create));
+
+    assertSame(expected, failure.getCause());
+    assertEquals(0, expected.getSuppressed().length);
+    mockDeploymentService.verify(() -> DeploymentService.restore(deployers));
+    verify(deployer).close();
+    assertTrue(context.getMutableRootSchema().plus().subSchemas().get("OWNED_DB").tables().get("owned") == null);
+  }
+
+  @Test
+  void cleanupFailureDoesNotRollBackSuccessfulDeployment() {
+    Deployer deployer = mock(Deployer.class);
+    RuntimeException expected = new IllegalStateException("channel close failed");
+    doThrow(expected).when(deployer).close();
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(deployer)));
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SchemaPlus schema = registerDatabaseSchema(context, "OWNED_DB");
+    SqlNode create = HoptimatorDriver.parseQuery(connection,
+        "CREATE VIEW \"OWNED_DB\".\"ownedView\" AS SELECT 1 AS \"col1\"");
+
+    assertDoesNotThrow(
+        () -> new HoptimatorDdlExecutor(connection).executeDdl(context, create));
+
+    assertNotNull(schema.tables().get("ownedView"));
+    mockDeploymentService.verify(() -> DeploymentService.create(List.of(deployer)));
+    mockDeploymentService.verify(() -> DeploymentService.restore(any()), never());
+    verify(deployer).close();
+  }
+
+  @Test
+  void nestedSpecifyCleanupFailureDoesNotRollBackOuterCreate() throws SQLException {
+    Deployer outer = mock(Deployer.class);
+    Deployer child = mock(Deployer.class);
+    Source source = new Source("child-db", List.of("CHILD", "t"), Map.of());
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(outer)));
+    mockDeploymentService.when(() -> DeploymentService.deployers(source, connection.deploymentContext()))
+        .thenReturn(new DeployerScope(List.of(child)));
+    mockDeploymentService.when(() -> DeploymentService.create(any())).thenCallRealMethod();
+    mockDeploymentService.when(() -> DeploymentService.specify(source, connection.deploymentContext()))
+        .thenCallRealMethod();
+    when(child.specify()).thenReturn(List.of("child spec"));
+    doThrow(new IllegalStateException("child close failed")).when(child).close();
+    doAnswer(invocation -> {
+      assertEquals(List.of("child spec"), DeploymentService.specify(source, connection.deploymentContext()));
+      return null;
+    }).when(outer).create();
+    CalcitePrepare.Context context = connection.createPrepareContext();
+    SchemaPlus schema = registerDatabaseSchema(context, "OWNED_DB");
+    SqlNode create = HoptimatorDriver.parseQuery(connection,
+        "CREATE VIEW \"OWNED_DB\".\"ownedView\" AS SELECT 1 AS \"col1\"");
+
+    assertDoesNotThrow(() -> new HoptimatorDdlExecutor(connection).executeDdl(context, create));
+
+    assertNotNull(schema.tables().get("ownedView"));
+    verify(outer).create();
+    verify(outer).close();
+    verify(child).specify();
+    verify(child).close();
+    mockDeploymentService.verify(() -> DeploymentService.restore(any()), never());
+  }
+
+  @Test
+  void cleanupFailureDoesNotFailSuccessfulDropTable() throws SQLException {
+    Deployer deployer = mock(Deployer.class);
+    mockDeploymentService.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(deployer)));
+    doThrow(new IllegalStateException("close failed")).when(deployer).close();
+    SchemaPlus schema = connection.calciteConnection().getRootSchema()
+        .add("OWNED_DB", new TestDatabaseSchema("OWNED_DB"));
+    RelDataType rowType = connection.createPrepareContext().getTypeFactory().builder()
+        .add("id", SqlTypeName.INTEGER).build();
+    schema.add("owned", new TemporaryTable(rowType, "OWNED_DB"));
+    SqlNode drop = HoptimatorDriver.parseQuery(connection, "DROP TABLE \"OWNED_DB\".\"owned\"");
+
+    assertDoesNotThrow(() -> new HoptimatorDdlExecutor(connection)
+        .executeDdl(connection.createPrepareContext(), drop));
+
+    assertNull(schema.tables().get("owned"));
+    mockDeploymentService.verify(() -> DeploymentService.delete(List.of(deployer)));
+    mockDeploymentService.verify(() -> DeploymentService.restore(any()), never());
+    verify(deployer).close();
+  }
 
   private SchemaPlus registerDatabaseSchema(CalcitePrepare.Context context, String schemaName) {
     SchemaPlus rootSchema = context.getMutableRootSchema().plus();

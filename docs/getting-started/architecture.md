@@ -129,6 +129,14 @@ Deployers apply the specs. The bundled `K8sSourceDeployer` and
 every page in this guide assumes a cluster — but the `Deployer` SPI is
 the swap point.
 
+Deployer clients have an operation lifetime, separate from the lifetime of the
+infrastructure they create. `DeploymentService.deployers` returns a
+`DeployerScope` that owns the acquired deployers through validation, execution,
+and any rollback. Closing the scope releases owned clients and transports;
+`restore()` undoes backend changes. Cleanup must not roll back a successful
+deployment. See [Deployer lifecycle](../extending/deployers.md#close) for ownership
+and failure-handling rules.
+
 With the default deployers, the result is a `Pipeline` resource plus
 whatever implementation resources its templates produced — a `KafkaTopic`,
 a `FlinkSessionJob`, a Venice store. None of those are "Hoptimator's";

@@ -14,6 +14,7 @@ import java.util.function.Consumer;
 import com.linkedin.hoptimator.jdbc.ValidationService;
 import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpec;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -48,8 +49,10 @@ import com.linkedin.hoptimator.k8s.models.V1alpha1LogicalTableSpecTiers;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTrigger;
 import com.linkedin.hoptimator.k8s.models.V1alpha1TableTriggerList;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.DeployerScope;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -97,6 +100,12 @@ class LogicalTableDeployerTest {
 
   @Mock
   K8sLogicalTableDeployer mockCrDeployer;
+
+  @BeforeEach
+  void setUpDeployers() throws SQLException {
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenAnswer(invocation -> new DeployerScope(List.of()));
+  }
 
   // Helper methods shared by outer class tests
 
@@ -310,6 +319,27 @@ class LogicalTableDeployerTest {
   }
 
   @Test
+  void closeAttemptsEveryChildScopeWhenCleanupFails() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(
+        twoTierProps("kafka-db", "venice-db"),
+        List.of(makeDb("kafka-db", "KAFKA"), makeDb("venice-db", "VENICE")));
+    Deployer first = mock(Deployer.class);
+    Deployer second = mock(Deployer.class);
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(first)), new DeployerScope(List.of(second)));
+    deployer.delete();
+    RuntimeException firstFailure = new IllegalStateException("first close");
+    RuntimeException secondFailure = new IllegalArgumentException("second close");
+    doThrow(firstFailure).when(first).close();
+    doThrow(secondFailure).when(second).close();
+
+    assertDoesNotThrow(deployer::close);
+    deployer.close();
+    verify(first).close();
+    verify(second).close();
+  }
+
+  @Test
   void deleteSwallowsTierDeleteFailuresAndContinues() throws SQLException {
     LogicalTableDeployer deployer = deployerWithApis(
         twoTierProps("kafka-db", "venice-db"),
@@ -321,7 +351,7 @@ class LogicalTableDeployerTest {
     doThrow(new SQLException("kafka delete failed")).when(failing).delete();
 
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
-        .thenReturn(Collections.singletonList(failing), Collections.singletonList(succeeding));
+        .thenReturn(new DeployerScope(List.of(failing)), new DeployerScope(List.of(succeeding)));
 
     // Must NOT throw despite the failing tier.
     deployer.delete();
@@ -329,6 +359,48 @@ class LogicalTableDeployerTest {
     verify(mockCrDeployer).delete();
     verify(failing).delete();
     verify(succeeding).delete();
+    deployer.close();
+    verify(failing).close();
+    verify(succeeding).close();
+  }
+
+  @Test
+  void closesValidationChildrenWhenLaterTierAcquisitionFails() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(twoTierProps("nearline-db", "offline-db"),
+        List.of(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    Deployer child = mock(Deployer.class);
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(child))).thenThrow(new SQLException("second tier unavailable"));
+    Validator.Issues issues = new Validator.Issues("test");
+
+    deployer.validate(issues, null);
+
+    assertFalse(issues.valid());
+    verify(child, never()).close();
+    deployer.restore();
+    deployer.close();
+    deployer.close();
+    verify(child).close();
+  }
+
+  @Test
+  void closesEntireAcquiredTierEvenWhenFirstUpdateFails() throws SQLException {
+    LogicalTableDeployer deployer = deployerWithApis(twoTierProps("nearline-db", "offline-db"),
+        List.of(makeDb("nearline-db", "NEARLINE"), makeDb("offline-db", "OFFLINE")));
+    Deployer failing = mock(Deployer.class);
+    Deployer notStarted = mock(Deployer.class);
+    deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
+        .thenReturn(new DeployerScope(List.of(failing, notStarted)));
+    doThrow(new SQLException("update failed")).when(failing).update();
+
+    assertThrows(SQLException.class, deployer::create);
+    deployer.restore();
+    verify(failing, never()).close();
+    verify(notStarted, never()).update();
+    deployer.close();
+
+    verify(failing).close();
+    verify(notStarted).close();
   }
 
   /**
@@ -355,7 +427,7 @@ class LogicalTableDeployerTest {
 
     Deployer tierDeployer = mock(Deployer.class);
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
-        .thenReturn(Collections.singletonList(tierDeployer));
+        .thenReturn(new DeployerScope(List.of(tierDeployer)));
 
     withMockedDdlUtils(() -> {
       try {
@@ -387,8 +459,8 @@ class LogicalTableDeployerTest {
 
     // DeploymentService.deployers is invoked once per tier — order follows tierSources.
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
-        .thenReturn(Collections.singletonList(failingTier),
-            Collections.singletonList(succeedingTier));
+        .thenReturn(new DeployerScope(List.of(failingTier)),
+            new DeployerScope(List.of(succeedingTier)));
 
     withMockedDdlUtils(() -> {
       try {
@@ -414,7 +486,7 @@ class LogicalTableDeployerTest {
 
     Deployer tierDeployer = mock(Deployer.class);
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
-        .thenReturn(Collections.singletonList(tierDeployer));
+        .thenReturn(new DeployerScope(List.of(tierDeployer)));
 
     deployer.delete();
 
@@ -718,7 +790,7 @@ class LogicalTableDeployerTest {
   void validateCallsValidatedDeployersWhenTiersExist() throws Exception {
     ValidatedDeployer mockValidatedDeployer = mock(ValidatedDeployer.class);
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
-        .thenReturn(List.of(mockValidatedDeployer));
+        .thenReturn(new DeployerScope(List.of(mockValidatedDeployer)));
 
     Properties oneTierProps = new Properties();
     oneTierProps.setProperty(LogicalTier.NEARLINE.tierName(), "nearline-db");
@@ -821,7 +893,7 @@ class LogicalTableDeployerTest {
     deploymentServiceMock.when(() -> DeploymentService.specify(any(Source.class), any()))
         .thenReturn(List.of("tier-spec-yaml"));
     deploymentServiceMock.when(() -> DeploymentService.deployers(any(), any()))
-        .thenReturn(Collections.emptyList());
+        .thenAnswer(invocation -> new DeployerScope(Collections.emptyList()));
 
     // specify() calls DeploymentService.specify() per tier before the pipeline path,
     // which fails (null connection) — so we only see tier specs, not job specs.

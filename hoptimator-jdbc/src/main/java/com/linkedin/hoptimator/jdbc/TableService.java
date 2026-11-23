@@ -5,6 +5,7 @@ import com.linkedin.hoptimator.DeploymentContext;
 import com.linkedin.hoptimator.PendingDelete;
 import com.linkedin.hoptimator.Source;
 import com.linkedin.hoptimator.util.DeploymentService;
+import com.linkedin.hoptimator.util.DeployerScope;
 import org.apache.avro.Schema;
 
 import java.sql.SQLException;
@@ -113,17 +114,16 @@ public final class TableService {
     Source source = new Source(database, path, tableOptions);
     DeploymentContext context = new DirectDeploymentContext(connectionProperties, resolver);
 
-    Collection<Deployer> deployers = null;
-    try {
-      // Pre-delete dependency guard (mirrors the DDL DROP path).
-      ValidationService.validateOrThrow(new PendingDelete<>(source), context);
-      deployers = DeploymentService.deployers(source, context);
-      DeploymentService.delete(deployers);
-    } catch (SQLException | RuntimeException e) {
-      if (deployers != null) {
+    // Validate before allocating any deployer clients.
+    ValidationService.validateOrThrow(new PendingDelete<>(source), context);
+    try (DeployerScope scope = DeploymentService.deployers(source, context)) {
+      Collection<Deployer> deployers = scope.deployers();
+      try {
+        DeploymentService.delete(deployers);
+      } catch (SQLException | RuntimeException e) {
         DeploymentService.restore(deployers);
+        throw e;
       }
-      throw e;
     }
   }
 }
